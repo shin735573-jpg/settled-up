@@ -852,3 +852,20 @@ function Stat({ label, value, highlight, raw }: { label: string; value: number; 
     </div>
   );
 }
+
+function LeaderSummaryCard({
+  label, value, accent, bold,
+}: { label: string; value: string; accent?: boolean; bold?: boolean }) {
+  return (
+    <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50">
+      <div className="text-xs text-emerald-900/70">{label}</div>
+      <div
+        className={`mt-1 num ${bold ? "text-2xl font-extrabold" : "text-2xl font-bold"} ${
+          accent ? "text-orange-600" : "text-emerald-900"
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
