@@ -27,7 +27,18 @@ export function resolveLeaderName<T extends LeaderLike>(
   const byAlias = leaders.find((l) =>
     (l.aliases ?? []).some((a) => normLeaderName(a) === key),
   );
-  return byAlias ?? null;
+  if (byAlias) return byAlias;
+  // 3) 자동 성+이름 통합: 입력이 정식 팀장명의 "이름 부분"(끝 부분)과 일치하면 매칭
+  //    예) "형주" → "강형주", "동석" → "신동석"
+  //    가상기사/가상팀장(is_virtual은 외부에서 필터)은 호출자에서 제외하고,
+  //    여기서는 정식명 길이가 입력보다 길고, 정식명이 입력으로 끝나는 후보를 모음.
+  //    여러 명이 매칭되면 모호하므로 null 반환 → 사용자가 별칭으로 직접 매핑하도록 유도.
+  const suffixMatches = leaders.filter((l) => {
+    const n = normLeaderName(l.name);
+    return n.length > key.length && n.endsWith(key);
+  });
+  if (suffixMatches.length === 1) return suffixMatches[0];
+  return null;
 }
 
 /** 정식 이름을 정규화한다 (별칭 → 정식 이름). 매칭 실패 시 입력값 trim. */
