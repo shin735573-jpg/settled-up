@@ -281,10 +281,13 @@ export default function Records() {
             </div>
             <div className="space-y-1">
               <Label>분할</Label>
-              <Select value={form.split_type} onValueChange={(v) => setForm({ ...form, split_type: v })}>
+              <Select
+                value={form.split_type || "__none__"}
+                onValueChange={(v) => setForm({ ...form, split_type: v === "__none__" ? "" : v })}
+              >
                 <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">(빈칸)</SelectItem>
+                  <SelectItem value="__none__">(빈칸)</SelectItem>
                   <SelectItem value="3분할">3분할</SelectItem>
                   <SelectItem value="형주동석">형주동석</SelectItem>
                 </SelectContent>
