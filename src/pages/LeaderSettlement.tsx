@@ -87,6 +87,21 @@ export default function LeaderSettlement() {
 
   const periodKey = useMemo(() => (period === "all" ? "all" : `${month}-${period}`), [month, period]);
 
+  /**
+   * 공통공제(쓰레기비용 등) 적용 기준이 되는 정산기간 키 목록.
+   * - 1~15일 / 16~말일: 해당 기간 1번
+   * - 월전체: 1~15일 + 16~말일 두 번 (합산)
+   * - 전체기간: 단일 키 "all" 1번
+   * 같은 보름 기간 안에서는 절대 2번 이상 차감되지 않음 (배송건 수 무관, 팀장 × 보름 = 1번).
+   */
+  const commonPeriodKeys = useMemo<string[]>(() => {
+    if (period === "all") return ["all"];
+    if (period === "month") return [`${month}-first`, `${month}-second`];
+    return [`${month}-${period}`];
+  }, [period, month]);
+  const commonKeysJoined = commonPeriodKeys.join(",");
+  const isMultiCommonPeriod = commonPeriodKeys.length > 1;
+
   useEffect(() => {
     (async () => {
       const [{ data: l }, { data: c }, { data: cd }] = await Promise.all([
@@ -136,10 +151,11 @@ export default function LeaderSettlement() {
       const { data } = await supabase
         .from("leader_common_overrides")
         .select("*")
-        .eq("period_key", periodKey);
+        .in("period_key", commonPeriodKeys);
       setCommonOverrides((data as LeaderCommonOverride[]) || []);
     })();
-  }, [periodKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commonKeysJoined]);
 
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
@@ -149,12 +165,21 @@ export default function LeaderSettlement() {
     [commonDeductions],
   );
 
-  /** 팀장+기간에 대한 공통공제 항목별 실제 적용금액 (오버라이드 우선, 없으면 base). */
+  /**
+   * 팀장+기간에 대한 공통공제 항목별 실제 적용금액.
+   * - 단일 보름: 오버라이드 있으면 오버라이드, 없으면 base. (1번)
+   * - 월전체: 1~15일 + 16~말일 각각 한 번씩 합산 (보름별로 오버라이드 적용, 없으면 base).
+   * 보름 단위로만 누적되므로 배송건수가 늘어도 절대 중복 차감되지 않음.
+   */
   const effectiveCommonAmount = (leaderId: string, cd: CommonDeduction): number => {
-    const ov = commonOverrides.find(
-      (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id,
-    );
-    return ov ? num(ov.amount) : num(cd.amount);
+    let total = 0;
+    for (const k of commonPeriodKeys) {
+      const ov = commonOverrides.find(
+        (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id && o.period_key === k,
+      );
+      total += ov ? num(ov.amount) : num(cd.amount);
+    }
+    return total;
   };
 
   /** 팀장 공통공제 합계 (오버라이드 반영). */
@@ -346,13 +371,17 @@ export default function LeaderSettlement() {
     const { data } = await supabase
       .from("leader_common_overrides")
       .select("*")
-      .eq("period_key", periodKey);
+      .in("period_key", commonPeriodKeys);
     setCommonOverrides((data as LeaderCommonOverride[]) || []);
   };
 
   /** 편집 중인 공통공제 값 저장 (upsert). base와 동일하면 오버라이드 제거. */
   const saveDetailCommon = async () => {
     if (!user || !leaderId) return;
+    if (isMultiCommonPeriod) {
+      toast.error("월전체에서는 공통공제를 수정할 수 없습니다. 1~15일/16~말일 보름 기간을 선택해 각각 수정하세요.");
+      return;
+    }
     const entries = Object.entries(detailCommonEdits);
     if (entries.length === 0) return;
     setSavingCommon(true);
@@ -392,6 +421,10 @@ export default function LeaderSettlement() {
   /** 기본값으로 되돌리기: 저장된 오버라이드 삭제 + 편집 상태도 base로 */
   const resetCommonOverride = async (cdId: string, base: number) => {
     if (!user || !leaderId) return;
+    if (isMultiCommonPeriod) {
+      toast.error("월전체에서는 공통공제를 수정/되돌릴 수 없습니다. 보름 기간을 선택하세요.");
+      return;
+    }
     await supabase
       .from("leader_common_overrides")
       .delete()
@@ -533,20 +566,29 @@ export default function LeaderSettlement() {
                   const current = typeof edited === "number" ? edited : saved;
                   const base = num(cd.amount);
                   const ovExists = detailLeader
-                    ? commonOverrides.some((o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id)
+                    ? commonOverrides.some((o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id && commonPeriodKeys.includes(o.period_key))
                     : false;
-                  const isCustom = typeof edited === "number" ? edited !== base : ovExists && saved !== base;
+                  const expectedBase = base * commonPeriodKeys.length;
+                  const isCustom = typeof edited === "number" ? edited !== base : ovExists && saved !== expectedBase;
+                  const applyLabel = isMultiCommonPeriod
+                    ? "1~15일 + 16~말일 (각 1회)"
+                    : period === "first" ? "1~15일 (1회)"
+                    : period === "second" ? "16~말일 (1회)"
+                    : "전체기간 (1회)";
                   return (
                     <div key={cd.id} className="flex gap-2 items-center">
                       <span className="flex-1 text-sm">
                         {cd.label}
                         {isCustom && <span className="ml-1 text-xs text-amber-700">(수정됨)</span>}
                         <span className="ml-1 text-xs text-muted-foreground">기본 {fmt(base)}</span>
+                        <span className="ml-2 text-[10px] text-muted-foreground">적용기간: {applyLabel}</span>
                       </span>
                       <Input
                         type="number"
                         className="h-8 w-32 text-right num"
                         value={current}
+                        disabled={isMultiCommonPeriod}
+                        title={isMultiCommonPeriod ? "월전체에서는 수정 불가 — 보름 기간을 선택하세요" : undefined}
                         onChange={(e) =>
                           setDetailCommonEdits((m) => ({ ...m, [cd.id]: Number(e.target.value) || 0 }))
                         }
@@ -556,6 +598,7 @@ export default function LeaderSettlement() {
                         variant="ghost"
                         className="h-8 w-8"
                         title="기본값으로 되돌리기"
+                        disabled={isMultiCommonPeriod}
                         onClick={() => resetCommonOverride(cd.id, base)}
                       >
                         <RotateCcw className="h-3 w-3" />
@@ -565,7 +608,10 @@ export default function LeaderSettlement() {
                 })}
               </div>
               <div className="text-xs text-muted-foreground mt-2">
-                * 수정값은 해당 팀장/해당 정산기간({periodKey})에만 저장됩니다. 다른 팀장·기간엔 영향 없음.
+                * 쓰레기비용 등 공통공제는 팀장 × 보름 기간당 1번만 적용됩니다 (배송건수 무관).
+                {isMultiCommonPeriod
+                  ? " 월전체에서는 1~15일 + 16~말일의 두 보름 금액이 합산되며, 수정은 보름 기간을 선택해야 합니다."
+                  : ` 수정값은 해당 팀장/${periodKey}에만 저장됩니다.`}
               </div>
             </Card>
 
