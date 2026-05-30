@@ -219,6 +219,19 @@ export default function CompanySettlement() {
             <h2 className="font-bold text-lg">{company.name}</h2>
             <span className="text-sm text-muted-foreground">{periodLabel}</span>
           </div>
+          {missingAliasLeaders.length > 0 && (
+            <div className="mb-3 p-3 rounded border border-destructive/50 bg-destructive/10 text-sm">
+              <div className="font-semibold text-destructive mb-1">
+                ⚠ 거부기사 표시용 별칭이 없습니다 ({missingAliasLeaders.length}명)
+              </div>
+              <div className="text-xs text-muted-foreground">
+                팀장관리에서 별칭을 입력해주세요. 별칭이 없으면 업체 제출용 정산서 저장이 차단됩니다.
+              </div>
+              <div className="mt-1 text-xs">
+                대상: {missingAliasLeaders.map((l) => l.name).join(", ")}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-4 num">
             <Stat label="배송비합계" value={detailSummary.total} />
             <Stat label="결제완료금액" value={detailSummary.paid} />
