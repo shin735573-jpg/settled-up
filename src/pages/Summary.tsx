@@ -51,8 +51,16 @@ export default function Summary() {
   // 팀장 표시: 활성·비거부만. settle_to_id가 지정된 경우 실제 팀장에 합산.
   const leaderRows = useMemo(() => {
     const byId = new Map(leaders.map((l) => [l.id, l]));
-    const shindongseokId = leaders.find((l) => l.name.trim() === "신동석")?.id || null;
-    const ganghyungjuId = leaders.find((l) => l.name.trim() === "강형주")?.id || null;
+    const findId = (names: string[]) => {
+      for (const l of leaders as any[]) {
+        const nm = (l.name || "").trim();
+        const al = ((l.aliases as string[]) || []).map((a) => (a || "").trim());
+        if (names.some((n) => n === nm || al.includes(n))) return l.id as string;
+      }
+      return null;
+    };
+    const shindongseokId = findId(["신동석", "동석"]);
+    const ganghyungjuId = findId(["강형주", "형주"]);
     // 정착지 매핑: settle_to_id 체인을 따라 최종 팀장으로 (순환 방어)
     const resolveSettleId = (id: string): string => {
       let cur = byId.get(id);
