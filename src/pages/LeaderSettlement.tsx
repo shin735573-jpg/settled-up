@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
+import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -22,7 +23,7 @@ type Delivery = {
   id: string; date: string; company_id: string | null; company_name: string;
   customer_name: string | null; region: string | null; item: string | null; note: string | null;
   metro_fee: number; note_amount: number; regional_fee: number; cod_amount: number;
-  region_type: string | null; split_type: string | null; paid: boolean;
+  region_type: string | null; split_type: string | null; paid: boolean; two_person?: boolean | null;
   leader1_id: string | null; leader1_name: string | null;
   leader2_id: string | null; leader2_name: string | null;
   leader3_id: string | null; leader3_name: string | null;
@@ -59,7 +60,7 @@ function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null 
   return byId.has(id) ? id : null;
 }
 
-/** 건별 수수료: region_type별로 업체 수수료율 적용. */
+/** 행 전체 수수료 (분배 전) — 표시용. region_type별로 업체 수수료율 적용. */
 function feeFor(r: Delivery, company: Company | undefined): number {
   if (!company) return 0;
   const total = sumFee(r);
@@ -220,17 +221,56 @@ export default function LeaderSettlement() {
     });
   };
 
+  /**
+   * 행 1건을 정산기사 ID별로 분배. 분할/2인배송/일반 규칙 적용 후
+   * 각 share의 leader_id를 settle_to_id로 redirect하여 정산기사에 귀속.
+   */
+  const shareForSettling = (r: Delivery, settlingLid: string): {
+    metro: number; noteAmt: number; regional: number; cod: number; count: number;
+    weight: number;
+  } | null => {
+    const targets = targetSetFor(settlingLid);
+    const shares = allocateRow({
+      leader1_id: r.leader1_id, leader2_id: r.leader2_id,
+      split_type: r.split_type, two_person: r.two_person,
+      metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
+      regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
+    });
+    let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0, weight = 0;
+    shares.forEach((s) => {
+      if (!targets.has(s.leader_id)) return;
+      metro += s.metro; noteAmt += s.note_amount;
+      regional += s.regional; cod += s.cod;
+      count += s.count; weight += s.weight;
+    });
+    if (count === 0) return null;
+    return { metro, noteAmt, regional, cod, count, weight };
+  };
+
+  /** 건별 수수료 (해당 정산기사 몫만). 비고금액은 수수료 제외. */
+  const feeForRowSettling = (r: Delivery, settlingLid: string): number => {
+    const share = shareForSettling(r, settlingLid);
+    if (!share) return 0;
+    const c = r.company_id ? companyById.get(r.company_id) : undefined;
+    if (!c) return 0;
+    // region_type에 따라 어느 수수료율을 쓸지: 기존과 동일하게 분배된 금액 기반
+    return feeForShare(
+      { metro: share.metro, regional: share.regional },
+      { metro: num(c.fee_rate_metro), regional: num(c.fee_rate_regional) },
+    );
+  };
+
   // ===== 마스터 목록 집계 =====
   const masterRows = useMemo(() => {
     return settlingLeaders.map((l) => {
-      const rs = rowsForSettling(l.id);
-      let metro = 0, noteAmt = 0, regional = 0, cod = 0, fees = 0;
-      rs.forEach((r) => {
-        metro += num(r.metro_fee);
-        noteAmt += num(r.note_amount);
-        regional += num(r.regional_fee);
-        cod += num(r.cod_amount);
-        fees += feeFor(r, r.company_id ? companyById.get(r.company_id) : undefined);
+      let metro = 0, noteAmt = 0, regional = 0, cod = 0, fees = 0, count = 0;
+      rows.forEach((r) => {
+        const share = shareForSettling(r, l.id);
+        if (!share) return;
+        metro += share.metro; noteAmt += share.noteAmt;
+        regional += share.regional; cod += share.cod;
+        count += share.count;
+        fees += feeForRowSettling(r, l.id);
       });
       const total = metro + noteAmt + regional;
       const afterFees = total - fees;
@@ -240,7 +280,7 @@ export default function LeaderSettlement() {
       const net = afterFees - cod - deduction;
       return {
         leader: l,
-        count: rs.length,
+        count,
         metro, noteAmt, regional, cod,
         total,
         fees, afterFees, common, indiv, deduction, net,
@@ -275,15 +315,17 @@ export default function LeaderSettlement() {
 
   const detailCalc = useMemo(() => {
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, fees = 0;
-    let mergedTotal = 0, mergedCount = 0;
+    let mergedTotal = 0, mergedCount = 0, count = 0;
     detailRows.forEach((r) => {
-      metro += num(r.metro_fee);
-      noteAmt += num(r.note_amount);
-      regional += num(r.regional_fee);
-      cod += num(r.cod_amount);
-      fees += feeFor(r, r.company_id ? companyById.get(r.company_id) : undefined);
+      if (!leaderId) return;
+      const share = shareForSettling(r, leaderId);
+      if (!share) return;
+      metro += share.metro; noteAmt += share.noteAmt;
+      regional += share.regional; cod += share.cod;
+      count += share.count;
+      fees += feeForRowSettling(r, leaderId);
       if (mergedSourceForRow(r)) {
-        mergedTotal += sumFee(r);
+        mergedTotal += share.metro + share.noteAmt + share.regional;
         mergedCount += 1;
       }
     });
@@ -310,7 +352,7 @@ export default function LeaderSettlement() {
     }, 0);
     const deduction = commonTotal + indivTotal;
     const net = afterFees - cod - deduction;
-    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal };
+    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal, count };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailRows, companyById, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides]);
 
@@ -544,7 +586,7 @@ export default function LeaderSettlement() {
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4 num">
-            <Stat label="배송건수" value={detailRows.length} raw />
+            <Stat label="배송건수" value={detailCalc.count} raw />
             <Stat label="수도권배송비" value={detailCalc.metro} />
             <Stat label="비고금액" value={detailCalc.noteAmt} />
             <Stat label="지방배송비" value={detailCalc.regional} />
@@ -688,6 +730,7 @@ export default function LeaderSettlement() {
                   <TableHead className="text-right">착불</TableHead>
                   <TableHead className="text-right">실지급배송비</TableHead>
                   <TableHead>분할</TableHead>
+                  <TableHead>2인배송</TableHead>
                   <TableHead className="text-right">건별 수수료</TableHead>
                   <TableHead className="text-right">건별 계산후 지급액</TableHead>
                   <TableHead className="text-right">건별 실지급액</TableHead>
@@ -704,9 +747,15 @@ export default function LeaderSettlement() {
                     : r.leader2_name;
                   const settleId = settlementLeaderIdFor(r, leadersById);
                   const settleName = settleId ? (leadersById.get(settleId)?.name || "-") : "-";
-                  const totalFee = sumFee(r);
-                  const fee = feeFor(r, r.company_id ? companyById.get(r.company_id) : undefined);
+                  const share = leaderId ? shareForSettling(r, leaderId) : null;
+                  const shareMetro = share?.metro ?? 0;
+                  const shareNote = share?.noteAmt ?? 0;
+                  const shareRegional = share?.regional ?? 0;
+                  const shareCod = share?.cod ?? 0;
+                  const totalFee = shareMetro + shareNote + shareRegional;
+                  const fee = leaderId ? feeForRowSettling(r, leaderId) : 0;
                   const afterFee = totalFee - fee;
+                  const isHalf = (share?.weight ?? 1) > 0 && (share?.weight ?? 1) < 1;
                   return (
                     <TableRow key={r.id} className={src ? "bg-amber-50 hover:bg-amber-100" : ""}>
                       <TableCell>{r.date}</TableCell>
@@ -718,12 +767,16 @@ export default function LeaderSettlement() {
                       <TableCell>{r.region || "-"}</TableCell>
                       <TableCell className="max-w-[180px] whitespace-pre-wrap break-words">{r.item || "-"}</TableCell>
                       <TableCell className="max-w-[180px] whitespace-pre-wrap break-words">{r.note || "-"}</TableCell>
-                      <TableCell className="text-right">{fmt(num(r.metro_fee))}</TableCell>
-                      <TableCell className="text-right">{fmt(num(r.note_amount))}</TableCell>
-                      <TableCell className="text-right">{fmt(num(r.regional_fee))}</TableCell>
-                      <TableCell className="text-right">{fmt(num(r.cod_amount))}</TableCell>
+                      <TableCell className="text-right">{fmt(shareMetro)}</TableCell>
+                      <TableCell className="text-right">{fmt(shareNote)}</TableCell>
+                      <TableCell className="text-right">{fmt(shareRegional)}</TableCell>
+                      <TableCell className="text-right">{fmt(shareCod)}</TableCell>
                       <TableCell className="text-right font-medium">{fmt(totalFee)}</TableCell>
                       <TableCell>{r.split_type || "-"}</TableCell>
+                      <TableCell>{r.two_person
+                        ? <span className="inline-block px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-medium">2인배송{isHalf ? " 50%" : ""}</span>
+                        : (isHalf ? <span className="text-xs text-muted-foreground">분할 {Math.round((share?.weight ?? 0) * 100)}%</span> : "-")}
+                      </TableCell>
                       <TableCell className="text-right">{fmt(fee)}</TableCell>
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
@@ -734,7 +787,7 @@ export default function LeaderSettlement() {
                   );
                 })}
                 {detailRows.length === 0 && (
-                  <TableRow><TableCell colSpan={19} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={20} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

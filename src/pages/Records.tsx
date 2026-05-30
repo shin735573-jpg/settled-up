@@ -248,6 +248,7 @@ type FormState = {
   cod_amount: string;
   split_type: string;
   paid: boolean;
+  two_person: boolean;
   is_missing: boolean;
   missing_reason: string;
 };
@@ -271,6 +272,7 @@ const emptyForm = (): FormState => ({
   cod_amount: "",
   split_type: "",
   paid: false,
+  two_person: false,
   is_missing: false,
   missing_reason: "",
 });
@@ -357,6 +359,7 @@ export default function Records() {
       cod_amount: String(r.cod_amount ?? ""),
       split_type: r.split_type || "",
       paid: !!r.paid,
+      two_person: !!(r as any).two_person,
       is_missing: !!r.is_missing,
       missing_reason: r.missing_reason || "",
     });
@@ -395,6 +398,7 @@ export default function Records() {
         cod_amount: parseNum(form.cod_amount) || 0,
         split_type: form.split_type || null,
         paid: form.paid,
+        two_person: form.two_person,
         is_missing: true,
       };
       const ctx: ValidationContext = {
@@ -425,6 +429,13 @@ export default function Records() {
     if (form.region_type === "regional" && metroN > 0 && regionalN === 0) {
       if (!confirm("지역구분이 지방인데 수도권배송비만 입력되어 있습니다. 그대로 저장할까요?")) return;
     }
+    if (form.two_person && !form.leader2_id) {
+      toast.error("2인배송은 팀장2가 필요합니다.");
+      return;
+    }
+    if (!form.two_person && form.leader2_id) {
+      if (!confirm("팀장2가 입력되어 있습니다. 2인배송 여부를 확인해주세요. 그대로 저장할까요?")) return;
+    }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
     const payload = {
       user_id: user.id,
@@ -446,6 +457,7 @@ export default function Records() {
       cod_amount: parseNum(form.cod_amount) || 0,
       split_type: form.split_type || null,
       paid: form.paid,
+      two_person: form.two_person,
       is_missing: form.is_missing,
       missing_reason: form.is_missing ? (form.missing_reason || null) : null,
     };
@@ -817,6 +829,19 @@ export default function Records() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1">
+              <Label>2인배송</Label>
+              <Select
+                value={form.two_person ? "yes" : "no"}
+                onValueChange={(v) => setForm({ ...form, two_person: v === "yes" })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no">아니오</SelectItem>
+                  <SelectItem value="yes">예</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1 flex flex-col">
               <Label>결제유무</Label>
               <label className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer">
@@ -861,7 +886,7 @@ export default function Records() {
         <Table className="text-xs num">
           <TableHeader>
             <TableRow>
-              {["구분","날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
+              {["구분","날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","2인배송","분할","결제",""].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
@@ -912,13 +937,16 @@ export default function Records() {
                   <TableCell className="text-right">{fmt(r.regional_fee)}</TableCell>
                   <TableCell className="text-right">{fmt(r.cod_amount)}</TableCell>
                   <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {r.two_person ? <Badge className="bg-blue-500 hover:bg-blue-600">2인배송</Badge> : "-"}
+                  </TableCell>
                   <TableCell>{r.split_type || "-"}</TableCell>
                   <TableCell>{r.paid ? "✓" : "-"}</TableCell>
                   <TableCell><Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); removeRow(r.id); }}><Trash2 className="h-4 w-4" /></Button></TableCell>
                 </TableRow>
               );
             })}
-            {records.length === 0 && <TableRow><TableCell colSpan={18} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
+            {records.length === 0 && <TableRow><TableCell colSpan={19} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>

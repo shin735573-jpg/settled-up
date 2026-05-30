@@ -32,6 +32,7 @@ export type DeliveryRecord = {
   cod_amount: number | string | null;
   split_type: string | null;
   paid: boolean | null;
+  two_person?: boolean | null;
   is_missing?: boolean;
 };
 

@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmt } from "@/lib/format";
+import { allocateRow } from "@/lib/splitAllocation";
 
 type Delivery = any;
 type Company = { id: string; name: string; active: boolean };
@@ -68,16 +69,19 @@ export default function Summary() {
     const acc = new Map(visible.map((l) => [l.id, { id: l.id, name: l.name, count: 0, fee: 0, cod: 0 }]));
 
     for (const r of rows) {
-      const ids = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean) as string[];
-      const fee = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
-      const codV = Number(r.cod_amount);
-      for (const id of ids) {
-        const targetId = resolveSettleId(id);
+      const shares = allocateRow({
+        leader1_id: r.leader1_id, leader2_id: r.leader2_id,
+        split_type: r.split_type, two_person: r.two_person,
+        metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
+        regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
+      });
+      for (const s of shares) {
+        const targetId = resolveSettleId(s.leader_id);
         const bucket = acc.get(targetId);
         if (!bucket) continue; // 거부/비활성/매핑 실패 팀장은 제외
-        bucket.count += 1; // 각 팀장 1건씩
-        bucket.fee += fee;
-        bucket.cod += codV;
+        bucket.count += s.count;
+        bucket.fee += s.metro + s.note_amount + s.regional;
+        bucket.cod += s.cod;
       }
     }
     return Array.from(acc.values()).sort((a, b) => b.fee - a.fee);

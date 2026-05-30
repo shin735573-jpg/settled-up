@@ -1,0 +1,1 @@
+ALTER TABLE public.deliveries ADD COLUMN IF NOT EXISTS two_person boolean NOT NULL DEFAULT false;
