@@ -5,6 +5,7 @@ import {
   getDisplayName,
   detectDuplicates,
   findAliasConflict,
+  findDisplayNameConflict,
 } from "./leaderResolver";
 
 const leaders = [
@@ -63,5 +64,27 @@ describe("findAliasConflict", () => {
   });
   it("충돌 없음", () => {
     expect(findAliasConflict("a", ["형주왕"], leaders)).toBeNull();
+  });
+});
+
+describe("findDisplayNameConflict", () => {
+  it("동명이인인데 구분명 미입력 → 충돌", () => {
+    // leaders[3] = 김민수(suffix 없음), leaders[4] = 김민수2
+    // leaders[3]의 suffix를 비운 채로 두면 "김민수"가 leaders[4]의 표시명과 충돌 없음
+    // 단, 새 김민수 추가 시뮬레이션
+    const msg = findDisplayNameConflict("new", "김민수", null, leaders);
+    expect(msg).toMatch(/동명이인/);
+  });
+  it("동명이인 + 다른 구분명 → OK", () => {
+    expect(findDisplayNameConflict("new", "김민수", "3", leaders)).toBeNull();
+  });
+  it("동명이인 + 동일 구분명 → 충돌", () => {
+    expect(findDisplayNameConflict("new", "김민수", "2", leaders)).toMatch(/표시명/);
+  });
+  it("동명이인 아님 → OK", () => {
+    expect(findDisplayNameConflict("new", "박철수", null, leaders)).toBeNull();
+  });
+  it("자기 자신은 검사 제외", () => {
+    expect(findDisplayNameConflict("e", "김민수", "2", leaders)).toBeNull();
   });
 });
