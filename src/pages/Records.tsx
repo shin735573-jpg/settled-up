@@ -248,6 +248,7 @@ type FormState = {
   cod_amount: string;
   split_type: string;
   paid: boolean;
+  two_person: boolean;
   is_missing: boolean;
   missing_reason: string;
 };
@@ -271,6 +272,7 @@ const emptyForm = (): FormState => ({
   cod_amount: "",
   split_type: "",
   paid: false,
+  two_person: false,
   is_missing: false,
   missing_reason: "",
 });
