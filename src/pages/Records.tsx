@@ -516,7 +516,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>날짜</TableHead><TableHead>업체</TableHead>
-                      <TableHead>팀장1</TableHead><TableHead>팀장2</TableHead><TableHead>팀장3</TableHead>
+                      <TableHead>팀장1</TableHead><TableHead>팀장2</TableHead>
                       <TableHead>고객</TableHead><TableHead>지역</TableHead>
                       <TableHead>수도권</TableHead><TableHead>비고금액</TableHead><TableHead>지방</TableHead>
                       <TableHead>총액</TableHead><TableHead>착불</TableHead>
