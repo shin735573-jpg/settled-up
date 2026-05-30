@@ -807,6 +807,53 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     await onReload();
   };
 
+  // 미등록 팀장 목록 (가상기사/가상팀장 제외)
+  const VIRTUAL_LEADER_KEYWORDS = ["가상기사", "가상팀장", "가상"];
+  const unregisteredLeaders = useMemo(() => {
+    const set = new Set<string>();
+    const add = (raw: string) => {
+      const tokens = raw.split(LEADER_SPLIT_RE).map((t) => t.trim()).filter(Boolean);
+      for (const t of tokens) {
+        if (!t) continue;
+        if (VIRTUAL_LEADER_KEYWORDS.some((k) => t.includes(k))) continue;
+        if (leaderIndex.map.has(t)) continue;
+        let matched = false;
+        for (const k of leaderIndex.keys) if (t.includes(k)) { matched = true; break; }
+        if (matched) continue;
+        set.add(t);
+      }
+    };
+    for (const { row } of visible) {
+      for (const e of row.errors) {
+        if (e.field === "팀장" && e.msg.startsWith("미등록 팀장:")) {
+          add(e.msg.replace("미등록 팀장:", ""));
+        }
+      }
+    }
+    for (const u of defaultLeaderInfo.unknown) add(u);
+    return Array.from(set);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, leaderIndex, defaultLeaderInfo]);
+
+  const registerLeaders = async () => {
+    if (!userId || unregisteredLeaders.length === 0) return;
+    setRegistering(true);
+    const rows = unregisteredLeaders.map((name) => ({
+      user_id: userId,
+      name,
+      active: true,
+      is_rejected: false,
+      is_virtual: false,
+      deduction_amount: 0,
+      trash_cost: 0,
+    }));
+    const { error } = await supabase.from("team_leaders").insert(rows);
+    setRegistering(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${rows.length}명 팀장 자동등록 완료`);
+    await onReload();
+  };
+
   const save = async () => {
     if (!userId) return;
     if (missingRequired.length > 0) {
@@ -966,6 +1013,26 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                   </div>
                   <div className="text-xs text-muted-foreground">
                     기본값: 계산서 미발행 · 활성 · 수수료 0%. 등록 후 설정 화면에서 계산서 여부·정산 정보를 수정하세요.
+                  </div>
+                </div>
+              )}
+              {unregisteredLeaders.length > 0 && (
+                <div className="border border-destructive/40 bg-destructive/5 rounded p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-sm font-semibold text-destructive">
+                      미등록 팀장 자동등록 ({unregisteredLeaders.length}명)
+                    </div>
+                    <Button size="sm" onClick={registerLeaders} disabled={registering}>
+                      {registering ? "등록 중…" : "미등록 팀장 일괄 등록"}
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {unregisteredLeaders.map((n) => (
+                      <Badge key={n} variant="outline" className="border-destructive/50 text-destructive">{n}</Badge>
+                    ))}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    기본값: 정산포함 · 활성 · 수수료 0%. 가상기사/가상팀장은 자동 등록되지 않습니다.
                   </div>
                 </div>
               )}
