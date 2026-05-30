@@ -116,15 +116,13 @@ export default function CompanySettlement() {
   };
 
   // 정산주기에 따라 업체 표시 필터
-  // - biweekly(보름): 1~15일, 16~말일 정산서 생성. 월전체에는 표시하지 않음(중복 방지).
-  // - monthly(한달): 월전체에만 표시.
-  // - all(전체기간): 모두 표시.
+  // - 월전체/전체: 모든 업체 표시 (선택 업체의 월 전체 배송내역 = 1~15일 + 16~말일 합산)
+  // - 1~15일 / 16~말일: 보름(biweekly) 주기 업체만 표시 (한달 주기는 월전체로만 정산)
   const visibleCompanies = useMemo(() => {
     return companies.filter((c) => {
       const cyc = c.settlement_cycle || "biweekly";
-      if (period === "all") return true;
-      if (cyc === "monthly") return period === "month";
-      return period === "first" || period === "second";
+      if (period === "all" || period === "month") return true;
+      return cyc === "biweekly";
     });
   }, [companies, period]);
 
