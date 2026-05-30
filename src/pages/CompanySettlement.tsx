@@ -10,12 +10,17 @@ export default function CompanySettlement() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string>("");
   const [rows, setRows] = useState<any[]>([]);
+  const [leaders, setLeaders] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("companies").select("*").order("name");
-      setCompanies(data || []);
-      if (!companyId && data?.length) setCompanyId(data[0].id);
+      const [{ data: c }, { data: l }] = await Promise.all([
+        supabase.from("companies").select("*").eq("active", true).order("name"),
+        supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,settle_to_id"),
+      ]);
+      setCompanies(c || []);
+      setLeaders(l || []);
+      if (!companyId && c?.length) setCompanyId(c[0].id);
     })();
   }, []);
 
@@ -31,6 +36,18 @@ export default function CompanySettlement() {
   }, [month, companyId]);
 
   const company = companies.find((c) => c.id === companyId);
+
+  // 거부 팀장 → 그 팀장을 settle_to로 가진 가상기사 이름으로 대체.
+  // 매핑 실패 시 "가상기사"로 표기. 거부 팀장 실명은 업체 정산서에 절대 노출하지 않음.
+  const displayLeaderName = (id: string | null, fallbackName: string | null): string => {
+    if (!id) return fallbackName || "-";
+    const real = leaders.find((l) => l.id === id);
+    if (!real) return fallbackName || "-";
+    if (!real.is_rejected) return real.name;
+    const proxy = leaders.find((l) => l.is_virtual && l.settle_to_id === real.id);
+    return proxy?.name || "가상기사";
+  };
+
   const calc = useMemo(() => {
     if (!company) return { total: 0, fee: 0, vat: 0, cod: 0, net: 0 };
     let total = 0, fee = 0, cod = 0;
@@ -71,22 +88,30 @@ export default function CompanySettlement() {
           <Table className="text-xs num">
             <TableHeader>
               <TableRow>
-                <TableHead>날짜</TableHead><TableHead>고객</TableHead><TableHead>지역</TableHead>
+                <TableHead>날짜</TableHead><TableHead>기사</TableHead><TableHead>고객</TableHead><TableHead>지역</TableHead>
                 <TableHead>품목</TableHead><TableHead className="text-right">배송비</TableHead><TableHead className="text-right">착불</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
+              {rows.map((r) => {
+                const names = [
+                  displayLeaderName(r.leader1_id, r.leader1_name),
+                  displayLeaderName(r.leader2_id, r.leader2_name),
+                  displayLeaderName(r.leader3_id, r.leader3_name),
+                ].filter((n) => n && n !== "-");
+                return (
                 <TableRow key={r.id}>
                   <TableCell>{r.date}</TableCell>
+                  <TableCell className="whitespace-nowrap">{names.join(", ") || "-"}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
                   <TableCell>{r.item || "-"}</TableCell>
                   <TableCell className="text-right">{fmt(Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee))}</TableCell>
                   <TableCell className="text-right">{fmt(r.cod_amount)}</TableCell>
                 </TableRow>
-              ))}
-              {rows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>}
+                );
+              })}
+              {rows.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>}
             </TableBody>
           </Table>
         </Card>
