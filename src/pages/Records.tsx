@@ -123,7 +123,8 @@ function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
 
 // 팀장명 자동 인식: 등록된 팀장명 + 자동 별칭(이름의 뒤 2글자, 가운데+끝 2글자)으로 후보 키 생성
 function buildLeaderIndex(leaders: Leader[]) {
-  const active = leaders.filter((l) => l.active);
+  // 가상기사/가상팀장은 통계·표시·별칭 통합 대상에서 제외
+  const active = leaders.filter((l) => l.active && !l.is_virtual);
   // key -> leader id (충돌 시 해당 key 제거)
   const map = new Map<string, string>();
   const ambiguous = new Set<string>();
