@@ -69,7 +69,7 @@ export default function LeaderSettlement() {
           <Table className="text-xs num">
             <TableHeader>
               <TableRow>
-                <TableHead>날짜</TableHead><TableHead>업체</TableHead><TableHead>고객</TableHead><TableHead>지역</TableHead>
+                <TableHead>날짜</TableHead><TableHead>업체</TableHead><TableHead>고객</TableHead><TableHead>배송지</TableHead>
                 <TableHead className="text-right">배송비</TableHead>
               </TableRow>
             </TableHeader>
