@@ -162,13 +162,21 @@ export default function LeaderSettlement() {
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
 
-  /** 신동석/강형주 팀장 ID (이름 매칭) — 재분배에 사용 */
+  /** 신동석/강형주 팀장 ID — 정식명 또는 별칭(동석/형주)으로 매칭. 재분배에 사용. */
+  const findLeaderIdByNames = (names: string[]): string | null => {
+    for (const l of leaders) {
+      const nm = (l.name || "").trim();
+      const al = (l.aliases || []).map((a) => (a || "").trim());
+      if (names.some((n) => n === nm || al.includes(n))) return l.id;
+    }
+    return null;
+  };
   const shindongseokId = useMemo(
-    () => leaders.find((l) => l.name.trim() === "신동석")?.id || null,
+    () => findLeaderIdByNames(["신동석", "동석"]),
     [leaders],
   );
   const ganghyungjuId = useMemo(
-    () => leaders.find((l) => l.name.trim() === "강형주")?.id || null,
+    () => findLeaderIdByNames(["강형주", "형주"]),
     [leaders],
   );
   const sdsOpts = { shindongseokId, ganghyungjuId };
