@@ -141,8 +141,6 @@ export default function Records() {
       leader1_name: leaderName(form.leader1_id),
       leader2_id: form.leader2_id || null,
       leader2_name: leaderName(form.leader2_id),
-      leader3_id: form.leader3_id || null,
-      leader3_name: leaderName(form.leader3_id),
       customer_name: form.customer_name || null,
       region: form.region || null,
       item: form.item || null,
