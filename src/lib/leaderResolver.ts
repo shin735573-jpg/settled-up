@@ -72,7 +72,49 @@ export function findAliasConflict<T extends LeaderLike>(
         (normLeaderName(l.name) === k ||
           (l.aliases ?? []).some((x) => normLeaderName(x) === k)),
     );
-    if (hit) return `별칭 "${a}"가 이미 "${hit.name}"에서 사용 중입니다`;
+    if (hit) {
+      const reason =
+        normLeaderName(hit.name) === k
+          ? `팀장명 "${hit.name}"`
+          : `"${hit.name}"의 별칭`;
+      return `별칭 "${a}"이(가) 이미 ${reason}과 충돌합니다`;
+    }
+  }
+  return null;
+}
+
+/**
+ * 표시명(getDisplayName 결과) 중복 검사.
+ * 동명이인이면 display_suffix까지 합쳐서 다른 팀장과 같은 표시가 되는지 확인.
+ * 이름 변경 / 구분명 변경 직전에 호출.
+ */
+export function findDisplayNameConflict<T extends LeaderLike>(
+  currentId: string,
+  nextName: string,
+  nextSuffix: string | null,
+  leaders: T[],
+): string | null {
+  const others = leaders.filter((l) => l.id !== currentId);
+  const nextCanon = String(nextName ?? "").trim();
+  if (!nextCanon) return null;
+
+  // 가상으로 본인 정보가 반영된 전체 목록을 만들어 동명이인 카운트 계산
+  const virtual = others.concat([
+    { id: currentId, name: nextCanon, aliases: [], display_suffix: nextSuffix } as T,
+  ]);
+  const dupCount = detectDuplicates(virtual).get(nextCanon) ?? 0;
+
+  const myDisplay =
+    dupCount > 1 && nextSuffix
+      ? `${nextCanon}${nextSuffix.trim()}`
+      : nextCanon;
+
+  const clash = others.find((l) => getDisplayName(l, virtual) === myDisplay);
+  if (clash) {
+    if (dupCount > 1 && !nextSuffix) {
+      return `동명이인 "${nextCanon}"이(가) 이미 존재합니다. 구분명을 입력하세요`;
+    }
+    return `표시명 "${myDisplay}"이(가) 이미 다른 팀장과 동일합니다`;
   }
   return null;
 }
