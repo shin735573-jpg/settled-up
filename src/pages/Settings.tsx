@@ -233,11 +233,88 @@ function LeadersTab() {
     await update(id, { display_suffix: nextSuffix } as any);
   };
 
+  const [cleaning, setCleaning] = useState(false);
+
+  /**
+   * 기존 deliveries에서 별칭으로 저장된 팀장명을 찾아 정식 팀장명/ID로 통합.
+   * - leaderN_id가 비었지만 leaderN_name이 별칭과 매칭되면 ID/이름 채움
+   * - leaderN_id가 있으면 leaderN_name을 해당 팀장의 정식 이름으로 동기화
+   * - 가상기사/가상팀장은 매칭 대상에서 제외
+   */
+  const cleanLeaderNames = async () => {
+    if (!confirm("기존 기록의 팀장 이름을 정식 팀장명으로 통합합니다. 진행하시겠습니까?")) return;
+    setCleaning(true);
+    try {
+      const matchable = rows.filter((l) => !l.is_virtual);
+      const byId = new Map(rows.map((l) => [l.id, l]));
+
+      // 전체 deliveries 로드 (페이지네이션)
+      const all: any[] = [];
+      const page = 1000;
+      for (let from = 0; ; from += page) {
+        const { data, error } = await supabase
+          .from("deliveries")
+          .select("id,leader1_id,leader1_name,leader2_id,leader2_name,leader3_id,leader3_name")
+          .range(from, from + page - 1);
+        if (error) throw error;
+        const chunk = data || [];
+        all.push(...chunk);
+        if (chunk.length < page) break;
+      }
+
+      let updated = 0, matched = 0, renamed = 0, ambiguous = 0;
+      for (const r of all) {
+        const patch: any = {};
+        for (const slot of [1, 2, 3] as const) {
+          const idKey = `leader${slot}_id` as const;
+          const nameKey = `leader${slot}_name` as const;
+          const curId: string | null = r[idKey];
+          const curName: string | null = r[nameKey];
+          if (curId) {
+            const l = byId.get(curId);
+            if (l && l.name && (curName || "").trim() !== l.name.trim()) {
+              patch[nameKey] = l.name;
+              renamed++;
+            }
+          } else if (curName && curName.trim()) {
+            const hit = resolveLeaderName(curName, matchable);
+            if (hit) {
+              patch[idKey] = hit.id;
+              patch[nameKey] = hit.name;
+              matched++;
+            } else {
+              // 매칭 실패 / 동명이인 미해소 — 변환하지 않고 카운트만
+              ambiguous++;
+            }
+          }
+        }
+        if (Object.keys(patch).length) {
+          const { error } = await supabase.from("deliveries").update(patch).eq("id", r.id);
+          if (!error) updated++;
+        }
+      }
+      toast.success(
+        `정리 완료: ${updated}건 업데이트 (별칭 매칭 ${matched} · 이름 동기화 ${renamed} · 미해소 ${ambiguous})`,
+      );
+    } catch (e: any) {
+      toast.error("정리 실패: " + (e?.message || String(e)));
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <div className="flex gap-2">
         <Input placeholder="팀장명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
         <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
+        <Button variant="outline" onClick={cleanLeaderNames} disabled={cleaning}>
+          {cleaning ? "정리 중..." : "팀장 이름 정리"}
+        </Button>
+      </div>
+      <div className="text-xs text-muted-foreground">
+        ‘팀장 이름 정리’: 기존 기록에서 별칭으로 저장된 팀장명을 정식 팀장명/ID로 통합합니다.
+        별칭(예: 형주 → 강형주, 동석 → 신동석)이 등록되어 있어야 하며, 가상기사·가상팀장은 매칭 대상에서 제외됩니다.
       </div>
       <Table>
         <TableHeader>
