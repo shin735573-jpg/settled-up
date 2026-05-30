@@ -843,7 +843,7 @@ export default function Records() {
         <Table className="text-xs num">
           <TableHeader>
             <TableRow>
-              {["날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
+              {["구분","날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
@@ -851,8 +851,20 @@ export default function Records() {
           <TableBody>
             {records.map((r) => {
               const total = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+              const rowIssues = issuesByRow.get(r.id);
+              const rowSeverity = rowIssues?.some((i) => i.severity === "error")
+                ? "error" : rowIssues?.length ? "warning" : null;
               return (
-                <TableRow key={r.id} className="cursor-pointer" onClick={() => editRow(r)}>
+                <TableRow key={r.id} className={cn(
+                  "cursor-pointer",
+                  rowSeverity === "error" && "bg-destructive/5",
+                  rowSeverity === "warning" && "bg-orange-500/5",
+                )} onClick={() => editRow(r)}>
+                  <TableCell className="whitespace-nowrap">
+                    {r.is_missing
+                      ? <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>
+                      : <Badge variant="secondary">일반</Badge>}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap">{r.date}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.leader1_name || "-"}</TableCell>
@@ -888,7 +900,7 @@ export default function Records() {
                 </TableRow>
               );
             })}
-            {records.length === 0 && <TableRow><TableCell colSpan={17} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
+            {records.length === 0 && <TableRow><TableCell colSpan={18} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
