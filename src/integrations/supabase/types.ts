@@ -58,6 +58,8 @@ export type Database = {
           issues_invoice: boolean
           name: string
           rejected_leader_id: string | null
+          rejected_leader_id_2: string | null
+          rejected_leader_id_3: string | null
           settlement_cycle: string
           updated_at: string
           user_id: string
@@ -73,6 +75,8 @@ export type Database = {
           issues_invoice?: boolean
           name: string
           rejected_leader_id?: string | null
+          rejected_leader_id_2?: string | null
+          rejected_leader_id_3?: string | null
           settlement_cycle?: string
           updated_at?: string
           user_id: string
@@ -88,6 +92,8 @@ export type Database = {
           issues_invoice?: boolean
           name?: string
           rejected_leader_id?: string | null
+          rejected_leader_id_2?: string | null
+          rejected_leader_id_3?: string | null
           settlement_cycle?: string
           updated_at?: string
           user_id?: string
