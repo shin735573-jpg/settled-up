@@ -886,3 +886,74 @@ function LeaderSummaryCard({
     </div>
   );
 }
+
+/**
+ * 신동석/강형주 교차검증 카드.
+ * 두 사람은 한 팀(50/50 재분배)이므로 모든 케이스에서
+ * 건수·배송비·착불·수수료가 정확히 동일해야 한다.
+ * 차이가 발생하면 즉시 경고로 표시한다.
+ */
+function SdsGhjCrossCheck({
+  masterRows, shindongseokId, ganghyungjuId,
+}: {
+  masterRows: Array<{ leader: { id: string; name: string }; count: number; total: number; cod: number; fees: number }>;
+  shindongseokId: string | null;
+  ganghyungjuId: string | null;
+}) {
+  if (!shindongseokId || !ganghyungjuId) return null;
+  const sds = masterRows.find((m) => m.leader.id === shindongseokId);
+  const ghj = masterRows.find((m) => m.leader.id === ganghyungjuId);
+  if (!sds && !ghj) return null;
+
+  const rows = [
+    { label: "배송건수", a: sds?.count ?? 0, b: ghj?.count ?? 0, isMoney: false },
+    { label: "실지급배송비", a: sds?.total ?? 0, b: ghj?.total ?? 0, isMoney: true },
+    { label: "착불합계", a: sds?.cod ?? 0, b: ghj?.cod ?? 0, isMoney: true },
+    { label: "수수료합계", a: sds?.fees ?? 0, b: ghj?.fees ?? 0, isMoney: true },
+  ];
+  const eps = 0.5;
+  const allMatch = rows.every((r) => Math.abs(r.a - r.b) < eps);
+
+  return (
+    <div className={`mb-3 rounded border px-3 py-2 ${allMatch ? "border-emerald-300 bg-emerald-50" : "border-red-400 bg-red-50"}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-semibold text-sm">
+          신동석 ↔ 강형주 교차검증
+          <span className={`ml-2 text-xs ${allMatch ? "text-emerald-700" : "text-red-700"}`}>
+            {allMatch ? "✓ 일치 (50/50 재분배 정상)" : "⚠ 불일치 — 분배 로직 또는 데이터 점검 필요"}
+          </span>
+        </div>
+      </div>
+      <Table className="text-xs num">
+        <TableHeader>
+          <TableRow>
+            <TableHead>항목</TableHead>
+            <TableHead className="text-right">신동석</TableHead>
+            <TableHead className="text-right">강형주</TableHead>
+            <TableHead className="text-right">차이</TableHead>
+            <TableHead className="text-center w-16">결과</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => {
+            const diff = r.a - r.b;
+            const ok = Math.abs(diff) < eps;
+            return (
+              <TableRow key={r.label}>
+                <TableCell>{r.label}</TableCell>
+                <TableCell className="text-right">{r.isMoney ? fmt(r.a) : r.a.toLocaleString()}</TableCell>
+                <TableCell className="text-right">{r.isMoney ? fmt(r.b) : r.b.toLocaleString()}</TableCell>
+                <TableCell className={`text-right ${ok ? "" : "text-red-700 font-semibold"}`}>
+                  {r.isMoney ? fmt(diff) : diff.toLocaleString()}
+                </TableCell>
+                <TableCell className={`text-center ${ok ? "text-emerald-700" : "text-red-700 font-bold"}`}>
+                  {ok ? "✓" : "✗"}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
