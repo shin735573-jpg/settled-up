@@ -1320,13 +1320,50 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                       return (
                         <TableRow key={i} className={hasErr ? "bg-destructive/10" : ""}>
                           <TableCell>{displayIdx + 1}</TableCell>
-                          <TableCell className="whitespace-nowrap min-w-[120px]">
-                            <Input
-                              value={r.dateInputValue}
-                              onChange={(e) => setDateOverrides((p) => ({ ...p, [i]: e.target.value }))}
-                              placeholder={r.autoDate || "YYYY-MM-DD"}
-                              className={`h-7 text-xs w-[110px] ${!r.date ? "border-destructive text-destructive" : ""}`}
-                            />
+                          <TableCell className="whitespace-nowrap min-w-[150px]">
+                            <div className="flex items-center gap-1">
+                              <Input
+                                value={r.dateInputValue}
+                                onChange={(e) => setDateOverrides((p) => ({ ...p, [i]: e.target.value }))}
+                                placeholder={r.autoDate || "YYYY-MM-DD"}
+                                className={cn("h-7 text-xs w-[110px]", !r.date && "border-destructive text-destructive")}
+                              />
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn("h-7 w-7 shrink-0", !r.date && "text-destructive")}
+                                    title="달력으로 선택"
+                                  >
+                                    <CalendarIcon className="h-3.5 w-3.5" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={r.date ? new Date(r.date + "T00:00:00") : undefined}
+                                    defaultMonth={
+                                      r.date
+                                        ? new Date(r.date + "T00:00:00")
+                                        : defaultMonth
+                                          ? new Date(defaultMonth + "-01T00:00:00")
+                                          : undefined
+                                    }
+                                    onSelect={(d) => {
+                                      if (!d) return;
+                                      const y = d.getFullYear();
+                                      const m = String(d.getMonth() + 1).padStart(2, "0");
+                                      const day = String(d.getDate()).padStart(2, "0");
+                                      setDateOverrides((p) => ({ ...p, [i]: `${y}-${m}-${day}` }));
+                                    }}
+                                    initialFocus
+                                    className={cn("p-3 pointer-events-auto")}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                             {r.date && r.dateInputValue && r.date !== r.dateInputValue && (
                               <div className="text-[10px] text-muted-foreground mt-0.5">→ {r.date}</div>
                             )}
