@@ -123,8 +123,7 @@ function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
 
 // 팀장명 자동 인식: 등록된 팀장명 + 자동 별칭(이름의 뒤 2글자, 가운데+끝 2글자)으로 후보 키 생성
 function buildLeaderIndex(leaders: Leader[]) {
-  // 가상기사/가상팀장은 통계·표시·별칭 통합 대상에서 제외
-  const active = leaders.filter((l) => l.active && !l.is_virtual);
+  const active = leaders.filter((l) => l.active);
   // key -> leader id (충돌 시 해당 key 제거)
   const map = new Map<string, string>();
   const ambiguous = new Set<string>();
@@ -729,7 +728,7 @@ export default function Records() {
                       <SelectItem value={NONE}>선택 안 함</SelectItem>
                       {selectableLeaders.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
-                          {l.name}{l.is_virtual ? " (가상)" : ""}
+                          {l.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1295,8 +1294,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     await onReload();
   };
 
-  // 미등록 팀장 목록 (가상기사/가상팀장 제외)
-  const VIRTUAL_LEADER_KEYWORDS = ["가상기사", "가상팀장", "가상"];
+  // 미등록 팀장 목록
+  const VIRTUAL_LEADER_KEYWORDS: string[] = [];
   const unregisteredLeaders = useMemo(() => {
     const set = new Set<string>();
     const add = (raw: string) => {
@@ -1636,7 +1635,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                               <SelectItem value={NONE}>(빈칸)</SelectItem>
                               {selectableLeaders.map((l) => (
                                 <SelectItem key={l.id} value={l.id}>
-                                  {l.name}{l.is_virtual ? " (가상)" : ""}
+                                  {l.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
