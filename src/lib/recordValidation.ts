@@ -306,3 +306,149 @@ export function summarize(issues: ValidationIssue[], totalRows: number) {
   const okCount = Math.max(0, totalRows - errorRows.size - warningCount);
   return { totalRows, errorCount, warningCount, okCount };
 }
+
+// ────────────────────────────────────────────────────
+// 강형주 / 신동석 팀 정산 정합성 검사
+// 두 팀장은 한 팀이므로 모든 형주/동석 관련 배송에서:
+//  - 건수가 항상 동일해야 함
+//  - 배송비 기준금액(metro/note/regional/cod)이 항상 동일해야 함
+//  - 한 명에게 100%, 다른 한 명 0% 같은 비대칭이 발생하면 안 됨
+// ────────────────────────────────────────────────────
+
+const teamNameMatch = (name: string | null | undefined, aliases?: string[] | null) => {
+  const n = String(name ?? "").trim();
+  if (!n) return false;
+  if (n === "강형주" || n === "신동석" || n === "형주" || n === "동석") return true;
+  if (aliases && aliases.some((a) => ["형주", "동석"].includes(String(a ?? "").trim()))) return true;
+  return false;
+};
+
+/** ctx.leaders 에서 강형주/신동석 id 찾기 (정식명 또는 별칭 형주/동석). */
+function findTeamIds(leaders: LeaderRef[]): { ganghyungjuId: string | null; shindongseokId: string | null } {
+  let g: string | null = null;
+  let s: string | null = null;
+  for (const l of leaders) {
+    const nm = (l.name || "").trim();
+    const al = (l.aliases || []).map((a) => (a || "").trim());
+    if (!g && (nm === "강형주" || al.includes("형주"))) g = l.id;
+    if (!s && (nm === "신동석" || al.includes("동석"))) s = l.id;
+  }
+  return { ganghyungjuId: g, shindongseokId: s };
+}
+
+const approxEq = (a: number, b: number, tol = 0.5) => Math.abs(a - b) <= tol;
+
+/**
+ * 강형주 vs 신동석 팀 배송 정합성을 검사.
+ * - 두 사람 모두 ctx.leaders에 존재할 때만 동작.
+ * - 행 단위 비대칭 + 전체 합계 비교 두 가지를 모두 리포트.
+ */
+export function validateTeamParity(
+  rows: DeliveryRecord[],
+  ctx: ValidationContext,
+  labelOf?: (r: DeliveryRecord, idx: number) => string,
+): ValidationIssue[] {
+  const out: ValidationIssue[] = [];
+  const { ganghyungjuId, shindongseokId } = findTeamIds(ctx.leaders);
+  if (!ganghyungjuId || !shindongseokId) return out;
+
+  const leaderById = new Map(ctx.leaders.map((l) => [l.id, l] as const));
+
+  let gCount = 0, sCount = 0;
+  let gMetro = 0, sMetro = 0;
+  let gNote = 0, sNote = 0;
+  let gReg = 0, sReg = 0;
+  let gCod = 0, sCod = 0;
+
+  rows.forEach((r, i) => {
+    const rowLabel = labelOf ? labelOf(r, i) : `행 ${i + 1}`;
+    const push = (severity: Severity, code: string, message: string) =>
+      out.push({ rowId: r.id, rowLabel, code, message, severity });
+
+    // 이 행이 형주/동석 팀과 관련 있는지 (id 또는 이름/별칭 기준)
+    const l1 = r.leader1_id ? leaderById.get(r.leader1_id) : null;
+    const l2 = r.leader2_id ? leaderById.get(r.leader2_id) : null;
+    const involvesTeam =
+      r.leader1_id === ganghyungjuId || r.leader1_id === shindongseokId ||
+      r.leader2_id === ganghyungjuId || r.leader2_id === shindongseokId ||
+      teamNameMatch(r.leader1_name, l1?.aliases) ||
+      teamNameMatch(r.leader2_name, l2?.aliases);
+    if (!involvesTeam) return;
+
+    const shares = allocateRow(
+      {
+        leader1_id: r.leader1_id,
+        leader2_id: r.leader2_id,
+        split_type: r.split_type,
+        two_person: r.two_person ?? false,
+        metro_fee: isNumLike(r.metro_fee).n,
+        note_amount: isNumLike(r.note_amount).n,
+        regional_fee: isNumLike(r.regional_fee).n,
+        cod_amount: isNumLike(r.cod_amount).n,
+      },
+      { ganghyungjuId, shindongseokId },
+    );
+
+    const g = shares.find((s) => s.leader_id === ganghyungjuId);
+    const s = shares.find((sh) => sh.leader_id === shindongseokId);
+
+    if (!g || !s) {
+      push(
+        "error",
+        "team.parity.missing",
+        "강형주/신동석 팀 관련 건이지만 한 명에게만 배분됨 (팀장 ID/이름 등록 확인 필요)",
+      );
+      return;
+    }
+    if (!approxEq(g.metro, s.metro) || !approxEq(g.note_amount, s.note_amount) ||
+        !approxEq(g.regional, s.regional) || !approxEq(g.cod, s.cod)) {
+      push(
+        "error",
+        "team.parity.amount",
+        `강형주와 신동석의 기준 배송비가 다릅니다 (강 ${Math.round(g.metro + g.note_amount + g.regional)} vs 신 ${Math.round(s.metro + s.note_amount + s.regional)})`,
+      );
+    }
+    // 중복 계산 감지: 두 사람 합이 행 총액보다 큼
+    const rowTotal = isNumLike(r.metro_fee).n + isNumLike(r.note_amount).n + isNumLike(r.regional_fee).n;
+    const teamTotal = g.metro + g.note_amount + g.regional + s.metro + s.note_amount + s.regional;
+    if (teamTotal > rowTotal + 0.5) {
+      push(
+        "error",
+        "team.parity.double",
+        `강형주+신동석 합산(${Math.round(teamTotal)})이 행 총액(${Math.round(rowTotal)})을 초과 — 중복 계산 의심`,
+      );
+    }
+
+    gCount += g.count; sCount += s.count;
+    gMetro += g.metro; sMetro += s.metro;
+    gNote += g.note_amount; sNote += s.note_amount;
+    gReg += g.regional; sReg += s.regional;
+    gCod += g.cod; sCod += s.cod;
+  });
+
+  if (gCount !== sCount) {
+    out.push({
+      rowId: "__team_parity__",
+      code: "team.parity.count",
+      severity: "error",
+      message: `강형주(${gCount}건)와 신동석(${sCount}건)의 형주/동석 팀 배송건수가 다릅니다`,
+    });
+  }
+  const sums: [string, number, number, string][] = [
+    ["수도권배송비", gMetro, sMetro, "metro"],
+    ["비고금액", gNote, sNote, "note"],
+    ["지방배송비", gReg, sReg, "regional"],
+    ["착불", gCod, sCod, "cod"],
+  ];
+  for (const [label, gv, sv, code] of sums) {
+    if (!approxEq(gv, sv)) {
+      out.push({
+        rowId: "__team_parity__",
+        code: `team.parity.sum.${code}`,
+        severity: "error",
+        message: `${label} 합계 불일치: 강형주 ${Math.round(gv)} vs 신동석 ${Math.round(sv)}`,
+      });
+    }
+  }
+  return out;
+}
