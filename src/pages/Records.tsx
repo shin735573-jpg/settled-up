@@ -1114,8 +1114,11 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       const usedDefault = extracted.ids.length === 0 && defaultLeaderInfo.ids.length > 0;
       const effectiveIds = usedDefault ? defaultLeaderInfo.ids : extracted.ids;
       let leaderIds: (string | null)[] = [effectiveIds[0] || null, effectiveIds[1] || null];
-      // 인식 실패 시: leader1/leader2 셀 원문 그대로 (미등록 경고용)
-      const fallbackNames: (string | null)[] = [cell(cols, "leader1") || null, cell(cols, "leader2") || null];
+      // 인식 실패 시: 원문을 정식 이름으로 정규화 시도 (별칭/공백 흡수). 매칭 실패하면 trim 원문.
+      const fallbackNames: (string | null)[] = [
+        cell(cols, "leader1") ? canonicalLeaderName(cell(cols, "leader1"), leaders) : null,
+        cell(cols, "leader2") ? canonicalLeaderName(cell(cols, "leader2"), leaders) : null,
+      ];
       const leaderNames: (string | null)[] = leaderIds.map((id, i) =>
         id ? leaderById.get(id)?.name || null : fallbackNames[i]
       );
