@@ -841,12 +841,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     // 수도권/지방 override 반영 + 지역 경고
     const regionType: RegionType = regionOverrides[i] ?? r.regionType;
     const warnings = [...r.warnings];
-    if (!r.region) warnings.push({ field: "지역", msg: "지역 빈칸 — 확인 필요" });
+    if (!r.region) warnings.push({ field: "배송지", msg: "배송지 빈칸 — 확인 필요" });
     if (regionType === "metro" && r.regional > 0 && r.metro === 0) {
-      warnings.push({ field: "지역", msg: "수도권인데 지방배송비만 입력됨" });
+      warnings.push({ field: "지역구분", msg: "수도권인데 지방배송비만 입력됨" });
     }
     if (regionType === "regional" && r.metro > 0 && r.regional === 0) {
-      warnings.push({ field: "지역", msg: "지방인데 수도권배송비만 입력됨" });
+      warnings.push({ field: "지역구분", msg: "지방인데 수도권배송비만 입력됨" });
     }
     return {
       ...r,
