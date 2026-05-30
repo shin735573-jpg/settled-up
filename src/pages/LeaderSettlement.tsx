@@ -315,15 +315,17 @@ export default function LeaderSettlement() {
 
   const detailCalc = useMemo(() => {
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, fees = 0;
-    let mergedTotal = 0, mergedCount = 0;
+    let mergedTotal = 0, mergedCount = 0, count = 0;
     detailRows.forEach((r) => {
-      metro += num(r.metro_fee);
-      noteAmt += num(r.note_amount);
-      regional += num(r.regional_fee);
-      cod += num(r.cod_amount);
-      fees += feeFor(r, r.company_id ? companyById.get(r.company_id) : undefined);
+      if (!leaderId) return;
+      const share = shareForSettling(r, leaderId);
+      if (!share) return;
+      metro += share.metro; noteAmt += share.noteAmt;
+      regional += share.regional; cod += share.cod;
+      count += share.count;
+      fees += feeForRowSettling(r, leaderId);
       if (mergedSourceForRow(r)) {
-        mergedTotal += sumFee(r);
+        mergedTotal += share.metro + share.noteAmt + share.regional;
         mergedCount += 1;
       }
     });
@@ -350,7 +352,7 @@ export default function LeaderSettlement() {
     }, 0);
     const deduction = commonTotal + indivTotal;
     const net = afterFees - cod - deduction;
-    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal };
+    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal, count };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailRows, companyById, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides]);
 
