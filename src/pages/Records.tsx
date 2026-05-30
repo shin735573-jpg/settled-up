@@ -800,11 +800,11 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
             </div>
           )}
 
-          {parsed.length > 0 && (
+          {effective.length > 0 && (
             <>
               <div className="flex items-center justify-between">
                 <div className="text-sm">
-                  총 <b>{parsed.length}</b>건 / 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
+                  총 <b>{effective.length}</b>건 / 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
                 </div>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={skipErrors} onCheckedChange={(v) => setSkipErrors(!!v)} />
@@ -825,16 +825,43 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {parsed.map((r, i) => {
+                    {effective.map((r, i) => {
                       const total = r.metro + r.noteAmt + r.regional;
                       const hasErr = r.errors.length > 0;
+                      const leaderCell = (slot: 0 | 1) => {
+                        const key = slot === 0 ? "l1" : "l2";
+                        const ovVal = leaderOverrides[i]?.[key];
+                        const current = ovVal !== undefined ? ovVal : (r.leaderIds[slot] || "");
+                        const unknown = !current && !!r.leaders[slot];
+                        return (
+                          <Select
+                            value={current || NONE}
+                            onValueChange={(v) => setLeaderOverrides((prev) => ({
+                              ...prev,
+                              [i]: { ...prev[i], [key]: v === NONE ? "" : v },
+                            }))}
+                          >
+                            <SelectTrigger className={`h-7 text-xs min-w-[110px] ${unknown ? "border-destructive text-destructive" : ""}`}>
+                              <SelectValue placeholder={r.leaders[slot] || "선택 안 함"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NONE}>(빈칸)</SelectItem>
+                              {selectableLeaders.map((l) => (
+                                <SelectItem key={l.id} value={l.id}>
+                                  {l.name}{l.is_virtual ? " (가상)" : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        );
+                      };
                       return (
                         <TableRow key={i} className={hasErr ? "bg-destructive/10" : ""}>
                           <TableCell>{i + 1}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.date || "-"}</TableCell>
                           <TableCell>{r.company || "-"}</TableCell>
-                          <TableCell>{r.leaders[0] || "-"}</TableCell>
-                          <TableCell>{r.leaders[1] || "-"}</TableCell>
+                          <TableCell>{leaderCell(0)}</TableCell>
+                          <TableCell>{leaderCell(1)}</TableCell>
                           <TableCell>{r.customer || "-"}</TableCell>
                           <TableCell>{r.region || "-"}</TableCell>
                           <TableCell className="max-w-[220px] whitespace-pre-wrap break-words align-top">{r.item || "-"}</TableCell>
@@ -860,8 +887,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>취소</Button>
-          <Button onClick={save} disabled={saving || parsed.length === 0 || missingRequired.length > 0}>
-            {skipErrors ? `정상 ${parsed.length - errorCount}건 저장` : `${parsed.length}건 저장`}
+          <Button onClick={save} disabled={saving || effective.length === 0 || missingRequired.length > 0}>
+            {skipErrors ? `정상 ${effective.length - errorCount}건 저장` : `${effective.length}건 저장`}
           </Button>
         </DialogFooter>
       </DialogContent>
