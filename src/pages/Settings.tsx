@@ -25,12 +25,62 @@ export default function Settings() {
           <TabsTrigger value="companies">업체</TabsTrigger>
           <TabsTrigger value="leaders">팀장</TabsTrigger>
           <TabsTrigger value="holidays">휴무일</TabsTrigger>
+          <TabsTrigger value="onedrive">원드라이브</TabsTrigger>
         </TabsList>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="holidays"><HolidaysTab /></TabsContent>
+        <TabsContent value="onedrive"><OneDriveTab /></TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function OneDriveTab() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string>("");
+
+  const verify = async () => {
+    setLoading(true); setResult("");
+    const { data, error } = await supabase.functions.invoke("onedrive-upload", { body: { action: "verify" } });
+    setLoading(false);
+    if (error) { toast.error("연결 실패: " + error.message); setResult("실패: " + error.message); return; }
+    if (!data?.ok) { toast.error("연결 실패"); setResult(JSON.stringify(data, null, 2)); return; }
+    toast.success("원드라이브 연결 정상");
+    setResult(`드라이브: ${data.drive?.name || "-"} (소유자: ${data.drive?.owner || "-"})`);
+  };
+
+  const testUpload = async () => {
+    setLoading(true);
+    const text = `삼호정산표 연결 테스트 - ${new Date().toISOString()}`;
+    const contentBase64 = btoa(unescape(encodeURIComponent(text)));
+    const { data, error } = await supabase.functions.invoke("onedrive-upload", {
+      body: {
+        action: "upload",
+        folder: "정산서_저장/_연결테스트",
+        filename: `test_${Date.now()}.txt`,
+        contentBase64,
+        contentType: "text/plain; charset=utf-8",
+      },
+    });
+    setLoading(false);
+    if (error || !data?.ok) { toast.error("업로드 실패"); setResult(JSON.stringify(data || error, null, 2)); return; }
+    toast.success("테스트 파일 업로드 완료");
+    setResult(`업로드 성공: ${data.name}\n${data.webUrl || ""}`);
+  };
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="text-sm text-muted-foreground">
+        원드라이브 커넥터는 워크스페이스에서 이미 연결되어 있습니다. 아래 버튼으로 연결 상태와 업로드 권한을 확인하세요.
+        <br />정산서 PNG는 향후 <code>정산서_저장/YYYY-MM_월전체/업체|팀장/</code> 폴더에 자동 저장됩니다.
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={verify} disabled={loading}>연결 확인</Button>
+        <Button onClick={testUpload} disabled={loading} variant="outline">테스트 파일 업로드</Button>
+      </div>
+      {result && <pre className="text-xs bg-muted p-3 rounded whitespace-pre-wrap break-all">{result}</pre>}
+    </Card>
   );
 }
 
