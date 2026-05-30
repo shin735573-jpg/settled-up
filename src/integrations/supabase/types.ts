@@ -410,6 +410,7 @@ export type Database = {
       }
       team_leaders: {
         Row: {
+          account_number: string | null
           active: boolean
           aliases: string[]
           created_at: string
@@ -420,14 +421,19 @@ export type Database = {
           id: string
           is_rejected: boolean
           is_virtual: boolean
+          issues_invoice: boolean
+          min_guarantee_amount: number
+          min_guarantee_enabled: boolean
           name: string
           region: string | null
+          settle_status: string
           settle_to_id: string | null
           trash_cost: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          account_number?: string | null
           active?: boolean
           aliases?: string[]
           created_at?: string
@@ -438,14 +444,19 @@ export type Database = {
           id?: string
           is_rejected?: boolean
           is_virtual?: boolean
+          issues_invoice?: boolean
+          min_guarantee_amount?: number
+          min_guarantee_enabled?: boolean
           name: string
           region?: string | null
+          settle_status?: string
           settle_to_id?: string | null
           trash_cost?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          account_number?: string | null
           active?: boolean
           aliases?: string[]
           created_at?: string
@@ -456,8 +467,12 @@ export type Database = {
           id?: string
           is_rejected?: boolean
           is_virtual?: boolean
+          issues_invoice?: boolean
+          min_guarantee_amount?: number
+          min_guarantee_enabled?: boolean
           name?: string
           region?: string | null
+          settle_status?: string
           settle_to_id?: string | null
           trash_cost?: number
           updated_at?: string
