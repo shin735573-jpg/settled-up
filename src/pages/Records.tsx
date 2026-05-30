@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ClipboardPaste, Trash2 } from "lucide-react";
+import { ClipboardPaste, Trash2, Plus, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { fmt, parseNum, parseDate } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -20,6 +22,46 @@ type Delivery = any;
 
 const COLS = ["날짜","업체","팀장1","팀장2","팀장3","고객명","지역","품목","비고","수도권배송비","비고금액","지방배송비","착불","분할","결제유무"];
 
+type FormState = {
+  id: string | null;
+  date: string;
+  company_id: string;
+  leader1_id: string;
+  leader2_id: string;
+  leader3_id: string;
+  customer_name: string;
+  region: string;
+  item: string;
+  note: string;
+  metro_fee: string;
+  note_amount: string;
+  regional_fee: string;
+  cod_amount: string;
+  split_type: string;
+  paid: boolean;
+};
+
+const NONE = "__none__";
+
+const emptyForm = (): FormState => ({
+  id: null,
+  date: new Date().toISOString().slice(0, 10),
+  company_id: "",
+  leader1_id: "",
+  leader2_id: "",
+  leader3_id: "",
+  customer_name: "",
+  region: "",
+  item: "",
+  note: "",
+  metro_fee: "",
+  note_amount: "",
+  regional_fee: "",
+  cod_amount: "",
+  split_type: "",
+  paid: false,
+});
+
 export default function Records() {
   const { user } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -28,6 +70,9 @@ export default function Records() {
   const [records, setRecords] = useState<Delivery[]>([]);
   const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [pasteOpen, setPasteOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
+  const [form, setForm] = useState<FormState>(emptyForm());
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
@@ -49,7 +94,86 @@ export default function Records() {
   const removeRow = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
     await supabase.from("deliveries").delete().eq("id", id);
+    if (form.id === id) setForm(emptyForm());
     load();
+  };
+
+  const activeCompanies = useMemo(() => companies.filter((c) => c.active), [companies]);
+  const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
+
+  const total =
+    (parseNum(form.metro_fee) || 0) +
+    (parseNum(form.note_amount) || 0) +
+    (parseNum(form.regional_fee) || 0);
+
+  const editRow = (r: Delivery) => {
+    setForm({
+      id: r.id,
+      date: r.date,
+      company_id: r.company_id || "",
+      leader1_id: r.leader1_id || "",
+      leader2_id: r.leader2_id || "",
+      leader3_id: r.leader3_id || "",
+      customer_name: r.customer_name || "",
+      region: r.region || "",
+      item: r.item || "",
+      note: r.note || "",
+      metro_fee: String(r.metro_fee ?? ""),
+      note_amount: String(r.note_amount ?? ""),
+      regional_fee: String(r.regional_fee ?? ""),
+      cod_amount: String(r.cod_amount ?? ""),
+      split_type: r.split_type || "",
+      paid: !!r.paid,
+    });
+    setFormOpen(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const saveForm = async () => {
+    if (!user) return;
+    if (!form.date) { toast.error("날짜를 입력하세요"); return; }
+    const company = companies.find((c) => c.id === form.company_id);
+    if (!company) { toast.error("업체를 선택하세요"); return; }
+    const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
+    const payload = {
+      user_id: user.id,
+      date: form.date,
+      company_id: form.company_id,
+      company_name: company.name,
+      leader1_id: form.leader1_id || null,
+      leader1_name: leaderName(form.leader1_id),
+      leader2_id: form.leader2_id || null,
+      leader2_name: leaderName(form.leader2_id),
+      leader3_id: form.leader3_id || null,
+      leader3_name: leaderName(form.leader3_id),
+      customer_name: form.customer_name || null,
+      region: form.region || null,
+      item: form.item || null,
+      note: form.note || null,
+      metro_fee: parseNum(form.metro_fee) || 0,
+      note_amount: parseNum(form.note_amount) || 0,
+      regional_fee: parseNum(form.regional_fee) || 0,
+      cod_amount: parseNum(form.cod_amount) || 0,
+      split_type: form.split_type || null,
+      paid: form.paid,
+    };
+    setSaving(true);
+    let error;
+    if (form.id) {
+      ({ error } = await supabase.from("deliveries").update(payload).eq("id", form.id));
+    } else {
+      ({ error } = await supabase.from("deliveries").insert(payload));
+    }
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(form.id ? "수정 완료" : "저장 완료");
+    setForm(emptyForm());
+    load();
+  };
+
+  const deleteForm = async () => {
+    if (!form.id) { toast.error("삭제할 기록을 먼저 선택하세요"); return; }
+    await removeRow(form.id);
   };
 
   return (
@@ -59,6 +183,127 @@ export default function Records() {
         <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40" />
         <Button onClick={() => setPasteOpen(true)}><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
+
+      <Button
+        size="lg"
+        className="w-full h-14 text-base font-semibold"
+        onClick={() => { setForm(emptyForm()); setFormOpen(true); }}
+      >
+        <Plus className="h-5 w-5 mr-2" /> 새 배송입력
+      </Button>
+
+      {formOpen && (
+        <Card className="p-4 md:p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{form.id ? "배송 수정" : "새 배송 입력"}</h2>
+            <Button variant="ghost" size="icon" onClick={() => { setForm(emptyForm()); setFormOpen(false); }}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <Label>날짜</Label>
+              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>업체</Label>
+              <Select value={form.company_id} onValueChange={(v) => setForm({ ...form, company_id: v })}>
+                <SelectTrigger><SelectValue placeholder="업체 선택" /></SelectTrigger>
+                <SelectContent>
+                  {activeCompanies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {[0, 1, 2].map((i) => {
+              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id" | "leader3_id";
+              return (
+                <div key={i} className="space-y-1">
+                  <Label>실제기사{i + 1}</Label>
+                  <Select
+                    value={form[key] || NONE}
+                    onValueChange={(v) => setForm({ ...form, [key]: v === NONE ? "" : v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="선택 안 함" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>선택 안 함</SelectItem>
+                      {selectableLeaders.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name}{l.is_virtual ? " (가상)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+
+            <div className="space-y-1">
+              <Label>고객명</Label>
+              <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label>지역</Label>
+              <Input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label>품목</Label>
+              <Input value={form.item} onChange={(e) => setForm({ ...form, item: e.target.value })} />
+            </div>
+            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
+              <Label>비고</Label>
+              <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>수도권배송비</Label>
+              <Input inputMode="numeric" value={form.metro_fee} onChange={(e) => setForm({ ...form, metro_fee: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label>비고금액</Label>
+              <Input inputMode="numeric" value={form.note_amount} onChange={(e) => setForm({ ...form, note_amount: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label>지방배송비</Label>
+              <Input inputMode="numeric" value={form.regional_fee} onChange={(e) => setForm({ ...form, regional_fee: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label>착불</Label>
+              <Input inputMode="numeric" value={form.cod_amount} onChange={(e) => setForm({ ...form, cod_amount: e.target.value })} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>배송비총액 (자동)</Label>
+              <Input value={fmt(total)} readOnly className="bg-muted font-semibold" />
+            </div>
+            <div className="space-y-1">
+              <Label>분할</Label>
+              <Input value={form.split_type} onChange={(e) => setForm({ ...form, split_type: e.target.value })} placeholder="예: 1/2" />
+            </div>
+            <div className="space-y-1 flex flex-col">
+              <Label>결제유무</Label>
+              <label className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer">
+                <Checkbox checked={form.paid} onCheckedChange={(v) => setForm({ ...form, paid: !!v })} />
+                <span>{form.paid ? "결제 완료" : "미결제"}</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+            <Button size="lg" className="h-12 text-base" onClick={saveForm} disabled={saving || !!form.id}>
+              저장
+            </Button>
+            <Button size="lg" className="h-12 text-base" variant="secondary" onClick={saveForm} disabled={saving || !form.id}>
+              수정
+            </Button>
+            <Button size="lg" className="h-12 text-base" variant="destructive" onClick={deleteForm} disabled={saving || !form.id}>
+              삭제
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card className="overflow-x-auto">
         <Table className="text-xs num">
@@ -73,7 +318,7 @@ export default function Records() {
             {records.map((r) => {
               const total = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
               return (
-                <TableRow key={r.id}>
+                <TableRow key={r.id} className="cursor-pointer" onClick={() => editRow(r)}>
                   <TableCell className="whitespace-nowrap">{r.date}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.leader1_name || "-"}</TableCell>
@@ -90,11 +335,11 @@ export default function Records() {
                   <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
                   <TableCell>{r.split_type || "-"}</TableCell>
                   <TableCell>{r.paid ? "✓" : "-"}</TableCell>
-                  <TableCell><Button size="icon" variant="ghost" onClick={() => removeRow(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                  <TableCell><Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); removeRow(r.id); }}><Trash2 className="h-4 w-4" /></Button></TableCell>
                 </TableRow>
               );
             })}
-            {records.length === 0 && <TableRow><TableCell colSpan={17} className="text-center py-8 text-muted-foreground">기록이 없습니다. 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
+            {records.length === 0 && <TableRow><TableCell colSpan={17} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
