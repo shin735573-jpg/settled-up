@@ -57,37 +57,35 @@ const TOTAL_ALIASES = ["배송비총액","총액","합계","total"].map(normaliz
 function tryParseKeyValueText(raw: string): string[][] | null {
   const aliasToKey = new Map<string, FieldKey>();
   for (const def of FIELD_DEFS) for (const a of def.aliases) aliasToKey.set(normalizeHeader(a), def.key);
-  const lines = raw.replace(/\r/g, "").split("\n").map((l) => l.trim());
-  const blocks: string[][] = [];
-  let cur: string[] = [];
-  for (const l of lines) {
-    if (!l) { if (cur.length) { blocks.push(cur); cur = []; } }
-    else cur.push(l);
-  }
-  if (cur.length) blocks.push(cur);
-  if (blocks.length === 0) return null;
+  // 비어있지 않은 줄만 (블록 구분은 키 중복으로 판단 — 빈 줄 유무 무관)
+  const rawLines = raw.replace(/\r/g, "").split("\n").map((l) => l.trim()).filter(Boolean);
+  if (rawLines.length === 0) return null;
   const KV_RE = /^([^:：\t]+)\s*[:：]\s*(.*)$/;
+  const kvCount = rawLines.filter((l) => KV_RE.test(l)).length;
+  // 전체 비어있지 않은 줄 중 80% 이상이 "키: 값" 형식이어야 KV 모드로 인정
+  if (kvCount < Math.max(1, Math.ceil(rawLines.length * 0.8))) return null;
+
   const parsedBlocks: Record<string, string>[] = [];
   const keyOrder: string[] = [];
   let knownHits = 0;
-  for (const block of blocks) {
-    const kvLines = block.filter((l) => KV_RE.test(l));
-    // 블록 내 60% 이상 + 최소 2줄이 "키: 값" 형식이어야 KV로 인정
-    if (kvLines.length < Math.max(2, Math.ceil(block.length * 0.6))) return null;
-    const rec: Record<string, string> = {};
-    for (const l of block) {
-      const m = l.match(KV_RE);
-      if (!m) continue;
-      const key = m[1].trim();
-      let val = m[2].trim();
-      if (val === "빈칸") val = "";
-      rec[key] = val;
-      if (!keyOrder.includes(key)) keyOrder.push(key);
-      if (aliasToKey.has(normalizeHeader(key))) knownHits++;
-    }
-    parsedBlocks.push(rec);
+  let cur: Record<string, string> = {};
+  const flush = () => {
+    if (Object.keys(cur).length > 0) { parsedBlocks.push(cur); cur = {}; }
+  };
+  for (const l of rawLines) {
+    const m = l.match(KV_RE);
+    if (!m) continue;
+    const key = m[1].trim();
+    let val = m[2].trim();
+    if (val === "빈칸") val = "";
+    // 같은 키가 다시 나오면 새 레코드 시작
+    if (key in cur) flush();
+    cur[key] = val;
+    if (!keyOrder.includes(key)) keyOrder.push(key);
+    if (aliasToKey.has(normalizeHeader(key))) knownHits++;
   }
-  if (knownHits === 0) return null;
+  flush();
+  if (knownHits === 0 || parsedBlocks.length === 0) return null;
   const header = keyOrder;
   const rows = parsedBlocks.map((rec) => header.map((h) => rec[h] ?? ""));
   return [header, ...rows];
