@@ -275,7 +275,14 @@ export default function Records() {
             </div>
             <div className="space-y-1">
               <Label>분할</Label>
-              <Input value={form.split_type} onChange={(e) => setForm({ ...form, split_type: e.target.value })} placeholder="예: 1/2" />
+              <Select value={form.split_type} onValueChange={(v) => setForm({ ...form, split_type: v })}>
+                <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">(빈칸)</SelectItem>
+                  <SelectItem value="3분할">3분할</SelectItem>
+                  <SelectItem value="형주동석">형주동석</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1 flex flex-col">
               <Label>결제유무</Label>
