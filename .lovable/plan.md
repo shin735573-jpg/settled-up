@@ -1,79 +1,100 @@
-## 개요
-기록입력 화면에 (1) 종합 오류 검사 기능과 (2) 정산마감 이후에도 가능한 누락분 추가 기능, 그리고 (3) 정산서 버전관리 체계를 추가합니다.
+# 팀장정산 화면 및 팀장명 인식 규칙 개선
 
-## 1단계: 데이터 모델 확장 (DB 마이그레이션)
+## 1. DB 스키마 변경 (마이그레이션)
 
-**deliveries 테이블 컬럼 추가**
-- `is_missing` (boolean, default false) — 누락분 여부
-- `missing_reason` (text, nullable) — 누락 사유
-- `settlement_locked_at` (timestamptz, nullable) — 정산마감 시점 스냅샷
+`team_leaders` 테이블에 컬럼 추가:
+- `aliases text[] default '{}'` — 별칭 목록 (예: 강형주의 ["형주"])
+- `display_suffix text` — 동명이인 구분 (예: "2", "3" 또는 직접 입력)
 
-**신규 테이블 `settlement_periods`** — 정산 기간/마감 상태 관리
-- `scope` ('company'|'leader'), `target_id` (uuid), `period_start`, `period_end`
-- `status` ('open'|'locked'|'regen_required'|'regen_done')
-- `locked_at`, `last_modified_at`
+별칭 중복 방지용 부분 유니크 인덱스:
+```sql
+CREATE UNIQUE INDEX team_leaders_alias_unique
+  ON team_leaders (user_id, lower(unnest))
+  -- 실제로는 trigger로 별칭 중복 검사
+```
+(Postgres 한계상 trigger 기반 검증 함수 사용)
 
-**신규 테이블 `settlement_documents`** — 정산서 버전 관리
-- `period_id` → settlement_periods, `version` (int), `file_path` (text)
-- `change_reason` (text), `created_at`
+## 2. 이름 정규화 라이브러리 (`src/lib/leaderResolver.ts`)
 
-## 2단계: 오류 검사 엔진 (`src/lib/recordValidation.ts`)
+순수 함수:
+- `resolveLeaderName(input: string, leaders: Leader[]): Leader | null`
+  - 정식 이름 → 매칭
+  - 별칭(aliases) → 매칭
+  - 공백/대소문자 무시
+- `getDisplayName(leader: Leader): string`
+  - `name + (display_suffix ? display_suffix : "")`
+- `detectDuplicates(leaders: Leader[]): Map<name, count>`
 
-순수 함수로 13개 검사 룰 구현 + 단위 테스트:
-1. 필수값 누락 (날짜/업체/팀장1/고객명/품목)
-2. 금액 오류 (문자/음수)
-3. 배송비총액 = 수도권+비고+지방
-4. 미등록 업체 (경고)
-5. 미등록 팀장 (경고, 팀장2 빈칸 허용)
-6. 지역구분 vs 배송지 자동분류 불일치 (경고)
-7. 결제유무 허용값 (미결제/결제완료)
-8. 분할 허용값 (빈칸/3분할/형주동석)
-9. 3분할 시 팀장1/2 필수
-10. 거부팀장 충돌 (경고 + 가상기사 표시)
-11. 휴무일 (본사=오류, 팀장=해당팀장 오류)
-12. 중복 의심 (날짜+업체+고객+품목+총액)
-13. 기간별 업체총액 vs 팀장총액 일치 (1-15/16-말/월전체)
+기존 `companyMatch.ts` 패턴과 동일한 테스트 파일 추가
+(`leaderResolver.test.ts`).
 
-각 결과: `{ rowId, severity: 'error'|'warning', code, message }`
+## 3. 적용 지점
 
-## 3단계: 기록입력 UI 변경 (`src/pages/RecordInput.tsx`)
+`resolveLeaderName`을 다음 위치에 모두 적용:
+- 엑셀 붙여넣기 파서 (Records 화면)
+- 수기입력 leader1/leader2/leader3 필드
+- 제목에서 팀장명 자동 추출 로직
+- `recordValidation.ts`의 팀장 등록 검사
 
-- 상단에 큰 "오류 검사" 버튼 + "누락분 추가" 버튼
-- 검사 결과 패널: 전체/오류/경고/정상 카운트 + 색상 배지(빨강/주황/초록)
-- 오류 목록 테이블: 행번호 / 종류 / 내용 / [수정] 버튼 → 해당 행 편집 모달
-- 오류 존재 시 저장/정산마감 비활성화, 경고만 있으면 확인 다이얼로그
-- 목록에 "일반/누락분" 구분 배지
+저장 시 `leader_name`은 항상 정식 이름(`leaders.name`)으로 정규화하여 기록.
 
-## 4단계: 누락분 추가 모달
+## 4. 오은규 → 오동선 합산 표시 (팀장정산 화면)
 
-- 위 검사 항목 전체 필드 입력 폼 + 누락 사유 필수
-- 저장 직전 자동으로 오류 검사 실행
-- 저장 시 `is_missing=true`, `date` 기준으로 어느 정산기간에 귀속되는지 표시
-- 해당 기간 `settlement_periods.status`를 'regen_required'로 갱신
+`team_leaders.settle_to_id`가 이미 존재 → 활용.
 
-## 5단계: 정산서 버전관리
+팀장정산 상세에서 `leader1_id`가 자기 자신 외에 `settle_to_id = 본인` 인 팀장 건도 합산.
 
-- 회사/팀장 정산서 생성 코드에서 파일명 규칙: `{scope}_{name}_{YYYY-MM}_{1-15|16-말}_v{n}.png`
-- 기존 파일 삭제 금지, version 자동 증가
-- 정산 화면에 "재생성 필요" 뱃지 + "정산서 재생성" 버튼
-- 재생성 시 새 row를 settlement_documents에 insert + status='regen_done'
+표시:
+- 행 배경: `bg-amber-50` (연주황)
+- 정산처리 컬럼: `오은규 → 오동선`
+- 요약 카드에 별도 섹션:
+  - "오은규 정산합산 포함" 뱃지 (연노랑)
+  - 합산 건수 / 합산 금액
 
-## 6단계: 정산 화면 반영
+색상은 `index.css`에 semantic token 추가:
+```css
+--settle-merged-bg: 45 100% 95%;
+--settle-merged-fg: 30 80% 30%;
+```
 
-- CompanySettlement / LeaderSettlement / Summary / HQSettlement에서 `is_missing` 포함 집계
-- 정산서 목록에 버전 리스트 표시(최신 강조)
+## 5. 팀장관리 UI (Settings)
 
-## 기술 세부
+각 팀장 row에 추가 입력:
+- 별칭 (쉼표 구분 입력 or 칩 형태 추가/삭제)
+- 구분명 (display_suffix, 동명이인 시)
 
-- 검증 엔진은 React와 분리된 순수 TS — Vitest 테스트 동반 (CI에서 자동 실행)
-- 휴무일/거부팀장 검사를 위해 holidays / team_leaders.is_rejected 활용
-- 정산기간 계산 유틸: `getPeriod(date)` → {year, month, half: '1-15'|'16-end'}
-- UI는 기존 디자인 토큰(시맨틱 토큰) 사용, shadcn 컴포넌트 활용
+저장 시 검증:
+- 별칭 중복 → 토스트 경고 + 저장 차단
+- 동명이인 자동 감지 → 안내 메시지 (suffix 미입력 시 자동 "2","3" 제안)
 
-## 작업 범위가 크기 때문에 확인
+## 6. 기존 데이터 마이그레이션
 
-이 작업은 마이그레이션 1회 + 신규 파일 약 8개 + 기존 파일 수정 약 6개로, 한 번에 처리하면 변경 폭이 매우 큽니다. 아래 중 어떻게 진행할지 알려주세요:
+별도 SQL 마이그레이션 (idempotent):
+- 강형주 team_leader에 aliases=['형주'] 자동 추가 (존재하면)
+- 기존 deliveries 중 `leader1_name='형주'` → 강형주 ID로 업데이트, leader1_name='강형주'
+- 동일 처리: leader2_name, leader3_name
 
-**A. 한 번에 전체 구현** (1~6단계 모두)
-**B. 단계별 분할 진행** — 먼저 1+2+3단계(오류 검사)만 → 확인 후 4+5+6단계(누락분/버전관리)
-**C. 우선순위 지정** — 가장 급한 기능만 먼저
+(사용자 데이터별 처리는 trigger 없이 일회성 UPDATE.)
+
+## 7. 집계 정합성
+
+모든 집계는 `leader_id` 기준 group by (이미 그렇게 되어 있음). 표시명만 `getDisplayName()` 사용. 한눈요약/본사정산도 동일.
+
+## 작업 순서
+
+1. 마이그레이션: aliases, display_suffix 컬럼 + 기존 데이터 정리
+2. `leaderResolver.ts` + 테스트
+3. Records 화면 입력/붙여넣기에 resolver 적용
+4. Settings 팀장관리 UI (별칭, 구분명)
+5. 팀장정산 화면: 오은규 합산 표시 + 색상
+6. 한눈요약/본사정산 표시명 통일 확인
+
+## 예상 규모
+
+대규모 작업 (5~6 크레딧 예상). 단계별 진행도 가능합니다.
+
+## 진행 방식
+
+- A. 한 번에 전체 구현
+- B. 단계별 (먼저 1~4: 별칭/동명이인 → 확인 후 5~6: 오은규 합산 표시)
+- C. 가장 시급한 것 먼저 (어느 항목?)
