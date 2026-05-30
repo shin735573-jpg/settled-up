@@ -378,23 +378,21 @@ export default function LeaderSettlement() {
   /** 편집 중인 공통공제 값 저장 (upsert). base와 동일하면 오버라이드 제거. */
   const saveDetailCommon = async () => {
     if (!user || !leaderId) return;
-    if (isMultiCommonPeriod) {
-      toast.error("월전체에서는 공통공제를 수정할 수 없습니다. 1~15일/16~말일 보름 기간을 선택해 각각 수정하세요.");
-      return;
-    }
     const entries = Object.entries(detailCommonEdits);
     if (entries.length === 0) return;
     setSavingCommon(true);
-    for (const [cdId, amount] of entries) {
+    for (const [editKey, amount] of entries) {
+      // editKey 형식: `${cdId}__${periodKey}`
+      const [cdId, pKey] = editKey.split("__");
+      if (!cdId || !pKey) continue;
       const cd = commonDeductions.find((c) => c.id === cdId);
       if (!cd) continue;
       if (Number(amount) === num(cd.amount)) {
-        // 기본값과 동일 → 오버라이드 삭제
         await supabase
           .from("leader_common_overrides")
           .delete()
           .eq("leader_id", leaderId)
-          .eq("period_key", periodKey)
+          .eq("period_key", pKey)
           .eq("common_deduction_id", cdId);
       } else {
         const { error } = await supabase
@@ -403,7 +401,7 @@ export default function LeaderSettlement() {
             {
               user_id: user.id,
               leader_id: leaderId,
-              period_key: periodKey,
+              period_key: pKey,
               common_deduction_id: cdId,
               amount: Number(amount) || 0,
             },
@@ -419,20 +417,17 @@ export default function LeaderSettlement() {
   };
 
   /** 기본값으로 되돌리기: 저장된 오버라이드 삭제 + 편집 상태도 base로 */
-  const resetCommonOverride = async (cdId: string, base: number) => {
+  const resetCommonOverride = async (cdId: string, pKey: string, _base: number) => {
     if (!user || !leaderId) return;
-    if (isMultiCommonPeriod) {
-      toast.error("월전체에서는 공통공제를 수정/되돌릴 수 없습니다. 보름 기간을 선택하세요.");
-      return;
-    }
     await supabase
       .from("leader_common_overrides")
       .delete()
       .eq("leader_id", leaderId)
-      .eq("period_key", periodKey)
+      .eq("period_key", pKey)
       .eq("common_deduction_id", cdId);
+    const editKey = `${cdId}__${pKey}`;
     setDetailCommonEdits((m) => {
-      const { [cdId]: _omit, ...rest } = m;
+      const { [editKey]: _omit, ...rest } = m;
       return rest;
     });
     await reloadCommonOverrides();
