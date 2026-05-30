@@ -8,7 +8,7 @@ import { allocateRow } from "@/lib/splitAllocation";
 
 type Delivery = any;
 type Company = { id: string; name: string; active: boolean };
-type Leader = { id: string; name: string; active: boolean; is_rejected: boolean; is_virtual: boolean; settle_to_id: string | null };
+type Leader = { id: string; name: string; active: boolean; is_rejected: boolean; is_virtual: boolean; settle_to_id: string | null; settle_status?: "included" | "excluded" | null };
 
 export default function Summary() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -24,7 +24,7 @@ export default function Summary() {
       const [{ data: d }, { data: c }, { data: l }] = await Promise.all([
         supabase.from("deliveries").select("*").gte("date", start).lt("date", end),
         supabase.from("companies").select("id,name,active").order("name"),
-        supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases").order("name"),
+        supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases,settle_status").order("name"),
       ]);
       setRows(d || []);
       setCompanies((c as Company[]) || []);
@@ -75,7 +75,9 @@ export default function Summary() {
     };
 
     // 표시 대상: 활성·비거부, settle_to_id 없는 팀장만 (귀속된 팀장은 본 팀장에 합산)
-    const visible = leaders.filter((l) => l.active && !l.is_rejected && !l.settle_to_id);
+    const visible = leaders.filter(
+      (l) => l.active && !l.is_rejected && !l.settle_to_id && ((l as any).settle_status ?? "included") !== "excluded",
+    );
     const acc = new Map(visible.map((l) => [l.id, { id: l.id, name: l.name, count: 0, fee: 0, cod: 0 }]));
 
     for (const r of rows) {
