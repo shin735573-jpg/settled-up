@@ -441,6 +441,11 @@ function LeadersTab() {
             const needsAlias = r.is_rejected && !(al[0] || "").trim();
             const settleTarget = r.settle_to_id ? rows.find((x) => x.id === r.settle_to_id) : null;
             const isSpecial = r.is_rejected && !!settleTarget;
+            const acctTrim = (r.account_number || "").trim();
+            const acctMissing = r.issues_invoice && !acctTrim;
+            const acctTooShort = !!acctTrim && acctTrim.replace(/\s/g, "").length < 8;
+            const excludedNoTarget = (r.settle_status || "included") === "excluded" && !r.settle_to_id && !r.is_rejected;
+            const minGuaranteeInvalid = r.min_guarantee_enabled && (!r.min_guarantee_amount || r.min_guarantee_amount <= 0);
             return (
             <TableRow key={r.id}>
               <TableCell>
@@ -481,7 +486,11 @@ function LeadersTab() {
               <TableCell>
                 <Select
                   value={r.issues_invoice ? "yes" : "no"}
-                  onValueChange={(v) => update(r.id, { issues_invoice: v === "yes" } as any)}
+                  onValueChange={(v) => {
+                    const next = v === "yes";
+                    update(r.id, { issues_invoice: next } as any);
+                    if (next && !acctTrim) toast.warning(`${r.name}: 계산서 발행 시 계좌번호가 필요합니다`);
+                  }}
                 >
                   <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -492,14 +501,20 @@ function LeadersTab() {
               </TableCell>
               <TableCell>
                 <Input
-                  className="w-36"
+                  className={`w-36 ${acctMissing ? "border-destructive" : ""}`}
                   defaultValue={r.account_number || ""}
                   placeholder="은행 000-000"
                   onBlur={(e) => {
                     const v = e.target.value.trim() || null;
-                    if (v !== (r.account_number || null)) update(r.id, { account_number: v } as any);
+                    if (v !== (r.account_number || null)) {
+                      update(r.id, { account_number: v } as any);
+                      if (r.issues_invoice && !v) toast.warning(`${r.name}: 계산서 발행 팀장은 계좌번호 입력이 필요합니다`);
+                      else if (v && v.replace(/\s/g, "").length < 8) toast.warning(`${r.name}: 계좌번호 형식을 확인하세요`);
+                    }
                   }}
                 />
+                {acctMissing && <div className="text-[10px] text-destructive mt-1">계좌번호 필요</div>}
+                {!acctMissing && acctTooShort && <div className="text-[10px] text-amber-600 mt-1">형식 확인</div>}
               </TableCell>
               <TableCell><Checkbox checked={r.is_rejected} onCheckedChange={(v) => update(r.id, { is_rejected: !!v })} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_metro ?? 0} onBlur={(e) => update(r.id, { fee_rate_metro: Number(e.target.value) } as any)} /></TableCell>
@@ -509,14 +524,20 @@ function LeadersTab() {
               <TableCell>
                 <Select
                   value={r.settle_status || "included"}
-                  onValueChange={(v) => update(r.id, { settle_status: v } as any)}
+                  onValueChange={(v) => {
+                    update(r.id, { settle_status: v } as any);
+                    if (v === "excluded" && !r.settle_to_id && !r.is_rejected) {
+                      toast.warning(`${r.name}: 정산제외 시 정산귀속 또는 거부 설정을 확인하세요`);
+                    }
+                  }}
                 >
-                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className={`w-28 ${excludedNoTarget ? "border-destructive" : ""}`}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="included">정산포함</SelectItem>
                     <SelectItem value="excluded">정산제외</SelectItem>
                   </SelectContent>
                 </Select>
+                {excludedNoTarget && <div className="text-[10px] text-destructive mt-1">귀속 미지정</div>}
               </TableCell>
               <TableCell>
                 <Select value={r.settle_to_id || "none"} onValueChange={(v) => update(r.id, { settle_to_id: v === "none" ? null : v })}>
@@ -546,19 +567,34 @@ function LeadersTab() {
                 <div className="flex items-center gap-1">
                   <Checkbox
                     checked={r.min_guarantee_enabled}
-                    onCheckedChange={(v) => update(r.id, { min_guarantee_enabled: !!v } as any)}
+                    onCheckedChange={(v) => {
+                      const enabled = !!v;
+                      update(r.id, { min_guarantee_enabled: enabled } as any);
+                      if (enabled && (!r.min_guarantee_amount || r.min_guarantee_amount <= 0)) {
+                        toast.warning(`${r.name}: 최저보장 금액을 입력하세요`);
+                      }
+                    }}
                   />
                   <Input
                     type="number"
-                    className="w-24"
+                    className={`w-24 ${minGuaranteeInvalid ? "border-destructive" : ""}`}
                     disabled={!r.min_guarantee_enabled}
                     defaultValue={r.min_guarantee_amount ?? 0}
                     onBlur={(e) => {
-                      const v = Number(e.target.value) || 0;
+                      let v = Number(e.target.value) || 0;
+                      if (v < 0) {
+                        toast.error(`${r.name}: 최저보장 금액은 0 이상이어야 합니다`);
+                        e.target.value = String(r.min_guarantee_amount ?? 0);
+                        return;
+                      }
                       if (v !== (r.min_guarantee_amount ?? 0)) update(r.id, { min_guarantee_amount: v } as any);
+                      if (r.min_guarantee_enabled && v <= 0) {
+                        toast.warning(`${r.name}: 최저보장이 켜져 있지만 금액이 0 입니다`);
+                      }
                     }}
                   />
                 </div>
+                {minGuaranteeInvalid && <div className="text-[10px] text-destructive mt-1">금액 입력 필요</div>}
               </TableCell>
               <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
