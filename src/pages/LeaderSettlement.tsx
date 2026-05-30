@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
@@ -31,6 +31,10 @@ type CommonDeduction = { id: string; label: string; amount: number; active: bool
 type LeaderPeriodDeduction = {
   id: string; leader_id: string; period_key: string;
   label: string; amount: number; sort_order: number;
+};
+type LeaderCommonOverride = {
+  id: string; leader_id: string; period_key: string;
+  common_deduction_id: string; amount: number;
 };
 
 const num = (v: unknown) => Number(v ?? 0) || 0;
@@ -76,6 +80,10 @@ export default function LeaderSettlement() {
   const [periodDeductions, setPeriodDeductions] = useState<LeaderPeriodDeduction[]>([]);
   const [detailDeductions, setDetailDeductions] = useState<LeaderPeriodDeduction[]>([]);
   const [savingDeductions, setSavingDeductions] = useState(false);
+  const [commonOverrides, setCommonOverrides] = useState<LeaderCommonOverride[]>([]);
+  // 상세 화면에서 편집 중인 공통공제 값 (cd_id -> amount). undefined면 base 사용.
+  const [detailCommonEdits, setDetailCommonEdits] = useState<Record<string, number>>({});
+  const [savingCommon, setSavingCommon] = useState(false);
 
   const periodKey = useMemo(() => (period === "all" ? "all" : `${month}-${period}`), [month, period]);
 
@@ -122,17 +130,36 @@ export default function LeaderSettlement() {
     })();
   }, [periodKey]);
 
+  // 현 기간의 모든 팀장 공통공제 개별 오버라이드 (마스터 합계용)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("leader_common_overrides")
+        .select("*")
+        .eq("period_key", periodKey);
+      setCommonOverrides((data as LeaderCommonOverride[]) || []);
+    })();
+  }, [periodKey]);
+
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
 
   const activeCommonDeductions = useMemo(
-    () => commonDeductions.filter((c) => c.active && num(c.amount) > 0 && (c.label || "").trim()),
+    () => commonDeductions.filter((c) => c.active && (c.label || "").trim()),
     [commonDeductions],
   );
-  const commonDeductionTotal = useMemo(
-    () => activeCommonDeductions.reduce((s, c) => s + num(c.amount), 0),
-    [activeCommonDeductions],
-  );
+
+  /** 팀장+기간에 대한 공통공제 항목별 실제 적용금액 (오버라이드 우선, 없으면 base). */
+  const effectiveCommonAmount = (leaderId: string, cd: CommonDeduction): number => {
+    const ov = commonOverrides.find(
+      (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id,
+    );
+    return ov ? num(ov.amount) : num(cd.amount);
+  };
+
+  /** 팀장 공통공제 합계 (오버라이드 반영). */
+  const commonTotalFor = (leaderId: string): number =>
+    activeCommonDeductions.reduce((s, cd) => s + effectiveCommonAmount(leaderId, cd), 0);
 
   const individualTotalFor = (lid: string): number =>
     periodDeductions
@@ -176,18 +203,19 @@ export default function LeaderSettlement() {
       const total = metro + noteAmt + regional;
       const afterFees = total - fees;
       const indiv = individualTotalFor(l.id);
-      const deduction = commonDeductionTotal + indiv;
+      const common = commonTotalFor(l.id);
+      const deduction = common + indiv;
       const net = afterFees - cod - deduction;
       return {
         leader: l,
         count: rs.length,
         metro, noteAmt, regional, cod,
         total,
-        fees, afterFees, deduction, net,
+        fees, afterFees, common, indiv, deduction, net,
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settlingLeaders, rows, leaders, commonDeductionTotal, periodDeductions]);
+  }, [settlingLeaders, rows, leaders, activeCommonDeductions, commonOverrides, periodDeductions]);
 
   const periodLabel =
     period === "all" ? "전체 기간" :
@@ -233,15 +261,21 @@ export default function LeaderSettlement() {
       (s, d) => s + (num(d.amount) > 0 && (d.label || "").trim() ? num(d.amount) : 0),
       0,
     );
-    const deduction = commonDeductionTotal + indivTotal;
+    // 상세 공통공제: 편집중 값(detailCommonEdits) 우선, 없으면 오버라이드, 없으면 base
+    const commonTotal = activeCommonDeductions.reduce((s, cd) => {
+      const edited = detailCommonEdits[cd.id];
+      if (typeof edited === "number") return s + edited;
+      return s + (detailLeader ? effectiveCommonAmount(detailLeader.id, cd) : num(cd.amount));
+    }, 0);
+    const deduction = commonTotal + indivTotal;
     const net = afterFees - cod - deduction;
-    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal };
+    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailRows, companyById, detailLeader, mergedIdSet, detailDeductions, commonDeductionTotal]);
+  }, [detailRows, companyById, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides]);
 
   // 상세 진입 시 개별공제 로드
   useEffect(() => {
-    if (!leaderId) { setDetailDeductions([]); return; }
+    if (!leaderId) { setDetailDeductions([]); setDetailCommonEdits({}); return; }
     (async () => {
       const { data } = await supabase
         .from("leader_period_deductions")
@@ -251,6 +285,8 @@ export default function LeaderSettlement() {
         .order("sort_order");
       setDetailDeductions((data as LeaderPeriodDeduction[]) || []);
     })();
+    // 편집중 값 초기화 (저장된 override는 effective 함수에서 자동 적용)
+    setDetailCommonEdits({});
   }, [leaderId, periodKey]);
 
   const addDetailDeduction = () => {
