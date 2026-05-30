@@ -49,6 +49,7 @@ export type Database = {
       }
       companies: {
         Row: {
+          account_number: string | null
           active: boolean
           created_at: string
           fee_rate_metro: number
@@ -56,11 +57,14 @@ export type Database = {
           id: string
           issues_invoice: boolean
           name: string
+          rejected_leader_id: string | null
+          settlement_cycle: string
           updated_at: string
           user_id: string
           vat_included: boolean
         }
         Insert: {
+          account_number?: string | null
           active?: boolean
           created_at?: string
           fee_rate_metro?: number
@@ -68,11 +72,14 @@ export type Database = {
           id?: string
           issues_invoice?: boolean
           name: string
+          rejected_leader_id?: string | null
+          settlement_cycle?: string
           updated_at?: string
           user_id: string
           vat_included?: boolean
         }
         Update: {
+          account_number?: string | null
           active?: boolean
           created_at?: string
           fee_rate_metro?: number
@@ -80,6 +87,8 @@ export type Database = {
           id?: string
           issues_invoice?: boolean
           name?: string
+          rejected_leader_id?: string | null
+          settlement_cycle?: string
           updated_at?: string
           user_id?: string
           vat_included?: boolean
