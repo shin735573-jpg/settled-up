@@ -29,14 +29,14 @@ type FieldKey =
 
 const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: boolean }[] = [
   { key: "date",     label: "날짜",       required: true,  aliases: ["날짜","배송일","일자","출고일","date"] },
-  { key: "company",  label: "업체",       required: true,  aliases: ["업체","업체명","거래처","상호","company"] },
+  { key: "company",  label: "업체",       required: true,  aliases: ["업체","업체명","거래처","거래처명","상호","회사","회사명","company"] },
   { key: "leader1",  label: "팀장1",                       aliases: ["팀장1","기사1","배송팀장1","팀장","leader1"] },
   { key: "leader2",  label: "팀장2",                       aliases: ["팀장2","기사2","배송팀장2","leader2"] },
-  { key: "customer", label: "고객명",                       aliases: ["고객명","고객","성명","받는분","customer"] },
+  { key: "customer", label: "고객명",                       aliases: ["고객명","고객","성명","이름","성함","받는분","수령인","customer"] },
   { key: "region",   label: "지역",                         aliases: ["지역","배송지역","지역명","region"] },
   { key: "item",     label: "품목",                         aliases: ["품목","상품","제품","품명","내용","item"] },
   { key: "note",     label: "비고",                         aliases: ["비고","메모","특이사항","참고","note"] },
-  { key: "metro",    label: "수도권배송비",                  aliases: ["수도권배송비","수도권","수도권비","수도권 배송비"] },
+  { key: "metro",    label: "수도권배송비",                  aliases: ["수도권배송비","수도권","수도권비","수도권 배송비","금액","배송비","요금"] },
   { key: "noteAmt",  label: "비고금액",                     aliases: ["비고금액","비고비","추가금","추가비","기타금액"] },
   { key: "regional", label: "지방배송비",                   aliases: ["지방배송비","지방","지방비","지방 배송비"] },
   { key: "cod",      label: "착불",                         aliases: ["착불","착불금액","현장수령","선지급"] },
@@ -703,7 +703,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       if (customer) signals++;
       if (item) signals++;
       if (metro + noteAmt + regional + cod > 0) signals++;
-      if (signals < 2) return null;
+      // 자동감지된 행은 모두 미리보기에 표시 (오류/경고는 컬럼으로 안내).
+      // 단, 아무 신호도 없는 완전 빈 행만 제외.
+      if (signals < 1) return null;
 
       // 신호가 충분한데 날짜만 없으면 위 lastDate가 fill-down 처리됨 (이미 위에서 적용)
 
