@@ -29,7 +29,7 @@ import {
 import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
 
 type Company = { id: string; name: string; active: boolean };
-type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean };
+type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean; aliases?: string[] | null };
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
@@ -142,6 +142,11 @@ function buildLeaderIndex(leaders: Leader[]) {
       add(n.slice(1), l.id);
     }
     if (n.length >= 4) add(n.slice(-3), l.id);
+    // 사용자 등록 별칭
+    for (const a of l.aliases ?? []) {
+      const at = String(a ?? "").trim();
+      if (at) add(at, l.id);
+    }
   }
   // 길이 내림차순으로 정렬된 키 목록 (긴 매치 우선)
   const keys = Array.from(map.keys()).sort((a, b) => b.length - a.length);
@@ -292,7 +297,7 @@ export default function Records() {
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
       supabase.from("companies").select("id,name,active").order("name"),
-      supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active").order("name"),
+      supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active,aliases").order("name"),
       supabase.from("holidays").select("date,scope,team_leader_id"),
     ]);
     setCompanies((c as Company[]) || []);

@@ -291,8 +291,10 @@ export type Database = {
       team_leaders: {
         Row: {
           active: boolean
+          aliases: string[]
           created_at: string
           deduction_amount: number
+          display_suffix: string | null
           id: string
           is_rejected: boolean
           is_virtual: boolean
@@ -305,8 +307,10 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          aliases?: string[]
           created_at?: string
           deduction_amount?: number
+          display_suffix?: string | null
           id?: string
           is_rejected?: boolean
           is_virtual?: boolean
@@ -319,8 +323,10 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          aliases?: string[]
           created_at?: string
           deduction_amount?: number
+          display_suffix?: string | null
           id?: string
           is_rejected?: boolean
           is_virtual?: boolean
