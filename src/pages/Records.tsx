@@ -627,7 +627,10 @@ export default function Records() {
       {formOpen && (
         <Card className="p-4 md:p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{form.id ? "배송 수정" : "새 배송 입력"}</h2>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              {form.id ? "배송 수정" : (form.is_missing ? "누락분 추가" : "새 배송 입력")}
+              {form.is_missing && <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>}
+            </h2>
             <Button variant="ghost" size="icon" onClick={() => { setForm(emptyForm()); setFormOpen(false); }}>
               <X className="h-4 w-4" />
             </Button>
@@ -757,6 +760,23 @@ export default function Records() {
                 <Checkbox checked={form.paid} onCheckedChange={(v) => setForm({ ...form, paid: !!v })} />
                 <span>{form.paid ? "결제 완료" : "미결제"}</span>
               </label>
+            </div>
+            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.is_missing}
+                  onCheckedChange={(v) => setForm({ ...form, is_missing: !!v })}
+                />
+                <span className="font-medium">누락분 (정산일 이후 추가 등록)</span>
+              </label>
+              {form.is_missing && (
+                <Input
+                  className="mt-2"
+                  placeholder="누락 사유 (필수)"
+                  value={form.missing_reason}
+                  onChange={(e) => setForm({ ...form, missing_reason: e.target.value })}
+                />
+              )}
             </div>
           </div>
 
