@@ -39,6 +39,7 @@ type LeaderCommonOverride = {
 
 const num = (v: unknown) => Number(v ?? 0) || 0;
 const sumFee = (r: Delivery) => num(r.metro_fee) + num(r.note_amount) + num(r.regional_fee);
+const normalizeDeductionLabel = (v: string) => v.trim().replace(/\s+/g, "").toLowerCase();
 
 /** 행에서 정산기사(=정산귀속 후의 팀장) ID 찾기. settle_to_id 따라 redirect. */
 function settlementLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null {
@@ -160,10 +161,16 @@ export default function LeaderSettlement() {
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
 
-  const activeCommonDeductions = useMemo(
-    () => commonDeductions.filter((c) => c.active && (c.label || "").trim()),
-    [commonDeductions],
-  );
+  const activeCommonDeductions = useMemo(() => {
+    const unique = new Map<string, CommonDeduction>();
+    commonDeductions
+      .filter((c) => c.active && (c.label || "").trim())
+      .forEach((c) => {
+        const key = normalizeDeductionLabel(c.label || "");
+        if (!unique.has(key)) unique.set(key, c);
+      });
+    return Array.from(unique.values());
+  }, [commonDeductions]);
 
   /**
    * 팀장+기간에 대한 공통공제 항목별 실제 적용금액.
@@ -286,11 +293,20 @@ export default function LeaderSettlement() {
       (s, d) => s + (num(d.amount) > 0 && (d.label || "").trim() ? num(d.amount) : 0),
       0,
     );
-    // 상세 공통공제: 편집중 값(detailCommonEdits) 우선, 없으면 오버라이드, 없으면 base
+    // 상세 공통공제: 팀장 × 표시기간당 1번만 합산. 월전체만 보름 2개 합산.
     const commonTotal = activeCommonDeductions.reduce((s, cd) => {
-      const edited = detailCommonEdits[cd.id];
-      if (typeof edited === "number") return s + edited;
-      return s + (detailLeader ? effectiveCommonAmount(detailLeader.id, cd) : num(cd.amount));
+      const cdTotal = commonPeriodKeys.reduce((periodSum, pKey) => {
+        const editKey = `${cd.id}__${pKey}`;
+        const edited = detailCommonEdits[editKey];
+        if (typeof edited === "number") return periodSum + edited;
+        const ov = detailLeader
+          ? commonOverrides.find(
+              (o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id && o.period_key === pKey,
+            )
+          : undefined;
+        return periodSum + (ov ? num(ov.amount) : num(cd.amount));
+      }, 0);
+      return s + cdTotal;
     }, 0);
     const deduction = commonTotal + indivTotal;
     const net = afterFees - cod - deduction;
