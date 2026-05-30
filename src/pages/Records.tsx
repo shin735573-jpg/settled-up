@@ -333,7 +333,20 @@ export default function Records() {
                   <TableCell className="whitespace-nowrap">{r.leader2_name || "-"}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
-                  <TableCell>{r.item || "-"}</TableCell>
+                  <TableCell
+                    className="align-top max-w-[240px] cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedItems((prev) => ({ ...prev, [r.id]: !prev[r.id] }));
+                    }}
+                    title={r.item || ""}
+                  >
+                    <div
+                      className={`whitespace-pre-wrap break-words ${expandedItems[r.id] ? "" : "line-clamp-3"}`}
+                    >
+                      {r.item || "-"}
+                    </div>
+                  </TableCell>
                   <TableCell>{r.note || "-"}</TableCell>
                   <TableCell className="text-right">{fmt(r.metro_fee)}</TableCell>
                   <TableCell className="text-right">{fmt(r.note_amount)}</TableCell>
