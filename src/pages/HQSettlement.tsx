@@ -32,7 +32,7 @@ type LoadingCost = {
 type Expenses = {
   rent: number; electric: number; internet: number; caps: number;
   fire: number; repair: number; etc: number;
-  additional: { label: string; amount: number }[];
+  additional: { id?: string; date?: string; label: string; amount: number; note?: string }[];
 };
 
 const FIXED_LABELS: { key: keyof Omit<Expenses, "additional">; label: string }[] = [
@@ -79,7 +79,7 @@ const useLocalState = <T,>(key: string, initial: T): [T, (v: T | ((p: T) => T)) 
 
 const DEFAULT_EXPENSES: Expenses = {
   rent: 0, electric: 0, internet: 0, caps: 0, fire: 0, repair: 0, etc: 0,
-  additional: Array.from({ length: 50 }, () => ({ label: "", amount: 0 })),
+  additional: [],
 };
 
 export default function HQSettlement() {
@@ -353,10 +353,20 @@ export default function HQSettlement() {
   const removeLoading = (id: string) =>
     setLoadingCosts((p) => p.filter((x) => x.id !== id));
 
-  const setAdditional = (idx: number, patch: Partial<{ label: string; amount: number }>) =>
+  const setAdditional = (idx: number, patch: Partial<{ date: string; label: string; amount: number; note: string }>) =>
     setExpenses((p) => ({
       ...p,
       additional: p.additional.map((x, i) => i === idx ? { ...x, ...patch } : x),
+    }));
+  const addAdditional = () =>
+    setExpenses((p) => ({
+      ...p,
+      additional: [...p.additional, { id: crypto.randomUUID(), date: "", label: "", amount: 0, note: "" }],
+    }));
+  const removeAdditional = (idx: number) =>
+    setExpenses((p) => ({
+      ...p,
+      additional: p.additional.filter((_, i) => i !== idx),
     }));
 
   return (
