@@ -3,7 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
 
@@ -23,6 +26,11 @@ type Delivery = {
   leader1_id: string | null; leader1_name: string | null;
   leader2_id: string | null; leader2_name: string | null;
   leader3_id: string | null; leader3_name: string | null;
+};
+type CommonDeduction = { id: string; label: string; amount: number; active: boolean };
+type LeaderPeriodDeduction = {
+  id: string; leader_id: string; period_key: string;
+  label: string; amount: number; sort_order: number;
 };
 
 const num = (v: unknown) => Number(v ?? 0) || 0;
@@ -57,21 +65,30 @@ function feeFor(r: Delivery, company: Company | undefined): number {
 }
 
 export default function LeaderSettlement() {
+  const { user } = useAuth();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [period, setPeriod] = useState<Period>("month");
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [rows, setRows] = useState<Delivery[]>([]);
   const [leaderId, setLeaderId] = useState<string>("");
+  const [commonDeductions, setCommonDeductions] = useState<CommonDeduction[]>([]);
+  const [periodDeductions, setPeriodDeductions] = useState<LeaderPeriodDeduction[]>([]);
+  const [detailDeductions, setDetailDeductions] = useState<LeaderPeriodDeduction[]>([]);
+  const [savingDeductions, setSavingDeductions] = useState(false);
+
+  const periodKey = useMemo(() => (period === "all" ? "all" : `${month}-${period}`), [month, period]);
 
   useEffect(() => {
     (async () => {
-      const [{ data: l }, { data: c }] = await Promise.all([
+      const [{ data: l }, { data: c }, { data: cd }] = await Promise.all([
         supabase.from("team_leaders").select("*").order("name"),
         supabase.from("companies").select("id,name,fee_rate_metro,fee_rate_regional"),
+        supabase.from("common_deductions").select("id,label,amount,active").order("sort_order"),
       ]);
       setLeaders((l as Leader[]) || []);
       setCompanies((c as Company[]) || []);
+      setCommonDeductions((cd as CommonDeduction[]) || []);
     })();
   }, []);
 
@@ -94,8 +111,33 @@ export default function LeaderSettlement() {
     })();
   }, [range.start, range.end]);
 
+  // 현 기간의 모든 팀장 개별공제 (마스터 합계용)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("leader_period_deductions")
+        .select("*")
+        .eq("period_key", periodKey);
+      setPeriodDeductions((data as LeaderPeriodDeduction[]) || []);
+    })();
+  }, [periodKey]);
+
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
+
+  const activeCommonDeductions = useMemo(
+    () => commonDeductions.filter((c) => c.active && num(c.amount) > 0 && (c.label || "").trim()),
+    [commonDeductions],
+  );
+  const commonDeductionTotal = useMemo(
+    () => activeCommonDeductions.reduce((s, c) => s + num(c.amount), 0),
+    [activeCommonDeductions],
+  );
+
+  const individualTotalFor = (lid: string): number =>
+    periodDeductions
+      .filter((d) => d.leader_id === lid)
+      .reduce((s, d) => s + (num(d.amount) > 0 && (d.label || "").trim() ? num(d.amount) : 0), 0);
 
   /** 정산대상 팀장 목록: 활성 + 가상기사 아님 + 다른 팀장에게 정산귀속 안 된 팀장 */
   const settlingLeaders = useMemo(
@@ -133,8 +175,9 @@ export default function LeaderSettlement() {
       });
       const total = metro + noteAmt + regional;
       const afterFees = total - fees;
-      const deduction = num(l.deduction_amount) + num(l.trash_cost);
-      const net = afterFees - deduction;
+      const indiv = individualTotalFor(l.id);
+      const deduction = commonDeductionTotal + indiv;
+      const net = afterFees - cod - deduction;
       return {
         leader: l,
         count: rs.length,
@@ -144,7 +187,7 @@ export default function LeaderSettlement() {
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settlingLeaders, rows, leaders]);
+  }, [settlingLeaders, rows, leaders, commonDeductionTotal, periodDeductions]);
 
   const periodLabel =
     period === "all" ? "전체 기간" :
@@ -186,11 +229,82 @@ export default function LeaderSettlement() {
     });
     const total = metro + noteAmt + regional;
     const afterFees = total - fees;
-    const deduction = num(detailLeader?.deduction_amount) + num(detailLeader?.trash_cost);
-    const net = afterFees - deduction;
-    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount };
+    const indivTotal = detailDeductions.reduce(
+      (s, d) => s + (num(d.amount) > 0 && (d.label || "").trim() ? num(d.amount) : 0),
+      0,
+    );
+    const deduction = commonDeductionTotal + indivTotal;
+    const net = afterFees - cod - deduction;
+    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailRows, companyById, detailLeader, mergedIdSet]);
+  }, [detailRows, companyById, detailLeader, mergedIdSet, detailDeductions, commonDeductionTotal]);
+
+  // 상세 진입 시 개별공제 로드
+  useEffect(() => {
+    if (!leaderId) { setDetailDeductions([]); return; }
+    (async () => {
+      const { data } = await supabase
+        .from("leader_period_deductions")
+        .select("*")
+        .eq("leader_id", leaderId)
+        .eq("period_key", periodKey)
+        .order("sort_order");
+      setDetailDeductions((data as LeaderPeriodDeduction[]) || []);
+    })();
+  }, [leaderId, periodKey]);
+
+  const addDetailDeduction = () => {
+    setDetailDeductions((d) => [
+      ...d,
+      { id: `tmp-${Date.now()}-${Math.random()}`, leader_id: leaderId, period_key: periodKey, label: "", amount: 0, sort_order: d.length },
+    ]);
+  };
+  const updateDetailDeduction = (id: string, patch: Partial<LeaderPeriodDeduction>) => {
+    setDetailDeductions((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  };
+  const removeDetailDeduction = (id: string) => {
+    setDetailDeductions((d) => d.filter((x) => x.id !== id));
+  };
+  const saveDetailDeductions = async () => {
+    if (!user || !leaderId) return;
+    setSavingDeductions(true);
+    // 단순화: 해당 (leader, period)의 모든 행 삭제 후 비어있지 않은 행만 재삽입
+    await supabase
+      .from("leader_period_deductions")
+      .delete()
+      .eq("leader_id", leaderId)
+      .eq("period_key", periodKey);
+    const toInsert = detailDeductions
+      .filter((d) => (d.label || "").trim() || num(d.amount) > 0)
+      .map((d, i) => ({
+        user_id: user.id,
+        leader_id: leaderId,
+        period_key: periodKey,
+        label: d.label || "",
+        amount: num(d.amount),
+        sort_order: i,
+      }));
+    if (toInsert.length > 0) {
+      const { error } = await supabase.from("leader_period_deductions").insert(toInsert);
+      if (error) { toast.error("저장 실패: " + error.message); setSavingDeductions(false); return; }
+    }
+    // 재로딩
+    const { data } = await supabase
+      .from("leader_period_deductions")
+      .select("*")
+      .eq("leader_id", leaderId)
+      .eq("period_key", periodKey)
+      .order("sort_order");
+    setDetailDeductions((data as LeaderPeriodDeduction[]) || []);
+    // 마스터 합계용 캐시도 갱신
+    const { data: all } = await supabase
+      .from("leader_period_deductions")
+      .select("*")
+      .eq("period_key", periodKey);
+    setPeriodDeductions((all as LeaderPeriodDeduction[]) || []);
+    setSavingDeductions(false);
+    toast.success("개별 공제 저장 완료");
+  };
 
   return (
     <div className="space-y-4">
