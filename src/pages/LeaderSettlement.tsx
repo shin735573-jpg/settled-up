@@ -544,6 +544,15 @@ export default function LeaderSettlement() {
       </div>
 
       {!leaderId && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
+          <LeaderSummaryCard label="총배송건수" value={topSummary.totalCount.toLocaleString()} />
+          <LeaderSummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
+          <LeaderSummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
+        </div>
+      )}
+
+      {!leaderId && (
         <Card className="p-4">
           <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
           <Table className="text-sm num">
