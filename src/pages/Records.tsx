@@ -71,6 +71,7 @@ export default function Records() {
   const [formOpen, setFormOpen] = useState(true);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
