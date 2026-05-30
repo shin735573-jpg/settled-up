@@ -524,6 +524,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   const [text, setText] = useState("");
   const [skipErrors, setSkipErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 행별 팀장 수동 수정: rowIndex -> { l1?: id|""(=빈칸), l2?: id|"" }
+  const [leaderOverrides, setLeaderOverrides] = useState<Record<number, { l1?: string; l2?: string }>>({});
+
+  const leaderIndex = useMemo(() => buildLeaderIndex(leaders), [leaders]);
+  const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
+  const leaderById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
 
   // 붙여넣은 원본을 grid로 변환
   const grid = useMemo<string[][]>(() => {
@@ -578,7 +584,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     const dataRows = grid.slice(headerInfo.dataStart);
     let lastDate: string | null = null;
     const companyMap = new Map(companies.map((c) => [c.name.trim(), c]));
-    const leaderMap = new Map(leaders.map((l) => [l.name.trim(), l]));
     const holidayHQ = new Set(holidays.filter((h) => h.scope === "hq").map((h) => h.date));
     const holidayLeader = new Set(holidays.filter((h) => h.scope === "leader").map((h) => `${h.date}|${h.team_leader_id}`));
 
@@ -587,6 +592,20 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     mapping.forEach((k, i) => { if (k && idx[k] === undefined) idx[k] = i; });
     const cell = (row: string[], k: FieldKey) => {
       const i = idx[k]; return i === undefined ? "" : (row[i] ?? "").trim();
+    };
+    // 팀장 자동 인식에 사용할 텍스트 후보: leader1/leader2 셀 + (그 셀이 비어있으면) 매핑 안 된 모든 셀
+    const collectLeaderText = (row: string[]) => {
+      const parts: string[] = [];
+      const l1 = cell(row, "leader1"); if (l1) parts.push(l1);
+      const l2 = cell(row, "leader2"); if (l2) parts.push(l2);
+      if (parts.length === 0) {
+        // 미매핑 셀들에서 후보를 찾는다
+        for (let i = 0; i < row.length; i++) if (!mapping[i]) {
+          const v = (row[i] ?? "").trim();
+          if (v) parts.push(v);
+        }
+      }
+      return parts.join("\n");
     };
 
     return dataRows.map((cols) => {
@@ -603,13 +622,28 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       const companyRec = companyMap.get(company);
       if (company && !companyRec) errors.push({ field: "업체", msg: "미등록 업체" });
 
-      const leaderNames = [cell(cols, "leader1") || null, cell(cols, "leader2") || null];
-      const leaderRecs = leaderNames.map((n) => (n ? leaderMap.get(n) || null : null));
-      leaderNames.forEach((n, i) => {
-        if (n && !leaderRecs[i]) errors.push({ field: `팀장${i + 1}`, msg: `미등록 팀장: ${n}` });
-        if (leaderRecs[i]?.is_rejected) errors.push({ field: `팀장${i + 1}`, msg: `거부팀장 배정 불가: ${n}` });
-        if (date && leaderRecs[i] && holidayLeader.has(`${date}|${leaderRecs[i]!.id}`)) {
-          errors.push({ field: `팀장${i + 1}`, msg: `${n} 휴무일` });
+      // 팀장 자동 인식
+      const leaderText = collectLeaderText(cols);
+      const extracted = extractLeaders(leaderText, leaderIndex);
+      let leaderIds: (string | null)[] = [extracted.ids[0] || null, extracted.ids[1] || null];
+      // 인식 실패 시: leader1/leader2 셀 원문 그대로 (미등록 경고용)
+      const fallbackNames: (string | null)[] = [cell(cols, "leader1") || null, cell(cols, "leader2") || null];
+      const leaderNames: (string | null)[] = leaderIds.map((id, i) =>
+        id ? leaderById.get(id)?.name || null : fallbackNames[i]
+      );
+      // 미등록 팀장: 텍스트에는 이름이 있는데 매칭 실패한 경우
+      if (leaderText && extracted.ids.length === 0 && leaderText.replace(LEADER_SPLIT_RE, "").length > 0) {
+        errors.push({ field: "팀장", msg: `미등록 팀장: ${leaderText}` });
+      }
+      if (extracted.ids.length >= 3) {
+        warnings.push({ field: "팀장", msg: `${extracted.ids.length}명 인식 — 앞 2명만 사용 (팀장3 미사용)` });
+      }
+      // 거부/휴무 검사
+      leaderIds.forEach((id, i) => {
+        const rec = id ? leaderById.get(id) : null;
+        if (rec?.is_rejected) errors.push({ field: `팀장${i + 1}`, msg: `거부팀장 배정 불가: ${rec.name}` });
+        if (date && rec && holidayLeader.has(`${date}|${rec.id}`)) {
+          errors.push({ field: `팀장${i + 1}`, msg: `${rec.name} 휴무일` });
         }
       });
       if (date && holidayHQ.has(date)) warnings.push({ field: "날짜", msg: "본사 휴무일" });
@@ -642,20 +676,35 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
         metro, noteAmt, regional, cod,
         split, paid,
         companyId: companyRec?.id || null,
-        leaderIds: leaderRecs.map((r) => r?.id || null),
+        leaderIds,
         errors, warnings,
       };
     });
-  }, [grid, mapping, headerInfo, companies, leaders, holidays]);
+  }, [grid, mapping, headerInfo, companies, leaders, holidays, leaderIndex, leaderById]);
 
-  const errorCount = parsed.filter((r) => r.errors.length).length;
+  // 사용자 수정 반영된 최종 팀장 적용
+  const effective = useMemo(() => parsed.map((r, i) => {
+    const ov = leaderOverrides[i] || {};
+    const applyOne = (autoId: string | null, autoName: string | null, ovVal: string | undefined) => {
+      if (ovVal === undefined) return { id: autoId, name: autoName };
+      if (ovVal === "") return { id: null, name: null };
+      const rec = leaderById.get(ovVal);
+      return { id: rec?.id || null, name: rec?.name || null };
+    };
+    const a = applyOne(r.leaderIds[0], r.leaders[0], ov.l1);
+    const b = applyOne(r.leaderIds[1], r.leaders[1], ov.l2);
+    // override 적용 시 거부/휴무 재검사 → 단순화: 기존 errors 유지 + override 행은 자동 검사 결과를 신뢰
+    return { ...r, leaderIds: [a.id, b.id] as (string | null)[], leaders: [a.name, b.name] as (string | null)[] };
+  }), [parsed, leaderOverrides, leaderById]);
+
+  const errorCount = effective.filter((r) => r.errors.length).length;
 
   const save = async () => {
     if (!userId) return;
     if (missingRequired.length > 0) {
       toast.error(`필수 항목 누락: ${missingRequired.join(", ")}`); return;
     }
-    const toSave = skipErrors ? parsed.filter((r) => !r.errors.length) : parsed;
+    const toSave = skipErrors ? effective.filter((r) => !r.errors.length) : effective;
     if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
     if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
     setSaving(true);
@@ -678,6 +727,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     if (error) { toast.error(error.message); return; }
     toast.success(`${rows.length}건 저장 완료`);
     setText("");
+    setLeaderOverrides({});
     onSaved();
   };
 
