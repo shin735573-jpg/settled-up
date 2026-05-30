@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { fmt, parseNum, parseDate } from "@/lib/format";
 import { toast } from "sonner";
+import { ko } from "date-fns/locale";
 
 type Company = { id: string; name: string; active: boolean };
 type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean };
@@ -1343,6 +1344,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                                 <PopoverContent className="w-auto p-0" align="start">
                                   <Calendar
                                     mode="single"
+                                    locale={ko}
                                     selected={r.date ? new Date(r.date + "T00:00:00") : undefined}
                                     defaultMonth={
                                       r.date
