@@ -239,7 +239,6 @@ function LeadersTab() {
    * 기존 deliveries에서 별칭으로 저장된 팀장명을 찾아 정식 팀장명/ID로 통합.
    * - leaderN_id가 비었지만 leaderN_name이 별칭과 매칭되면 ID/이름 채움
    * - leaderN_id가 있으면 leaderN_name을 해당 팀장의 정식 이름으로 동기화
-   * - 가상기사/가상팀장은 매칭 대상에서 제외
    */
   const cleanLeaderNames = async () => {
     if (!confirm("기존 기록의 팀장 이름을 정식 팀장명으로 통합합니다. 진행하시겠습니까?")) return;
