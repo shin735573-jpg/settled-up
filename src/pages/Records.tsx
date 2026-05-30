@@ -1344,6 +1344,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                                 <PopoverContent className="w-auto p-0" align="start">
                                   <Calendar
                                     mode="single"
+                                    locale={ko}
                                     selected={r.date ? new Date(r.date + "T00:00:00") : undefined}
                                     defaultMonth={
                                       r.date
