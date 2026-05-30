@@ -187,6 +187,32 @@ function LeadersTab() {
     await update(id, { aliases } as any);
   };
 
+  /** 별칭 슬롯 (0/1/2) 한 칸만 변경. 빈 슬롯은 자동으로 끝에서 제거. */
+  const updateAliasSlot = async (id: string, slot: 0 | 1 | 2, value: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const current = [...(row.aliases || [])];
+    while (current.length < 3) current.push("");
+    current[slot] = value.trim();
+    // 끝의 빈 슬롯 제거 (DB에는 채워진 별칭만 저장)
+    const next = [...current];
+    while (next.length && !next[next.length - 1]) next.pop();
+    // 내부 빈 슬롯도 제거 (별칭1만 비고 별칭2 있으면 별칭2가 별칭1이 되지 않도록 슬롯 보존)
+    // → 사용자 의도 보존을 위해 빈 슬롯도 그대로 저장
+    const toSave = current.slice(0, Math.max(next.length, slot + 1));
+    // 중복 검사 (자기 안에서 + 다른 팀장과)
+    const filled = toSave.filter(Boolean);
+    const dupInSelf = new Set<string>();
+    for (const a of filled) {
+      const k = a.toLowerCase();
+      if (dupInSelf.has(k)) { toast.error(`별칭 "${a}"이(가) 같은 팀장 안에서 중복됩니다`); load(); return; }
+      dupInSelf.add(k);
+    }
+    const conflict = findAliasConflict(id, filled, rows);
+    if (conflict) { toast.error(conflict); load(); return; }
+    await update(id, { aliases: toSave } as any);
+  };
+
   const updateName = async (id: string, nextName: string) => {
     const row = rows.find((r) => r.id === id);
     if (!row) return;
@@ -215,7 +241,12 @@ function LeadersTab() {
         <TableHeader>
           <TableRow>
             <TableHead>팀장명</TableHead>
-            <TableHead>별칭 (쉼표 구분)</TableHead>
+            <TableHead className="min-w-[110px]">
+              별칭1
+              <div className="text-[10px] text-amber-700 font-normal">업체표시용</div>
+            </TableHead>
+            <TableHead className="min-w-[100px]">별칭2</TableHead>
+            <TableHead className="min-w-[100px]">별칭3</TableHead>
             <TableHead>구분명</TableHead>
             <TableHead>지역</TableHead>
             <TableHead>거부</TableHead>
@@ -230,6 +261,7 @@ function LeadersTab() {
         <TableBody>
           {rows.map((r) => {
             const isDup = (dupCounts.get(r.name.trim()) ?? 0) > 1;
+            const al = r.aliases || [];
             return (
             <TableRow key={r.id}>
               <TableCell>
@@ -239,19 +271,21 @@ function LeadersTab() {
                 </div>
                 {isDup && <div className="text-xs text-muted-foreground mt-1">표시: {getDisplayName(r, rows)}</div>}
               </TableCell>
-              <TableCell>
-                <Input
-                  className="w-40"
-                  defaultValue={(r.aliases || []).join(", ")}
-                  placeholder="예: 형주"
-                  onBlur={(e) => {
-                    const raw = e.target.value;
-                    const next = raw.split(",").map((s) => s.trim()).filter(Boolean).join(", ");
-                    const prev = (r.aliases || []).join(", ");
-                    if (next !== prev) updateAliases(r.id, raw);
-                  }}
-                />
-              </TableCell>
+              {[0, 1, 2].map((slot) => (
+                <TableCell key={slot}>
+                  <Input
+                    className="w-24"
+                    defaultValue={al[slot] || ""}
+                    placeholder={slot === 0 ? (r.is_rejected ? "업체 표시명" : "예: 동선") : ""}
+                    onBlur={(e) => {
+                      const v = e.target.value;
+                      if ((v.trim() || "") !== (al[slot] || "")) {
+                        updateAliasSlot(r.id, slot as 0 | 1 | 2, v);
+                      }
+                    }}
+                  />
+                </TableCell>
+              ))}
               <TableCell>
                 <Input
                   className="w-20"
@@ -282,7 +316,7 @@ function LeadersTab() {
             </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
