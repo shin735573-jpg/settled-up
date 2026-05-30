@@ -291,6 +291,7 @@ export function validateAll(
     issues.push(...validateRow(r, ctx, label));
   });
   issues.push(...detectDuplicates(rows));
+  issues.push(...validateTeamParity(rows, ctx, labelOf));
   return issues;
 }
 
