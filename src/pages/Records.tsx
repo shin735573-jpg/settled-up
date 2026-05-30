@@ -519,12 +519,13 @@ type ParsedRow = {
   warnings: RowError[];
 };
 
-function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSaved }: {
-  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; onSaved: () => void;
+function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSaved, onReload }: {
+  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; onSaved: () => void; onReload: () => void | Promise<void>;
 }) {
   const [text, setText] = useState("");
   const [skipErrors, setSkipErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [registering, setRegistering] = useState(false);
   // 기본 팀장 입력 (붙여넣은 행에 팀장이 없을 때 적용)
   const [defaultLeadersText, setDefaultLeadersText] = useState("");
   // 행별 팀장 수동 수정: rowIndex -> { l1?: id|""(=빈칸), l2?: id|"" }
