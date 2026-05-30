@@ -1,14 +1,17 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon } from "lucide-react";
+import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save } from "lucide-react";
 
 const nav = [
-  { to: "/", label: "대시보드", icon: LayoutDashboard },
   { to: "/records", label: "기록입력", icon: FileSpreadsheet },
   { to: "/company-settlement", label: "업체정산", icon: Building2 },
   { to: "/leader-settlement", label: "팀장정산", icon: Users },
+  { to: "/summary", label: "한눈요약", icon: Eye },
+  { to: "/hq-settlement", label: "본사정산", icon: Landmark },
+  { to: "/holidays", label: "휴무일관리", icon: CalendarOff },
   { to: "/settings", label: "설정", icon: SettingsIcon },
+  { to: "/saves", label: "정산서저장", icon: Save },
 ];
 
 export default function AppLayout() {
