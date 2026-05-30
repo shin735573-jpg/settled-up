@@ -1215,6 +1215,49 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                   정상 행만 저장
                 </label>
               </div>
+              <div className="flex flex-wrap items-center gap-2 border rounded p-2 bg-muted/30">
+                <span className="text-xs font-semibold">날짜 일괄</span>
+                <Input
+                  value={bulkDate}
+                  onChange={(e) => setBulkDate(e.target.value)}
+                  placeholder={defaultMonth ? `${defaultMonth}-01 또는 5/1` : "YYYY-MM-DD"}
+                  className="h-7 text-xs w-[160px]"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const parsed = parseDate(bulkDate, defaultMonth);
+                    if (!parsed) { toast.error("날짜 형식 오류"); return; }
+                    const next: Record<number, string> = {};
+                    for (const { i } of visible) next[i] = parsed;
+                    setDateOverrides((p) => ({ ...p, ...next }));
+                    toast.success(`${visible.length}건 날짜 ${parsed} 적용`);
+                  }}
+                >전체 적용</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // 빈 날짜 행에 위 행의 최종 날짜를 채워넣음 (사용자 override로 고정)
+                    let last: string | null = null;
+                    const next: Record<number, string> = {};
+                    let filled = 0;
+                    for (const { row, i } of visible) {
+                      if (row.date) { last = row.date; continue; }
+                      if (last) { next[i] = last; filled++; }
+                    }
+                    if (filled === 0) { toast.info("채울 빈 날짜가 없습니다"); return; }
+                    setDateOverrides((p) => ({ ...p, ...next }));
+                    toast.success(`빈 날짜 ${filled}건 채움`);
+                  }}
+                >빈 날짜 채우기</Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setDateOverrides({}); setBulkDate(""); }}
+                >초기화</Button>
+              </div>
               <div className="overflow-x-auto border rounded min-h-[500px]">
                 <Table className="text-xs num w-max min-w-full">
                   <TableHeader>
