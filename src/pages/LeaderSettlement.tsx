@@ -302,6 +302,22 @@ export default function LeaderSettlement() {
     period === "second" ? `${month} 16~말일` :
     `${month} 월전체`;
 
+  // 상단 요약바: 정산귀속/팀 재분배가 모두 반영된 masterRows 기준 합계
+  const topSummary = useMemo(() => {
+    let totalCount = 0, totalCod = 0, totalFee = 0;
+    masterRows.forEach((m) => {
+      totalCount += m.count;
+      totalCod += m.cod;
+      totalFee += m.total;
+    });
+    return {
+      totalLeaders: masterRows.length,
+      totalCount,
+      totalCod,
+      totalFee,
+    };
+  }, [masterRows]);
+
   // ===== 상세 모드 =====
   const detailLeader = leaderId ? leadersById.get(leaderId) : undefined;
   const detailRows = useMemo(
@@ -526,6 +542,15 @@ export default function LeaderSettlement() {
           ))}
         </div>
       </div>
+
+      {!leaderId && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
+          <LeaderSummaryCard label="총배송건수" value={topSummary.totalCount.toLocaleString()} />
+          <LeaderSummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
+          <LeaderSummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
+        </div>
+      )}
 
       {!leaderId && (
         <Card className="p-4">
@@ -824,6 +849,23 @@ function Stat({ label, value, highlight, raw }: { label: string; value: number; 
     <div className={`p-3 rounded border ${highlight ? "bg-primary/10 border-primary" : ""}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-xl font-bold">{raw ? value : fmt(value)}</div>
+    </div>
+  );
+}
+
+function LeaderSummaryCard({
+  label, value, accent, bold,
+}: { label: string; value: string; accent?: boolean; bold?: boolean }) {
+  return (
+    <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50">
+      <div className="text-xs text-emerald-900/70">{label}</div>
+      <div
+        className={`mt-1 num ${bold ? "text-2xl font-extrabold" : "text-2xl font-bold"} ${
+          accent ? "text-orange-600" : "text-emerald-900"
+        }`}
+      >
+        {value}
+      </div>
     </div>
   );
 }
