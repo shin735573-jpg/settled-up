@@ -20,7 +20,7 @@ type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: bool
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
-const COLS = ["날짜","업체","팀장1","팀장2","팀장3","고객명","지역","품목","비고","수도권배송비","비고금액","지방배송비","착불","분할","결제유무"];
+const COLS = ["날짜","업체","팀장1","팀장2","고객명","지역","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","분할","결제유무"];
 
 type FormState = {
   id: string | null;
@@ -28,7 +28,6 @@ type FormState = {
   company_id: string;
   leader1_id: string;
   leader2_id: string;
-  leader3_id: string;
   customer_name: string;
   region: string;
   item: string;
@@ -49,7 +48,6 @@ const emptyForm = (): FormState => ({
   company_id: "",
   leader1_id: "",
   leader2_id: "",
-  leader3_id: "",
   customer_name: "",
   region: "",
   item: "",
@@ -113,7 +111,6 @@ export default function Records() {
       company_id: r.company_id || "",
       leader1_id: r.leader1_id || "",
       leader2_id: r.leader2_id || "",
-      leader3_id: r.leader3_id || "",
       customer_name: r.customer_name || "",
       region: r.region || "",
       item: r.item || "",
@@ -144,8 +141,6 @@ export default function Records() {
       leader1_name: leaderName(form.leader1_id),
       leader2_id: form.leader2_id || null,
       leader2_name: leaderName(form.leader2_id),
-      leader3_id: form.leader3_id || null,
-      leader3_name: leaderName(form.leader3_id),
       customer_name: form.customer_name || null,
       region: form.region || null,
       item: form.item || null,
@@ -217,11 +212,11 @@ export default function Records() {
               </Select>
             </div>
 
-            {[0, 1, 2].map((i) => {
-              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id" | "leader3_id";
+            {[0, 1].map((i) => {
+              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id";
               return (
                 <div key={i} className="space-y-1">
-                  <Label>실제기사{i + 1}</Label>
+                  <Label>팀장{i + 1}</Label>
                   <Select
                     value={form[key] || NONE}
                     onValueChange={(v) => setForm({ ...form, [key]: v === NONE ? "" : v })}
@@ -280,7 +275,14 @@ export default function Records() {
             </div>
             <div className="space-y-1">
               <Label>분할</Label>
-              <Input value={form.split_type} onChange={(e) => setForm({ ...form, split_type: e.target.value })} placeholder="예: 1/2" />
+              <Select value={form.split_type} onValueChange={(v) => setForm({ ...form, split_type: v })}>
+                <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">(빈칸)</SelectItem>
+                  <SelectItem value="3분할">3분할</SelectItem>
+                  <SelectItem value="형주동석">형주동석</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1 flex flex-col">
               <Label>결제유무</Label>
@@ -309,7 +311,7 @@ export default function Records() {
         <Table className="text-xs num">
           <TableHeader>
             <TableRow>
-              {["날짜","업체","팀장1","팀장2","팀장3","고객","지역","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
+              {["날짜","업체","팀장1","팀장2","고객","지역","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
@@ -323,7 +325,6 @@ export default function Records() {
                   <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.leader1_name || "-"}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.leader2_name || "-"}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.leader3_name || "-"}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
                   <TableCell>{r.item || "-"}</TableCell>
@@ -339,7 +340,7 @@ export default function Records() {
                 </TableRow>
               );
             })}
-            {records.length === 0 && <TableRow><TableCell colSpan={17} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
+            {records.length === 0 && <TableRow><TableCell colSpan={16} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
@@ -405,7 +406,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       const companyRec = companyMap.get(company);
       if (company && !companyRec) errors.push({ field: "업체", msg: "미등록 업체" });
 
-      const leaderNames = [get(2), get(3), get(4)].map((n) => n || null);
+      const leaderNames = [get(2), get(3)].map((n) => n || null);
       const leaderRecs = leaderNames.map((n) => (n ? leaderMap.get(n) || null : null));
       leaderNames.forEach((n, i) => {
         if (n && !leaderRecs[i]) errors.push({ field: `팀장${i + 1}`, msg: `미등록 팀장: ${n}` });
@@ -416,12 +417,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       });
       if (date && holidayHQ.has(date)) warnings.push({ field: "날짜", msg: "본사 휴무일" });
 
-      const customer = get(5);
-      const region = get(6);
-      const item = get(7);
-      const note = get(8);
+      const customer = get(4);
+      const region = get(5);
+      const item = get(6);
+      const note = get(7);
 
-      const metroRaw = get(9), noteAmtRaw = get(10), regionalRaw = get(11), codRaw = get(12);
+      const metroRaw = get(8), noteAmtRaw = get(9), regionalRaw = get(10), codRaw = get(11);
       const checkNum = (raw: string, label: string) => {
         if (raw === "") return 0;
         const cleaned = raw.replace(/,/g, "").trim();
@@ -433,8 +434,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       const regional = checkNum(regionalRaw, "지방배송비");
       const cod = checkNum(codRaw, "착불");
 
-      const split = get(13);
-      const paidRaw = get(14).toLowerCase();
+      const split = get(12);
+      const paidRaw = get(13).toLowerCase();
       const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v"].includes(paidRaw) || paidRaw === "1";
 
       return {
@@ -465,7 +466,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       company_name: r.company,
       leader1_id: r.leaderIds[0], leader1_name: r.leaders[0],
       leader2_id: r.leaderIds[1], leader2_name: r.leaders[1],
-      leader3_id: r.leaderIds[2], leader3_name: r.leaders[2],
       customer_name: r.customer || null,
       region: r.region || null,
       item: r.item || null,
@@ -516,7 +516,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>날짜</TableHead><TableHead>업체</TableHead>
-                      <TableHead>팀장1</TableHead><TableHead>팀장2</TableHead><TableHead>팀장3</TableHead>
+                      <TableHead>팀장1</TableHead><TableHead>팀장2</TableHead>
                       <TableHead>고객</TableHead><TableHead>지역</TableHead>
                       <TableHead>수도권</TableHead><TableHead>비고금액</TableHead><TableHead>지방</TableHead>
                       <TableHead>총액</TableHead><TableHead>착불</TableHead>
@@ -534,7 +534,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                           <TableCell>{r.company || "-"}</TableCell>
                           <TableCell>{r.leaders[0] || "-"}</TableCell>
                           <TableCell>{r.leaders[1] || "-"}</TableCell>
-                          <TableCell>{r.leaders[2] || "-"}</TableCell>
                           <TableCell>{r.customer || "-"}</TableCell>
                           <TableCell>{r.region || "-"}</TableCell>
                           <TableCell className="text-right">{fmt(r.metro)}</TableCell>
