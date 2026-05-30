@@ -345,3 +345,21 @@ function Stat({ label, value, highlight }: { label: string; value: number; highl
     </div>
   );
 }
+
+function SummaryCard({
+  label, value, sub, accent, bold,
+}: { label: string; value: string; sub?: string; accent?: boolean; bold?: boolean }) {
+  return (
+    <div className="p-4 rounded-lg border border-sky-200 bg-sky-50">
+      <div className="text-xs text-sky-900/70">{label}</div>
+      <div
+        className={`mt-1 num ${bold ? "text-2xl font-extrabold" : "text-2xl font-bold"} ${
+          accent ? "text-orange-600" : "text-sky-900"
+        }`}
+      >
+        {value}
+      </div>
+      {sub && <div className="text-[11px] text-sky-900/60 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
