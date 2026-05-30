@@ -586,7 +586,7 @@ export default function LeaderSettlement() {
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4 num">
-            <Stat label="배송건수" value={detailRows.length} raw />
+            <Stat label="배송건수" value={detailCalc.count} raw />
             <Stat label="수도권배송비" value={detailCalc.metro} />
             <Stat label="비고금액" value={detailCalc.noteAmt} />
             <Stat label="지방배송비" value={detailCalc.regional} />
@@ -730,6 +730,7 @@ export default function LeaderSettlement() {
                   <TableHead className="text-right">착불</TableHead>
                   <TableHead className="text-right">실지급배송비</TableHead>
                   <TableHead>분할</TableHead>
+                  <TableHead>2인배송</TableHead>
                   <TableHead className="text-right">건별 수수료</TableHead>
                   <TableHead className="text-right">건별 계산후 지급액</TableHead>
                   <TableHead className="text-right">건별 실지급액</TableHead>
@@ -746,9 +747,15 @@ export default function LeaderSettlement() {
                     : r.leader2_name;
                   const settleId = settlementLeaderIdFor(r, leadersById);
                   const settleName = settleId ? (leadersById.get(settleId)?.name || "-") : "-";
-                  const totalFee = sumFee(r);
-                  const fee = feeFor(r, r.company_id ? companyById.get(r.company_id) : undefined);
+                  const share = leaderId ? shareForSettling(r, leaderId) : null;
+                  const shareMetro = share?.metro ?? 0;
+                  const shareNote = share?.noteAmt ?? 0;
+                  const shareRegional = share?.regional ?? 0;
+                  const shareCod = share?.cod ?? 0;
+                  const totalFee = shareMetro + shareNote + shareRegional;
+                  const fee = leaderId ? feeForRowSettling(r, leaderId) : 0;
                   const afterFee = totalFee - fee;
+                  const isHalf = (share?.weight ?? 1) > 0 && (share?.weight ?? 1) < 1;
                   return (
                     <TableRow key={r.id} className={src ? "bg-amber-50 hover:bg-amber-100" : ""}>
                       <TableCell>{r.date}</TableCell>
@@ -760,12 +767,16 @@ export default function LeaderSettlement() {
                       <TableCell>{r.region || "-"}</TableCell>
                       <TableCell className="max-w-[180px] whitespace-pre-wrap break-words">{r.item || "-"}</TableCell>
                       <TableCell className="max-w-[180px] whitespace-pre-wrap break-words">{r.note || "-"}</TableCell>
-                      <TableCell className="text-right">{fmt(num(r.metro_fee))}</TableCell>
-                      <TableCell className="text-right">{fmt(num(r.note_amount))}</TableCell>
-                      <TableCell className="text-right">{fmt(num(r.regional_fee))}</TableCell>
-                      <TableCell className="text-right">{fmt(num(r.cod_amount))}</TableCell>
+                      <TableCell className="text-right">{fmt(shareMetro)}</TableCell>
+                      <TableCell className="text-right">{fmt(shareNote)}</TableCell>
+                      <TableCell className="text-right">{fmt(shareRegional)}</TableCell>
+                      <TableCell className="text-right">{fmt(shareCod)}</TableCell>
                       <TableCell className="text-right font-medium">{fmt(totalFee)}</TableCell>
                       <TableCell>{r.split_type || "-"}</TableCell>
+                      <TableCell>{r.two_person
+                        ? <span className="inline-block px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-800 font-medium">2인배송{isHalf ? " 50%" : ""}</span>
+                        : (isHalf ? <span className="text-xs text-muted-foreground">분할 {Math.round((share?.weight ?? 0) * 100)}%</span> : "-")}
+                      </TableCell>
                       <TableCell className="text-right">{fmt(fee)}</TableCell>
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
@@ -776,7 +787,7 @@ export default function LeaderSettlement() {
                   );
                 })}
                 {detailRows.length === 0 && (
-                  <TableRow><TableCell colSpan={19} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={20} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
