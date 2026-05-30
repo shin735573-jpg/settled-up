@@ -549,7 +549,7 @@ export default function Records() {
         <Table className="text-xs num">
           <TableHeader>
             <TableRow>
-              {["날짜","업체","팀장1","팀장2","고객","배송지","구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
+              {["날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
