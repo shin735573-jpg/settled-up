@@ -179,3 +179,48 @@ describe("summarize", () => {
     expect(s.okCount).toBe(1);
   });
 });
+import { validateTeamParity } from "./recordValidation";
+
+describe("validateTeamParity (강형주/신동석 팀 정합성)", () => {
+  const leaders = [
+    { id: "g", name: "강형주", aliases: ["형주"] },
+    { id: "s", name: "신동석", aliases: ["동석"] },
+    { id: "o", name: "오동선", aliases: [] },
+  ];
+  const ctx = { companies: [], leaders, holidays: [] } as any;
+
+  const row = (over: any) => ({
+    id: over.id || "r1", date: "2026-05-01", company_id: null, company_name: "X",
+    leader1_id: null, leader1_name: null, leader2_id: null, leader2_name: null,
+    customer_name: "C", region: null, region_type: null, item: "i", note: null,
+    metro_fee: 0, note_amount: 0, regional_fee: 0, cod_amount: 0,
+    split_type: null, paid: false, two_person: false, ...over,
+  });
+
+  it("신동석 단독 → 두 사람 동일 → 오류 없음", () => {
+    const issues = validateTeamParity([row({ leader1_id: "s", metro_fee: 200000 })], ctx);
+    expect(issues).toHaveLength(0);
+  });
+  it("강형주 단독 → 두 사람 동일 → 오류 없음", () => {
+    const issues = validateTeamParity([row({ leader1_id: "g", metro_fee: 200000 })], ctx);
+    expect(issues).toHaveLength(0);
+  });
+  it("오동선+신동석 2인배송 → 오류 없음", () => {
+    const issues = validateTeamParity(
+      [row({ leader1_id: "o", leader2_id: "s", two_person: true, metro_fee: 200000 })],
+      ctx,
+    );
+    expect(issues).toHaveLength(0);
+  });
+  it("강형주+신동석 형주동석 분할 → 오류 없음 (중복 없음)", () => {
+    const issues = validateTeamParity(
+      [row({ leader1_id: "g", leader2_id: "s", split_type: "형주동석", metro_fee: 200000 })],
+      ctx,
+    );
+    expect(issues).toHaveLength(0);
+  });
+  it("형주/동석 미포함 행은 검사 대상 아님", () => {
+    const issues = validateTeamParity([row({ leader1_id: "o", metro_fee: 100000 })], ctx);
+    expect(issues).toHaveLength(0);
+  });
+});
