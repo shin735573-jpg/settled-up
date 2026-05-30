@@ -1487,14 +1487,27 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
             )}
           </div>
 
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="엑셀에서 헤더 포함 여러 행/열을 복사해 붙여넣으세요 (Ctrl+V)"
-            rows={8}
-            wrap="off"
-            className="font-mono text-xs whitespace-pre overflow-x-auto"
-          />
+          <div className="space-y-1">
+            <div className="flex items-center justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => { setText(""); setExcludedRows({}); }}
+                disabled={!text && Object.keys(excludedRows).length === 0}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />전체삭제
+              </Button>
+            </div>
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="엑셀에서 헤더 포함 여러 행/열을 복사해 붙여넣으세요 (Ctrl+V)"
+              rows={8}
+              wrap="off"
+              className="font-mono text-xs whitespace-pre overflow-x-auto"
+            />
+          </div>
 
           {grid.length > 0 && (
             <div className="border rounded p-3 space-y-2">
