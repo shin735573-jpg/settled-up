@@ -111,7 +111,6 @@ export default function Records() {
       company_id: r.company_id || "",
       leader1_id: r.leader1_id || "",
       leader2_id: r.leader2_id || "",
-      leader3_id: r.leader3_id || "",
       customer_name: r.customer_name || "",
       region: r.region || "",
       item: r.item || "",
