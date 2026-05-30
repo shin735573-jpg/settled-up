@@ -1266,7 +1266,17 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                       return (
                         <TableRow key={i} className={hasErr ? "bg-destructive/10" : ""}>
                           <TableCell>{displayIdx + 1}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.date || "-"}</TableCell>
+                          <TableCell className="whitespace-nowrap min-w-[120px]">
+                            <Input
+                              value={r.dateInputValue}
+                              onChange={(e) => setDateOverrides((p) => ({ ...p, [i]: e.target.value }))}
+                              placeholder={r.autoDate || "YYYY-MM-DD"}
+                              className={`h-7 text-xs w-[110px] ${!r.date ? "border-destructive text-destructive" : ""}`}
+                            />
+                            {r.date && r.dateInputValue && r.date !== r.dateInputValue && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5">→ {r.date}</div>
+                            )}
+                          </TableCell>
                           <TableCell className="min-w-[140px] whitespace-nowrap">{r.company || "-"}</TableCell>
                           <TableCell>{leaderCell(0)}</TableCell>
                           <TableCell>{leaderCell(1)}</TableCell>
