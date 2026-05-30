@@ -18,6 +18,7 @@ type Leader = {
   is_rejected: boolean; is_virtual: boolean; active: boolean;
   settle_to_id: string | null; fee_rate_metro: number; fee_rate_regional: number;
   deduction_amount: number; trash_cost: number;
+  settle_status?: "included" | "excluded" | null;
 };
 type Delivery = {
   id: string; date: string; company_id: string | null; company_name: string;
@@ -215,7 +216,9 @@ export default function LeaderSettlement() {
 
   /** 정산대상 팀장 목록: 활성 + 다른 팀장에게 정산귀속 안 된 팀장 */
   const settlingLeaders = useMemo(
-    () => leaders.filter((l) => l.active && !l.is_rejected && !l.settle_to_id),
+    () => leaders.filter(
+      (l) => l.active && !l.is_rejected && !l.settle_to_id && (l.settle_status ?? "included") !== "excluded",
+    ),
     [leaders],
   );
 
