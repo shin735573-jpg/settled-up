@@ -325,7 +325,6 @@ export default function Records() {
                   <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.leader1_name || "-"}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.leader2_name || "-"}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.leader3_name || "-"}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
                   <TableCell>{r.item || "-"}</TableCell>
