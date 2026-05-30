@@ -342,6 +342,70 @@ export default function LeaderSettlement() {
     toast.success("개별 공제 저장 완료");
   };
 
+  const reloadCommonOverrides = async () => {
+    const { data } = await supabase
+      .from("leader_common_overrides")
+      .select("*")
+      .eq("period_key", periodKey);
+    setCommonOverrides((data as LeaderCommonOverride[]) || []);
+  };
+
+  /** 편집 중인 공통공제 값 저장 (upsert). base와 동일하면 오버라이드 제거. */
+  const saveDetailCommon = async () => {
+    if (!user || !leaderId) return;
+    const entries = Object.entries(detailCommonEdits);
+    if (entries.length === 0) return;
+    setSavingCommon(true);
+    for (const [cdId, amount] of entries) {
+      const cd = commonDeductions.find((c) => c.id === cdId);
+      if (!cd) continue;
+      if (Number(amount) === num(cd.amount)) {
+        // 기본값과 동일 → 오버라이드 삭제
+        await supabase
+          .from("leader_common_overrides")
+          .delete()
+          .eq("leader_id", leaderId)
+          .eq("period_key", periodKey)
+          .eq("common_deduction_id", cdId);
+      } else {
+        const { error } = await supabase
+          .from("leader_common_overrides")
+          .upsert(
+            {
+              user_id: user.id,
+              leader_id: leaderId,
+              period_key: periodKey,
+              common_deduction_id: cdId,
+              amount: Number(amount) || 0,
+            },
+            { onConflict: "leader_id,period_key,common_deduction_id" },
+          );
+        if (error) { toast.error("공통공제 저장 실패: " + error.message); setSavingCommon(false); return; }
+      }
+    }
+    setDetailCommonEdits({});
+    await reloadCommonOverrides();
+    setSavingCommon(false);
+    toast.success("공통 공제 수정값 저장 완료");
+  };
+
+  /** 기본값으로 되돌리기: 저장된 오버라이드 삭제 + 편집 상태도 base로 */
+  const resetCommonOverride = async (cdId: string, base: number) => {
+    if (!user || !leaderId) return;
+    await supabase
+      .from("leader_common_overrides")
+      .delete()
+      .eq("leader_id", leaderId)
+      .eq("period_key", periodKey)
+      .eq("common_deduction_id", cdId);
+    setDetailCommonEdits((m) => {
+      const { [cdId]: _omit, ...rest } = m;
+      return rest;
+    });
+    await reloadCommonOverrides();
+    toast.success("기본값으로 되돌렸습니다");
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
