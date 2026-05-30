@@ -51,6 +51,8 @@ export default function Summary() {
   // 팀장 표시: 활성·비거부만. settle_to_id가 지정된 경우 실제 팀장에 합산.
   const leaderRows = useMemo(() => {
     const byId = new Map(leaders.map((l) => [l.id, l]));
+    const shindongseokId = leaders.find((l) => l.name.trim() === "신동석")?.id || null;
+    const ganghyungjuId = leaders.find((l) => l.name.trim() === "강형주")?.id || null;
     // 정착지 매핑: settle_to_id 체인을 따라 최종 팀장으로 (순환 방어)
     const resolveSettleId = (id: string): string => {
       let cur = byId.get(id);
@@ -74,12 +76,13 @@ export default function Summary() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      });
+      }, { shindongseokId, ganghyungjuId });
+      const counted = new Set<string>();
       for (const s of shares) {
         const targetId = resolveSettleId(s.leader_id);
         const bucket = acc.get(targetId);
         if (!bucket) continue; // 거부/비활성/매핑 실패 팀장은 제외
-        bucket.count += s.count;
+        if (!counted.has(targetId)) { bucket.count += 1; counted.add(targetId); }
         bucket.fee += s.metro + s.note_amount + s.regional;
         bucket.cod += s.cod;
       }
