@@ -374,6 +374,7 @@ function LeadersTab() {
             <TableHead>공제금</TableHead>
             <TableHead>쓰레기비</TableHead>
             <TableHead>정산귀속</TableHead>
+            <TableHead>특수정산</TableHead>
             <TableHead>활성</TableHead>
             <TableHead></TableHead>
           </TableRow>
@@ -383,6 +384,8 @@ function LeadersTab() {
             const isDup = (dupCounts.get(r.name.trim()) ?? 0) > 1;
             const al = r.aliases || [];
             const needsAlias = r.is_rejected && !(al[0] || "").trim();
+            const settleTarget = r.settle_to_id ? rows.find((x) => x.id === r.settle_to_id) : null;
+            const isSpecial = r.is_rejected && !!settleTarget;
             return (
             <TableRow key={r.id}>
               <TableCell>
@@ -432,12 +435,27 @@ function LeadersTab() {
                   </SelectContent>
                 </Select>
               </TableCell>
+              <TableCell>
+                {isSpecial ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-amber-100 text-amber-900 whitespace-nowrap">
+                    적용 → {getDisplayName(settleTarget!, rows)}
+                  </span>
+                ) : r.is_rejected ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-destructive/10 text-destructive whitespace-nowrap">
+                    거부·귀속없음
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-muted text-muted-foreground whitespace-nowrap">
+                    독립정산
+                  </span>
+                )}
+              </TableCell>
               <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
