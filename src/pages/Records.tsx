@@ -466,7 +466,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       company_name: r.company,
       leader1_id: r.leaderIds[0], leader1_name: r.leaders[0],
       leader2_id: r.leaderIds[1], leader2_name: r.leaders[1],
-      leader3_id: r.leaderIds[2], leader3_name: r.leaders[2],
       customer_name: r.customer || null,
       region: r.region || null,
       item: r.item || null,
