@@ -615,7 +615,8 @@ export default function Records() {
 type RowError = { field: string; msg: string };
 type ParsedRow = {
   raw: string[];
-  date: string | null;
+  rawDate: string;
+  autoDate: string | null;
   company: string;
   leaders: (string | null)[];
   customer: string; region: string; item: string; note: string;
@@ -628,8 +629,8 @@ type ParsedRow = {
   warnings: RowError[];
 };
 
-function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSaved, onReload }: {
-  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; onSaved: () => void; onReload: () => void | Promise<void>;
+function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defaultMonth, onSaved, onReload }: {
+  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; defaultMonth?: string; onSaved: () => void; onReload: () => void | Promise<void>;
 }) {
   const [text, setText] = useState("");
   const [skipErrors, setSkipErrors] = useState(false);
@@ -641,6 +642,10 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   const [leaderOverrides, setLeaderOverrides] = useState<Record<number, { l1?: string; l2?: string }>>({});
   // 행별 수도권/지방 수동 수정
   const [regionOverrides, setRegionOverrides] = useState<Record<number, RegionType>>({});
+  // 행별 날짜 수동 입력 (raw 텍스트). undefined = 자동, 그 외 = 사용자 입력
+  const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
+  // 일괄 적용용 입력값
+  const [bulkDate, setBulkDate] = useState("");
   // 미리보기에서 사용자가 제외한 행
   const [excludedRows, setExcludedRows] = useState<Record<number, boolean>>({});
 
