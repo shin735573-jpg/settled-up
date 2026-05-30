@@ -1,0 +1,322 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ClipboardPaste, Trash2 } from "lucide-react";
+import { fmt, parseNum, parseDate } from "@/lib/format";
+import { toast } from "sonner";
+
+type Company = { id: string; name: string; active: boolean };
+type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean };
+type Holiday = { date: string; scope: string; team_leader_id: string | null };
+type Delivery = any;
+
+const COLS = ["날짜","업체","팀장1","팀장2","팀장3","고객명","지역","품목","비고","수도권배송비","비고금액","지방배송비","착불","분할","결제유무"];
+
+export default function Records() {
+  const { user } = useAuth();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [leaders, setLeaders] = useState<Leader[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [records, setRecords] = useState<Delivery[]>([]);
+  const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [pasteOpen, setPasteOpen] = useState(false);
+
+  const load = async () => {
+    const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
+      supabase.from("companies").select("id,name,active").order("name"),
+      supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active").order("name"),
+      supabase.from("holidays").select("date,scope,team_leader_id"),
+    ]);
+    setCompanies((c as Company[]) || []);
+    setLeaders((l as Leader[]) || []);
+    setHolidays((h as Holiday[]) || []);
+    const start = filterMonth + "-01";
+    const next = new Date(filterMonth + "-01"); next.setMonth(next.getMonth() + 1);
+    const end = next.toISOString().slice(0, 10);
+    const { data: d } = await supabase.from("deliveries").select("*").gte("date", start).lt("date", end).order("date").order("created_at");
+    setRecords(d || []);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [filterMonth]);
+
+  const removeRow = async (id: string) => {
+    if (!confirm("삭제하시겠습니까?")) return;
+    await supabase.from("deliveries").delete().eq("id", id);
+    load();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-2xl font-bold flex-1">기록입력</h1>
+        <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40" />
+        <Button onClick={() => setPasteOpen(true)}><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
+      </div>
+
+      <Card className="overflow-x-auto">
+        <Table className="text-xs num">
+          <TableHeader>
+            <TableRow>
+              {["날짜","업체","팀장1","팀장2","팀장3","고객","지역","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
+                <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {records.map((r) => {
+              const total = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+              return (
+                <TableRow key={r.id}>
+                  <TableCell className="whitespace-nowrap">{r.date}</TableCell>
+                  <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
+                  <TableCell className="whitespace-nowrap">{r.leader1_name || "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap">{r.leader2_name || "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap">{r.leader3_name || "-"}</TableCell>
+                  <TableCell>{r.customer_name || "-"}</TableCell>
+                  <TableCell>{r.region || "-"}</TableCell>
+                  <TableCell>{r.item || "-"}</TableCell>
+                  <TableCell>{r.note || "-"}</TableCell>
+                  <TableCell className="text-right">{fmt(r.metro_fee)}</TableCell>
+                  <TableCell className="text-right">{fmt(r.note_amount)}</TableCell>
+                  <TableCell className="text-right">{fmt(r.regional_fee)}</TableCell>
+                  <TableCell className="text-right">{fmt(r.cod_amount)}</TableCell>
+                  <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
+                  <TableCell>{r.split_type || "-"}</TableCell>
+                  <TableCell>{r.paid ? "✓" : "-"}</TableCell>
+                  <TableCell><Button size="icon" variant="ghost" onClick={() => removeRow(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                </TableRow>
+              );
+            })}
+            {records.length === 0 && <TableRow><TableCell colSpan={17} className="text-center py-8 text-muted-foreground">기록이 없습니다. 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <PasteDialog
+        open={pasteOpen}
+        onClose={() => setPasteOpen(false)}
+        companies={companies}
+        leaders={leaders}
+        holidays={holidays}
+        userId={user?.id || ""}
+        onSaved={() => { setPasteOpen(false); load(); }}
+      />
+    </div>
+  );
+}
+
+type RowError = { field: string; msg: string };
+type ParsedRow = {
+  raw: string[];
+  date: string | null;
+  company: string;
+  leaders: (string | null)[];
+  customer: string; region: string; item: string; note: string;
+  metro: number; noteAmt: number; regional: number; cod: number;
+  split: string; paid: boolean;
+  companyId: string | null;
+  leaderIds: (string | null)[];
+  errors: RowError[];
+  warnings: RowError[];
+};
+
+function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSaved }: {
+  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; onSaved: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [skipErrors, setSkipErrors] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const parsed = useMemo<ParsedRow[]>(() => {
+    if (!text.trim()) return [];
+    const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim() !== "");
+    let lastDate: string | null = null;
+    const companyMap = new Map(companies.map((c) => [c.name.trim(), c]));
+    const leaderMap = new Map(leaders.map((l) => [l.name.trim(), l]));
+    const holidayHQ = new Set(holidays.filter((h) => h.scope === "hq").map((h) => h.date));
+    const holidayLeader = new Set(holidays.filter((h) => h.scope === "leader").map((h) => `${h.date}|${h.team_leader_id}`));
+
+    return lines.map((line) => {
+      const cols = line.split("\t");
+      const get = (i: number) => (cols[i] ?? "").trim();
+      const errors: RowError[] = [];
+      const warnings: RowError[] = [];
+
+      // date
+      let date = parseDate(get(0));
+      if (!date && lastDate) date = lastDate;
+      if (!date) errors.push({ field: "날짜", msg: "날짜 형식 오류" });
+      else lastDate = date;
+
+      const company = get(1);
+      if (!company) errors.push({ field: "업체", msg: "업체 누락" });
+      const companyRec = companyMap.get(company);
+      if (company && !companyRec) errors.push({ field: "업체", msg: "미등록 업체" });
+
+      const leaderNames = [get(2), get(3), get(4)].map((n) => n || null);
+      const leaderRecs = leaderNames.map((n) => (n ? leaderMap.get(n) || null : null));
+      leaderNames.forEach((n, i) => {
+        if (n && !leaderRecs[i]) errors.push({ field: `팀장${i + 1}`, msg: `미등록 팀장: ${n}` });
+        if (leaderRecs[i]?.is_rejected) errors.push({ field: `팀장${i + 1}`, msg: `거부팀장 배정 불가: ${n}` });
+        if (date && leaderRecs[i]) {
+          if (holidayLeader.has(`${date}|${leaderRecs[i]!.id}`)) errors.push({ field: `팀장${i + 1}`, msg: `${n} 휴무일` });
+        }
+      });
+      if (date && holidayHQ.has(date)) warnings.push({ field: "날짜", msg: "본사 휴무일" });
+
+      const customer = get(5);
+      const region = get(6);
+      const item = get(7);
+      const note = get(8);
+
+      const metroRaw = get(9), noteAmtRaw = get(10), regionalRaw = get(11), codRaw = get(12);
+      const checkNum = (raw: string, label: string) => {
+        if (raw === "") return 0;
+        const cleaned = raw.replace(/,/g, "").trim();
+        if (cleaned !== "" && isNaN(Number(cleaned))) errors.push({ field: label, msg: `숫자 오류: ${raw}` });
+        return parseNum(raw);
+      };
+      const metro = checkNum(metroRaw, "수도권배송비");
+      const noteAmt = checkNum(noteAmtRaw, "비고금액");
+      const regional = checkNum(regionalRaw, "지방배송비");
+      const cod = checkNum(codRaw, "착불");
+
+      const split = get(13);
+      const paidRaw = get(14).toLowerCase();
+      const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v"].includes(paidRaw) || paidRaw === "1";
+
+      return {
+        raw: cols, date, company,
+        leaders: leaderNames,
+        customer, region, item, note,
+        metro, noteAmt, regional, cod,
+        split, paid,
+        companyId: companyRec?.id || null,
+        leaderIds: leaderRecs.map((r) => r?.id || null),
+        errors, warnings,
+      };
+    });
+  }, [text, companies, leaders, holidays]);
+
+  const errorCount = parsed.filter((r) => r.errors.length).length;
+
+  const save = async () => {
+    if (!userId) return;
+    const toSave = skipErrors ? parsed.filter((r) => !r.errors.length) : parsed;
+    if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
+    if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
+    setSaving(true);
+    const rows = toSave.map((r) => ({
+      user_id: userId,
+      date: r.date!,
+      company_id: r.companyId,
+      company_name: r.company,
+      leader1_id: r.leaderIds[0], leader1_name: r.leaders[0],
+      leader2_id: r.leaderIds[1], leader2_name: r.leaders[1],
+      leader3_id: r.leaderIds[2], leader3_name: r.leaders[2],
+      customer_name: r.customer || null,
+      region: r.region || null,
+      item: r.item || null,
+      note: r.note || null,
+      metro_fee: r.metro, note_amount: r.noteAmt, regional_fee: r.regional, cod_amount: r.cod,
+      split_type: r.split || null, paid: r.paid,
+    }));
+    const { error } = await supabase.from("deliveries").insert(rows);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${rows.length}건 저장 완료`);
+    setText("");
+    onSaved();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>엑셀 붙여넣기</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="text-xs text-muted-foreground">
+            열 순서: {COLS.join(" / ")}<br />
+            • 날짜가 빈칸이면 바로 위 날짜를 자동 적용 • 금액은 쉼표 허용 • 배송비총액은 자동 계산
+          </div>
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="엑셀에서 복사한 데이터를 여기에 붙여넣으세요 (Ctrl+V)"
+            rows={6}
+            className="font-mono text-xs"
+          />
+          {parsed.length > 0 && (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="text-sm">
+                  총 <b>{parsed.length}</b>건 / 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={skipErrors} onCheckedChange={(v) => setSkipErrors(!!v)} />
+                  정상 행만 저장
+                </label>
+              </div>
+              <div className="overflow-x-auto border rounded">
+                <Table className="text-xs num">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <TableHead>날짜</TableHead><TableHead>업체</TableHead>
+                      <TableHead>팀장1</TableHead><TableHead>팀장2</TableHead><TableHead>팀장3</TableHead>
+                      <TableHead>고객</TableHead><TableHead>지역</TableHead>
+                      <TableHead>수도권</TableHead><TableHead>비고금액</TableHead><TableHead>지방</TableHead>
+                      <TableHead>총액</TableHead><TableHead>착불</TableHead>
+                      <TableHead>오류/경고</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsed.map((r, i) => {
+                      const total = r.metro + r.noteAmt + r.regional;
+                      const hasErr = r.errors.length > 0;
+                      return (
+                        <TableRow key={i} className={hasErr ? "bg-destructive/10" : ""}>
+                          <TableCell>{i + 1}</TableCell>
+                          <TableCell className="whitespace-nowrap">{r.date || "-"}</TableCell>
+                          <TableCell>{r.company || "-"}</TableCell>
+                          <TableCell>{r.leaders[0] || "-"}</TableCell>
+                          <TableCell>{r.leaders[1] || "-"}</TableCell>
+                          <TableCell>{r.leaders[2] || "-"}</TableCell>
+                          <TableCell>{r.customer || "-"}</TableCell>
+                          <TableCell>{r.region || "-"}</TableCell>
+                          <TableCell className="text-right">{fmt(r.metro)}</TableCell>
+                          <TableCell className="text-right">{fmt(r.noteAmt)}</TableCell>
+                          <TableCell className="text-right">{fmt(r.regional)}</TableCell>
+                          <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
+                          <TableCell className="text-right">{fmt(r.cod)}</TableCell>
+                          <TableCell className="space-y-1">
+                            {r.errors.map((e, j) => <Badge key={j} variant="destructive" className="mr-1">{e.field}: {e.msg}</Badge>)}
+                            {r.warnings.map((w, j) => <Badge key={"w"+j} variant="secondary" className="mr-1">{w.field}: {w.msg}</Badge>)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>취소</Button>
+          <Button onClick={save} disabled={saving || parsed.length === 0}>
+            {skipErrors ? `정상 ${parsed.length - errorCount}건 저장` : `${parsed.length}건 저장`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
