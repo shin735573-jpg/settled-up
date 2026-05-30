@@ -11,6 +11,10 @@ import Dashboard from "./pages/Dashboard";
 import Records from "./pages/Records";
 import CompanySettlement from "./pages/CompanySettlement";
 import LeaderSettlement from "./pages/LeaderSettlement";
+import Summary from "./pages/Summary";
+import HQSettlement from "./pages/HQSettlement";
+import Holidays from "./pages/Holidays";
+import Saves from "./pages/Saves";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -26,10 +30,14 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Records />} />
               <Route path="/records" element={<Records />} />
               <Route path="/company-settlement" element={<CompanySettlement />} />
               <Route path="/leader-settlement" element={<LeaderSettlement />} />
+              <Route path="/summary" element={<Summary />} />
+              <Route path="/hq-settlement" element={<HQSettlement />} />
+              <Route path="/holidays" element={<Holidays />} />
+              <Route path="/saves" element={<Saves />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
