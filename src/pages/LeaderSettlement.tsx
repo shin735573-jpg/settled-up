@@ -281,7 +281,8 @@ export default function LeaderSettlement() {
       const total = metro + noteAmt + regional;
       const afterFees = total - fees;
       const indiv = individualTotalFor(l.id);
-      const common = commonTotalFor(l.id);
+      // 배송건이 없는 팀장에게는 공통공제(쓰레기비용 등)를 적용하지 않음
+      const common = count > 0 ? commonTotalFor(l.id) : 0;
       const deduction = common + indiv;
       const net = afterFees - cod - deduction;
       return {
@@ -291,7 +292,7 @@ export default function LeaderSettlement() {
         total,
         fees, afterFees, common, indiv, deduction, net,
       };
-    });
+    }).filter((m) => m.count > 0 || m.indiv > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settlingLeaders, rows, leaders, activeCommonDeductions, commonOverrides, periodDeductions]);
 
