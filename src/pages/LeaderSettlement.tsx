@@ -293,11 +293,20 @@ export default function LeaderSettlement() {
       (s, d) => s + (num(d.amount) > 0 && (d.label || "").trim() ? num(d.amount) : 0),
       0,
     );
-    // 상세 공통공제: 편집중 값(detailCommonEdits) 우선, 없으면 오버라이드, 없으면 base
+    // 상세 공통공제: 팀장 × 표시기간당 1번만 합산. 월전체만 보름 2개 합산.
     const commonTotal = activeCommonDeductions.reduce((s, cd) => {
-      const edited = detailCommonEdits[cd.id];
-      if (typeof edited === "number") return s + edited;
-      return s + (detailLeader ? effectiveCommonAmount(detailLeader.id, cd) : num(cd.amount));
+      const cdTotal = commonPeriodKeys.reduce((periodSum, pKey) => {
+        const editKey = `${cd.id}__${pKey}`;
+        const edited = detailCommonEdits[editKey];
+        if (typeof edited === "number") return periodSum + edited;
+        const ov = detailLeader
+          ? commonOverrides.find(
+              (o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id && o.period_key === pKey,
+            )
+          : undefined;
+        return periodSum + (ov ? num(ov.amount) : num(cd.amount));
+      }, 0);
+      return s + cdTotal;
     }, 0);
     const deduction = commonTotal + indivTotal;
     const net = afterFees - cod - deduction;
