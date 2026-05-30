@@ -398,3 +398,118 @@ function HolidaysTab() {
     </Card>
   );
 }
+
+type CommonDeduction = { id: string; label: string; amount: number; active: boolean; sort_order: number };
+
+function CommonDeductionsTab() {
+  const { user } = useAuth();
+  const [rows, setRows] = useState<CommonDeduction[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    const { data, error } = await supabase
+      .from("common_deductions")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) { toast.error("불러오기 실패: " + error.message); return; }
+    let list = (data as CommonDeduction[]) || [];
+    // 최초 진입 시 쓰레기비용 50,000 기본 시드
+    if (list.length === 0 && user) {
+      const { data: ins, error: e2 } = await supabase
+        .from("common_deductions")
+        .insert({ user_id: user.id, label: "쓰레기비용", amount: 50000, active: true, sort_order: 0 })
+        .select()
+        .single();
+      if (!e2 && ins) list = [ins as CommonDeduction];
+    }
+    setRows(list);
+  };
+  useEffect(() => { if (user) load(); /* eslint-disable-next-line */ }, [user]);
+
+  const addRow = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("common_deductions")
+      .insert({ user_id: user.id, label: "", amount: 0, active: true, sort_order: rows.length })
+      .select()
+      .single();
+    if (error) { toast.error("추가 실패: " + error.message); return; }
+    setRows([...rows, data as CommonDeduction]);
+  };
+
+  const update = (id: string, patch: Partial<CommonDeduction>) => {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("common_deductions").delete().eq("id", id);
+    if (error) { toast.error("삭제 실패: " + error.message); return; }
+    setRows(rows.filter((r) => r.id !== id));
+  };
+
+  const saveAll = async () => {
+    setLoading(true);
+    for (const r of rows) {
+      await supabase
+        .from("common_deductions")
+        .update({ label: r.label, amount: Number(r.amount) || 0, active: r.active, sort_order: r.sort_order })
+        .eq("id", r.id);
+    }
+    setLoading(false);
+    toast.success("저장 완료");
+    load();
+  };
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">공통 공제 관리</h3>
+          <p className="text-sm text-muted-foreground">모든 정산대상 팀장에게 자동 적용됩니다. (예: 쓰레기비용 50,000)</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={addRow}><Plus className="h-4 w-4 mr-1" />항목 추가</Button>
+          <Button size="sm" onClick={saveAll} disabled={loading}>저장</Button>
+        </div>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>공제내용</TableHead>
+            <TableHead className="w-40 text-right">공제금액</TableHead>
+            <TableHead className="w-24 text-center">적용</TableHead>
+            <TableHead className="w-16"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.id}>
+              <TableCell>
+                <Input value={r.label} onChange={(e) => update(r.id, { label: e.target.value })} placeholder="예: 쓰레기비용" />
+              </TableCell>
+              <TableCell>
+                <Input
+                  type="number"
+                  className="text-right"
+                  value={r.amount}
+                  onChange={(e) => update(r.id, { amount: Number(e.target.value) || 0 })}
+                />
+              </TableCell>
+              <TableCell className="text-center">
+                <Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} />
+              </TableCell>
+              <TableCell>
+                <Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button>
+              </TableCell>
+            </TableRow>
+          ))}
+          {rows.length === 0 && (
+            <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">공통 공제 항목이 없습니다</TableCell></TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
