@@ -1105,6 +1105,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                       <TableHead className="whitespace-nowrap min-w-[120px]">팀장2</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">고객명</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">지역</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[110px]">지역구분</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[220px]">품목</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[220px]">비고</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px] text-right">수도권배송비</TableHead>
@@ -1158,6 +1159,21 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                           <TableCell>{leaderCell(1)}</TableCell>
                           <TableCell className="min-w-[120px] whitespace-nowrap">{r.customer || "-"}</TableCell>
                           <TableCell className="min-w-[120px] whitespace-nowrap">{r.region || "-"}</TableCell>
+                          <TableCell className="min-w-[110px]">
+                            <Select
+                              value={r.regionType}
+                              onValueChange={(v) => setRegionOverrides((p) => ({ ...p, [i]: v as RegionType }))}
+                            >
+                              <SelectTrigger className={`h-7 text-xs min-w-[100px] ${r.regionType === "unknown" ? "border-destructive text-destructive" : ""}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="metro">수도권</SelectItem>
+                                <SelectItem value="regional">지방</SelectItem>
+                                <SelectItem value="unknown">미분류</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell className="min-w-[220px] max-w-[360px] whitespace-pre-wrap break-words align-top">{r.item || "-"}</TableCell>
                           <TableCell className="min-w-[220px] max-w-[360px] whitespace-pre-wrap break-words align-top">{r.note || "-"}</TableCell>
                           <TableCell className="text-right">{fmt(r.metro)}</TableCell>
