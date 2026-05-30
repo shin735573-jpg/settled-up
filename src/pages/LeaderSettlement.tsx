@@ -2,143 +2,375 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
 
+type Period = "all" | "first" | "second" | "month";
+
+type Leader = {
+  id: string; name: string; aliases?: string[] | null; display_suffix?: string | null;
+  is_rejected: boolean; is_virtual: boolean; active: boolean;
+  settle_to_id: string | null; deduction_amount: number; trash_cost: number;
+};
+type Company = { id: string; name: string; fee_rate_metro: number; fee_rate_regional: number };
+type Delivery = {
+  id: string; date: string; company_id: string | null; company_name: string;
+  customer_name: string | null; region: string | null; item: string | null; note: string | null;
+  metro_fee: number; note_amount: number; regional_fee: number; cod_amount: number;
+  region_type: string | null; split_type: string | null; paid: boolean;
+  leader1_id: string | null; leader1_name: string | null;
+  leader2_id: string | null; leader2_name: string | null;
+  leader3_id: string | null; leader3_name: string | null;
+};
+
+const num = (v: unknown) => Number(v ?? 0) || 0;
+const sumFee = (r: Delivery) => num(r.metro_fee) + num(r.note_amount) + num(r.regional_fee);
+
+/** 행에서 정산기사(=정산귀속 후의 팀장) ID 찾기. settle_to_id 따라 redirect. */
+function settlementLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null {
+  for (const id of [r.leader1_id, r.leader2_id, r.leader3_id]) {
+    if (!id) continue;
+    const l = byId.get(id);
+    if (!l) continue;
+    return l.settle_to_id || l.id;
+  }
+  return null;
+}
+
+/** 행의 실제기사(원본 leader1) ID. */
+function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null {
+  const id = r.leader1_id;
+  if (!id) return null;
+  return byId.has(id) ? id : null;
+}
+
+/** 건별 수수료: region_type별로 업체 수수료율 적용. */
+function feeFor(r: Delivery, company: Company | undefined): number {
+  if (!company) return 0;
+  const total = sumFee(r);
+  const rate = r.region_type === "regional"
+    ? num(company.fee_rate_regional)
+    : num(company.fee_rate_metro);
+  return Math.round(total * rate / 100);
+}
+
 export default function LeaderSettlement() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [leaders, setLeaders] = useState<any[]>([]);
+  const [period, setPeriod] = useState<Period>("month");
+  const [leaders, setLeaders] = useState<Leader[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [rows, setRows] = useState<Delivery[]>([]);
   const [leaderId, setLeaderId] = useState<string>("");
-  const [rows, setRows] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("team_leaders").select("*").order("name");
-      setLeaders(data || []);
-      const selectable = (data || []).filter((l: any) => !l.is_virtual);
-      if (!leaderId && selectable.length) setLeaderId(selectable[0].id);
+      const [{ data: l }, { data: c }] = await Promise.all([
+        supabase.from("team_leaders").select("*").order("name"),
+        supabase.from("companies").select("id,name,fee_rate_metro,fee_rate_regional"),
+      ]);
+      setLeaders((l as Leader[]) || []);
+      setCompanies((c as Company[]) || []);
     })();
   }, []);
 
+  const range = useMemo(() => {
+    if (period === "all") return { start: null as string | null, end: null as string | null };
+    const start = month + "-01";
+    const next = new Date(month + "-01"); next.setMonth(next.getMonth() + 1);
+    if (period === "first") return { start, end: `${month}-16` };
+    if (period === "second") return { start: `${month}-16`, end: next.toISOString().slice(0, 10) };
+    return { start, end: next.toISOString().slice(0, 10) };
+  }, [month, period]);
+
   useEffect(() => {
-    if (!leaderId) return;
     (async () => {
-      const start = month + "-01";
-      const next = new Date(month + "-01"); next.setMonth(next.getMonth() + 1);
-      const end = next.toISOString().slice(0, 10);
-      const { data } = await supabase.from("deliveries").select("*").gte("date", start).lt("date", end).order("date");
-      const targets = new Set<string>([leaderId]);
-      leaders.forEach((l) => { if (l.settle_to_id === leaderId) targets.add(l.id); });
-      const filtered = (data || []).filter((r) =>
-        targets.has(r.leader1_id) || targets.has(r.leader2_id) || targets.has(r.leader3_id)
-      );
-      setRows(filtered);
+      let q = supabase.from("deliveries").select("*").order("date");
+      if (range.start) q = q.gte("date", range.start);
+      if (range.end) q = q.lt("date", range.end);
+      const { data } = await q;
+      setRows((data as Delivery[]) || []);
     })();
-  }, [month, leaderId, leaders]);
+  }, [range.start, range.end]);
 
-  const leader = leaders.find((l) => l.id === leaderId);
-  const leaderById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
-  // 본인에게 정산귀속되는 다른 팀장들 (= 오은규 → 오동선)
-  const mergedFrom = useMemo(
-    () => leaders.filter((l) => l.settle_to_id === leaderId),
-    [leaders, leaderId],
+  const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+  const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
+
+  /** 정산대상 팀장 목록: 활성 + 가상기사 아님 + 다른 팀장에게 정산귀속 안 된 팀장 */
+  const settlingLeaders = useMemo(
+    () => leaders.filter((l) => l.active && !l.is_virtual && !l.settle_to_id),
+    [leaders],
   );
-  const mergedIds = useMemo(() => new Set(mergedFrom.map((l) => l.id)), [mergedFrom]);
 
-  // 각 행의 합산 출처 팀장 (없으면 null = 본인 건)
-  const mergedSourceForRow = (r: any) => {
-    const ids = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean);
-    const src = ids.find((id) => mergedIds.has(id));
-    return src ? leaderById.get(src) : null;
+  /** leaderId(정산기사) → 합산 대상 ID 집합 (본인 + 본인에게 settle_to인 팀장들) */
+  const targetSetFor = (lid: string): Set<string> => {
+    const s = new Set<string>([lid]);
+    leaders.forEach((l) => { if (l.settle_to_id === lid) s.add(l.id); });
+    return s;
   };
 
-  const calc = useMemo(() => {
-    let total = 0;
-    let mergedTotal = 0;
-    let mergedCount = 0;
-    rows.forEach((r) => {
-      const amt = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
-      total += amt;
-      if (mergedSourceForRow(r)) { mergedTotal += amt; mergedCount += 1; }
+  /** 한 팀장(정산기사)에 귀속되는 행 추출 */
+  const rowsForSettling = (lid: string): Delivery[] => {
+    const targets = targetSetFor(lid);
+    return rows.filter((r) => {
+      const ids = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean) as string[];
+      return ids.some((id) => targets.has(id));
     });
-    const deduction = Number(leader?.deduction_amount || 0);
-    const trash = Number(leader?.trash_cost || 0);
-    return { total, deduction, trash, net: total - deduction - trash, mergedTotal, mergedCount };
-  }, [rows, leader, mergedIds]);
+  };
+
+  // ===== 마스터 목록 집계 =====
+  const masterRows = useMemo(() => {
+    return settlingLeaders.map((l) => {
+      const rs = rowsForSettling(l.id);
+      let metro = 0, noteAmt = 0, regional = 0, cod = 0;
+      rs.forEach((r) => {
+        metro += num(r.metro_fee);
+        noteAmt += num(r.note_amount);
+        regional += num(r.regional_fee);
+        cod += num(r.cod_amount);
+      });
+      return {
+        leader: l,
+        count: rs.length,
+        metro, noteAmt, regional, cod,
+        total: metro + noteAmt + regional,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settlingLeaders, rows, leaders]);
+
+  const periodLabel =
+    period === "all" ? "전체 기간" :
+    period === "first" ? `${month} 1~15일` :
+    period === "second" ? `${month} 16~말일` :
+    `${month} 월전체`;
+
+  // ===== 상세 모드 =====
+  const detailLeader = leaderId ? leadersById.get(leaderId) : undefined;
+  const detailRows = useMemo(
+    () => (leaderId ? rowsForSettling(leaderId) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [leaderId, rows, leaders],
+  );
+  const mergedFrom = useMemo(
+    () => (leaderId ? leaders.filter((l) => l.settle_to_id === leaderId) : []),
+    [leaders, leaderId],
+  );
+  const mergedIdSet = useMemo(() => new Set(mergedFrom.map((l) => l.id)), [mergedFrom]);
+  const mergedSourceForRow = (r: Delivery): Leader | null => {
+    const ids = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean) as string[];
+    const src = ids.find((id) => mergedIdSet.has(id));
+    return src ? (leadersById.get(src) || null) : null;
+  };
+
+  const detailCalc = useMemo(() => {
+    let metro = 0, noteAmt = 0, regional = 0, cod = 0, fees = 0;
+    let mergedTotal = 0, mergedCount = 0;
+    detailRows.forEach((r) => {
+      metro += num(r.metro_fee);
+      noteAmt += num(r.note_amount);
+      regional += num(r.regional_fee);
+      cod += num(r.cod_amount);
+      fees += feeFor(r, r.company_id ? companyById.get(r.company_id) : undefined);
+      if (mergedSourceForRow(r)) {
+        mergedTotal += sumFee(r);
+        mergedCount += 1;
+      }
+    });
+    const total = metro + noteAmt + regional;
+    const afterFees = total - fees;
+    const deduction = num(detailLeader?.deduction_amount) + num(detailLeader?.trash_cost);
+    const net = afterFees - deduction;
+    return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailRows, companyById, detailLeader, mergedIdSet]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
+        {leaderId && (
+          <Button variant="outline" size="sm" onClick={() => setLeaderId("")}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> 전체 팀장 목록
+          </Button>
+        )}
         <h1 className="text-2xl font-bold flex-1">팀장정산</h1>
-        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border rounded px-3 py-2" />
-        <Select value={leaderId} onValueChange={setLeaderId}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="팀장 선택" /></SelectTrigger>
-          <SelectContent>
-            {leaders.filter((l) => !l.is_virtual).map((l) => (
-              <SelectItem key={l.id} value={l.id}>{getDisplayName(l, leaders)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <input
+          type="month" value={month} onChange={(e) => setMonth(e.target.value)}
+          disabled={period === "all"} className="border rounded px-3 py-2"
+        />
+        <div className="flex gap-1">
+          {([
+            ["all", "전체"],
+            ["first", "1~15일"],
+            ["second", "16~말일"],
+            ["month", "월전체"],
+          ] as [Period, string][]).map(([p, label]) => (
+            <Button key={p} size="sm" variant={period === p ? "default" : "outline"} onClick={() => setPeriod(p)}>
+              {label}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      {leader && (
+      {!leaderId && (
         <Card className="p-4">
-          <h2 className="font-bold text-lg mb-3">{getDisplayName(leader, leaders)} 정산서 ({month})</h2>
+          <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
+          <Table className="text-sm num">
+            <TableHeader>
+              <TableRow>
+                <TableHead>팀장명</TableHead>
+                <TableHead className="text-right">배송건수</TableHead>
+                <TableHead className="text-right">수도권배송비</TableHead>
+                <TableHead className="text-right">비고금액</TableHead>
+                <TableHead className="text-right">지방배송비</TableHead>
+                <TableHead className="text-right">합배송비</TableHead>
+                <TableHead className="text-right">착불 합계</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {masterRows.map((m) => (
+                <TableRow key={m.leader.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setLeaderId(m.leader.id)}>
+                  <TableCell>
+                    <button className="text-primary hover:underline font-medium">
+                      {getDisplayName(m.leader, leaders)}
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-right">{m.count || "-"}</TableCell>
+                  <TableCell className="text-right">{fmt(m.metro)}</TableCell>
+                  <TableCell className="text-right">{fmt(m.noteAmt)}</TableCell>
+                  <TableCell className="text-right">{fmt(m.regional)}</TableCell>
+                  <TableCell className="text-right font-semibold">{fmt(m.total)}</TableCell>
+                  <TableCell className="text-right">{fmt(m.cod)}</TableCell>
+                </TableRow>
+              ))}
+              {masterRows.length === 0 && (
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">정산대상 팀장 없음</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      {detailLeader && (
+        <Card className="p-4">
+          <div className="flex items-baseline gap-2 mb-3">
+            <h2 className="font-bold text-lg">{getDisplayName(detailLeader, leaders)}</h2>
+            <span className="text-sm text-muted-foreground">{periodLabel}</span>
+          </div>
+
           {mergedFrom.length > 0 && (
             <div className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
               <div className="font-semibold text-amber-800">
                 {mergedFrom.map((l) => l.name).join(", ")} 정산합산 포함
               </div>
               <div className="text-amber-700 num">
-                합산 건수: <b>{calc.mergedCount}건</b> &nbsp;|&nbsp;
-                합산 금액: <b>{fmt(calc.mergedTotal)}</b>
+                합산 건수: <b>{detailCalc.mergedCount}건</b> &nbsp;|&nbsp;
+                합산 금액: <b>{fmt(detailCalc.mergedTotal)}</b>
               </div>
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 num">
-            <Stat label="배송비 총액" value={calc.total} />
-            <Stat label="공제금" value={calc.deduction} />
-            <Stat label="쓰레기비" value={calc.trash} />
-            <Stat label="정산액" value={calc.net} highlight />
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4 num">
+            <Stat label="배송건수" value={detailRows.length} raw />
+            <Stat label="수도권배송비" value={detailCalc.metro} />
+            <Stat label="비고금액" value={detailCalc.noteAmt} />
+            <Stat label="지방배송비" value={detailCalc.regional} />
+            <Stat label="합배송비" value={detailCalc.total} />
+            <Stat label="착불 합계" value={detailCalc.cod} />
+            <Stat label="수수료 합계" value={detailCalc.fees} />
+            <Stat label="계산후 지급금액" value={detailCalc.afterFees} />
+            <Stat label="공제총액" value={detailCalc.deduction} />
+            <Stat label="실지급액" value={detailCalc.net} highlight />
           </div>
-          <Table className="text-xs num">
-            <TableHeader>
-              <TableRow>
-                <TableHead>날짜</TableHead><TableHead>업체</TableHead><TableHead>고객</TableHead><TableHead>배송지</TableHead><TableHead>정산처리</TableHead>
-                <TableHead className="text-right">배송비</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => {
-                const src = mergedSourceForRow(r);
-                return (
-                <TableRow key={r.id} className={src ? "bg-amber-50 hover:bg-amber-100" : ""}>
-                  <TableCell>{r.date}</TableCell>
-                  <TableCell>{r.company_name}</TableCell>
-                  <TableCell>{r.customer_name || "-"}</TableCell>
-                  <TableCell>{r.region || "-"}</TableCell>
-                  <TableCell className={src ? "text-amber-800 font-medium" : "text-muted-foreground"}>
-                    {src ? `${src.name} → ${leader.name}` : "본인"}
-                  </TableCell>
-                  <TableCell className="text-right">{fmt(Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee))}</TableCell>
+
+          <div className="overflow-x-auto">
+            <Table className="text-xs num">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>날짜</TableHead>
+                  <TableHead>업체</TableHead>
+                  <TableHead>실제기사1</TableHead>
+                  <TableHead>실제기사2</TableHead>
+                  <TableHead>정산기사</TableHead>
+                  <TableHead>고객명</TableHead>
+                  <TableHead>배송지</TableHead>
+                  <TableHead>품목</TableHead>
+                  <TableHead>비고</TableHead>
+                  <TableHead className="text-right">수도권배송비</TableHead>
+                  <TableHead className="text-right">비고금액</TableHead>
+                  <TableHead className="text-right">지방배송비</TableHead>
+                  <TableHead className="text-right">착불</TableHead>
+                  <TableHead className="text-right">합배송비</TableHead>
+                  <TableHead>분할</TableHead>
+                  <TableHead className="text-right">건별 수수료</TableHead>
+                  <TableHead className="text-right">건별 계산후 지급액</TableHead>
+                  <TableHead className="text-right">건별 실지급액</TableHead>
+                  <TableHead>정산처리</TableHead>
                 </TableRow>
-                );
-              })}
-              {rows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {detailRows.map((r) => {
+                  const src = mergedSourceForRow(r);
+                  const real1 = realLeaderIdFor(r, leadersById);
+                  const real1Name = real1 ? (leadersById.get(real1)?.name || r.leader1_name) : r.leader1_name;
+                  const real2Name = r.leader2_id
+                    ? (leadersById.get(r.leader2_id)?.name || r.leader2_name)
+                    : r.leader2_name;
+                  const settleId = settlementLeaderIdFor(r, leadersById);
+                  const settleName = settleId ? (leadersById.get(settleId)?.name || "-") : "-";
+                  const totalFee = sumFee(r);
+                  const fee = feeFor(r, r.company_id ? companyById.get(r.company_id) : undefined);
+                  const afterFee = totalFee - fee;
+                  return (
+                    <TableRow key={r.id} className={src ? "bg-amber-50 hover:bg-amber-100" : ""}>
+                      <TableCell>{r.date}</TableCell>
+                      <TableCell>{r.company_name}</TableCell>
+                      <TableCell>{real1Name || "-"}</TableCell>
+                      <TableCell>{real2Name || "-"}</TableCell>
+                      <TableCell>{settleName}</TableCell>
+                      <TableCell>{r.customer_name || "-"}</TableCell>
+                      <TableCell>{r.region || "-"}</TableCell>
+                      <TableCell className="max-w-[180px] whitespace-pre-wrap break-words">{r.item || "-"}</TableCell>
+                      <TableCell className="max-w-[180px] whitespace-pre-wrap break-words">{r.note || "-"}</TableCell>
+                      <TableCell className="text-right">{fmt(num(r.metro_fee))}</TableCell>
+                      <TableCell className="text-right">{fmt(num(r.note_amount))}</TableCell>
+                      <TableCell className="text-right">{fmt(num(r.regional_fee))}</TableCell>
+                      <TableCell className="text-right">{fmt(num(r.cod_amount))}</TableCell>
+                      <TableCell className="text-right font-medium">{fmt(totalFee)}</TableCell>
+                      <TableCell>{r.split_type || "-"}</TableCell>
+                      <TableCell className="text-right">{fmt(fee)}</TableCell>
+                      <TableCell className="text-right">{fmt(afterFee)}</TableCell>
+                      <TableCell className="text-right">{fmt(afterFee)}</TableCell>
+                      <TableCell className={src ? "text-amber-800 font-medium" : "text-muted-foreground"}>
+                        {src ? `${src.name} → ${detailLeader.name}` : "본인"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {detailRows.length === 0 && (
+                  <TableRow><TableCell colSpan={19} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="mt-4">
+            <Button variant="outline" onClick={() => setLeaderId("")}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> 전체 팀장 목록으로 돌아가기
+            </Button>
+          </div>
         </Card>
       )}
     </div>
   );
 }
 
-function Stat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function Stat({ label, value, highlight, raw }: { label: string; value: number; highlight?: boolean; raw?: boolean }) {
   return (
     <div className={`p-3 rounded border ${highlight ? "bg-primary/10 border-primary" : ""}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-bold">{fmt(value)}</div>
+      <div className="text-xl font-bold">{raw ? value : fmt(value)}</div>
     </div>
   );
 }
