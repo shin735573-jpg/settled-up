@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { matchesCompany } from "@/lib/companyMatch";
-import { getCompanyFacingName } from "@/lib/leaderResolver";
+import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolver";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -23,7 +23,7 @@ export default function CompanySettlement() {
     (async () => {
       const [{ data: c }, { data: l }] = await Promise.all([
         supabase.from("companies").select("*").eq("active", true).order("name"),
-        supabase.from("team_leaders").select("id,name,aliases,is_rejected,is_virtual,settle_to_id"),
+        supabase.from("team_leaders").select("id,name,aliases,is_rejected,settle_to_id"),
       ]);
       setCompanies(c || []);
       setLeaders(l || []);
@@ -70,14 +70,36 @@ export default function CompanySettlement() {
 
   const company = companies.find((c) => c.id === companyId);
 
-  // 업체 제출용 표시: 거부기사는 별칭1 (없으면 "가상기사"), 그 외는 정식 팀장명.
+  // 업체 제출용 표시: 거부기사는 별칭, 그 외는 정식 팀장명.
   // 정산 계산은 leader_id 기준이므로 이 표시는 화면용일 뿐.
+  // 거부기사인데 별칭 미등록이면 "⚠ 별칭없음"으로 표시하고 실제 이름은 노출하지 않음.
   const displayLeaderName = (id: string | null, fallbackName: string | null): string => {
     if (!id) return fallbackName || "-";
     const real = leaders.find((l) => l.id === id);
     if (!real) return fallbackName || "-";
+    if (isMissingCompanyAlias(real)) return "⚠ 별칭 미등록";
     return getCompanyFacingName(real);
   };
+
+  // 현재 상세 행 중 별칭 누락 거부기사가 있는지
+  const missingAliasLeaders = useMemo(() => {
+    if (!company) return [] as { id: string; name: string }[];
+    const idSet = new Set<string>();
+    for (const r of detailRowsRaw()) {
+      [r.leader1_id, r.leader2_id, r.leader3_id].forEach((id) => id && idSet.add(id));
+    }
+    const out: { id: string; name: string }[] = [];
+    idSet.forEach((id) => {
+      const l = leaders.find((x) => x.id === id);
+      if (l && isMissingCompanyAlias(l)) out.push({ id: l.id, name: l.name });
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company, allRows, leaders]);
+
+  function detailRowsRaw() {
+    return company ? allRows.filter((r) => matchesCompany(r, company)) : [];
+  }
 
   // 업체별 요약 계산
   const summarize = (companyRows: any[], carryForCompany: any[]) => {
