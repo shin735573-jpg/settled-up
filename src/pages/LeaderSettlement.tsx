@@ -412,6 +412,67 @@ export default function LeaderSettlement() {
             <Stat label="실지급액" value={detailCalc.net} highlight />
           </div>
 
+          <div className="grid md:grid-cols-2 gap-3 mb-4">
+            <Card className="p-3 bg-muted/30">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-sm">공통 공제</h3>
+                <span className="text-sm num font-semibold">{fmt(commonDeductionTotal)}</span>
+              </div>
+              <div className="space-y-1 text-sm num">
+                {activeCommonDeductions.length === 0 && (
+                  <div className="text-muted-foreground">적용 중인 공통 공제 없음</div>
+                )}
+                {activeCommonDeductions.map((c) => (
+                  <div key={c.id} className="flex justify-between">
+                    <span>{c.label}</span>
+                    <span>{fmt(num(c.amount))}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-3 bg-muted/30">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-sm">개별 공제 ({periodLabel})</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm num font-semibold">{fmt(detailCalc.indivTotal)}</span>
+                  <Button size="sm" variant="outline" onClick={addDetailDeduction} disabled={detailDeductions.length >= 20}>
+                    <Plus className="h-3 w-3 mr-1" />추가
+                  </Button>
+                  <Button size="sm" onClick={saveDetailDeductions} disabled={savingDeductions}>저장</Button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {detailDeductions.map((d) => (
+                  <div key={d.id} className="flex gap-2 items-center">
+                    <Input
+                      className="h-8 flex-1"
+                      placeholder="공제내용 (예: 파손)"
+                      value={d.label}
+                      onChange={(e) => updateDetailDeduction(d.id, { label: e.target.value })}
+                    />
+                    <Input
+                      type="number"
+                      className="h-8 w-32 text-right num"
+                      placeholder="0"
+                      value={d.amount}
+                      onChange={(e) => updateDetailDeduction(d.id, { amount: Number(e.target.value) || 0 })}
+                    />
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => removeDetailDeduction(d.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                {detailDeductions.length === 0 && (
+                  <div className="text-sm text-muted-foreground">개별 공제 항목 없음. ‘추가’를 눌러 입력하세요.</div>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                * 입력 후 ‘저장’을 눌러야 반영됩니다. 해당 팀장/해당 정산기간({periodKey})에만 저장됩니다.
+              </div>
+            </Card>
+          </div>
+
           <div className="overflow-x-auto">
             <Table className="text-xs num">
               <TableHeader>
