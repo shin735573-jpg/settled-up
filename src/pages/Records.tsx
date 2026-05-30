@@ -886,7 +886,7 @@ export default function Records() {
         <Table className="text-xs num">
           <TableHeader>
             <TableRow>
-              {["구분","날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
+              {["구분","날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","2인배송","분할","결제",""].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
@@ -937,13 +937,16 @@ export default function Records() {
                   <TableCell className="text-right">{fmt(r.regional_fee)}</TableCell>
                   <TableCell className="text-right">{fmt(r.cod_amount)}</TableCell>
                   <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {r.two_person ? <Badge className="bg-blue-500 hover:bg-blue-600">2인배송</Badge> : "-"}
+                  </TableCell>
                   <TableCell>{r.split_type || "-"}</TableCell>
                   <TableCell>{r.paid ? "✓" : "-"}</TableCell>
                   <TableCell><Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); removeRow(r.id); }}><Trash2 className="h-4 w-4" /></Button></TableCell>
                 </TableRow>
               );
             })}
-            {records.length === 0 && <TableRow><TableCell colSpan={18} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
+            {records.length === 0 && <TableRow><TableCell colSpan={19} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
