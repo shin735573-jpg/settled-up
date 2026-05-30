@@ -62,6 +62,7 @@ export type Database = {
           customer_name: string | null
           date: string
           id: string
+          is_missing: boolean
           item: string | null
           leader1_id: string | null
           leader1_name: string | null
@@ -70,6 +71,7 @@ export type Database = {
           leader3_id: string | null
           leader3_name: string | null
           metro_fee: number
+          missing_reason: string | null
           note: string | null
           note_amount: number
           paid: boolean
@@ -88,6 +90,7 @@ export type Database = {
           customer_name?: string | null
           date: string
           id?: string
+          is_missing?: boolean
           item?: string | null
           leader1_id?: string | null
           leader1_name?: string | null
@@ -96,6 +99,7 @@ export type Database = {
           leader3_id?: string | null
           leader3_name?: string | null
           metro_fee?: number
+          missing_reason?: string | null
           note?: string | null
           note_amount?: number
           paid?: boolean
@@ -114,6 +118,7 @@ export type Database = {
           customer_name?: string | null
           date?: string
           id?: string
+          is_missing?: boolean
           item?: string | null
           leader1_id?: string | null
           leader1_name?: string | null
@@ -122,6 +127,7 @@ export type Database = {
           leader3_id?: string | null
           leader3_name?: string | null
           metro_fee?: number
+          missing_reason?: string | null
           note?: string | null
           note_amount?: number
           paid?: boolean

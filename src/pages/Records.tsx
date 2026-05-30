@@ -18,6 +18,15 @@ import { cn } from "@/lib/utils";
 import { fmt, parseNum, parseDate } from "@/lib/format";
 import { toast } from "sonner";
 import { ko } from "date-fns/locale";
+import {
+  validateAll,
+  comparePeriodTotals,
+  summarize,
+  type DeliveryRecord as ValRecord,
+  type ValidationIssue,
+  type ValidationContext,
+} from "@/lib/recordValidation";
+import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
 
 type Company = { id: string; name: string; active: boolean };
 type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean };
@@ -233,6 +242,8 @@ type FormState = {
   cod_amount: string;
   split_type: string;
   paid: boolean;
+  is_missing: boolean;
+  missing_reason: string;
 };
 
 const NONE = "__none__";
@@ -254,6 +265,8 @@ const emptyForm = (): FormState => ({
   cod_amount: "",
   split_type: "",
   paid: false,
+  is_missing: false,
+  missing_reason: "",
 });
 
 export default function Records() {
@@ -268,6 +281,13 @@ export default function Records() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [validation, setValidation] = useState<{
+    issues: ValidationIssue[];
+    summary: ReturnType<typeof summarize>;
+    periodChecks: ReturnType<typeof comparePeriodTotals>;
+    ranAt: string;
+  } | null>(null);
+  const [showOnly, setShowOnly] = useState<"all" | "error" | "warning">("all");
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
@@ -319,6 +339,8 @@ export default function Records() {
       cod_amount: String(r.cod_amount ?? ""),
       split_type: r.split_type || "",
       paid: !!r.paid,
+      is_missing: !!r.is_missing,
+      missing_reason: r.missing_reason || "",
     });
     setFormOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -329,6 +351,51 @@ export default function Records() {
     if (!form.date) { toast.error("날짜를 입력하세요"); return; }
     const company = companies.find((c) => c.id === form.company_id);
     if (!company) { toast.error("업체를 선택하세요"); return; }
+    if (form.is_missing && !form.missing_reason.trim()) {
+      toast.error("누락 사유를 입력해주세요"); return;
+    }
+    // 누락분 모드에서는 저장 직전 자동 검사
+    if (form.is_missing) {
+      const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
+      const draft: ValRecord = {
+        id: form.id || "_draft",
+        date: form.date,
+        company_id: form.company_id,
+        company_name: company.name,
+        leader1_id: form.leader1_id || null,
+        leader1_name: leaderName(form.leader1_id),
+        leader2_id: form.leader2_id || null,
+        leader2_name: leaderName(form.leader2_id),
+        customer_name: form.customer_name || null,
+        region: form.region || null,
+        region_type: form.region_type === "unknown" ? null : form.region_type,
+        item: form.item || null,
+        note: form.note || null,
+        metro_fee: parseNum(form.metro_fee) || 0,
+        note_amount: parseNum(form.note_amount) || 0,
+        regional_fee: parseNum(form.regional_fee) || 0,
+        cod_amount: parseNum(form.cod_amount) || 0,
+        split_type: form.split_type || null,
+        paid: form.paid,
+        is_missing: true,
+      };
+      const ctx: ValidationContext = {
+        companies: companies.map((c) => ({ id: c.id, name: c.name })),
+        leaders: leaders.map((l) => ({ id: l.id, name: l.name, is_rejected: l.is_rejected })),
+        holidays: holidays.map((h) => ({ date: h.date, scope: h.scope as any, team_leader_id: h.team_leader_id })),
+        classifyRegion,
+      };
+      const issues = validateAll([draft], ctx);
+      const errs = issues.filter((i) => i.severity === "error");
+      const warns = issues.filter((i) => i.severity === "warning");
+      if (errs.length > 0) {
+        toast.error(`누락분 저장 불가: ${errs.map((e) => e.message).join(" / ")}`);
+        return;
+      }
+      if (warns.length > 0) {
+        if (!confirm(`경고 ${warns.length}건:\n${warns.map((w) => `- ${w.message}`).join("\n")}\n\n그대로 저장할까요?`)) return;
+      }
+    }
     const metroN = parseNum(form.metro_fee) || 0;
     const regionalN = parseNum(form.regional_fee) || 0;
     if (!form.region) {
@@ -361,6 +428,8 @@ export default function Records() {
       cod_amount: parseNum(form.cod_amount) || 0,
       split_type: form.split_type || null,
       paid: form.paid,
+      is_missing: form.is_missing,
+      missing_reason: form.is_missing ? (form.missing_reason || null) : null,
     };
     setSaving(true);
     let error;
@@ -381,6 +450,65 @@ export default function Records() {
     await removeRow(form.id);
   };
 
+  // 종합 오류 검사 실행
+  const runValidation = () => {
+    const ctx: ValidationContext = {
+      companies: companies.map((c) => ({ id: c.id, name: c.name })),
+      leaders: leaders.map((l) => ({
+        id: l.id, name: l.name, is_rejected: l.is_rejected,
+        is_virtual: l.is_virtual, active: l.active,
+      })),
+      holidays: holidays.map((h) => ({
+        date: h.date, scope: h.scope as any, team_leader_id: h.team_leader_id,
+      })),
+      classifyRegion,
+    };
+    const recs = records as ValRecord[];
+    const issues = validateAll(recs, ctx, (r) => `${r.date || "?"} ${r.company_name || ""} ${r.customer_name || ""}`);
+    const s = summarize(issues, recs.length);
+    const periodChecks = comparePeriodTotals(recs, filterMonth);
+    setValidation({
+      issues,
+      summary: s,
+      periodChecks,
+      ranAt: new Date().toLocaleString("ko-KR"),
+    });
+    if (s.errorCount === 0 && s.warningCount === 0)
+      toast.success(`전체 ${s.totalRows}건 모두 정상`);
+    else
+      toast.message(`검사 완료: 오류 ${s.errorCount} / 경고 ${s.warningCount} / 정상 ${s.okCount}`);
+  };
+
+  const startMissing = () => {
+    setForm({ ...emptyForm(), is_missing: true });
+    setFormOpen(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast.message("누락분 모드 — 누락 사유를 함께 입력해주세요");
+  };
+
+  // rowId → 이슈 그룹
+  const issuesByRow = useMemo(() => {
+    const m = new Map<string, ValidationIssue[]>();
+    if (!validation) return m;
+    for (const i of validation.issues) {
+      if (!m.has(i.rowId)) m.set(i.rowId, []);
+      m.get(i.rowId)!.push(i);
+    }
+    return m;
+  }, [validation]);
+
+  const visibleIssueRows = useMemo(() => {
+    if (!validation) return [] as { rowId: string; severity: "error" | "warning"; items: ValidationIssue[] }[];
+    return Array.from(issuesByRow.entries()).map(([rowId, items]) => ({
+      rowId,
+      items,
+      severity: items.some((i) => i.severity === "error") ? ("error" as const) : ("warning" as const),
+    })).filter((g) => showOnly === "all" || g.severity === showOnly);
+  }, [issuesByRow, validation, showOnly]);
+
+  const hasErrors = (validation?.summary.errorCount ?? 0) > 0;
+  const hasPeriodMismatch = (validation?.periodChecks || []).some((p) => p.status === "불일치");
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -388,6 +516,150 @@ export default function Records() {
         <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40" />
         <Button onClick={() => setPasteOpen(true)}><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Button
+          size="lg"
+          variant="default"
+          className="h-14 text-base font-semibold"
+          onClick={runValidation}
+        >
+          <ShieldAlert className="h-5 w-5 mr-2" /> 오류 검사
+        </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="h-14 text-base font-semibold"
+          onClick={startMissing}
+        >
+          <FileWarning className="h-5 w-5 mr-2" /> 누락분 추가
+        </Button>
+      </div>
+
+      {validation && (
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="text-sm text-muted-foreground">검사 시각: {validation.ranAt}</div>
+            <Button size="sm" variant="ghost" onClick={() => setValidation(null)}>닫기</Button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              className={cn("rounded-md border p-3 text-left", showOnly === "all" && "ring-2 ring-primary")}
+              onClick={() => setShowOnly("all")}
+            >
+              <div className="text-xs text-muted-foreground">전체</div>
+              <div className="text-2xl font-bold">{validation.summary.totalRows}</div>
+            </button>
+            <button
+              className={cn("rounded-md border p-3 text-left bg-destructive/5", showOnly === "error" && "ring-2 ring-destructive")}
+              onClick={() => setShowOnly("error")}
+            >
+              <div className="text-xs text-destructive">오류</div>
+              <div className="text-2xl font-bold text-destructive">{validation.summary.errorCount}</div>
+            </button>
+            <button
+              className={cn("rounded-md border p-3 text-left bg-orange-500/5", showOnly === "warning" && "ring-2 ring-orange-500")}
+              onClick={() => setShowOnly("warning")}
+            >
+              <div className="text-xs text-orange-600">경고</div>
+              <div className="text-2xl font-bold text-orange-600">{validation.summary.warningCount}</div>
+            </button>
+            <div className="rounded-md border p-3 bg-green-500/5">
+              <div className="text-xs text-green-700">정상</div>
+              <div className="text-2xl font-bold text-green-700">{validation.summary.okCount}</div>
+            </div>
+          </div>
+
+          {/* #13 기간별 총액 비교 */}
+          <div className="border rounded p-3">
+            <div className="text-sm font-semibold mb-2">기간별 업체 vs 팀장 총액 ({filterMonth})</div>
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>기간</TableHead>
+                  <TableHead className="text-right">업체 배송비 총액</TableHead>
+                  <TableHead className="text-right">팀장 배송비 총액</TableHead>
+                  <TableHead className="text-right">차이</TableHead>
+                  <TableHead>상태</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {validation.periodChecks.map((p) => (
+                  <TableRow key={p.period}>
+                    <TableCell>{p.period === "1-15" ? "1~15일" : p.period === "16-end" ? "16~말일" : "월전체"}</TableCell>
+                    <TableCell className="text-right">{fmt(p.companyTotal)}</TableCell>
+                    <TableCell className="text-right">{fmt(p.leaderTotal)}</TableCell>
+                    <TableCell className={cn("text-right", p.diff !== 0 && "text-destructive font-semibold")}>{fmt(p.diff)}</TableCell>
+                    <TableCell>
+                      <Badge variant={p.status === "정상" ? "secondary" : "destructive"}>{p.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {hasPeriodMismatch && (
+              <div className="text-xs text-destructive mt-2">
+                ⚠ 업체 총액과 팀장 총액이 불일치합니다. 불일치 상태에서는 정산마감을 권장하지 않습니다.
+              </div>
+            )}
+          </div>
+
+          {visibleIssueRows.length > 0 ? (
+            <div className="border rounded max-h-96 overflow-y-auto">
+              <Table className="text-xs">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>행</TableHead>
+                    <TableHead>심각도</TableHead>
+                    <TableHead>오류 종류</TableHead>
+                    <TableHead>내용</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleIssueRows.flatMap((g) =>
+                    g.items.map((it, i) => {
+                      const rec = records.find((r) => r.id === g.rowId);
+                      return (
+                        <TableRow key={g.rowId + i}
+                          className={cn(
+                            it.severity === "error" ? "bg-destructive/5" : "bg-orange-500/5"
+                          )}>
+                          <TableCell className="whitespace-nowrap">{it.rowLabel || g.rowId.slice(0, 6)}</TableCell>
+                          <TableCell>
+                            {it.severity === "error"
+                              ? <Badge variant="destructive">오류</Badge>
+                              : <Badge className="bg-orange-500 hover:bg-orange-600">경고</Badge>}
+                          </TableCell>
+                          <TableCell className="font-mono text-[10px]">{it.code}</TableCell>
+                          <TableCell>{it.message}</TableCell>
+                          <TableCell>
+                            {rec && (
+                              <Button size="sm" variant="outline" onClick={() => editRow(rec)}>수정</Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-green-700 text-sm">
+              <CheckCircle2 className="h-4 w-4" />
+              {showOnly === "all" ? "이슈가 없습니다 — 모든 행 정상." : `해당 필터에 항목이 없습니다.`}
+            </div>
+          )}
+
+          {hasErrors && (
+            <div className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              오류가 있는 상태에서는 저장/정산마감이 차단됩니다. 행 [수정] 버튼으로 보정 후 다시 검사하세요.
+            </div>
+          )}
+        </Card>
+      )}
 
       <Button
         size="lg"
@@ -400,7 +672,10 @@ export default function Records() {
       {formOpen && (
         <Card className="p-4 md:p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">{form.id ? "배송 수정" : "새 배송 입력"}</h2>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              {form.id ? "배송 수정" : (form.is_missing ? "누락분 추가" : "새 배송 입력")}
+              {form.is_missing && <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>}
+            </h2>
             <Button variant="ghost" size="icon" onClick={() => { setForm(emptyForm()); setFormOpen(false); }}>
               <X className="h-4 w-4" />
             </Button>
@@ -531,6 +806,23 @@ export default function Records() {
                 <span>{form.paid ? "결제 완료" : "미결제"}</span>
               </label>
             </div>
+            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.is_missing}
+                  onCheckedChange={(v) => setForm({ ...form, is_missing: !!v })}
+                />
+                <span className="font-medium">누락분 (정산일 이후 추가 등록)</span>
+              </label>
+              {form.is_missing && (
+                <Input
+                  className="mt-2"
+                  placeholder="누락 사유 (필수)"
+                  value={form.missing_reason}
+                  onChange={(e) => setForm({ ...form, missing_reason: e.target.value })}
+                />
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
@@ -551,7 +843,7 @@ export default function Records() {
         <Table className="text-xs num">
           <TableHeader>
             <TableRow>
-              {["날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
+              {["구분","날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
@@ -559,8 +851,20 @@ export default function Records() {
           <TableBody>
             {records.map((r) => {
               const total = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+              const rowIssues = issuesByRow.get(r.id);
+              const rowSeverity = rowIssues?.some((i) => i.severity === "error")
+                ? "error" : rowIssues?.length ? "warning" : null;
               return (
-                <TableRow key={r.id} className="cursor-pointer" onClick={() => editRow(r)}>
+                <TableRow key={r.id} className={cn(
+                  "cursor-pointer",
+                  rowSeverity === "error" && "bg-destructive/5",
+                  rowSeverity === "warning" && "bg-orange-500/5",
+                )} onClick={() => editRow(r)}>
+                  <TableCell className="whitespace-nowrap">
+                    {r.is_missing
+                      ? <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>
+                      : <Badge variant="secondary">일반</Badge>}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap">{r.date}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.leader1_name || "-"}</TableCell>
@@ -596,7 +900,7 @@ export default function Records() {
                 </TableRow>
               );
             })}
-            {records.length === 0 && <TableRow><TableCell colSpan={17} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
+            {records.length === 0 && <TableRow><TableCell colSpan={18} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
