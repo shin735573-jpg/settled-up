@@ -74,6 +74,7 @@ export type Database = {
           note_amount: number
           paid: boolean
           region: string | null
+          region_type: string | null
           regional_fee: number
           split_type: string | null
           updated_at: string
@@ -99,6 +100,7 @@ export type Database = {
           note_amount?: number
           paid?: boolean
           region?: string | null
+          region_type?: string | null
           regional_fee?: number
           split_type?: string | null
           updated_at?: string
@@ -124,6 +126,7 @@ export type Database = {
           note_amount?: number
           paid?: boolean
           region?: string | null
+          region_type?: string | null
           regional_fee?: number
           split_type?: string | null
           updated_at?: string
