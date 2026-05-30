@@ -473,7 +473,7 @@ export default function Records() {
       companies: companies.map((c) => ({ id: c.id, name: c.name })),
       leaders: leaders.map((l) => ({
         id: l.id, name: l.name, is_rejected: l.is_rejected,
-        is_virtual: l.is_virtual, active: l.active,
+        is_virtual: l.is_virtual, active: l.active, aliases: l.aliases ?? [],
       })),
       holidays: holidays.map((h) => ({
         date: h.date, scope: h.scope as any, team_leader_id: h.team_leader_id,
