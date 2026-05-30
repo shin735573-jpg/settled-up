@@ -20,7 +20,7 @@ type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: bool
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
-const COLS = ["날짜","업체","팀장1","팀장2","고객명","지역","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","분할","결제유무"];
+const COLS = ["날짜","업체","팀장1","팀장2","고객명","배송지","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","분할","결제유무"];
 
 // 표준 필드 + 별칭 (헤더 자동 인식용)
 type FieldKey =
@@ -33,7 +33,7 @@ const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: 
   { key: "leader1",  label: "팀장1",                       aliases: ["팀장1","기사1","배송팀장1","팀장","leader1"] },
   { key: "leader2",  label: "팀장2",                       aliases: ["팀장2","기사2","배송팀장2","leader2"] },
   { key: "customer", label: "고객명",                       aliases: ["고객명","고객","성명","이름","성함","받는분","수령인","customer"] },
-  { key: "region",   label: "지역",                         aliases: ["지역","배송지역","지역명","region"] },
+  { key: "region",   label: "배송지",                       aliases: ["배송지","지역","배송지역","지역명","region"] },
   { key: "item",     label: "품목",                         aliases: ["품목","상품","제품","품명","내용","item"] },
   { key: "note",     label: "비고",                         aliases: ["비고","메모","특이사항","참고","note"] },
   { key: "metro",    label: "수도권배송비",                  aliases: ["수도권배송비","수도권","수도권비","수도권 배송비","금액","배송비","요금"] },
@@ -181,6 +181,7 @@ type FormState = {
   leader2_id: string;
   customer_name: string;
   region: string;
+  region_type: RegionType;
   item: string;
   note: string;
   metro_fee: string;
@@ -201,6 +202,7 @@ const emptyForm = (): FormState => ({
   leader2_id: "",
   customer_name: "",
   region: "",
+  region_type: "unknown",
   item: "",
   note: "",
   metro_fee: "",
@@ -265,6 +267,7 @@ export default function Records() {
       leader2_id: r.leader2_id || "",
       customer_name: r.customer_name || "",
       region: r.region || "",
+      region_type: (r.region_type as RegionType) || classifyRegion(r.region || ""),
       item: r.item || "",
       note: r.note || "",
       metro_fee: String(r.metro_fee ?? ""),
@@ -283,6 +286,17 @@ export default function Records() {
     if (!form.date) { toast.error("날짜를 입력하세요"); return; }
     const company = companies.find((c) => c.id === form.company_id);
     if (!company) { toast.error("업체를 선택하세요"); return; }
+    const metroN = parseNum(form.metro_fee) || 0;
+    const regionalN = parseNum(form.regional_fee) || 0;
+    if (!form.region) {
+      if (!confirm("배송지가 비어있습니다. 그대로 저장할까요?")) return;
+    }
+    if (form.region_type === "metro" && regionalN > 0 && metroN === 0) {
+      if (!confirm("지역구분이 수도권인데 지방배송비만 입력되어 있습니다. 그대로 저장할까요?")) return;
+    }
+    if (form.region_type === "regional" && metroN > 0 && regionalN === 0) {
+      if (!confirm("지역구분이 지방인데 수도권배송비만 입력되어 있습니다. 그대로 저장할까요?")) return;
+    }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
     const payload = {
       user_id: user.id,
@@ -295,11 +309,12 @@ export default function Records() {
       leader2_name: leaderName(form.leader2_id),
       customer_name: form.customer_name || null,
       region: form.region || null,
+      region_type: form.region_type === "unknown" ? null : form.region_type,
       item: form.item || null,
       note: form.note || null,
-      metro_fee: parseNum(form.metro_fee) || 0,
+      metro_fee: metroN,
       note_amount: parseNum(form.note_amount) || 0,
-      regional_fee: parseNum(form.regional_fee) || 0,
+      regional_fee: regionalN,
       cod_amount: parseNum(form.cod_amount) || 0,
       split_type: form.split_type || null,
       paid: form.paid,
@@ -392,8 +407,30 @@ export default function Records() {
               <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} />
             </div>
             <div className="space-y-1">
-              <Label>지역</Label>
-              <Input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
+              <Label>배송지</Label>
+              <Input
+                value={form.region}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setForm({ ...form, region: v, region_type: classifyRegion(v) });
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>지역구분</Label>
+              <Select
+                value={form.region_type}
+                onValueChange={(v) => setForm({ ...form, region_type: v as RegionType })}
+              >
+                <SelectTrigger className={form.region_type === "unknown" ? "border-destructive text-destructive" : ""}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="metro">수도권</SelectItem>
+                  <SelectItem value="regional">지방</SelectItem>
+                  <SelectItem value="unknown">미분류</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1 sm:col-span-2 lg:col-span-4">
               <Label>품목</Label>
@@ -471,7 +508,7 @@ export default function Records() {
         <Table className="text-xs num">
           <TableHeader>
             <TableRow>
-              {["날짜","업체","팀장1","팀장2","고객","지역","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
+              {["날짜","업체","팀장1","팀장2","고객","배송지","구분","품목","비고","수도권","비고금액","지방","착불","총액","분할","결제",""].map((h) => (
                 <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
               ))}
             </TableRow>
@@ -487,6 +524,9 @@ export default function Records() {
                   <TableCell className="whitespace-nowrap">{r.leader2_name || "-"}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {r.region_type === "metro" ? "수도권" : r.region_type === "regional" ? "지방" : "-"}
+                  </TableCell>
                   <TableCell
                     className="align-top max-w-[240px] cursor-pointer"
                     onClick={(e) => {
@@ -513,7 +553,7 @@ export default function Records() {
                 </TableRow>
               );
             })}
-            {records.length === 0 && <TableRow><TableCell colSpan={16} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
+            {records.length === 0 && <TableRow><TableCell colSpan={17} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
