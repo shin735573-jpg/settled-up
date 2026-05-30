@@ -829,6 +829,19 @@ export default function Records() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1">
+              <Label>2인배송</Label>
+              <Select
+                value={form.two_person ? "yes" : "no"}
+                onValueChange={(v) => setForm({ ...form, two_person: v === "yes" })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no">아니오</SelectItem>
+                  <SelectItem value="yes">예</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1 flex flex-col">
               <Label>결제유무</Label>
               <label className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer">
