@@ -539,14 +539,20 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       .map((l) => l.split("\t").map((c) => c.trim()));
   }, [text]);
 
-  // 헤더 존재 여부: 첫 줄에 표준 별칭과 매칭되는 셀이 1개 이상이면 헤더로 간주
+  // 헤더 자동 탐색: 첫 ~30행 중 표준 별칭 매칭 점수가 가장 높은 행을 헤더로 채택 (점수 ≥ 2 필요)
   const headerInfo = useMemo(() => {
     if (grid.length === 0) return { hasHeader: false, headers: [] as string[], dataStart: 0 };
-    const first = grid[0];
-    const auto = autoMapHeaders(first);
-    const hasHeader = auto.some((k) => k !== null) ||
-      first.some((c) => TOTAL_ALIASES.includes(normalizeHeader(c)));
-    return { hasHeader, headers: first, dataStart: hasHeader ? 1 : 0 };
+    let bestRow = -1, bestScore = 0;
+    const limit = Math.min(grid.length, 30);
+    for (let i = 0; i < limit; i++) {
+      const auto = autoMapHeaders(grid[i]);
+      const score = auto.filter((k) => k !== null).length;
+      if (score > bestScore) { bestScore = score; bestRow = i; }
+    }
+    if (bestScore >= 2 && bestRow >= 0) {
+      return { hasHeader: true, headers: grid[bestRow], dataStart: bestRow + 1 };
+    }
+    return { hasHeader: false, headers: [] as string[], dataStart: 0 };
   }, [grid]);
 
   const colCount = useMemo(
@@ -608,7 +614,25 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       return parts.join("\n");
     };
 
+    // 노이즈 행 키워드 (합계/안내/정산완료 등)
+    const SKIP_KEYWORDS = ["합계","총계","소계","계","정산완료","입금완료","계좌","은행","연락처","담당자","비고없음","주의","안내","총합","TOTAL","SUM"];
+    const isSkipRow = (row: string[]) => {
+      const joined = row.join(" ").trim();
+      if (!joined) return true;
+      const nonEmpty = row.filter((c) => (c ?? "").trim() !== "").length;
+      // 한 셀짜리 제목/안내 행
+      if (nonEmpty <= 1 && joined.length > 0) return true;
+      // 키워드 행
+      for (const kw of SKIP_KEYWORDS) {
+        if (joined.includes(kw)) return true;
+      }
+      // 반복 패턴(예: "==========", "------")
+      if (/^[=\-_\s*]+$/.test(joined)) return true;
+      return false;
+    };
+
     return dataRows.map((cols) => {
+      if (isSkipRow(cols)) return null;
       const errors: RowError[] = [];
       const warnings: RowError[] = [];
 
@@ -669,6 +693,18 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       const paidRaw = cell(cols, "paid").toLowerCase();
       const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v", "결제완료"].includes(paidRaw) || paidRaw === "1";
 
+      // 실제 배송 행 판단: 신호 ≥ 2개
+      let signals = 0;
+      if (date) signals++;
+      if (company) signals++;
+      if (leaderIds.some(Boolean)) signals++;
+      if (customer) signals++;
+      if (item) signals++;
+      if (metro + noteAmt + regional + cod > 0) signals++;
+      if (signals < 2) return null;
+
+      // 신호가 충분한데 날짜만 없으면 위 lastDate가 fill-down 처리됨 (이미 위에서 적용)
+
       return {
         raw: cols, date, company,
         leaders: leaderNames,
@@ -678,8 +714,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
         companyId: companyRec?.id || null,
         leaderIds,
         errors, warnings,
-      };
-    });
+      } as ParsedRow;
+    }).filter((r): r is ParsedRow => r !== null);
   }, [grid, mapping, headerInfo, companies, leaders, holidays, leaderIndex, leaderById]);
 
   // 사용자 수정 반영된 최종 팀장 적용
