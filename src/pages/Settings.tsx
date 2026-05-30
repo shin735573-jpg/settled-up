@@ -12,6 +12,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName, resolveLeaderName } from "@/lib/leaderResolver";
+import {
+  CROSSCHECK_ITEM_LABELS, DEFAULT_CROSSCHECK, loadCrossCheckConfig, saveCrossCheckConfig,
+  type CrossCheckConfig, type CrossCheckItem,
+} from "@/lib/crossCheckConfig";
 
 type Company = {
   id: string;
@@ -59,15 +63,99 @@ export default function Settings() {
           <TabsTrigger value="leaders">팀장</TabsTrigger>
           <TabsTrigger value="common-deductions">공통공제</TabsTrigger>
           <TabsTrigger value="holidays">휴무일</TabsTrigger>
+          <TabsTrigger value="crosscheck">교차검증</TabsTrigger>
           <TabsTrigger value="onedrive">원드라이브</TabsTrigger>
         </TabsList>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
         <TabsContent value="holidays"><HolidaysTab /></TabsContent>
+        <TabsContent value="crosscheck"><CrossCheckTab /></TabsContent>
         <TabsContent value="onedrive"><OneDriveTab /></TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function CrossCheckTab() {
+  const [cfg, setCfg] = useState<CrossCheckConfig>(() => loadCrossCheckConfig());
+
+  const update = (patch: Partial<CrossCheckConfig>) => {
+    const next = { ...cfg, ...patch };
+    setCfg(next);
+    saveCrossCheckConfig(next);
+  };
+  const toggleItem = (k: CrossCheckItem, v: boolean) => {
+    const items = { ...cfg.items, [k]: v };
+    update({ items });
+  };
+  const reset = () => { setCfg(DEFAULT_CROSSCHECK); saveCrossCheckConfig(DEFAULT_CROSSCHECK); toast.success("기본값으로 복원했습니다"); };
+
+  return (
+    <Card className="p-4 space-y-5 max-w-2xl">
+      <div>
+        <h2 className="font-semibold mb-1">신동석 ↔ 강형주 교차검증 설정</h2>
+        <p className="text-xs text-muted-foreground">
+          팀장정산 화면 상단의 교차검증 카드에서 비교할 항목과 계산 기준을 확정합니다. 설정값은 즉시 반영됩니다.
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-sm">비교 항목</Label>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {(Object.keys(CROSSCHECK_ITEM_LABELS) as CrossCheckItem[]).map((k) => (
+            <label key={k} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={cfg.items[k]}
+                onCheckedChange={(v) => toggleItem(k, !!v)}
+              />
+              {CROSSCHECK_ITEM_LABELS[k]}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-sm">계산 기준 (재분배 포함 여부)</Label>
+        <Select value={cfg.basis} onValueChange={(v) => update({ basis: v as CrossCheckConfig["basis"] })}>
+          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="redistributed">재분배 포함 (기본) — 마스터 집계 그대로</SelectItem>
+            <SelectItem value="raw">원본 배분만 — 50/25/25 등 재분배 전 값으로 비교</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">
+          ※ 재분배 포함이면 신동석/강형주 값은 항상 동일해야 합니다(50/50). 원본 배분은 진단용입니다.
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-sm">제외 로직</Label>
+        <Select value={cfg.exclude} onValueChange={(v) => update({ exclude: v as CrossCheckConfig["exclude"] })}>
+          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="exclude_excluded">정산제외 팀장 제외 (기본)</SelectItem>
+            <SelectItem value="include_all">모두 포함 — 정산제외 팀장도 합산</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-sm">허용 오차 (원)</Label>
+        <Input
+          type="number"
+          className="mt-1 w-32 num"
+          value={cfg.tolerance}
+          min={0}
+          onChange={(e) => update({ tolerance: Math.max(0, Number(e.target.value) || 0) })}
+        />
+        <p className="text-xs text-muted-foreground mt-1">차이가 이 값 미만이면 일치(✓)로 표시합니다.</p>
+      </div>
+
+      <div className="pt-2">
+        <Button variant="outline" size="sm" onClick={reset}>기본값으로 복원</Button>
+      </div>
+    </Card>
   );
 }
 

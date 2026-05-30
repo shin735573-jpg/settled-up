@@ -10,6 +10,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
 import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
+import {
+  loadCrossCheckConfig, subscribeCrossCheckConfig, CROSSCHECK_ITEM_LABELS,
+  type CrossCheckConfig, type CrossCheckItem,
+} from "@/lib/crossCheckConfig";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -176,6 +180,33 @@ export default function LeaderSettlement() {
     [leaders],
   );
   const sdsOpts = { shindongseokId, ganghyungjuId };
+
+  // 교차검증 설정 (Settings > 교차검증) — 변경 시 즉시 반영
+  const [crossCfg, setCrossCfg] = useState<CrossCheckConfig>(() => loadCrossCheckConfig());
+  useEffect(() => subscribeCrossCheckConfig(() => setCrossCfg(loadCrossCheckConfig())), []);
+
+  /** 원본 배분(재분배 전) 기준 한 팀장의 합계. basis="raw"일 때 사용. */
+  const rawTotalsFor = (lid: string) => {
+    let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0;
+    rows.forEach((r) => {
+      const shares = allocateRow({
+        leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
+        split_type: r.split_type, two_person: r.two_person,
+        metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
+        regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
+      }); // opts 미전달 → 재분배 비활성
+      const s = shares.find((x) => x.leader_id === lid);
+      if (!s) return;
+      metro += s.metro; noteAmt += s.note_amount; regional += s.regional; cod += s.cod;
+      count += 1;
+    });
+    const total = metro + noteAmt + regional;
+    const leader = leadersById.get(lid);
+    const fees = leader
+      ? feeForShare({ metro, regional }, { metro: num(leader.fee_rate_metro), regional: num(leader.fee_rate_regional) })
+      : 0;
+    return { count, total, cod, fees };
+  };
 
   const activeCommonDeductions = useMemo(() => {
     const unique = new Map<string, CommonDeduction>();
@@ -571,6 +602,9 @@ export default function LeaderSettlement() {
             masterRows={masterRows}
             shindongseokId={shindongseokId}
             ganghyungjuId={ganghyungjuId}
+            config={crossCfg}
+            rawTotalsFor={rawTotalsFor}
+            leadersById={leadersById}
           />
           <Table className="text-sm num">
             <TableHeader>
@@ -894,24 +928,42 @@ function LeaderSummaryCard({
  * 차이가 발생하면 즉시 경고로 표시한다.
  */
 function SdsGhjCrossCheck({
-  masterRows, shindongseokId, ganghyungjuId,
+  masterRows, shindongseokId, ganghyungjuId, config, rawTotalsFor, leadersById,
 }: {
   masterRows: Array<{ leader: { id: string; name: string }; count: number; total: number; cod: number; fees: number }>;
   shindongseokId: string | null;
   ganghyungjuId: string | null;
+  config: CrossCheckConfig;
+  rawTotalsFor: (lid: string) => { count: number; total: number; cod: number; fees: number };
+  leadersById: Map<string, Leader>;
 }) {
   if (!shindongseokId || !ganghyungjuId) return null;
-  const sds = masterRows.find((m) => m.leader.id === shindongseokId);
-  const ghj = masterRows.find((m) => m.leader.id === ganghyungjuId);
+
+  // 제외 로직: include_all이면 정산제외 팀장도 포함해야 하나, masterRows는 settlingLeaders만 담음.
+  // SDS/GHJ가 settle_status=excluded인 경우 raw 모드로만 의미가 있다 → 안내만 표시.
+  const sdsLeader = leadersById.get(shindongseokId);
+  const ghjLeader = leadersById.get(ganghyungjuId);
+  const sdsExcluded = (sdsLeader?.settle_status ?? "included") === "excluded";
+  const ghjExcluded = (ghjLeader?.settle_status ?? "included") === "excluded";
+  if (config.exclude === "exclude_excluded" && (sdsExcluded || ghjExcluded)) return null;
+
+  const sds = config.basis === "raw"
+    ? rawTotalsFor(shindongseokId)
+    : masterRows.find((m) => m.leader.id === shindongseokId);
+  const ghj = config.basis === "raw"
+    ? rawTotalsFor(ganghyungjuId)
+    : masterRows.find((m) => m.leader.id === ganghyungjuId);
   if (!sds && !ghj) return null;
 
-  const rows = [
-    { label: "배송건수", a: sds?.count ?? 0, b: ghj?.count ?? 0, isMoney: false },
-    { label: "실지급배송비", a: sds?.total ?? 0, b: ghj?.total ?? 0, isMoney: true },
-    { label: "착불합계", a: sds?.cod ?? 0, b: ghj?.cod ?? 0, isMoney: true },
-    { label: "수수료합계", a: sds?.fees ?? 0, b: ghj?.fees ?? 0, isMoney: true },
+  const allRows: Array<{ key: CrossCheckItem; label: string; a: number; b: number; isMoney: boolean }> = [
+    { key: "count", label: CROSSCHECK_ITEM_LABELS.count, a: sds?.count ?? 0, b: ghj?.count ?? 0, isMoney: false },
+    { key: "total", label: CROSSCHECK_ITEM_LABELS.total, a: sds?.total ?? 0, b: ghj?.total ?? 0, isMoney: true },
+    { key: "cod", label: CROSSCHECK_ITEM_LABELS.cod, a: sds?.cod ?? 0, b: ghj?.cod ?? 0, isMoney: true },
+    { key: "fees", label: CROSSCHECK_ITEM_LABELS.fees, a: sds?.fees ?? 0, b: ghj?.fees ?? 0, isMoney: true },
   ];
-  const eps = 0.5;
+  const rows = allRows.filter((r) => config.items[r.key]);
+  if (rows.length === 0) return null;
+  const eps = Math.max(0, config.tolerance);
   const allMatch = rows.every((r) => Math.abs(r.a - r.b) < eps);
 
   return (
@@ -921,6 +973,9 @@ function SdsGhjCrossCheck({
           신동석 ↔ 강형주 교차검증
           <span className={`ml-2 text-xs ${allMatch ? "text-emerald-700" : "text-red-700"}`}>
             {allMatch ? "✓ 일치 (50/50 재분배 정상)" : "⚠ 불일치 — 분배 로직 또는 데이터 점검 필요"}
+          </span>
+          <span className="ml-2 text-xs text-muted-foreground">
+            기준: {config.basis === "raw" ? "원본 배분" : "재분배 포함"} · 오차 {eps}
           </span>
         </div>
       </div>
