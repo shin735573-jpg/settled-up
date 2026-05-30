@@ -566,20 +566,29 @@ export default function LeaderSettlement() {
                   const current = typeof edited === "number" ? edited : saved;
                   const base = num(cd.amount);
                   const ovExists = detailLeader
-                    ? commonOverrides.some((o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id)
+                    ? commonOverrides.some((o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id && commonPeriodKeys.includes(o.period_key))
                     : false;
-                  const isCustom = typeof edited === "number" ? edited !== base : ovExists && saved !== base;
+                  const expectedBase = base * commonPeriodKeys.length;
+                  const isCustom = typeof edited === "number" ? edited !== base : ovExists && saved !== expectedBase;
+                  const applyLabel = isMultiCommonPeriod
+                    ? "1~15일 + 16~말일 (각 1회)"
+                    : period === "first" ? "1~15일 (1회)"
+                    : period === "second" ? "16~말일 (1회)"
+                    : "전체기간 (1회)";
                   return (
                     <div key={cd.id} className="flex gap-2 items-center">
                       <span className="flex-1 text-sm">
                         {cd.label}
                         {isCustom && <span className="ml-1 text-xs text-amber-700">(수정됨)</span>}
                         <span className="ml-1 text-xs text-muted-foreground">기본 {fmt(base)}</span>
+                        <span className="ml-2 text-[10px] text-muted-foreground">적용기간: {applyLabel}</span>
                       </span>
                       <Input
                         type="number"
                         className="h-8 w-32 text-right num"
                         value={current}
+                        disabled={isMultiCommonPeriod}
+                        title={isMultiCommonPeriod ? "월전체에서는 수정 불가 — 보름 기간을 선택하세요" : undefined}
                         onChange={(e) =>
                           setDetailCommonEdits((m) => ({ ...m, [cd.id]: Number(e.target.value) || 0 }))
                         }
@@ -589,6 +598,7 @@ export default function LeaderSettlement() {
                         variant="ghost"
                         className="h-8 w-8"
                         title="기본값으로 되돌리기"
+                        disabled={isMultiCommonPeriod}
                         onClick={() => resetCommonOverride(cd.id, base)}
                       >
                         <RotateCcw className="h-3 w-3" />
@@ -598,7 +608,10 @@ export default function LeaderSettlement() {
                 })}
               </div>
               <div className="text-xs text-muted-foreground mt-2">
-                * 수정값은 해당 팀장/해당 정산기간({periodKey})에만 저장됩니다. 다른 팀장·기간엔 영향 없음.
+                * 쓰레기비용 등 공통공제는 팀장 × 보름 기간당 1번만 적용됩니다 (배송건수 무관).
+                {isMultiCommonPeriod
+                  ? " 월전체에서는 1~15일 + 16~말일의 두 보름 금액이 합산되며, 수정은 보름 기간을 선택해야 합니다."
+                  : ` 수정값은 해당 팀장/${periodKey}에만 저장됩니다.`}
               </div>
             </Card>
 
