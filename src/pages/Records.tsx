@@ -941,7 +941,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
             onChange={(e) => setText(e.target.value)}
             placeholder="엑셀에서 헤더 포함 여러 행/열을 복사해 붙여넣으세요 (Ctrl+V)"
             rows={8}
-            className="font-mono text-xs"
+            wrap="off"
+            className="font-mono text-xs whitespace-pre overflow-x-auto"
           />
 
           {grid.length > 0 && (
