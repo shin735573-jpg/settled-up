@@ -478,11 +478,46 @@ function LeadersTab() {
                 />
               </TableCell>
               <TableCell><Input className="w-24" defaultValue={r.region || ""} onBlur={(e) => update(r.id, { region: e.target.value })} /></TableCell>
+              <TableCell>
+                <Select
+                  value={r.issues_invoice ? "yes" : "no"}
+                  onValueChange={(v) => update(r.id, { issues_invoice: v === "yes" } as any)}
+                >
+                  <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">발행</SelectItem>
+                    <SelectItem value="no">미발행</SelectItem>
+                  </SelectContent>
+                </Select>
+              </TableCell>
+              <TableCell>
+                <Input
+                  className="w-36"
+                  defaultValue={r.account_number || ""}
+                  placeholder="은행 000-000"
+                  onBlur={(e) => {
+                    const v = e.target.value.trim() || null;
+                    if (v !== (r.account_number || null)) update(r.id, { account_number: v } as any);
+                  }}
+                />
+              </TableCell>
               <TableCell><Checkbox checked={r.is_rejected} onCheckedChange={(v) => update(r.id, { is_rejected: !!v })} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_metro ?? 0} onBlur={(e) => update(r.id, { fee_rate_metro: Number(e.target.value) } as any)} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_regional ?? 0} onBlur={(e) => update(r.id, { fee_rate_regional: Number(e.target.value) } as any)} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.deduction_amount} onBlur={(e) => update(r.id, { deduction_amount: Number(e.target.value) })} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.trash_cost} onBlur={(e) => update(r.id, { trash_cost: Number(e.target.value) })} /></TableCell>
+              <TableCell>
+                <Select
+                  value={r.settle_status || "included"}
+                  onValueChange={(v) => update(r.id, { settle_status: v } as any)}
+                >
+                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="included">정산포함</SelectItem>
+                    <SelectItem value="excluded">정산제외</SelectItem>
+                  </SelectContent>
+                </Select>
+              </TableCell>
               <TableCell>
                 <Select value={r.settle_to_id || "none"} onValueChange={(v) => update(r.id, { settle_to_id: v === "none" ? null : v })}>
                   <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
@@ -507,12 +542,30 @@ function LeadersTab() {
                   </span>
                 )}
               </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  <Checkbox
+                    checked={r.min_guarantee_enabled}
+                    onCheckedChange={(v) => update(r.id, { min_guarantee_enabled: !!v } as any)}
+                  />
+                  <Input
+                    type="number"
+                    className="w-24"
+                    disabled={!r.min_guarantee_enabled}
+                    defaultValue={r.min_guarantee_amount ?? 0}
+                    onBlur={(e) => {
+                      const v = Number(e.target.value) || 0;
+                      if (v !== (r.min_guarantee_amount ?? 0)) update(r.id, { min_guarantee_amount: v } as any);
+                    }}
+                  />
+                </div>
+              </TableCell>
               <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={17} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
