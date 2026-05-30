@@ -212,11 +212,11 @@ export default function Records() {
               </Select>
             </div>
 
-            {[0, 1, 2].map((i) => {
-              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id" | "leader3_id";
+            {[0, 1].map((i) => {
+              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id";
               return (
                 <div key={i} className="space-y-1">
-                  <Label>실제기사{i + 1}</Label>
+                  <Label>팀장{i + 1}</Label>
                   <Select
                     value={form[key] || NONE}
                     onValueChange={(v) => setForm({ ...form, [key]: v === NONE ? "" : v })}
