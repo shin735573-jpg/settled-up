@@ -498,6 +498,7 @@ export default function Records() {
         holidays={holidays}
         userId={user?.id || ""}
         onSaved={() => { setPasteOpen(false); load(); }}
+        onReload={load}
       />
     </div>
   );
@@ -518,12 +519,13 @@ type ParsedRow = {
   warnings: RowError[];
 };
 
-function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSaved }: {
-  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; onSaved: () => void;
+function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSaved, onReload }: {
+  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; onSaved: () => void; onReload: () => void | Promise<void>;
 }) {
   const [text, setText] = useState("");
   const [skipErrors, setSkipErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [registering, setRegistering] = useState(false);
   // 기본 팀장 입력 (붙여넣은 행에 팀장이 없을 때 적용)
   const [defaultLeadersText, setDefaultLeadersText] = useState("");
   // 행별 팀장 수동 수정: rowIndex -> { l1?: id|""(=빈칸), l2?: id|"" }
@@ -774,6 +776,37 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   );
   const errorCount = visible.filter(({ row }) => row.errors.length).length;
 
+  // 미등록 업체 목록 (붙여넣기 데이터 기준, 중복 제거, 공백 제거)
+  const unregisteredCompanies = useMemo(() => {
+    const set = new Set<string>();
+    for (const { row } of visible) {
+      const name = (row.company || "").trim();
+      if (!name) continue;
+      if (row.companyId) continue;
+      set.add(name);
+    }
+    return Array.from(set);
+  }, [visible]);
+
+  const registerCompanies = async () => {
+    if (!userId || unregisteredCompanies.length === 0) return;
+    setRegistering(true);
+    const rows = unregisteredCompanies.map((name) => ({
+      user_id: userId,
+      name,
+      active: true,
+      issues_invoice: false,
+      vat_included: false,
+      fee_rate_metro: 0,
+      fee_rate_regional: 0,
+    }));
+    const { error } = await supabase.from("companies").insert(rows);
+    setRegistering(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${rows.length}개 업체 자동등록 완료`);
+    await onReload();
+  };
+
   const save = async () => {
     if (!userId) return;
     if (missingRequired.length > 0) {
@@ -916,6 +949,26 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
 
           {effective.length > 0 && (
             <>
+              {unregisteredCompanies.length > 0 && (
+                <div className="border border-destructive/40 bg-destructive/5 rounded p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="text-sm font-semibold text-destructive">
+                      미등록 업체 자동등록 ({unregisteredCompanies.length}개)
+                    </div>
+                    <Button size="sm" onClick={registerCompanies} disabled={registering}>
+                      {registering ? "등록 중…" : "미등록 업체 일괄 등록"}
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {unregisteredCompanies.map((n) => (
+                      <Badge key={n} variant="outline" className="border-destructive/50 text-destructive">{n}</Badge>
+                    ))}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    기본값: 계산서 미발행 · 활성 · 수수료 0%. 등록 후 설정 화면에서 계산서 여부·정산 정보를 수정하세요.
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <div className="text-sm">
                   자동감지 <b>{effective.length}</b>건 · 미리보기 <b>{visible.length}</b>건 · 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
