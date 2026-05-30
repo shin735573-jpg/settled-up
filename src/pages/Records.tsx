@@ -68,6 +68,83 @@ function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
   });
 }
 
+// 팀장명 자동 인식: 등록된 팀장명 + 자동 별칭(이름의 뒤 2글자, 가운데+끝 2글자)으로 후보 키 생성
+function buildLeaderIndex(leaders: Leader[]) {
+  const active = leaders.filter((l) => l.active);
+  // key -> leader id (충돌 시 해당 key 제거)
+  const map = new Map<string, string>();
+  const ambiguous = new Set<string>();
+  const add = (key: string, id: string) => {
+    if (!key || key.length < 2) return;
+    if (ambiguous.has(key)) return;
+    if (map.has(key) && map.get(key) !== id) {
+      map.delete(key); ambiguous.add(key); return;
+    }
+    map.set(key, id);
+  };
+  for (const l of active) {
+    const n = l.name.trim();
+    add(n, l.id);
+    if (n.length >= 3) {
+      add(n.slice(-2), l.id);
+      add(n.slice(1), l.id);
+    }
+    if (n.length >= 4) add(n.slice(-3), l.id);
+  }
+  // 길이 내림차순으로 정렬된 키 목록 (긴 매치 우선)
+  const keys = Array.from(map.keys()).sort((a, b) => b.length - a.length);
+  return { map, keys };
+}
+
+const LEADER_SPLIT_RE = /[\/,&+\s\n]+/g;
+
+// 텍스트에서 팀장 후보를 순서대로 추출
+function extractLeaders(text: string, idx: ReturnType<typeof buildLeaderIndex>): { ids: string[]; raw: string[] } {
+  if (!text) return { ids: [], raw: [] };
+  // 1) 구분자 분리 시도
+  const tokens = text.split(LEADER_SPLIT_RE).map((t) => t.trim()).filter(Boolean);
+  type Hit = { id: string; raw: string; pos: number };
+  const hits: Hit[] = [];
+  const seenIds = new Set<string>();
+  const consumeId = (id: string, raw: string, pos: number) => {
+    if (seenIds.has(id)) return;
+    seenIds.add(id);
+    hits.push({ id, raw, pos });
+  };
+
+  // 토큰별 정확/별칭 매치
+  let cursor = 0;
+  for (const tok of tokens) {
+    const pos = text.indexOf(tok, cursor);
+    cursor = pos >= 0 ? pos + tok.length : cursor;
+    if (idx.map.has(tok)) {
+      consumeId(idx.map.get(tok)!, tok, pos);
+      continue;
+    }
+    // 토큰 내부에 별칭이 들어있는 경우 (예: "동석님")
+    for (const k of idx.keys) {
+      if (tok.includes(k)) {
+        const p = pos + tok.indexOf(k);
+        consumeId(idx.map.get(k)!, k, p);
+        break;
+      }
+    }
+  }
+
+  // 2) 구분자 없이 붙어있는 경우(예: "김용익동석") 전체 문자열에서 substring 스캔
+  if (hits.length < 2) {
+    for (const k of idx.keys) {
+      const id = idx.map.get(k)!;
+      if (seenIds.has(id)) continue;
+      const p = text.indexOf(k);
+      if (p >= 0) consumeId(id, k, p);
+    }
+  }
+
+  hits.sort((a, b) => a.pos - b.pos);
+  return { ids: hits.map((h) => h.id), raw: hits.map((h) => h.raw) };
+}
+
 type FormState = {
   id: string | null;
   date: string;
