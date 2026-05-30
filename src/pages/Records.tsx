@@ -22,6 +22,52 @@ type Delivery = any;
 
 const COLS = ["날짜","업체","팀장1","팀장2","고객명","지역","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","분할","결제유무"];
 
+// 표준 필드 + 별칭 (헤더 자동 인식용)
+type FieldKey =
+  | "date" | "company" | "leader1" | "leader2" | "customer" | "region"
+  | "item" | "note" | "metro" | "noteAmt" | "regional" | "cod" | "split" | "paid";
+
+const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: boolean }[] = [
+  { key: "date",     label: "날짜",       required: true,  aliases: ["날짜","배송일","일자","출고일","date"] },
+  { key: "company",  label: "업체",       required: true,  aliases: ["업체","업체명","거래처","상호","company"] },
+  { key: "leader1",  label: "팀장1",                       aliases: ["팀장1","기사1","배송팀장1","팀장","leader1"] },
+  { key: "leader2",  label: "팀장2",                       aliases: ["팀장2","기사2","배송팀장2","leader2"] },
+  { key: "customer", label: "고객명",                       aliases: ["고객명","고객","성명","받는분","customer"] },
+  { key: "region",   label: "지역",                         aliases: ["지역","배송지역","지역명","region"] },
+  { key: "item",     label: "품목",                         aliases: ["품목","상품","제품","품명","내용","item"] },
+  { key: "note",     label: "비고",                         aliases: ["비고","메모","특이사항","참고","note"] },
+  { key: "metro",    label: "수도권배송비",                  aliases: ["수도권배송비","수도권","수도권비","수도권 배송비"] },
+  { key: "noteAmt",  label: "비고금액",                     aliases: ["비고금액","비고비","추가금","추가비","기타금액"] },
+  { key: "regional", label: "지방배송비",                   aliases: ["지방배송비","지방","지방비","지방 배송비"] },
+  { key: "cod",      label: "착불",                         aliases: ["착불","착불금액","현장수령","선지급"] },
+  { key: "split",    label: "분할",                         aliases: ["분할","분할구분","정산분할"] },
+  { key: "paid",     label: "결제유무",                     aliases: ["결제유무","결제","결제확인","결제완료","미결제","paid"] },
+];
+
+const normalizeHeader = (s: string) =>
+  s.replace(/\s+/g, "").replace(/[()\[\]]/g, "").toLowerCase();
+
+const FIELD_UNMAPPED = "__unmapped__";
+
+// 배송비총액 별칭은 무시 (자동 계산)
+const TOTAL_ALIASES = ["배송비총액","총액","합계","total"].map(normalizeHeader);
+
+function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
+  const used = new Set<FieldKey>();
+  return headers.map((h) => {
+    const norm = normalizeHeader(h);
+    if (TOTAL_ALIASES.includes(norm)) return null;
+    for (const def of FIELD_DEFS) {
+      if (used.has(def.key)) continue;
+      if (def.aliases.some((a) => normalizeHeader(a) === norm)) {
+        used.add(def.key);
+        return def.key;
+      }
+    }
+    return null;
+  });
+}
+
 type FormState = {
   id: string | null;
   date: string;
