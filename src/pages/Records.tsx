@@ -307,7 +307,7 @@ export default function Records() {
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
       supabase.from("companies").select("id,name,active,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
-      supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active,aliases").order("name"),
+      supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active,aliases,settle_to_id").order("name"),
       supabase.from("holidays").select("date,scope,team_leader_id"),
     ]);
     setCompanies((c as Company[]) || []);
@@ -501,6 +501,7 @@ export default function Records() {
       leaders: leaders.map((l) => ({
         id: l.id, name: l.name, is_rejected: l.is_rejected,
         is_virtual: l.is_virtual, active: l.active, aliases: l.aliases ?? [],
+        settle_to_id: (l as any).settle_to_id ?? null,
       })),
       holidays: holidays.map((h) => ({
         date: h.date, scope: h.scope as any, team_leader_id: h.team_leader_id,

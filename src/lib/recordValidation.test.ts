@@ -224,3 +224,44 @@ describe("validateTeamParity (강형주/신동석 팀 정합성)", () => {
     expect(issues).toHaveLength(0);
   });
 });
+
+import { validateSettleRedirect } from "./recordValidation";
+
+describe("validateSettleRedirect (오은규 → 오동선 특수정산)", () => {
+  const leaders = [
+    { id: "ds", name: "오동선", aliases: [] },
+    { id: "ek", name: "오은규", aliases: [], settle_to_id: "ds" },
+    { id: "yi", name: "김용익", aliases: [] },
+  ];
+  const ctx = { companies: [], leaders, holidays: [] } as any;
+  const row = (over: any) => ({
+    id: over.id || "r1", date: "2026-05-01", company_id: null, company_name: "X",
+    leader1_id: null, leader1_name: null, leader2_id: null, leader2_name: null,
+    customer_name: "C", region: null, region_type: null, item: "i", note: null,
+    metro_fee: 0, note_amount: 0, regional_fee: 0, cod_amount: 0,
+    split_type: null, paid: false, two_person: false, ...over,
+  });
+
+  it("오은규 단독 → 오류 없음 (오동선이 100% 합산)", () => {
+    expect(validateSettleRedirect([row({ leader1_id: "ek", metro_fee: 100000 })], ctx)).toHaveLength(0);
+  });
+  it("오은규+김용익 2인배송 → 오류 없음", () => {
+    expect(validateSettleRedirect(
+      [row({ leader1_id: "ek", leader2_id: "yi", two_person: true, metro_fee: 200000 })],
+      ctx,
+    )).toHaveLength(0);
+  });
+  it("오은규+오동선 2인배송 → 오류 없음 (중복계산 아님)", () => {
+    expect(validateSettleRedirect(
+      [row({ leader1_id: "ek", leader2_id: "ds", two_person: true, metro_fee: 200000 })],
+      ctx,
+    )).toHaveLength(0);
+  });
+  it("정산귀속 대상이 없는 ID이면 오류", () => {
+    const broken = { companies: [], leaders: [
+      { id: "ek", name: "오은규", aliases: [], settle_to_id: "missing" },
+    ], holidays: [] } as any;
+    const issues = validateSettleRedirect([], broken);
+    expect(issues.some((i) => i.code === "settle.target.missing")).toBe(true);
+  });
+});
