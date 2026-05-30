@@ -56,3 +56,54 @@ describe("feeForShare", () => {
     expect(feeForShare({ metro: 0, regional: 20000 }, { metro: 10, regional: 5 })).toBe(1000);
   });
 });
+
+describe("신동석 재분배", () => {
+  const opts = { shindongseokId: "SDS", ganghyungjuId: "GHJ" };
+
+  it("신동석 단독: 강형주 50% + 신동석 50%", () => {
+    const r = allocateRow(base({ leader1_id: "SDS", metro_fee: 200000 }), opts);
+    expect(r.length).toBe(2);
+    const ghj = r.find((x) => x.leader_id === "GHJ")!;
+    const sds = r.find((x) => x.leader_id === "SDS")!;
+    expect(ghj.metro).toBe(100000);
+    expect(sds.metro).toBe(100000);
+    expect(ghj.weight + sds.weight).toBeCloseTo(1);
+    expect(ghj.reason).toMatch(/신동석 몫 재분배 50%/);
+  });
+
+  it("신동석+다른 팀장 2인배송: 다른 50%, 강형주 25%, 신동석 25%", () => {
+    const r = allocateRow(
+      base({ leader1_id: "OD", leader2_id: "SDS", two_person: true, metro_fee: 200000 }),
+      opts,
+    );
+    expect(r.length).toBe(3);
+    const od = r.find((x) => x.leader_id === "OD")!;
+    const ghj = r.find((x) => x.leader_id === "GHJ")!;
+    const sds = r.find((x) => x.leader_id === "SDS")!;
+    expect(od.metro).toBe(100000);
+    expect(ghj.metro).toBe(50000);
+    expect(sds.metro).toBe(50000);
+    expect(od.weight + ghj.weight + sds.weight).toBeCloseTo(1);
+  });
+
+  it("형주동석 split은 재분배 건너뜀", () => {
+    const r = allocateRow(
+      base({ leader1_id: "GHJ", leader2_id: "SDS", split_type: "형주동석", metro_fee: 80000 }),
+      opts,
+    );
+    expect(r.length).toBe(2);
+    expect(r.find((x) => x.leader_id === "GHJ")!.metro).toBe(40000);
+    expect(r.find((x) => x.leader_id === "SDS")!.metro).toBe(40000);
+  });
+
+  it("최종 비율 합계 = 100% (2인배송)", () => {
+    const r = allocateRow(
+      base({ leader1_id: "OD", leader2_id: "SDS", two_person: true,
+             metro_fee: 100, note_amount: 50, regional_fee: 20, cod_amount: 10 }),
+      opts,
+    );
+    const sum = r.reduce((s, x) => s + x.metro + x.note_amount + x.regional, 0);
+    expect(sum).toBeCloseTo(170);
+    expect(r.reduce((s, x) => s + x.cod, 0)).toBeCloseTo(10);
+  });
+});
