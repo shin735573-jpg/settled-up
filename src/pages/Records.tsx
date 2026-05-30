@@ -534,7 +534,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                           <TableCell>{r.company || "-"}</TableCell>
                           <TableCell>{r.leaders[0] || "-"}</TableCell>
                           <TableCell>{r.leaders[1] || "-"}</TableCell>
-                          <TableCell>{r.leaders[2] || "-"}</TableCell>
                           <TableCell>{r.customer || "-"}</TableCell>
                           <TableCell>{r.region || "-"}</TableCell>
                           <TableCell className="text-right">{fmt(r.metro)}</TableCell>
