@@ -25,11 +25,13 @@ export default function Settings() {
         <TabsList>
           <TabsTrigger value="companies">업체</TabsTrigger>
           <TabsTrigger value="leaders">팀장</TabsTrigger>
+          <TabsTrigger value="common-deductions">공통공제</TabsTrigger>
           <TabsTrigger value="holidays">휴무일</TabsTrigger>
           <TabsTrigger value="onedrive">원드라이브</TabsTrigger>
         </TabsList>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
+        <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
         <TabsContent value="holidays"><HolidaysTab /></TabsContent>
         <TabsContent value="onedrive"><OneDriveTab /></TabsContent>
       </Tabs>
