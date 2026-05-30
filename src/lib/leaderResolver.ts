@@ -7,6 +7,7 @@ export interface LeaderLike {
   name: string;
   aliases?: string[] | null;
   display_suffix?: string | null;
+  is_rejected?: boolean | null;
 }
 
 export const normLeaderName = (s: unknown): string =>
@@ -55,6 +56,19 @@ export function getDisplayName<T extends LeaderLike>(leader: T, leaders: T[]): s
     return `${leader.name.trim()}${leader.display_suffix.trim()}`;
   }
   return leader.name.trim();
+}
+
+/**
+ * 업체 제출용 표시 이름.
+ * - 거부기사(is_rejected=true): 별칭1(aliases[0]) 사용, 없으면 "가상기사"
+ * - 일반: 정식 팀장명
+ * 정산 계산엔 절대 사용하지 말 것 (표시 전용).
+ */
+export function getCompanyFacingName<T extends LeaderLike>(leader: T): string {
+  if (!leader.is_rejected) return leader.name.trim();
+  const a1 = (leader.aliases ?? [])[0];
+  const trimmed = String(a1 ?? "").trim();
+  return trimmed || "가상기사";
 }
 
 /** 별칭 중복 검사 (클라이언트). 같은 사용자 내에서 alias가 다른 팀장 이름/별칭과 충돌하면 메시지 반환. */
