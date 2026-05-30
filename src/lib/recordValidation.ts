@@ -1,6 +1,8 @@
 // 배송 기록 종합 오류 검사 엔진 (순수 함수)
 // React/Supabase 의존성 없음 — 테스트 가능
 
+import { allocateRow } from "./splitAllocation";
+
 export type Severity = "error" | "warning";
 
 export type ValidationIssue = {
