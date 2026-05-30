@@ -415,6 +415,8 @@ export type Database = {
           created_at: string
           deduction_amount: number
           display_suffix: string | null
+          fee_rate_metro: number
+          fee_rate_regional: number
           id: string
           is_rejected: boolean
           is_virtual: boolean
@@ -431,6 +433,8 @@ export type Database = {
           created_at?: string
           deduction_amount?: number
           display_suffix?: string | null
+          fee_rate_metro?: number
+          fee_rate_regional?: number
           id?: string
           is_rejected?: boolean
           is_virtual?: boolean
@@ -447,6 +451,8 @@ export type Database = {
           created_at?: string
           deduction_amount?: number
           display_suffix?: string | null
+          fee_rate_metro?: number
+          fee_rate_regional?: number
           id?: string
           is_rejected?: boolean
           is_virtual?: boolean
