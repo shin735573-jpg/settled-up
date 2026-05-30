@@ -150,6 +150,27 @@ export default function CompanySettlement() {
     period === "second" ? `${month} 16~말일` :
     `${month} 월전체`;
 
+  // 상단 요약바 (마스터 목록 화면에서만 표시): 현재 기간 기준 전체 합계
+  const topSummary = useMemo(() => {
+    const totalCompanies = visibleCompanies.length;
+    const deliveringCompanyIds = new Set<string>();
+    let totalDeliveries = 0, totalCod = 0, totalFee = 0;
+    allRows.forEach((r: any) => {
+      totalDeliveries += 1;
+      totalCod += Number(r.cod_amount) || 0;
+      totalFee += (Number(r.metro_fee) || 0) + (Number(r.note_amount) || 0) + (Number(r.regional_fee) || 0);
+      const matched = visibleCompanies.find((c) => matchesCompany(r, c));
+      if (matched) deliveringCompanyIds.add(matched.id);
+    });
+    return {
+      totalCompanies,
+      deliveringCompanies: deliveringCompanyIds.size,
+      totalDeliveries,
+      totalCod,
+      totalFee,
+    };
+  }, [visibleCompanies, allRows]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -184,6 +205,19 @@ export default function CompanySettlement() {
           ))}
         </div>
       </div>
+
+      {!companyId && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard
+            label="총업체수"
+            value={`${topSummary.totalCompanies} / ${topSummary.deliveringCompanies}`}
+            sub="활성업체 / 배송업체"
+          />
+          <SummaryCard label="총배송건수" value={topSummary.totalDeliveries.toLocaleString()} />
+          <SummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
+          <SummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
+        </div>
+      )}
 
       {!companyId && (
         <Card className="p-4">
