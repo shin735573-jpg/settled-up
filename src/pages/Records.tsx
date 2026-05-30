@@ -1530,7 +1530,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                     ))}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    기본값: 정산포함 · 활성 · 수수료 0%. 가상기사/가상팀장은 자동 등록되지 않습니다.
+                    기본값: 정산포함 · 활성 · 수수료 0%.
                   </div>
                 </div>
               )}
