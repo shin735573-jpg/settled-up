@@ -875,7 +875,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   }, [grid, mapping, headerInfo, companies, leaders, holidays, leaderIndex, leaderById, defaultLeaderInfo]);
 
   // 사용자 수정 반영된 최종 팀장 적용
-  const effective = useMemo(() => parsed.map((r, i) => {
+  const effective = useMemo(() => {
+    let lastDate: string | null = null;
+    return parsed.map((r, i) => {
     const ov = leaderOverrides[i] || {};
     const applyOne = (autoId: string | null, autoName: string | null, ovVal: string | undefined) => {
       if (ovVal === undefined) return { id: autoId, name: autoName };
@@ -888,6 +890,25 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     // 수도권/지방 override 반영 + 지역 경고
     const regionType: RegionType = regionOverrides[i] ?? r.regionType;
     const warnings = [...r.warnings];
+    const errors = [...r.errors];
+    // 날짜: 사용자 입력 > 자동인식 > 위 행 fill-down
+    const ovDate = dateOverrides[i];
+    let date: string | null = null;
+    let dateInputValue = "";
+    if (ovDate !== undefined) {
+      dateInputValue = ovDate;
+      const parsed = parseDate(ovDate, defaultMonth);
+      if (ovDate.trim() && !parsed) {
+        errors.push({ field: "날짜", msg: `날짜 형식 오류: ${ovDate}` });
+      }
+      date = parsed;
+    } else if (r.autoDate) {
+      date = r.autoDate;
+      dateInputValue = r.autoDate;
+    }
+    if (!date && lastDate) date = lastDate;
+    if (!date) errors.push({ field: "날짜", msg: "날짜 누락 — 직접 입력" });
+    else lastDate = date;
     if (!r.region) warnings.push({ field: "배송지", msg: "배송지 빈칸 — 확인 필요" });
     if (regionType === "metro" && r.regional > 0 && r.metro === 0) {
       warnings.push({ field: "지역구분", msg: "수도권인데 지방배송비만 입력됨" });
@@ -897,12 +918,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     }
     return {
       ...r,
+      date,
+      dateInputValue,
       leaderIds: [a.id, b.id] as (string | null)[],
       leaders: [a.name, b.name] as (string | null)[],
       regionType,
+      errors,
       warnings,
     };
-  }), [parsed, leaderOverrides, leaderById, regionOverrides]);
+    });
+  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, defaultMonth]);
 
   const visible = useMemo(
     () => effective.map((r, i) => ({ row: r, i })).filter(({ i }) => !excludedRows[i]),
