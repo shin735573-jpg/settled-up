@@ -1018,6 +1018,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     if (missingRequired.length > 0) {
       toast.error(`필수 항목 누락: ${missingRequired.join(", ")}`); return;
     }
+    // 날짜 누락 검사 (skipErrors와 무관하게 막음)
+    const missingDateCount = visible.filter(({ row }) => !row.date).length;
+    if (missingDateCount > 0) {
+      toast.error(`날짜가 없는 행 ${missingDateCount}건. 미리보기에서 날짜를 입력해주세요.`);
+      return;
+    }
     const toSave = visible.map(({ row }) => row).filter((r) => skipErrors ? !r.errors.length : true);
     if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
     if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
@@ -1044,6 +1050,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     setText("");
     setLeaderOverrides({});
     setRegionOverrides({});
+    setDateOverrides({});
+    setBulkDate("");
     setExcludedRows({});
     onSaved();
   };
