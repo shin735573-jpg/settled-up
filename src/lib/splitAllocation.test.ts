@@ -106,4 +106,42 @@ describe("신동석 재분배", () => {
     expect(sum).toBeCloseTo(170);
     expect(r.reduce((s, x) => s + x.cod, 0)).toBeCloseTo(10);
   });
+
+  it("강형주 단독: 강형주 50% + 신동석 50% (대칭)", () => {
+    const r = allocateRow(base({ leader1_id: "GHJ", metro_fee: 200000 }), opts);
+    expect(r.length).toBe(2);
+    expect(r.find((x) => x.leader_id === "GHJ")!.metro).toBe(100000);
+    expect(r.find((x) => x.leader_id === "SDS")!.metro).toBe(100000);
+  });
+
+  it("김용익+강형주 2인배송: 김 50%, 강 25%, 신 25%", () => {
+    const r = allocateRow(
+      base({ leader1_id: "KYI", leader2_id: "GHJ", two_person: true, metro_fee: 200000 }),
+      opts,
+    );
+    expect(r.length).toBe(3);
+    expect(r.find((x) => x.leader_id === "KYI")!.metro).toBe(100000);
+    expect(r.find((x) => x.leader_id === "GHJ")!.metro).toBe(50000);
+    expect(r.find((x) => x.leader_id === "SDS")!.metro).toBe(50000);
+  });
+
+  it("강형주+신동석 같이 입력(2인배송): 중복 없이 50/50", () => {
+    const r = allocateRow(
+      base({ leader1_id: "GHJ", leader2_id: "SDS", two_person: true, metro_fee: 200000 }),
+      opts,
+    );
+    expect(r.length).toBe(2);
+    expect(r.find((x) => x.leader_id === "GHJ")!.metro).toBe(100000);
+    expect(r.find((x) => x.leader_id === "SDS")!.metro).toBe(100000);
+  });
+
+  it("강형주+신동석 같이 입력(기본): 중복 없이 50/50", () => {
+    const r = allocateRow(
+      base({ leader1_id: "GHJ", leader2_id: "SDS", metro_fee: 200000 }),
+      opts,
+    );
+    expect(r.length).toBe(2);
+    expect(r.find((x) => x.leader_id === "GHJ")!.metro).toBe(100000);
+    expect(r.find((x) => x.leader_id === "SDS")!.metro).toBe(100000);
+  });
 });

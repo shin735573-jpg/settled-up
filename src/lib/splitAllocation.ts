@@ -75,33 +75,51 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
     });
   });
 
-  // 신동석 재분배 — 형주동석 분할일 때는 건너뜀(이미 강형주가 직접 배정됨).
+  // 강형주/신동석 팀 재분배 — 두 사람은 한 팀.
+  // 누구의 몫이든 강형주 50% / 신동석 50%로 다시 나눔.
+  // 단, 형주동석 분할일 때는 이미 직접 배정되어 있으므로 건너뜀.
   const { shindongseokId, ganghyungjuId } = opts;
   if (!shindongseokId || !ganghyungjuId || split === "형주동석") return initial;
 
-  const final: LeaderShare[] = [];
+  const teamIds = new Set([shindongseokId, ganghyungjuId]);
+  const merged = new Map<string, LeaderShare>();
+  const add = (s: LeaderShare) => {
+    const cur = merged.get(s.leader_id);
+    if (!cur) { merged.set(s.leader_id, { ...s }); return; }
+    cur.weight += s.weight;
+    cur.metro += s.metro;
+    cur.note_amount += s.note_amount;
+    cur.regional += s.regional;
+    cur.cod += s.cod;
+    cur.count = 1;
+    // 사유는 가장 구체적인 재분배 사유 우선
+    if (s.reason && (!cur.reason || s.reason.includes("재분배"))) cur.reason = s.reason;
+  };
+
   initial.forEach((s) => {
-    if (s.leader_id !== shindongseokId) { final.push(s); return; }
+    if (!teamIds.has(s.leader_id)) { add(s); return; }
     const half = (k: number) => k / 2;
     const pct = Math.round(s.weight * 50);
-    final.push({
+    const who = s.leader_id === shindongseokId ? "신동석" : "강형주";
+    const reason = `${who} 몫 재분배 ${pct}%`;
+    add({
       leader_id: ganghyungjuId,
       weight: s.weight / 2,
       metro: half(s.metro), note_amount: half(s.note_amount),
       regional: half(s.regional), cod: half(s.cod),
       count: 1,
-      reason: `신동석 몫 재분배 ${pct}%`,
+      reason,
     });
-    final.push({
+    add({
       leader_id: shindongseokId,
       weight: s.weight / 2,
       metro: half(s.metro), note_amount: half(s.note_amount),
       regional: half(s.regional), cod: half(s.cod),
       count: 1,
-      reason: `신동석 몫 재분배 ${pct}%`,
+      reason,
     });
   });
-  return final;
+  return Array.from(merged.values());
 }
 
 /** 팀장별 건별 수수료 (비고금액은 제외). region_type을 알 수 없으면 0. */
