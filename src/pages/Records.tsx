@@ -281,6 +281,13 @@ export default function Records() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [validation, setValidation] = useState<{
+    issues: ValidationIssue[];
+    summary: ReturnType<typeof summarize>;
+    periodChecks: ReturnType<typeof comparePeriodTotals>;
+    ranAt: string;
+  } | null>(null);
+  const [showOnly, setShowOnly] = useState<"all" | "error" | "warning">("all");
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
@@ -376,6 +383,8 @@ export default function Records() {
       cod_amount: parseNum(form.cod_amount) || 0,
       split_type: form.split_type || null,
       paid: form.paid,
+      is_missing: form.is_missing,
+      missing_reason: form.is_missing ? (form.missing_reason || null) : null,
     };
     setSaving(true);
     let error;
