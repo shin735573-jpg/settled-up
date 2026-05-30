@@ -7,12 +7,12 @@ const nav = [
   { to: "/records", label: "기록입력", icon: FileSpreadsheet },
   { to: "/company-settlement", label: "업체정산", icon: Building2 },
   { to: "/leader-settlement", label: "팀장정산", icon: Users },
-  { to: "/hq-settlement", label: "본사정산", icon: Landmark },
   { to: "/summary", label: "한눈요약", icon: Eye },
+  { to: "/hq-settlement", label: "본사정산", icon: Landmark },
   { to: "/holidays", label: "휴무일관리", icon: CalendarOff },
   { to: "/settings", label: "설정", icon: SettingsIcon },
-  { to: "/pricing", label: "단가표", icon: Tag },
   { to: "/saves", label: "정산서저장", icon: Save },
+  { to: "/pricing", label: "삼호물류 단가표", icon: Tag },
 ];
 
 export default function AppLayout() {
