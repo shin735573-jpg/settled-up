@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 export default function Auth() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@test.com");
+  const [password, setPassword] = useState("admin123");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { session } = useAuth();
