@@ -928,24 +928,42 @@ function LeaderSummaryCard({
  * 차이가 발생하면 즉시 경고로 표시한다.
  */
 function SdsGhjCrossCheck({
-  masterRows, shindongseokId, ganghyungjuId,
+  masterRows, shindongseokId, ganghyungjuId, config, rawTotalsFor, leadersById,
 }: {
   masterRows: Array<{ leader: { id: string; name: string }; count: number; total: number; cod: number; fees: number }>;
   shindongseokId: string | null;
   ganghyungjuId: string | null;
+  config: CrossCheckConfig;
+  rawTotalsFor: (lid: string) => { count: number; total: number; cod: number; fees: number };
+  leadersById: Map<string, Leader>;
 }) {
   if (!shindongseokId || !ganghyungjuId) return null;
-  const sds = masterRows.find((m) => m.leader.id === shindongseokId);
-  const ghj = masterRows.find((m) => m.leader.id === ganghyungjuId);
+
+  // 제외 로직: include_all이면 정산제외 팀장도 포함해야 하나, masterRows는 settlingLeaders만 담음.
+  // SDS/GHJ가 settle_status=excluded인 경우 raw 모드로만 의미가 있다 → 안내만 표시.
+  const sdsLeader = leadersById.get(shindongseokId);
+  const ghjLeader = leadersById.get(ganghyungjuId);
+  const sdsExcluded = (sdsLeader?.settle_status ?? "included") === "excluded";
+  const ghjExcluded = (ghjLeader?.settle_status ?? "included") === "excluded";
+  if (config.exclude === "exclude_excluded" && (sdsExcluded || ghjExcluded)) return null;
+
+  const sds = config.basis === "raw"
+    ? rawTotalsFor(shindongseokId)
+    : masterRows.find((m) => m.leader.id === shindongseokId);
+  const ghj = config.basis === "raw"
+    ? rawTotalsFor(ganghyungjuId)
+    : masterRows.find((m) => m.leader.id === ghj_id_fallback(ganghyungjuId, masterRows));
   if (!sds && !ghj) return null;
 
-  const rows = [
-    { label: "배송건수", a: sds?.count ?? 0, b: ghj?.count ?? 0, isMoney: false },
-    { label: "실지급배송비", a: sds?.total ?? 0, b: ghj?.total ?? 0, isMoney: true },
-    { label: "착불합계", a: sds?.cod ?? 0, b: ghj?.cod ?? 0, isMoney: true },
-    { label: "수수료합계", a: sds?.fees ?? 0, b: ghj?.fees ?? 0, isMoney: true },
+  const allRows: Array<{ key: CrossCheckItem; label: string; a: number; b: number; isMoney: boolean }> = [
+    { key: "count", label: CROSSCHECK_ITEM_LABELS.count, a: sds?.count ?? 0, b: ghj?.count ?? 0, isMoney: false },
+    { key: "total", label: CROSSCHECK_ITEM_LABELS.total, a: sds?.total ?? 0, b: ghj?.total ?? 0, isMoney: true },
+    { key: "cod", label: CROSSCHECK_ITEM_LABELS.cod, a: sds?.cod ?? 0, b: ghj?.cod ?? 0, isMoney: true },
+    { key: "fees", label: CROSSCHECK_ITEM_LABELS.fees, a: sds?.fees ?? 0, b: ghj?.fees ?? 0, isMoney: true },
   ];
-  const eps = 0.5;
+  const rows = allRows.filter((r) => config.items[r.key]);
+  if (rows.length === 0) return null;
+  const eps = Math.max(0, config.tolerance);
   const allMatch = rows.every((r) => Math.abs(r.a - r.b) < eps);
 
   return (
@@ -955,6 +973,9 @@ function SdsGhjCrossCheck({
           신동석 ↔ 강형주 교차검증
           <span className={`ml-2 text-xs ${allMatch ? "text-emerald-700" : "text-red-700"}`}>
             {allMatch ? "✓ 일치 (50/50 재분배 정상)" : "⚠ 불일치 — 분배 로직 또는 데이터 점검 필요"}
+          </span>
+          <span className="ml-2 text-xs text-muted-foreground">
+            기준: {config.basis === "raw" ? "원본 배분" : "재분배 포함"} · 오차 {eps}
           </span>
         </div>
       </div>
