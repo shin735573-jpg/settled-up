@@ -302,6 +302,22 @@ export default function LeaderSettlement() {
     period === "second" ? `${month} 16~말일` :
     `${month} 월전체`;
 
+  // 상단 요약바: 정산귀속/팀 재분배가 모두 반영된 masterRows 기준 합계
+  const topSummary = useMemo(() => {
+    let totalCount = 0, totalCod = 0, totalFee = 0;
+    masterRows.forEach((m) => {
+      totalCount += m.count;
+      totalCod += m.cod;
+      totalFee += m.total;
+    });
+    return {
+      totalLeaders: masterRows.length,
+      totalCount,
+      totalCod,
+      totalFee,
+    };
+  }, [masterRows]);
+
   // ===== 상세 모드 =====
   const detailLeader = leaderId ? leadersById.get(leaderId) : undefined;
   const detailRows = useMemo(
