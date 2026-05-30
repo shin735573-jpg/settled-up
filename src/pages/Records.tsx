@@ -436,6 +436,13 @@ export default function Records() {
     if (!form.two_person && form.leader2_id) {
       if (!confirm("팀장2가 입력되어 있습니다. 2인배송 여부를 확인해주세요. 그대로 저장할까요?")) return;
     }
+    if (form.split_type === "3분할") {
+      const names = [form.leader1_id, form.leader2_id]
+        .map((id) => leaders.find((l) => l.id === id)?.name);
+      if (names.includes("신동석")) {
+        if (!confirm("신동석이 포함된 건에 ‘3분할’이 선택되어 있습니다. 신동석 재분배 규칙과 충돌합니다. 그대로 저장할까요?")) return;
+      }
+    }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
     const payload = {
       user_id: user.id,

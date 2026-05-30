@@ -162,6 +162,17 @@ export default function LeaderSettlement() {
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
 
+  /** 신동석/강형주 팀장 ID (이름 매칭) — 재분배에 사용 */
+  const shindongseokId = useMemo(
+    () => leaders.find((l) => l.name.trim() === "신동석")?.id || null,
+    [leaders],
+  );
+  const ganghyungjuId = useMemo(
+    () => leaders.find((l) => l.name.trim() === "강형주")?.id || null,
+    [leaders],
+  );
+  const sdsOpts = { shindongseokId, ganghyungjuId };
+
   const activeCommonDeductions = useMemo(() => {
     const unique = new Map<string, CommonDeduction>();
     commonDeductions
@@ -227,7 +238,7 @@ export default function LeaderSettlement() {
    */
   const shareForSettling = (r: Delivery, settlingLid: string): {
     metro: number; noteAmt: number; regional: number; cod: number; count: number;
-    weight: number;
+    weight: number; reasons: string[];
   } | null => {
     const targets = targetSetFor(settlingLid);
     const shares = allocateRow({
@@ -235,16 +246,19 @@ export default function LeaderSettlement() {
       split_type: r.split_type, two_person: r.two_person,
       metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
       regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
-    });
+    }, sdsOpts);
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0, weight = 0;
+    const reasons: string[] = [];
     shares.forEach((s) => {
       if (!targets.has(s.leader_id)) return;
       metro += s.metro; noteAmt += s.note_amount;
       regional += s.regional; cod += s.cod;
       count += s.count; weight += s.weight;
+      if (s.reason) reasons.push(s.reason);
     });
     if (count === 0) return null;
-    return { metro, noteAmt, regional, cod, count, weight };
+    // 같은 행에서 한 정산기사에게 중복 카운트되지 않도록 1로 고정
+    return { metro, noteAmt, regional, cod, count: 1, weight, reasons };
   };
 
   /** 건별 수수료 (해당 정산기사 몫만). 비고금액은 수수료 제외. */
@@ -781,7 +795,14 @@ export default function LeaderSettlement() {
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
                       <TableCell className={src ? "text-amber-800 font-medium" : "text-muted-foreground"}>
-                        {src ? `${src.name} → ${detailLeader.name}` : "본인"}
+                        <div className="space-y-0.5">
+                          <div>{src ? `${src.name} → ${detailLeader.name}` : "본인"}</div>
+                          {share?.reasons?.length ? (
+                            <div className="text-[11px] text-muted-foreground">
+                              {Array.from(new Set(share.reasons)).join(" · ")}
+                            </div>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

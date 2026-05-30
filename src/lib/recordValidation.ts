@@ -151,6 +151,17 @@ export function validateRow(
     if (!l1) push("error", "split.3.leader1", "3분할인데 팀장1 누락", "팀장1");
     if (!l2 && !r.leader2_id && !r.leader2_name)
       push("error", "split.3.leader2", "3분할인데 팀장2 누락", "팀장2");
+    // 9-1. 신동석 + 3분할 충돌 경고
+    const involvesShindongseok =
+      (l1?.name?.trim() === "신동석") ||
+      (l2?.name?.trim() === "신동석") ||
+      (r.leader1_name?.trim() === "신동석") ||
+      (r.leader2_name?.trim() === "신동석");
+    if (involvesShindongseok) {
+      push("warning", "split.3.shindongseok",
+        "신동석이 포함된 건에 3분할이 선택됨 — 신동석 재분배 규칙과 충돌. 분할 선택을 확인하세요.",
+        "분할");
+    }
   }
 
   // 10. 거부팀장 검사
