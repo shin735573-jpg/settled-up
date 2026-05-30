@@ -88,7 +88,7 @@ export default function CompanySettlement() {
           <Table className="text-xs num">
             <TableHeader>
               <TableRow>
-                <TableHead>날짜</TableHead><TableHead>기사</TableHead><TableHead>고객</TableHead><TableHead>지역</TableHead>
+                <TableHead>날짜</TableHead><TableHead>기사</TableHead><TableHead>고객</TableHead>
                 <TableHead>품목</TableHead><TableHead className="text-right">배송비</TableHead><TableHead className="text-right">착불</TableHead>
               </TableRow>
             </TableHeader>
@@ -104,14 +104,13 @@ export default function CompanySettlement() {
                   <TableCell>{r.date}</TableCell>
                   <TableCell className="whitespace-nowrap">{names.join(", ") || "-"}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
-                  <TableCell>{r.region || "-"}</TableCell>
                   <TableCell className="align-top min-w-[160px] max-w-[320px] whitespace-pre-wrap break-words">{r.item || "-"}</TableCell>
                   <TableCell className="text-right">{fmt(Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee))}</TableCell>
                   <TableCell className="text-right">{fmt(r.cod_amount)}</TableCell>
                 </TableRow>
                 );
               })}
-              {rows.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>}
+              {rows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>}
             </TableBody>
           </Table>
         </Card>
