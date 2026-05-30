@@ -675,6 +675,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   // 붙여넣은 원본을 grid로 변환
   const grid = useMemo<string[][]>(() => {
     if (!text.trim()) return [];
+    const kv = tryParseKeyValueText(text);
+    if (kv) return kv;
     return text.replace(/\r/g, "").split("\n")
       .filter((l) => l.trim() !== "")
       .map((l) => l.split("\t").map((c) => c.trim()));
