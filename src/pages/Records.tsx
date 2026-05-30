@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { fmt, parseNum, parseDate } from "@/lib/format";
 import { toast } from "sonner";
+import { ko } from "date-fns/locale";
 
 type Company = { id: string; name: string; active: boolean };
 type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean };
