@@ -231,6 +231,7 @@ export function validateSettleRedirect(
 
   // 2) 행 단위 — 귀속 대상 팀장이 포함된 행에서 합산 정합성
   const redirectIds = new Set(redirects.map((l) => l.id));
+  const { ganghyungjuId, shindongseokId } = findTeamIds(ctx.leaders);
 
   rows.forEach((r, i) => {
     const rowLabel = labelOf ? labelOf(r, i) : `행 ${i + 1}`;
@@ -252,7 +253,7 @@ export function validateSettleRedirect(
         regional_fee: isNumLike(r.regional_fee).n,
         cod_amount: isNumLike(r.cod_amount).n,
       },
-      {},
+      { ganghyungjuId, shindongseokId },
     );
 
     const lShare = shares.find((s) => s.leader_id === L.id);
