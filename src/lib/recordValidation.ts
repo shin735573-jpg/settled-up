@@ -42,6 +42,7 @@ export type LeaderRef = {
   is_rejected?: boolean;
   is_virtual?: boolean;
   active?: boolean;
+  aliases?: string[] | null;
 };
 export type HolidayRef = { date: string; scope: "hq" | "leader" | string; team_leader_id: string | null };
 
