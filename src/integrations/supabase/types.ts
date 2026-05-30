@@ -240,6 +240,39 @@ export type Database = {
           },
         ]
       }
+      leader_common_overrides: {
+        Row: {
+          amount: number
+          common_deduction_id: string
+          created_at: string
+          id: string
+          leader_id: string
+          period_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          common_deduction_id: string
+          created_at?: string
+          id?: string
+          leader_id: string
+          period_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          common_deduction_id?: string
+          created_at?: string
+          id?: string
+          leader_id?: string
+          period_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       leader_period_deductions: {
         Row: {
           amount: number
