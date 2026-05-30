@@ -343,7 +343,8 @@ export default function LeaderSettlement() {
       0,
     );
     // 상세 공통공제: 팀장 × 표시기간당 1번만 합산. 월전체만 보름 2개 합산.
-    const commonTotal = activeCommonDeductions.reduce((s, cd) => {
+    // 배송건이 없는 팀장은 공통공제(쓰레기비용 등)를 적용하지 않음
+    const commonTotal = count === 0 ? 0 : activeCommonDeductions.reduce((s, cd) => {
       const cdTotal = commonPeriodKeys.reduce((periodSum, pKey) => {
         const editKey = `${cd.id}__${pKey}`;
         const edited = detailCommonEdits[editKey];
