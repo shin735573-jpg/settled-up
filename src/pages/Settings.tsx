@@ -245,7 +245,7 @@ function LeadersTab() {
     if (!confirm("기존 기록의 팀장 이름을 정식 팀장명으로 통합합니다. 진행하시겠습니까?")) return;
     setCleaning(true);
     try {
-      const matchable = rows.filter((l) => !l.is_virtual);
+      const matchable = rows;
       const byId = new Map(rows.map((l) => [l.id, l]));
 
       // 전체 deliveries 로드 (페이지네이션)
@@ -314,22 +314,19 @@ function LeadersTab() {
       </div>
       <div className="text-xs text-muted-foreground">
         ‘팀장 이름 정리’: 기존 기록에서 별칭으로 저장된 팀장명을 정식 팀장명/ID로 통합합니다.
-        별칭(예: 형주 → 강형주, 동석 → 신동석)이 등록되어 있어야 하며, 가상기사·가상팀장은 매칭 대상에서 제외됩니다.
+        별칭(예: 형주 → 강형주, 동석 → 신동석)이 등록되어 있어야 합니다.
       </div>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>팀장명</TableHead>
             <TableHead className="min-w-[110px]">
-              별칭1
-              <div className="text-[10px] text-amber-700 font-normal">업체표시용</div>
+              별칭
+              <div className="text-[10px] text-amber-700 font-normal">거부기사 업체표시용</div>
             </TableHead>
-            <TableHead className="min-w-[100px]">별칭2</TableHead>
-            <TableHead className="min-w-[100px]">별칭3</TableHead>
             <TableHead>구분명</TableHead>
             <TableHead>지역</TableHead>
             <TableHead>거부</TableHead>
-            <TableHead>가상</TableHead>
             <TableHead>공제금</TableHead>
             <TableHead>쓰레기비</TableHead>
             <TableHead>정산귀속</TableHead>
@@ -341,6 +338,7 @@ function LeadersTab() {
           {rows.map((r) => {
             const isDup = (dupCounts.get(r.name.trim()) ?? 0) > 1;
             const al = r.aliases || [];
+            const needsAlias = r.is_rejected && !(al[0] || "").trim();
             return (
             <TableRow key={r.id}>
               <TableCell>
@@ -350,21 +348,22 @@ function LeadersTab() {
                 </div>
                 {isDup && <div className="text-xs text-muted-foreground mt-1">표시: {getDisplayName(r, rows)}</div>}
               </TableCell>
-              {[0, 1, 2].map((slot) => (
-                <TableCell key={slot}>
-                  <Input
-                    className="w-24"
-                    defaultValue={al[slot] || ""}
-                    placeholder={slot === 0 ? (r.is_rejected ? "업체 표시명" : "예: 동선") : ""}
-                    onBlur={(e) => {
-                      const v = e.target.value;
-                      if ((v.trim() || "") !== (al[slot] || "")) {
-                        updateAliasSlot(r.id, slot as 0 | 1 | 2, v);
-                      }
-                    }}
-                  />
-                </TableCell>
-              ))}
+              <TableCell>
+                <Input
+                  className={`w-28 ${needsAlias ? "border-destructive" : ""}`}
+                  defaultValue={al[0] || ""}
+                  placeholder={r.is_rejected ? "업체 표시명 (필수)" : "예: 동선"}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if ((v.trim() || "") !== (al[0] || "")) {
+                      updateAliasSlot(r.id, 0, v);
+                    }
+                  }}
+                />
+                {needsAlias && (
+                  <div className="text-[10px] text-destructive mt-1">거부기사 표시용 별칭 필요</div>
+                )}
+              </TableCell>
               <TableCell>
                 <Input
                   className="w-20"
@@ -378,7 +377,6 @@ function LeadersTab() {
               </TableCell>
               <TableCell><Input className="w-24" defaultValue={r.region || ""} onBlur={(e) => update(r.id, { region: e.target.value })} /></TableCell>
               <TableCell><Checkbox checked={r.is_rejected} onCheckedChange={(v) => update(r.id, { is_rejected: !!v })} /></TableCell>
-              <TableCell><Checkbox checked={r.is_virtual} onCheckedChange={(v) => update(r.id, { is_virtual: !!v })} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.deduction_amount} onBlur={(e) => update(r.id, { deduction_amount: Number(e.target.value) })} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.trash_cost} onBlur={(e) => update(r.id, { trash_cost: Number(e.target.value) })} /></TableCell>
               <TableCell>
@@ -395,7 +393,7 @@ function LeadersTab() {
             </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
