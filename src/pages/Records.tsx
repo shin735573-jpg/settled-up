@@ -185,7 +185,7 @@ export default function Records() {
         className="w-full h-14 text-base font-semibold"
         onClick={() => { setForm(emptyForm()); setFormOpen(true); }}
       >
-        <Plus className="h-5 w-5 mr-2" /> 새 배송입력
+        <Plus className="h-5 w-5 mr-2" /> 새 배송 입력
       </Button>
 
       {formOpen && (
