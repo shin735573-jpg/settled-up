@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { detectDuplicates, findAliasConflict, getDisplayName } from "@/lib/leaderResolver";
+import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName } from "@/lib/leaderResolver";
 
 type Company = { id: string; name: string; issues_invoice: boolean; vat_included: boolean; fee_rate_metro: number; fee_rate_regional: number; active: boolean };
 type Leader = { id: string; name: string; region: string | null; is_rejected: boolean; is_virtual: boolean; deduction_amount: number; trash_cost: number; settle_to_id: string | null; active: boolean; aliases: string[]; display_suffix: string | null };
@@ -187,6 +187,24 @@ function LeadersTab() {
     await update(id, { aliases } as any);
   };
 
+  const updateName = async (id: string, nextName: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const trimmed = nextName.trim();
+    if (!trimmed) { toast.error("팀장명은 비울 수 없습니다"); load(); return; }
+    const conflict = findDisplayNameConflict(id, trimmed, row.display_suffix || null, rows);
+    if (conflict) { toast.error(conflict); load(); return; }
+    await update(id, { name: trimmed });
+  };
+
+  const updateSuffix = async (id: string, nextSuffix: string | null) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const conflict = findDisplayNameConflict(id, row.name, nextSuffix, rows);
+    if (conflict) { toast.error(conflict); load(); return; }
+    await update(id, { display_suffix: nextSuffix } as any);
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <div className="flex gap-2">
@@ -216,7 +234,7 @@ function LeadersTab() {
             <TableRow key={r.id}>
               <TableCell>
                 <div className="flex items-center gap-1">
-                  <Input defaultValue={r.name} onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} />
+                  <Input defaultValue={r.name} onBlur={(e) => e.target.value.trim() !== r.name && updateName(r.id, e.target.value)} />
                   {isDup && <span className="text-xs text-amber-600 whitespace-nowrap">동명이인</span>}
                 </div>
                 {isDup && <div className="text-xs text-muted-foreground mt-1">표시: {getDisplayName(r, rows)}</div>}
@@ -241,7 +259,7 @@ function LeadersTab() {
                   placeholder={isDup ? "예: 2" : ""}
                   onBlur={(e) => {
                     const v = e.target.value.trim() || null;
-                    if (v !== (r.display_suffix || null)) update(r.id, { display_suffix: v } as any);
+                    if (v !== (r.display_suffix || null)) updateSuffix(r.id, v);
                   }}
                 />
               </TableCell>
