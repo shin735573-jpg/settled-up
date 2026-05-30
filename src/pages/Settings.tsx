@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { detectDuplicates, findAliasConflict, getDisplayName } from "@/lib/leaderResolver";
 
 type Company = { id: string; name: string; issues_invoice: boolean; vat_included: boolean; fee_rate_metro: number; fee_rate_regional: number; active: boolean };
-type Leader = { id: string; name: string; region: string | null; is_rejected: boolean; is_virtual: boolean; deduction_amount: number; trash_cost: number; settle_to_id: string | null; active: boolean };
+type Leader = { id: string; name: string; region: string | null; is_rejected: boolean; is_virtual: boolean; deduction_amount: number; trash_cost: number; settle_to_id: string | null; active: boolean; aliases: string[]; display_suffix: string | null };
 type Holiday = { id: string; date: string; scope: string; team_leader_id: string | null };
 
 export default function Settings() {
@@ -177,6 +178,15 @@ function LeadersTab() {
     load();
   };
 
+  const dupCounts = detectDuplicates(rows);
+
+  const updateAliases = async (id: string, raw: string) => {
+    const aliases = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    const conflict = findAliasConflict(id, aliases, rows);
+    if (conflict) { toast.error(conflict); load(); return; }
+    await update(id, { aliases } as any);
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <div className="flex gap-2">
@@ -187,6 +197,8 @@ function LeadersTab() {
         <TableHeader>
           <TableRow>
             <TableHead>팀장명</TableHead>
+            <TableHead>별칭 (쉼표 구분)</TableHead>
+            <TableHead>구분명</TableHead>
             <TableHead>지역</TableHead>
             <TableHead>거부</TableHead>
             <TableHead>가상</TableHead>
@@ -198,9 +210,41 @@ function LeadersTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r) => (
+          {rows.map((r) => {
+            const isDup = (dupCounts.get(r.name.trim()) ?? 0) > 1;
+            return (
             <TableRow key={r.id}>
-              <TableCell><Input defaultValue={r.name} onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} /></TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  <Input defaultValue={r.name} onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} />
+                  {isDup && <span className="text-xs text-amber-600 whitespace-nowrap">동명이인</span>}
+                </div>
+                {isDup && <div className="text-xs text-muted-foreground mt-1">표시: {getDisplayName(r, rows)}</div>}
+              </TableCell>
+              <TableCell>
+                <Input
+                  className="w-40"
+                  defaultValue={(r.aliases || []).join(", ")}
+                  placeholder="예: 형주"
+                  onBlur={(e) => {
+                    const raw = e.target.value;
+                    const next = raw.split(",").map((s) => s.trim()).filter(Boolean).join(", ");
+                    const prev = (r.aliases || []).join(", ");
+                    if (next !== prev) updateAliases(r.id, raw);
+                  }}
+                />
+              </TableCell>
+              <TableCell>
+                <Input
+                  className="w-20"
+                  defaultValue={r.display_suffix || ""}
+                  placeholder={isDup ? "예: 2" : ""}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim() || null;
+                    if (v !== (r.display_suffix || null)) update(r.id, { display_suffix: v } as any);
+                  }}
+                />
+              </TableCell>
               <TableCell><Input className="w-24" defaultValue={r.region || ""} onBlur={(e) => update(r.id, { region: e.target.value })} /></TableCell>
               <TableCell><Checkbox checked={r.is_rejected} onCheckedChange={(v) => update(r.id, { is_rejected: !!v })} /></TableCell>
               <TableCell><Checkbox checked={r.is_virtual} onCheckedChange={(v) => update(r.id, { is_virtual: !!v })} /></TableCell>
@@ -211,15 +255,16 @@ function LeadersTab() {
                   <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">본인</SelectItem>
-                    {rows.filter((x) => x.id !== r.id).map((x) => <SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>)}
+                    {rows.filter((x) => x.id !== r.id).map((x) => <SelectItem key={x.id} value={x.id}>{getDisplayName(x, rows)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </TableCell>
               <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
-          ))}
-          {rows.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+            );
+          })}
+          {rows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
