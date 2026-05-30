@@ -371,13 +371,17 @@ export default function LeaderSettlement() {
     const { data } = await supabase
       .from("leader_common_overrides")
       .select("*")
-      .eq("period_key", periodKey);
+      .in("period_key", commonPeriodKeys);
     setCommonOverrides((data as LeaderCommonOverride[]) || []);
   };
 
   /** 편집 중인 공통공제 값 저장 (upsert). base와 동일하면 오버라이드 제거. */
   const saveDetailCommon = async () => {
     if (!user || !leaderId) return;
+    if (isMultiCommonPeriod) {
+      toast.error("월전체에서는 공통공제를 수정할 수 없습니다. 1~15일/16~말일 보름 기간을 선택해 각각 수정하세요.");
+      return;
+    }
     const entries = Object.entries(detailCommonEdits);
     if (entries.length === 0) return;
     setSavingCommon(true);
