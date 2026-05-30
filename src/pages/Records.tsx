@@ -18,6 +18,15 @@ import { cn } from "@/lib/utils";
 import { fmt, parseNum, parseDate } from "@/lib/format";
 import { toast } from "sonner";
 import { ko } from "date-fns/locale";
+import {
+  validateAll,
+  comparePeriodTotals,
+  summarize,
+  type DeliveryRecord as ValRecord,
+  type ValidationIssue,
+  type ValidationContext,
+} from "@/lib/recordValidation";
+import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
 
 type Company = { id: string; name: string; active: boolean };
 type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean };
@@ -233,6 +242,8 @@ type FormState = {
   cod_amount: string;
   split_type: string;
   paid: boolean;
+  is_missing: boolean;
+  missing_reason: string;
 };
 
 const NONE = "__none__";
@@ -254,6 +265,8 @@ const emptyForm = (): FormState => ({
   cod_amount: "",
   split_type: "",
   paid: false,
+  is_missing: false,
+  missing_reason: "",
 });
 
 export default function Records() {
