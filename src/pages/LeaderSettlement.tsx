@@ -952,7 +952,7 @@ function SdsGhjCrossCheck({
     : masterRows.find((m) => m.leader.id === shindongseokId);
   const ghj = config.basis === "raw"
     ? rawTotalsFor(ganghyungjuId)
-    : masterRows.find((m) => m.leader.id === ghj_id_fallback(ganghyungjuId, masterRows));
+    : masterRows.find((m) => m.leader.id === ganghyungjuId);
   if (!sds && !ghj) return null;
 
   const allRows: Array<{ key: CrossCheckItem; label: string; a: number; b: number; isMoney: boolean }> = [
