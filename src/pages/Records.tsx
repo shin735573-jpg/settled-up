@@ -743,6 +743,11 @@ export default function Records() {
 
             {[0, 1].map((i) => {
               const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id";
+              const selCompany = companies.find((c) => c.id === form.company_id);
+              const rejectedIds = selCompany
+                ? [selCompany.rejected_leader_id, selCompany.rejected_leader_id_2, selCompany.rejected_leader_id_3].filter(Boolean) as string[]
+                : [];
+              const isCompanyRejected = !!form[key] && rejectedIds.includes(form[key]);
               return (
                 <div key={i} className="space-y-1">
                   <Label>팀장{i + 1}</Label>
@@ -760,6 +765,11 @@ export default function Records() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {isCompanyRejected && (
+                    <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                      해당 업체는 선택한 팀장을 거부팀장으로 등록한 업체입니다. (거부기사 표시 적용)
+                    </div>
+                  )}
                 </div>
               );
             })}
