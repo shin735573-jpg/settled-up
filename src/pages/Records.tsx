@@ -142,6 +142,11 @@ function buildLeaderIndex(leaders: Leader[]) {
       add(n.slice(1), l.id);
     }
     if (n.length >= 4) add(n.slice(-3), l.id);
+    // 사용자 등록 별칭
+    for (const a of l.aliases ?? []) {
+      const at = String(a ?? "").trim();
+      if (at) add(at, l.id);
+    }
   }
   // 길이 내림차순으로 정렬된 키 목록 (긴 매치 우선)
   const keys = Array.from(map.keys()).sort((a, b) => b.length - a.length);
