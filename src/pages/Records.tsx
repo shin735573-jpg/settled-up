@@ -448,63 +448,115 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   const [skipErrors, setSkipErrors] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const parsed = useMemo<ParsedRow[]>(() => {
+  // 붙여넣은 원본을 grid로 변환
+  const grid = useMemo<string[][]>(() => {
     if (!text.trim()) return [];
-    const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim() !== "");
+    return text.replace(/\r/g, "").split("\n")
+      .filter((l) => l.trim() !== "")
+      .map((l) => l.split("\t").map((c) => c.trim()));
+  }, [text]);
+
+  // 헤더 존재 여부: 첫 줄에 표준 별칭과 매칭되는 셀이 1개 이상이면 헤더로 간주
+  const headerInfo = useMemo(() => {
+    if (grid.length === 0) return { hasHeader: false, headers: [] as string[], dataStart: 0 };
+    const first = grid[0];
+    const auto = autoMapHeaders(first);
+    const hasHeader = auto.some((k) => k !== null) ||
+      first.some((c) => TOTAL_ALIASES.includes(normalizeHeader(c)));
+    return { hasHeader, headers: first, dataStart: hasHeader ? 1 : 0 };
+  }, [grid]);
+
+  const colCount = useMemo(
+    () => grid.reduce((m, r) => Math.max(m, r.length), 0),
+    [grid]
+  );
+
+  // 컬럼 매핑 상태 (자동 + 사용자 수정)
+  const [mapping, setMapping] = useState<(FieldKey | null)[]>([]);
+
+  useEffect(() => {
+    if (colCount === 0) { setMapping([]); return; }
+    const auto = headerInfo.hasHeader
+      ? autoMapHeaders(headerInfo.headers)
+      : new Array(colCount).fill(null);
+    // 길이 맞추기
+    const arr: (FieldKey | null)[] = new Array(colCount).fill(null);
+    for (let i = 0; i < Math.min(auto.length, colCount); i++) arr[i] = auto[i];
+    // 헤더 없고 정확히 14개 컬럼이면 기존 순서로 기본 매핑
+    if (!headerInfo.hasHeader && colCount >= 14) {
+      const fallback: FieldKey[] = ["date","company","leader1","leader2","customer","region","item","note","metro","noteAmt","regional","cod","split","paid"];
+      for (let i = 0; i < fallback.length; i++) if (!arr[i]) arr[i] = fallback[i];
+    }
+    setMapping(arr);
+    // eslint-disable-next-line
+  }, [text]);
+
+  const missingRequired = useMemo(() => {
+    const set = new Set(mapping.filter(Boolean) as FieldKey[]);
+    return FIELD_DEFS.filter((f) => f.required && !set.has(f.key)).map((f) => f.label);
+  }, [mapping]);
+
+  const parsed = useMemo<ParsedRow[]>(() => {
+    if (grid.length === 0 || mapping.length === 0) return [];
+    const dataRows = grid.slice(headerInfo.dataStart);
     let lastDate: string | null = null;
     const companyMap = new Map(companies.map((c) => [c.name.trim(), c]));
     const leaderMap = new Map(leaders.map((l) => [l.name.trim(), l]));
     const holidayHQ = new Set(holidays.filter((h) => h.scope === "hq").map((h) => h.date));
     const holidayLeader = new Set(holidays.filter((h) => h.scope === "leader").map((h) => `${h.date}|${h.team_leader_id}`));
 
-    return lines.map((line) => {
-      const cols = line.split("\t");
-      const get = (i: number) => (cols[i] ?? "").trim();
+    // 필드 → 컬럼 인덱스
+    const idx: Partial<Record<FieldKey, number>> = {};
+    mapping.forEach((k, i) => { if (k && idx[k] === undefined) idx[k] = i; });
+    const cell = (row: string[], k: FieldKey) => {
+      const i = idx[k]; return i === undefined ? "" : (row[i] ?? "").trim();
+    };
+
+    return dataRows.map((cols) => {
       const errors: RowError[] = [];
       const warnings: RowError[] = [];
 
-      // date
-      let date = parseDate(get(0));
+      let date = parseDate(cell(cols, "date"));
       if (!date && lastDate) date = lastDate;
       if (!date) errors.push({ field: "날짜", msg: "날짜 형식 오류" });
       else lastDate = date;
 
-      const company = get(1);
+      const company = cell(cols, "company");
       if (!company) errors.push({ field: "업체", msg: "업체 누락" });
       const companyRec = companyMap.get(company);
       if (company && !companyRec) errors.push({ field: "업체", msg: "미등록 업체" });
 
-      const leaderNames = [get(2), get(3)].map((n) => n || null);
+      const leaderNames = [cell(cols, "leader1") || null, cell(cols, "leader2") || null];
       const leaderRecs = leaderNames.map((n) => (n ? leaderMap.get(n) || null : null));
       leaderNames.forEach((n, i) => {
         if (n && !leaderRecs[i]) errors.push({ field: `팀장${i + 1}`, msg: `미등록 팀장: ${n}` });
         if (leaderRecs[i]?.is_rejected) errors.push({ field: `팀장${i + 1}`, msg: `거부팀장 배정 불가: ${n}` });
-        if (date && leaderRecs[i]) {
-          if (holidayLeader.has(`${date}|${leaderRecs[i]!.id}`)) errors.push({ field: `팀장${i + 1}`, msg: `${n} 휴무일` });
+        if (date && leaderRecs[i] && holidayLeader.has(`${date}|${leaderRecs[i]!.id}`)) {
+          errors.push({ field: `팀장${i + 1}`, msg: `${n} 휴무일` });
         }
       });
       if (date && holidayHQ.has(date)) warnings.push({ field: "날짜", msg: "본사 휴무일" });
 
-      const customer = get(4);
-      const region = get(5);
-      const item = get(6);
-      const note = get(7);
+      const customer = cell(cols, "customer");
+      const region = cell(cols, "region");
+      const item = cell(cols, "item");
+      const note = cell(cols, "note");
 
-      const metroRaw = get(8), noteAmtRaw = get(9), regionalRaw = get(10), codRaw = get(11);
       const checkNum = (raw: string, label: string) => {
         if (raw === "") return 0;
         const cleaned = raw.replace(/,/g, "").trim();
         if (cleaned !== "" && isNaN(Number(cleaned))) errors.push({ field: label, msg: `숫자 오류: ${raw}` });
         return parseNum(raw);
       };
-      const metro = checkNum(metroRaw, "수도권배송비");
-      const noteAmt = checkNum(noteAmtRaw, "비고금액");
-      const regional = checkNum(regionalRaw, "지방배송비");
-      const cod = checkNum(codRaw, "착불");
+      const metro = checkNum(cell(cols, "metro"), "수도권배송비");
+      const noteAmt = checkNum(cell(cols, "noteAmt"), "비고금액");
+      const regional = checkNum(cell(cols, "regional"), "지방배송비");
+      const cod = checkNum(cell(cols, "cod"), "착불");
 
-      const split = get(12);
-      const paidRaw = get(13).toLowerCase();
-      const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v"].includes(paidRaw) || paidRaw === "1";
+      const splitRaw = cell(cols, "split");
+      const split = ["", "3분할", "형주동석"].includes(splitRaw) ? splitRaw : splitRaw;
+      const paidRaw = cell(cols, "paid").toLowerCase();
+      const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v", "결제완료"].includes(paidRaw) || paidRaw === "1";
 
       return {
         raw: cols, date, company,
@@ -517,12 +569,15 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
         errors, warnings,
       };
     });
-  }, [text, companies, leaders, holidays]);
+  }, [grid, mapping, headerInfo, companies, leaders, holidays]);
 
   const errorCount = parsed.filter((r) => r.errors.length).length;
 
   const save = async () => {
     if (!userId) return;
+    if (missingRequired.length > 0) {
+      toast.error(`필수 항목 누락: ${missingRequired.join(", ")}`); return;
+    }
     const toSave = skipErrors ? parsed.filter((r) => !r.errors.length) : parsed;
     if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
     if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
@@ -553,20 +608,71 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>엑셀 붙여넣기</DialogTitle>
+          <DialogTitle>엑셀 붙여넣기 (자동 분류)</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="text-xs text-muted-foreground">
-            열 순서: {COLS.join(" / ")}<br />
-            • 날짜가 빈칸이면 바로 위 날짜를 자동 적용 • 금액은 쉼표 허용 • 배송비총액은 자동 계산
+            엑셀에서 복사하면 첫 줄의 컬럼명을 읽어 자동 분류합니다. 컬럼 순서가 달라도 됩니다.<br/>
+            • 컬럼명이 없거나 인식 안 된 열은 아래 “컬럼 매핑”에서 직접 지정 • 날짜가 빈칸이면 바로 위 날짜 자동 적용 • 금액은 쉼표 허용 • 배송비총액은 자동 계산 (붙여넣기 값 무시)
           </div>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="엑셀에서 복사한 데이터를 여기에 붙여넣으세요 (Ctrl+V)"
-            rows={6}
+            placeholder="엑셀에서 헤더 포함 여러 행/열을 복사해 붙여넣으세요 (Ctrl+V)"
+            rows={8}
             className="font-mono text-xs"
           />
+
+          {grid.length > 0 && (
+            <div className="border rounded p-3 space-y-2">
+              <div className="text-sm font-semibold">
+                컬럼 매핑 {headerInfo.hasHeader ? "(헤더 자동 인식됨)" : "(헤더 미인식 — 직접 지정)"}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {Array.from({ length: colCount }).map((_, i) => {
+                  const headerText = headerInfo.hasHeader ? (headerInfo.headers[i] ?? "") : `열 ${i + 1}`;
+                  const sample = (grid[headerInfo.dataStart]?.[i] ?? "").slice(0, 20);
+                  const val = mapping[i] ?? FIELD_UNMAPPED;
+                  return (
+                    <div key={i} className="space-y-1">
+                      <div className="text-xs text-muted-foreground truncate" title={headerText}>
+                        <b>{headerText || `열 ${i + 1}`}</b>
+                        {sample && <span className="ml-1 opacity-70">예: {sample}</span>}
+                      </div>
+                      <Select
+                        value={val as string}
+                        onValueChange={(v) => {
+                          const next = [...mapping];
+                          next[i] = v === FIELD_UNMAPPED ? null : (v as FieldKey);
+                          // 다른 열이 같은 필드면 해제
+                          if (v !== FIELD_UNMAPPED) {
+                            for (let j = 0; j < next.length; j++) if (j !== i && next[j] === v) next[j] = null;
+                          }
+                          setMapping(next);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={FIELD_UNMAPPED}>(사용 안 함)</SelectItem>
+                          {FIELD_DEFS.map((f) => (
+                            <SelectItem key={f.key} value={f.key}>
+                              {f.label}{f.required ? " *" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+              {missingRequired.length > 0 && (
+                <div className="text-xs text-destructive font-semibold">
+                  필수 항목 누락: {missingRequired.join(", ")}
+                </div>
+              )}
+            </div>
+          )}
+
           {parsed.length > 0 && (
             <>
               <div className="flex items-center justify-between">
@@ -585,9 +691,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                       <TableHead>#</TableHead>
                       <TableHead>날짜</TableHead><TableHead>업체</TableHead>
                       <TableHead>팀장1</TableHead><TableHead>팀장2</TableHead>
-                      <TableHead>고객</TableHead><TableHead>지역</TableHead>
+                      <TableHead>고객</TableHead><TableHead>지역</TableHead><TableHead>품목</TableHead>
                       <TableHead>수도권</TableHead><TableHead>비고금액</TableHead><TableHead>지방</TableHead>
-                      <TableHead>총액</TableHead><TableHead>착불</TableHead>
+                      <TableHead>총액</TableHead><TableHead>착불</TableHead><TableHead>분할</TableHead><TableHead>결제</TableHead>
                       <TableHead>오류/경고</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -604,11 +710,14 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                           <TableCell>{r.leaders[1] || "-"}</TableCell>
                           <TableCell>{r.customer || "-"}</TableCell>
                           <TableCell>{r.region || "-"}</TableCell>
+                          <TableCell className="max-w-[220px] whitespace-pre-wrap break-words align-top">{r.item || "-"}</TableCell>
                           <TableCell className="text-right">{fmt(r.metro)}</TableCell>
                           <TableCell className="text-right">{fmt(r.noteAmt)}</TableCell>
                           <TableCell className="text-right">{fmt(r.regional)}</TableCell>
                           <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
                           <TableCell className="text-right">{fmt(r.cod)}</TableCell>
+                          <TableCell>{r.split || "-"}</TableCell>
+                          <TableCell>{r.paid ? "✓" : "-"}</TableCell>
                           <TableCell className="space-y-1">
                             {r.errors.map((e, j) => <Badge key={j} variant="destructive" className="mr-1">{e.field}: {e.msg}</Badge>)}
                             {r.warnings.map((w, j) => <Badge key={"w"+j} variant="secondary" className="mr-1">{w.field}: {w.msg}</Badge>)}
@@ -624,7 +733,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>취소</Button>
-          <Button onClick={save} disabled={saving || parsed.length === 0}>
+          <Button onClick={save} disabled={saving || parsed.length === 0 || missingRequired.length > 0}>
             {skipErrors ? `정상 ${parsed.length - errorCount}건 저장` : `${parsed.length}건 저장`}
           </Button>
         </DialogFooter>
