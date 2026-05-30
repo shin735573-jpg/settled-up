@@ -46,6 +46,7 @@ export type LeaderRef = {
   is_virtual?: boolean;
   active?: boolean;
   aliases?: string[] | null;
+  settle_to_id?: string | null;
 };
 export type HolidayRef = { date: string; scope: "hq" | "leader" | string; team_leader_id: string | null };
 
