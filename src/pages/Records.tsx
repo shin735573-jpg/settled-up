@@ -52,6 +52,47 @@ const FIELD_UNMAPPED = "__unmapped__";
 // 배송비총액 별칭은 무시 (자동 계산)
 const TOTAL_ALIASES = ["배송비총액","총액","합계","total"].map(normalizeHeader);
 
+// "항목: 값" 형식 자동 인식 → 헤더 + 데이터 행 grid로 변환
+// 블록(빈 줄 구분) 하나 = 한 건. 값이 "빈칸"이면 빈 문자열로.
+function tryParseKeyValueText(raw: string): string[][] | null {
+  const aliasToKey = new Map<string, FieldKey>();
+  for (const def of FIELD_DEFS) for (const a of def.aliases) aliasToKey.set(normalizeHeader(a), def.key);
+  const lines = raw.replace(/\r/g, "").split("\n").map((l) => l.trim());
+  const blocks: string[][] = [];
+  let cur: string[] = [];
+  for (const l of lines) {
+    if (!l) { if (cur.length) { blocks.push(cur); cur = []; } }
+    else cur.push(l);
+  }
+  if (cur.length) blocks.push(cur);
+  if (blocks.length === 0) return null;
+  const KV_RE = /^([^:：\t]+)\s*[:：]\s*(.*)$/;
+  const parsedBlocks: Record<string, string>[] = [];
+  const keyOrder: string[] = [];
+  let knownHits = 0;
+  for (const block of blocks) {
+    const kvLines = block.filter((l) => KV_RE.test(l));
+    // 블록 내 60% 이상 + 최소 2줄이 "키: 값" 형식이어야 KV로 인정
+    if (kvLines.length < Math.max(2, Math.ceil(block.length * 0.6))) return null;
+    const rec: Record<string, string> = {};
+    for (const l of block) {
+      const m = l.match(KV_RE);
+      if (!m) continue;
+      const key = m[1].trim();
+      let val = m[2].trim();
+      if (val === "빈칸") val = "";
+      rec[key] = val;
+      if (!keyOrder.includes(key)) keyOrder.push(key);
+      if (aliasToKey.has(normalizeHeader(key))) knownHits++;
+    }
+    parsedBlocks.push(rec);
+  }
+  if (knownHits === 0) return null;
+  const header = keyOrder;
+  const rows = parsedBlocks.map((rec) => header.map((h) => rec[h] ?? ""));
+  return [header, ...rows];
+}
+
 function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
   const used = new Set<FieldKey>();
   return headers.map((h) => {
@@ -634,6 +675,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   // 붙여넣은 원본을 grid로 변환
   const grid = useMemo<string[][]>(() => {
     if (!text.trim()) return [];
+    const kv = tryParseKeyValueText(text);
+    if (kv) return kv;
     return text.replace(/\r/g, "").split("\n")
       .filter((l) => l.trim() !== "")
       .map((l) => l.split("\t").map((c) => c.trim()));
