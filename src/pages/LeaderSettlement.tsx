@@ -39,6 +39,7 @@ type LeaderCommonOverride = {
 
 const num = (v: unknown) => Number(v ?? 0) || 0;
 const sumFee = (r: Delivery) => num(r.metro_fee) + num(r.note_amount) + num(r.regional_fee);
+const normalizeDeductionLabel = (v: string) => v.trim().replace(/\s+/g, "").toLowerCase();
 
 /** 행에서 정산기사(=정산귀속 후의 팀장) ID 찾기. settle_to_id 따라 redirect. */
 function settlementLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null {
@@ -160,10 +161,16 @@ export default function LeaderSettlement() {
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
 
-  const activeCommonDeductions = useMemo(
-    () => commonDeductions.filter((c) => c.active && (c.label || "").trim()),
-    [commonDeductions],
-  );
+  const activeCommonDeductions = useMemo(() => {
+    const unique = new Map<string, CommonDeduction>();
+    commonDeductions
+      .filter((c) => c.active && (c.label || "").trim())
+      .forEach((c) => {
+        const key = normalizeDeductionLabel(c.label || "");
+        if (!unique.has(key)) unique.set(key, c);
+      });
+    return Array.from(unique.values());
+  }, [commonDeductions]);
 
   /**
    * 팀장+기간에 대한 공통공제 항목별 실제 적용금액.
