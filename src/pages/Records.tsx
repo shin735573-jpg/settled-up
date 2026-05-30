@@ -783,10 +783,10 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       const errors: RowError[] = [];
       const warnings: RowError[] = [];
 
-      let date = parseDate(cell(cols, "date"));
-      if (!date && lastDate) date = lastDate;
-      if (!date) errors.push({ field: "날짜", msg: "날짜 형식 오류" });
-      else lastDate = date;
+      const rawDate = cell(cols, "date");
+      const autoDate = parseDate(rawDate, defaultMonth);
+      // 날짜 fill-down/오류 처리는 effective 단계에서 수행 (사용자 수정 반영)
+      const date = autoDate;
 
       const company = cell(cols, "company");
       if (!company) errors.push({ field: "업체", msg: "업체 누락" });
@@ -861,7 +861,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       // 신호가 충분한데 날짜만 없으면 위 lastDate가 fill-down 처리됨 (이미 위에서 적용)
 
       return {
-        raw: cols, date, company,
+        raw: cols, rawDate, autoDate, company,
         leaders: leaderNames,
         customer, region, item, note,
         metro, noteAmt, regional, cod,
