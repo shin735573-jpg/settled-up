@@ -398,6 +398,7 @@ export default function Records() {
         cod_amount: parseNum(form.cod_amount) || 0,
         split_type: form.split_type || null,
         paid: form.paid,
+        two_person: form.two_person,
         is_missing: true,
       };
       const ctx: ValidationContext = {
@@ -428,6 +429,13 @@ export default function Records() {
     if (form.region_type === "regional" && metroN > 0 && regionalN === 0) {
       if (!confirm("지역구분이 지방인데 수도권배송비만 입력되어 있습니다. 그대로 저장할까요?")) return;
     }
+    if (form.two_person && !form.leader2_id) {
+      toast.error("2인배송은 팀장2가 필요합니다.");
+      return;
+    }
+    if (!form.two_person && form.leader2_id) {
+      if (!confirm("팀장2가 입력되어 있습니다. 2인배송 여부를 확인해주세요. 그대로 저장할까요?")) return;
+    }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
     const payload = {
       user_id: user.id,
@@ -449,6 +457,7 @@ export default function Records() {
       cod_amount: parseNum(form.cod_amount) || 0,
       split_type: form.split_type || null,
       paid: form.paid,
+      two_person: form.two_person,
       is_missing: form.is_missing,
       missing_reason: form.is_missing ? (form.missing_reason || null) : null,
     };
