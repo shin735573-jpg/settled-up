@@ -257,7 +257,8 @@ export default function LeaderSettlement() {
       if (s.reason) reasons.push(s.reason);
     });
     if (count === 0) return null;
-    return { metro, noteAmt, regional, cod, count, weight, reasons };
+    // 같은 행에서 한 정산기사에게 중복 카운트되지 않도록 1로 고정
+    return { metro, noteAmt, regional, cod, count: 1, weight, reasons };
   };
 
   /** 건별 수수료 (해당 정산기사 몫만). 비고금액은 수수료 제외. */
