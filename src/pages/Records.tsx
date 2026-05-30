@@ -20,7 +20,7 @@ type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: bool
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
-const COLS = ["날짜","업체","팀장1","팀장2","팀장3","고객명","지역","품목","비고","수도권배송비","비고금액","지방배송비","착불","분할","결제유무"];
+const COLS = ["날짜","업체","팀장1","팀장2","고객명","지역","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","분할","결제유무"];
 
 type FormState = {
   id: string | null;
@@ -28,7 +28,6 @@ type FormState = {
   company_id: string;
   leader1_id: string;
   leader2_id: string;
-  leader3_id: string;
   customer_name: string;
   region: string;
   item: string;
@@ -49,7 +48,6 @@ const emptyForm = (): FormState => ({
   company_id: "",
   leader1_id: "",
   leader2_id: "",
-  leader3_id: "",
   customer_name: "",
   region: "",
   item: "",
