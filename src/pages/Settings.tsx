@@ -41,6 +41,11 @@ type Leader = {
   active: boolean;
   aliases: string[];
   display_suffix: string | null;
+  issues_invoice: boolean;
+  account_number: string | null;
+  settle_status: "included" | "excluded";
+  min_guarantee_enabled: boolean;
+  min_guarantee_amount: number;
 };
 type Holiday = { id: string; date: string; scope: string; team_leader_id: string | null };
 
