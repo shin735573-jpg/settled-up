@@ -157,8 +157,11 @@ export function validateRow(
   [l1, l2].forEach((lx, i) => {
     if (!lx) return;
     if (lx.is_rejected || rejectedSet.has(lx.id)) {
-      push("warning", "leader.rejected",
-        `거부팀장 배정 (${lx.name}) → 가상기사 적용 안내`, `팀장${i + 1}`);
+      const hasAlias = !!(lx as any).aliases?.[0];
+      const msg = hasAlias
+        ? `거부기사 배정 (${lx.name}) → 업체 표시 별칭 적용`
+        : `거부기사 배정 (${lx.name}) → 별칭 미등록: 팀장관리에서 별칭을 입력하세요`;
+      push("warning", "leader.rejected", msg, `팀장${i + 1}`);
     }
   });
 
