@@ -498,6 +498,7 @@ export default function Records() {
         holidays={holidays}
         userId={user?.id || ""}
         onSaved={() => { setPasteOpen(false); load(); }}
+        onReload={load}
       />
     </div>
   );
