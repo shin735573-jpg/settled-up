@@ -874,8 +874,8 @@ export default function Records() {
                   </TableCell>
                   <TableCell className="whitespace-nowrap">{r.date}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.leader1_name || "-"}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.leader2_name || "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap">{displayLeaderById(r.leader1_id, r.leader1_name)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{displayLeaderById(r.leader2_id, r.leader2_name)}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
                   <TableCell className="whitespace-nowrap">
