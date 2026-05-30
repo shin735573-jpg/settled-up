@@ -48,7 +48,16 @@ function settlementLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string |
     if (!id) continue;
     const l = byId.get(id);
     if (!l) continue;
-    return l.settle_to_id || l.id;
+    // settle_to_id 체인을 끝까지 따라감 (순환 방어)
+    let cur: Leader | undefined = l;
+    const seen = new Set<string>();
+    while (cur?.settle_to_id && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      const nxt = byId.get(cur.settle_to_id);
+      if (!nxt) break;
+      cur = nxt;
+    }
+    return cur?.id ?? l.id;
   }
   return null;
 }
@@ -206,7 +215,7 @@ export default function LeaderSettlement() {
 
   /** 정산대상 팀장 목록: 활성 + 다른 팀장에게 정산귀속 안 된 팀장 */
   const settlingLeaders = useMemo(
-    () => leaders.filter((l) => l.active && !l.settle_to_id),
+    () => leaders.filter((l) => l.active && !l.is_rejected && !l.settle_to_id),
     [leaders],
   );
 
