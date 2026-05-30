@@ -604,6 +604,7 @@ export default function Records() {
         leaders={leaders}
         holidays={holidays}
         userId={user?.id || ""}
+        defaultMonth={filterMonth}
         onSaved={() => { setPasteOpen(false); load(); }}
         onReload={load}
       />
