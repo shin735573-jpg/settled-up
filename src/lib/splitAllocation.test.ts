@@ -144,4 +144,14 @@ describe("신동석 재분배", () => {
     expect(r.find((x) => x.leader_id === "GHJ")!.metro).toBe(100000);
     expect(r.find((x) => x.leader_id === "SDS")!.metro).toBe(100000);
   });
+
+  it("3인배송 균등 1/3", () => {
+    const r = allocateRow(
+      base({ leader1_id: "A", leader2_id: "B", leader3_id: "C", metro_fee: 90000 }),
+    );
+    expect(r.length).toBe(3);
+    expect(r.find((x) => x.leader_id === "A")!.metro).toBeCloseTo(30000);
+    expect(r.find((x) => x.leader_id === "B")!.metro).toBeCloseTo(30000);
+    expect(r.find((x) => x.leader_id === "C")!.metro).toBeCloseTo(30000);
+  });
 });
