@@ -5,6 +5,7 @@
 export type AllocInput = {
   leader1_id: string | null;
   leader2_id: string | null;
+  leader3_id?: string | null;
   split_type: string | null;
   two_person?: boolean | null;
   metro_fee: number;
@@ -36,11 +37,16 @@ export type ShindongseokOptions = {
 export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): LeaderShare[] {
   const l1 = r.leader1_id;
   const l2 = r.leader2_id;
+  const l3 = r.leader3_id ?? null;
   const split = (r.split_type || "").trim();
 
-  let weights: [number, number] = [1, 0];
-  let reasons: [string, string] = ["일반 100%", ""];
-  if (split === "형주동석" && l1 && l2) {
+  let weights: number[] = [1, 0, 0];
+  let reasons: string[] = ["일반 100%", "", ""];
+  if (l1 && l2 && l3) {
+    // 3인배송: 1/3씩 균등 분배
+    weights = [1 / 3, 1 / 3, 1 / 3];
+    reasons = ["3인배송 1/3", "3인배송 1/3", "3인배송 1/3"];
+  } else if (split === "형주동석" && l1 && l2) {
     weights = [0.5, 0.5];
     reasons = ["형주동석 50%", "형주동석 50%"];
   } else if (split === "3분할" && l1 && l2) {
@@ -58,10 +64,10 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
     reasons = ["일반 100%", ""];
   }
 
-  const ids: (string | null)[] = [l1, l2];
+  const ids: (string | null)[] = [l1, l2, l3];
   const initial: LeaderShare[] = [];
   ids.forEach((id, i) => {
-    const w = weights[i];
+    const w = weights[i] ?? 0;
     if (!id || w <= 0) return;
     initial.push({
       leader_id: id,
@@ -71,7 +77,7 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
       regional: n(r.regional_fee) * w,
       cod: n(r.cod_amount) * w,
       count: 1,
-      reason: reasons[i],
+      reason: reasons[i] ?? "",
     });
   });
 
