@@ -244,9 +244,14 @@ export default function Records() {
               <Label>지역</Label>
               <Input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
               <Label>품목</Label>
-              <Input value={form.item} onChange={(e) => setForm({ ...form, item: e.target.value })} />
+              <Textarea
+                value={form.item}
+                onChange={(e) => setForm({ ...form, item: e.target.value })}
+                rows={4}
+                className="min-h-[112px] whitespace-pre-wrap break-words"
+              />
             </div>
             <div className="space-y-1 sm:col-span-2 lg:col-span-4">
               <Label>비고</Label>
