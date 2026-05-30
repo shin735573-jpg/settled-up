@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { fmt, parseNum, parseDate } from "@/lib/format";
 import { toast } from "sonner";
 import { ko } from "date-fns/locale";
-import { canonicalLeaderName } from "@/lib/leaderResolver";
+import { canonicalLeaderName, getDisplayName } from "@/lib/leaderResolver";
 import {
   validateAll,
   comparePeriodTotals,
@@ -123,7 +123,8 @@ function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
 
 // 팀장명 자동 인식: 등록된 팀장명 + 자동 별칭(이름의 뒤 2글자, 가운데+끝 2글자)으로 후보 키 생성
 function buildLeaderIndex(leaders: Leader[]) {
-  const active = leaders.filter((l) => l.active);
+  // 가상기사/가상팀장은 통계·표시·별칭 통합 대상에서 제외
+  const active = leaders.filter((l) => l.active && !l.is_virtual);
   // key -> leader id (충돌 시 해당 key 제거)
   const map = new Map<string, string>();
   const ambiguous = new Set<string>();
@@ -321,6 +322,17 @@ export default function Records() {
 
   const activeCompanies = useMemo(() => companies.filter((c) => c.active), [companies]);
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
+
+  // 표시명: 가능하면 leader_id로 정식 팀장명을 찾아 표시(동명이인 구분 포함).
+  // ID가 없거나 매칭 실패면 저장된 원본 이름 사용.
+  const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+  const displayLeaderById = (id: string | null, fallback: string | null): string => {
+    if (id) {
+      const l = leadersById.get(id);
+      if (l) return getDisplayName(l, leaders);
+    }
+    return fallback || "-";
+  };
 
   const total =
     (parseNum(form.metro_fee) || 0) +
@@ -873,8 +885,8 @@ export default function Records() {
                   </TableCell>
                   <TableCell className="whitespace-nowrap">{r.date}</TableCell>
                   <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.leader1_name || "-"}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.leader2_name || "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap">{displayLeaderById(r.leader1_id, r.leader1_name)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{displayLeaderById(r.leader2_id, r.leader2_name)}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
                   <TableCell className="whitespace-nowrap">
