@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
+import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -22,7 +23,7 @@ type Delivery = {
   id: string; date: string; company_id: string | null; company_name: string;
   customer_name: string | null; region: string | null; item: string | null; note: string | null;
   metro_fee: number; note_amount: number; regional_fee: number; cod_amount: number;
-  region_type: string | null; split_type: string | null; paid: boolean;
+  region_type: string | null; split_type: string | null; paid: boolean; two_person?: boolean | null;
   leader1_id: string | null; leader1_name: string | null;
   leader2_id: string | null; leader2_name: string | null;
   leader3_id: string | null; leader3_name: string | null;
