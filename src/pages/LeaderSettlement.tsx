@@ -421,6 +421,10 @@ export default function LeaderSettlement() {
   /** 기본값으로 되돌리기: 저장된 오버라이드 삭제 + 편집 상태도 base로 */
   const resetCommonOverride = async (cdId: string, base: number) => {
     if (!user || !leaderId) return;
+    if (isMultiCommonPeriod) {
+      toast.error("월전체에서는 공통공제를 수정/되돌릴 수 없습니다. 보름 기간을 선택하세요.");
+      return;
+    }
     await supabase
       .from("leader_common_overrides")
       .delete()
