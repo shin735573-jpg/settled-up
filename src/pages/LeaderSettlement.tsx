@@ -87,6 +87,21 @@ export default function LeaderSettlement() {
 
   const periodKey = useMemo(() => (period === "all" ? "all" : `${month}-${period}`), [month, period]);
 
+  /**
+   * 공통공제(쓰레기비용 등) 적용 기준이 되는 정산기간 키 목록.
+   * - 1~15일 / 16~말일: 해당 기간 1번
+   * - 월전체: 1~15일 + 16~말일 두 번 (합산)
+   * - 전체기간: 단일 키 "all" 1번
+   * 같은 보름 기간 안에서는 절대 2번 이상 차감되지 않음 (배송건 수 무관, 팀장 × 보름 = 1번).
+   */
+  const commonPeriodKeys = useMemo<string[]>(() => {
+    if (period === "all") return ["all"];
+    if (period === "month") return [`${month}-first`, `${month}-second`];
+    return [`${month}-${period}`];
+  }, [period, month]);
+  const commonKeysJoined = commonPeriodKeys.join(",");
+  const isMultiCommonPeriod = commonPeriodKeys.length > 1;
+
   useEffect(() => {
     (async () => {
       const [{ data: l }, { data: c }, { data: cd }] = await Promise.all([
@@ -136,10 +151,11 @@ export default function LeaderSettlement() {
       const { data } = await supabase
         .from("leader_common_overrides")
         .select("*")
-        .eq("period_key", periodKey);
+        .in("period_key", commonPeriodKeys);
       setCommonOverrides((data as LeaderCommonOverride[]) || []);
     })();
-  }, [periodKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commonKeysJoined]);
 
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
@@ -149,12 +165,21 @@ export default function LeaderSettlement() {
     [commonDeductions],
   );
 
-  /** 팀장+기간에 대한 공통공제 항목별 실제 적용금액 (오버라이드 우선, 없으면 base). */
+  /**
+   * 팀장+기간에 대한 공통공제 항목별 실제 적용금액.
+   * - 단일 보름: 오버라이드 있으면 오버라이드, 없으면 base. (1번)
+   * - 월전체: 1~15일 + 16~말일 각각 한 번씩 합산 (보름별로 오버라이드 적용, 없으면 base).
+   * 보름 단위로만 누적되므로 배송건수가 늘어도 절대 중복 차감되지 않음.
+   */
   const effectiveCommonAmount = (leaderId: string, cd: CommonDeduction): number => {
-    const ov = commonOverrides.find(
-      (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id,
-    );
-    return ov ? num(ov.amount) : num(cd.amount);
+    let total = 0;
+    for (const k of commonPeriodKeys) {
+      const ov = commonOverrides.find(
+        (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id && o.period_key === k,
+      );
+      total += ov ? num(ov.amount) : num(cd.amount);
+    }
+    return total;
   };
 
   /** 팀장 공통공제 합계 (오버라이드 반영). */
