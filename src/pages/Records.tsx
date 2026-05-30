@@ -359,6 +359,7 @@ export default function Records() {
       cod_amount: String(r.cod_amount ?? ""),
       split_type: r.split_type || "",
       paid: !!r.paid,
+      two_person: !!(r as any).two_person,
       is_missing: !!r.is_missing,
       missing_reason: r.missing_reason || "",
     });
