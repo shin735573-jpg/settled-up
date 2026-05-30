@@ -29,7 +29,7 @@ import {
 import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
 
 type Company = { id: string; name: string; active: boolean };
-type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean };
+type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean; aliases?: string[] | null };
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
@@ -292,7 +292,7 @@ export default function Records() {
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
       supabase.from("companies").select("id,name,active").order("name"),
-      supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active").order("name"),
+      supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active,aliases").order("name"),
       supabase.from("holidays").select("date,scope,team_leader_id"),
     ]);
     setCompanies((c as Company[]) || []);
