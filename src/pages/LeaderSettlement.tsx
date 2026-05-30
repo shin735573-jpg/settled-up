@@ -602,6 +602,9 @@ export default function LeaderSettlement() {
             masterRows={masterRows}
             shindongseokId={shindongseokId}
             ganghyungjuId={ganghyungjuId}
+            config={crossCfg}
+            rawTotalsFor={rawTotalsFor}
+            leadersById={leadersById}
           />
           <Table className="text-sm num">
             <TableHeader>
