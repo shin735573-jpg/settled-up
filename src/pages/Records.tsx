@@ -68,6 +68,83 @@ function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
   });
 }
 
+// 팀장명 자동 인식: 등록된 팀장명 + 자동 별칭(이름의 뒤 2글자, 가운데+끝 2글자)으로 후보 키 생성
+function buildLeaderIndex(leaders: Leader[]) {
+  const active = leaders.filter((l) => l.active);
+  // key -> leader id (충돌 시 해당 key 제거)
+  const map = new Map<string, string>();
+  const ambiguous = new Set<string>();
+  const add = (key: string, id: string) => {
+    if (!key || key.length < 2) return;
+    if (ambiguous.has(key)) return;
+    if (map.has(key) && map.get(key) !== id) {
+      map.delete(key); ambiguous.add(key); return;
+    }
+    map.set(key, id);
+  };
+  for (const l of active) {
+    const n = l.name.trim();
+    add(n, l.id);
+    if (n.length >= 3) {
+      add(n.slice(-2), l.id);
+      add(n.slice(1), l.id);
+    }
+    if (n.length >= 4) add(n.slice(-3), l.id);
+  }
+  // 길이 내림차순으로 정렬된 키 목록 (긴 매치 우선)
+  const keys = Array.from(map.keys()).sort((a, b) => b.length - a.length);
+  return { map, keys };
+}
+
+const LEADER_SPLIT_RE = /[\/,&+\s\n]+/g;
+
+// 텍스트에서 팀장 후보를 순서대로 추출
+function extractLeaders(text: string, idx: ReturnType<typeof buildLeaderIndex>): { ids: string[]; raw: string[] } {
+  if (!text) return { ids: [], raw: [] };
+  // 1) 구분자 분리 시도
+  const tokens = text.split(LEADER_SPLIT_RE).map((t) => t.trim()).filter(Boolean);
+  type Hit = { id: string; raw: string; pos: number };
+  const hits: Hit[] = [];
+  const seenIds = new Set<string>();
+  const consumeId = (id: string, raw: string, pos: number) => {
+    if (seenIds.has(id)) return;
+    seenIds.add(id);
+    hits.push({ id, raw, pos });
+  };
+
+  // 토큰별 정확/별칭 매치
+  let cursor = 0;
+  for (const tok of tokens) {
+    const pos = text.indexOf(tok, cursor);
+    cursor = pos >= 0 ? pos + tok.length : cursor;
+    if (idx.map.has(tok)) {
+      consumeId(idx.map.get(tok)!, tok, pos);
+      continue;
+    }
+    // 토큰 내부에 별칭이 들어있는 경우 (예: "동석님")
+    for (const k of idx.keys) {
+      if (tok.includes(k)) {
+        const p = pos + tok.indexOf(k);
+        consumeId(idx.map.get(k)!, k, p);
+        break;
+      }
+    }
+  }
+
+  // 2) 구분자 없이 붙어있는 경우(예: "김용익동석") 전체 문자열에서 substring 스캔
+  if (hits.length < 2) {
+    for (const k of idx.keys) {
+      const id = idx.map.get(k)!;
+      if (seenIds.has(id)) continue;
+      const p = text.indexOf(k);
+      if (p >= 0) consumeId(id, k, p);
+    }
+  }
+
+  hits.sort((a, b) => a.pos - b.pos);
+  return { ids: hits.map((h) => h.id), raw: hits.map((h) => h.raw) };
+}
+
 type FormState = {
   id: string | null;
   date: string;
@@ -447,6 +524,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   const [text, setText] = useState("");
   const [skipErrors, setSkipErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 행별 팀장 수동 수정: rowIndex -> { l1?: id|""(=빈칸), l2?: id|"" }
+  const [leaderOverrides, setLeaderOverrides] = useState<Record<number, { l1?: string; l2?: string }>>({});
+
+  const leaderIndex = useMemo(() => buildLeaderIndex(leaders), [leaders]);
+  const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
+  const leaderById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
 
   // 붙여넣은 원본을 grid로 변환
   const grid = useMemo<string[][]>(() => {
@@ -501,7 +584,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     const dataRows = grid.slice(headerInfo.dataStart);
     let lastDate: string | null = null;
     const companyMap = new Map(companies.map((c) => [c.name.trim(), c]));
-    const leaderMap = new Map(leaders.map((l) => [l.name.trim(), l]));
     const holidayHQ = new Set(holidays.filter((h) => h.scope === "hq").map((h) => h.date));
     const holidayLeader = new Set(holidays.filter((h) => h.scope === "leader").map((h) => `${h.date}|${h.team_leader_id}`));
 
@@ -510,6 +592,20 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     mapping.forEach((k, i) => { if (k && idx[k] === undefined) idx[k] = i; });
     const cell = (row: string[], k: FieldKey) => {
       const i = idx[k]; return i === undefined ? "" : (row[i] ?? "").trim();
+    };
+    // 팀장 자동 인식에 사용할 텍스트 후보: leader1/leader2 셀 + (그 셀이 비어있으면) 매핑 안 된 모든 셀
+    const collectLeaderText = (row: string[]) => {
+      const parts: string[] = [];
+      const l1 = cell(row, "leader1"); if (l1) parts.push(l1);
+      const l2 = cell(row, "leader2"); if (l2) parts.push(l2);
+      if (parts.length === 0) {
+        // 미매핑 셀들에서 후보를 찾는다
+        for (let i = 0; i < row.length; i++) if (!mapping[i]) {
+          const v = (row[i] ?? "").trim();
+          if (v) parts.push(v);
+        }
+      }
+      return parts.join("\n");
     };
 
     return dataRows.map((cols) => {
@@ -526,13 +622,28 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       const companyRec = companyMap.get(company);
       if (company && !companyRec) errors.push({ field: "업체", msg: "미등록 업체" });
 
-      const leaderNames = [cell(cols, "leader1") || null, cell(cols, "leader2") || null];
-      const leaderRecs = leaderNames.map((n) => (n ? leaderMap.get(n) || null : null));
-      leaderNames.forEach((n, i) => {
-        if (n && !leaderRecs[i]) errors.push({ field: `팀장${i + 1}`, msg: `미등록 팀장: ${n}` });
-        if (leaderRecs[i]?.is_rejected) errors.push({ field: `팀장${i + 1}`, msg: `거부팀장 배정 불가: ${n}` });
-        if (date && leaderRecs[i] && holidayLeader.has(`${date}|${leaderRecs[i]!.id}`)) {
-          errors.push({ field: `팀장${i + 1}`, msg: `${n} 휴무일` });
+      // 팀장 자동 인식
+      const leaderText = collectLeaderText(cols);
+      const extracted = extractLeaders(leaderText, leaderIndex);
+      let leaderIds: (string | null)[] = [extracted.ids[0] || null, extracted.ids[1] || null];
+      // 인식 실패 시: leader1/leader2 셀 원문 그대로 (미등록 경고용)
+      const fallbackNames: (string | null)[] = [cell(cols, "leader1") || null, cell(cols, "leader2") || null];
+      const leaderNames: (string | null)[] = leaderIds.map((id, i) =>
+        id ? leaderById.get(id)?.name || null : fallbackNames[i]
+      );
+      // 미등록 팀장: 텍스트에는 이름이 있는데 매칭 실패한 경우
+      if (leaderText && extracted.ids.length === 0 && leaderText.replace(LEADER_SPLIT_RE, "").length > 0) {
+        errors.push({ field: "팀장", msg: `미등록 팀장: ${leaderText}` });
+      }
+      if (extracted.ids.length >= 3) {
+        warnings.push({ field: "팀장", msg: `${extracted.ids.length}명 인식 — 앞 2명만 사용 (팀장3 미사용)` });
+      }
+      // 거부/휴무 검사
+      leaderIds.forEach((id, i) => {
+        const rec = id ? leaderById.get(id) : null;
+        if (rec?.is_rejected) errors.push({ field: `팀장${i + 1}`, msg: `거부팀장 배정 불가: ${rec.name}` });
+        if (date && rec && holidayLeader.has(`${date}|${rec.id}`)) {
+          errors.push({ field: `팀장${i + 1}`, msg: `${rec.name} 휴무일` });
         }
       });
       if (date && holidayHQ.has(date)) warnings.push({ field: "날짜", msg: "본사 휴무일" });
@@ -565,20 +676,35 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
         metro, noteAmt, regional, cod,
         split, paid,
         companyId: companyRec?.id || null,
-        leaderIds: leaderRecs.map((r) => r?.id || null),
+        leaderIds,
         errors, warnings,
       };
     });
-  }, [grid, mapping, headerInfo, companies, leaders, holidays]);
+  }, [grid, mapping, headerInfo, companies, leaders, holidays, leaderIndex, leaderById]);
 
-  const errorCount = parsed.filter((r) => r.errors.length).length;
+  // 사용자 수정 반영된 최종 팀장 적용
+  const effective = useMemo(() => parsed.map((r, i) => {
+    const ov = leaderOverrides[i] || {};
+    const applyOne = (autoId: string | null, autoName: string | null, ovVal: string | undefined) => {
+      if (ovVal === undefined) return { id: autoId, name: autoName };
+      if (ovVal === "") return { id: null, name: null };
+      const rec = leaderById.get(ovVal);
+      return { id: rec?.id || null, name: rec?.name || null };
+    };
+    const a = applyOne(r.leaderIds[0], r.leaders[0], ov.l1);
+    const b = applyOne(r.leaderIds[1], r.leaders[1], ov.l2);
+    // override 적용 시 거부/휴무 재검사 → 단순화: 기존 errors 유지 + override 행은 자동 검사 결과를 신뢰
+    return { ...r, leaderIds: [a.id, b.id] as (string | null)[], leaders: [a.name, b.name] as (string | null)[] };
+  }), [parsed, leaderOverrides, leaderById]);
+
+  const errorCount = effective.filter((r) => r.errors.length).length;
 
   const save = async () => {
     if (!userId) return;
     if (missingRequired.length > 0) {
       toast.error(`필수 항목 누락: ${missingRequired.join(", ")}`); return;
     }
-    const toSave = skipErrors ? parsed.filter((r) => !r.errors.length) : parsed;
+    const toSave = skipErrors ? effective.filter((r) => !r.errors.length) : effective;
     if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
     if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
     setSaving(true);
@@ -601,6 +727,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     if (error) { toast.error(error.message); return; }
     toast.success(`${rows.length}건 저장 완료`);
     setText("");
+    setLeaderOverrides({});
     onSaved();
   };
 
@@ -673,11 +800,11 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
             </div>
           )}
 
-          {parsed.length > 0 && (
+          {effective.length > 0 && (
             <>
               <div className="flex items-center justify-between">
                 <div className="text-sm">
-                  총 <b>{parsed.length}</b>건 / 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
+                  총 <b>{effective.length}</b>건 / 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
                 </div>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={skipErrors} onCheckedChange={(v) => setSkipErrors(!!v)} />
@@ -698,16 +825,43 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {parsed.map((r, i) => {
+                    {effective.map((r, i) => {
                       const total = r.metro + r.noteAmt + r.regional;
                       const hasErr = r.errors.length > 0;
+                      const leaderCell = (slot: 0 | 1) => {
+                        const key = slot === 0 ? "l1" : "l2";
+                        const ovVal = leaderOverrides[i]?.[key];
+                        const current = ovVal !== undefined ? ovVal : (r.leaderIds[slot] || "");
+                        const unknown = !current && !!r.leaders[slot];
+                        return (
+                          <Select
+                            value={current || NONE}
+                            onValueChange={(v) => setLeaderOverrides((prev) => ({
+                              ...prev,
+                              [i]: { ...prev[i], [key]: v === NONE ? "" : v },
+                            }))}
+                          >
+                            <SelectTrigger className={`h-7 text-xs min-w-[110px] ${unknown ? "border-destructive text-destructive" : ""}`}>
+                              <SelectValue placeholder={r.leaders[slot] || "선택 안 함"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NONE}>(빈칸)</SelectItem>
+                              {selectableLeaders.map((l) => (
+                                <SelectItem key={l.id} value={l.id}>
+                                  {l.name}{l.is_virtual ? " (가상)" : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        );
+                      };
                       return (
                         <TableRow key={i} className={hasErr ? "bg-destructive/10" : ""}>
                           <TableCell>{i + 1}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.date || "-"}</TableCell>
                           <TableCell>{r.company || "-"}</TableCell>
-                          <TableCell>{r.leaders[0] || "-"}</TableCell>
-                          <TableCell>{r.leaders[1] || "-"}</TableCell>
+                          <TableCell>{leaderCell(0)}</TableCell>
+                          <TableCell>{leaderCell(1)}</TableCell>
                           <TableCell>{r.customer || "-"}</TableCell>
                           <TableCell>{r.region || "-"}</TableCell>
                           <TableCell className="max-w-[220px] whitespace-pre-wrap break-words align-top">{r.item || "-"}</TableCell>
@@ -733,8 +887,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>취소</Button>
-          <Button onClick={save} disabled={saving || parsed.length === 0 || missingRequired.length > 0}>
-            {skipErrors ? `정상 ${parsed.length - errorCount}건 저장` : `${parsed.length}건 저장`}
+          <Button onClick={save} disabled={saving || effective.length === 0 || missingRequired.length > 0}>
+            {skipErrors ? `정상 ${effective.length - errorCount}건 저장` : `${effective.length}건 저장`}
           </Button>
         </DialogFooter>
       </DialogContent>
