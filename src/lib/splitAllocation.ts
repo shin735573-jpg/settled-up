@@ -83,9 +83,14 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
 
   // 강형주/신동석 팀 재분배 — 두 사람은 한 팀.
   // 누구의 몫이든 강형주 50% / 신동석 50%로 다시 나눔.
-  // 단, 형주동석 분할일 때는 이미 직접 배정되어 있으므로 건너뜀.
+  // 단, 형주동석 분할로 강형주+신동석이 직접 50:50으로 배정된 경우에만 건너뜀.
+  // (형주동석 split이지만 한 명만 입력된 행은 정상 재분배해야 두 사람 건수/금액이 같아짐.)
   const { shindongseokId, ganghyungjuId } = opts;
-  if (!shindongseokId || !ganghyungjuId || split === "형주동석") return initial;
+  if (!shindongseokId || !ganghyungjuId) return initial;
+  if (split === "형주동석" && l1 && l2) {
+    const ids = new Set([l1, l2]);
+    if (ids.has(shindongseokId) && ids.has(ganghyungjuId)) return initial;
+  }
 
   const teamIds = new Set([shindongseokId, ganghyungjuId]);
   const merged = new Map<string, LeaderShare>();
