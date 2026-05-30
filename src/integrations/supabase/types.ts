@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      common_deductions: {
+        Row: {
+          active: boolean
+          amount: number
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          id?: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           active: boolean
@@ -206,6 +239,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leader_period_deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          label: string
+          leader_id: string
+          period_key: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          label?: string
+          leader_id: string
+          period_key: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          label?: string
+          leader_id?: string
+          period_key?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       price_list: {
         Row: {
