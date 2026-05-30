@@ -889,7 +889,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[98vw] w-[98vw] max-h-[95vh] overflow-y-auto sm:max-w-[98vw]">
         <DialogHeader>
           <DialogTitle>엑셀 붙여넣기 (자동 분류)</DialogTitle>
         </DialogHeader>
@@ -1045,18 +1045,28 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                   정상 행만 저장
                 </label>
               </div>
-              <div className="overflow-x-auto border rounded">
-                <Table className="text-xs num">
+              <div className="overflow-x-auto border rounded min-h-[500px]">
+                <Table className="text-xs num w-max min-w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>날짜</TableHead><TableHead>업체</TableHead>
-                      <TableHead>팀장1</TableHead><TableHead>팀장2</TableHead>
-                      <TableHead>고객</TableHead><TableHead>지역</TableHead><TableHead>품목</TableHead>
-                      <TableHead>수도권</TableHead><TableHead>비고금액</TableHead><TableHead>지방</TableHead>
-                      <TableHead>총액</TableHead><TableHead>착불</TableHead><TableHead>분할</TableHead><TableHead>결제</TableHead>
-                      <TableHead>오류/경고</TableHead>
-                      <TableHead></TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[40px]">#</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[100px]">날짜</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[140px]">업체</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px]">팀장1</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px]">팀장2</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px]">고객명</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px]">지역</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[220px]">품목</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[220px]">비고</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px] text-right">수도권배송비</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px] text-right">비고금액</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px] text-right">지방배송비</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px] text-right">착불</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[130px] text-right">배송비총액</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[100px]">분할</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[100px]">결제유무</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[220px]">오류/경고</TableHead>
+                      <TableHead className="min-w-[48px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1094,20 +1104,21 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                         <TableRow key={i} className={hasErr ? "bg-destructive/10" : ""}>
                           <TableCell>{displayIdx + 1}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.date || "-"}</TableCell>
-                          <TableCell>{r.company || "-"}</TableCell>
+                          <TableCell className="min-w-[140px] whitespace-nowrap">{r.company || "-"}</TableCell>
                           <TableCell>{leaderCell(0)}</TableCell>
                           <TableCell>{leaderCell(1)}</TableCell>
-                          <TableCell>{r.customer || "-"}</TableCell>
-                          <TableCell>{r.region || "-"}</TableCell>
-                          <TableCell className="max-w-[220px] whitespace-pre-wrap break-words align-top">{r.item || "-"}</TableCell>
+                          <TableCell className="min-w-[120px] whitespace-nowrap">{r.customer || "-"}</TableCell>
+                          <TableCell className="min-w-[120px] whitespace-nowrap">{r.region || "-"}</TableCell>
+                          <TableCell className="min-w-[220px] max-w-[360px] whitespace-pre-wrap break-words align-top">{r.item || "-"}</TableCell>
+                          <TableCell className="min-w-[220px] max-w-[360px] whitespace-pre-wrap break-words align-top">{r.note || "-"}</TableCell>
                           <TableCell className="text-right">{fmt(r.metro)}</TableCell>
                           <TableCell className="text-right">{fmt(r.noteAmt)}</TableCell>
                           <TableCell className="text-right">{fmt(r.regional)}</TableCell>
-                          <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
                           <TableCell className="text-right">{fmt(r.cod)}</TableCell>
+                          <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
                           <TableCell>{r.split || "-"}</TableCell>
                           <TableCell>{r.paid ? "✓" : "-"}</TableCell>
-                          <TableCell className="space-y-1">
+                          <TableCell className="space-y-1 min-w-[220px]">
                             {r.errors.map((e, j) => <Badge key={j} variant="destructive" className="mr-1">{e.field}: {e.msg}</Badge>)}
                             {r.warnings.map((w, j) => <Badge key={"w"+j} variant="secondary" className="mr-1">{w.field}: {w.msg}</Badge>)}
                           </TableCell>
