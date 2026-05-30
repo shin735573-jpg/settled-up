@@ -10,6 +10,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
 import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
+import {
+  loadCrossCheckConfig, subscribeCrossCheckConfig, CROSSCHECK_ITEM_LABELS,
+  type CrossCheckConfig, type CrossCheckItem,
+} from "@/lib/crossCheckConfig";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -176,6 +180,33 @@ export default function LeaderSettlement() {
     [leaders],
   );
   const sdsOpts = { shindongseokId, ganghyungjuId };
+
+  // 교차검증 설정 (Settings > 교차검증) — 변경 시 즉시 반영
+  const [crossCfg, setCrossCfg] = useState<CrossCheckConfig>(() => loadCrossCheckConfig());
+  useEffect(() => subscribeCrossCheckConfig(() => setCrossCfg(loadCrossCheckConfig())), []);
+
+  /** 원본 배분(재분배 전) 기준 한 팀장의 합계. basis="raw"일 때 사용. */
+  const rawTotalsFor = (lid: string) => {
+    let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0;
+    rows.forEach((r) => {
+      const shares = allocateRow({
+        leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
+        split_type: r.split_type, two_person: r.two_person,
+        metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
+        regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
+      }); // opts 미전달 → 재분배 비활성
+      const s = shares.find((x) => x.leader_id === lid);
+      if (!s) return;
+      metro += s.metro; noteAmt += s.note_amount; regional += s.regional; cod += s.cod;
+      count += 1;
+    });
+    const total = metro + noteAmt + regional;
+    const leader = leadersById.get(lid);
+    const fees = leader
+      ? feeForShare({ metro, regional }, { metro: num(leader.fee_rate_metro), regional: num(leader.fee_rate_regional) })
+      : 0;
+    return { count, total, cod, fees };
+  };
 
   const activeCommonDeductions = useMemo(() => {
     const unique = new Map<string, CommonDeduction>();
