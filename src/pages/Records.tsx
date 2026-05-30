@@ -406,7 +406,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       const companyRec = companyMap.get(company);
       if (company && !companyRec) errors.push({ field: "업체", msg: "미등록 업체" });
 
-      const leaderNames = [get(2), get(3), get(4)].map((n) => n || null);
+      const leaderNames = [get(2), get(3)].map((n) => n || null);
       const leaderRecs = leaderNames.map((n) => (n ? leaderMap.get(n) || null : null));
       leaderNames.forEach((n, i) => {
         if (n && !leaderRecs[i]) errors.push({ field: `팀장${i + 1}`, msg: `미등록 팀장: ${n}` });
@@ -417,12 +417,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       });
       if (date && holidayHQ.has(date)) warnings.push({ field: "날짜", msg: "본사 휴무일" });
 
-      const customer = get(5);
-      const region = get(6);
-      const item = get(7);
-      const note = get(8);
+      const customer = get(4);
+      const region = get(5);
+      const item = get(6);
+      const note = get(7);
 
-      const metroRaw = get(9), noteAmtRaw = get(10), regionalRaw = get(11), codRaw = get(12);
+      const metroRaw = get(8), noteAmtRaw = get(9), regionalRaw = get(10), codRaw = get(11);
       const checkNum = (raw: string, label: string) => {
         if (raw === "") return 0;
         const cleaned = raw.replace(/,/g, "").trim();
@@ -434,8 +434,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       const regional = checkNum(regionalRaw, "지방배송비");
       const cod = checkNum(codRaw, "착불");
 
-      const split = get(13);
-      const paidRaw = get(14).toLowerCase();
+      const split = get(12);
+      const paidRaw = get(13).toLowerCase();
       const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v"].includes(paidRaw) || paidRaw === "1";
 
       return {
