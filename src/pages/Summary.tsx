@@ -72,7 +72,7 @@ export default function Summary() {
 
     for (const r of rows) {
       const shares = allocateRow({
-        leader1_id: r.leader1_id, leader2_id: r.leader2_id,
+        leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),

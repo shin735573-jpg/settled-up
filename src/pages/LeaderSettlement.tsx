@@ -225,11 +225,9 @@ export default function LeaderSettlement() {
 
   /** 한 팀장(정산기사)에 귀속되는 행 추출 */
   const rowsForSettling = (lid: string): Delivery[] => {
-    const targets = targetSetFor(lid);
-    return rows.filter((r) => {
-      const ids = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean) as string[];
-      return ids.some((id) => targets.has(id));
-    });
+    // 분배 결과(allocateRow) 기준으로 포함 여부를 판단.
+    // 강형주/신동석 재분배로 인해 raw 팀장 ID에는 없어도 share에 잡히는 경우를 포함시킴.
+    return rows.filter((r) => shareForSettling(r, lid) !== null);
   };
 
   /**
@@ -242,7 +240,7 @@ export default function LeaderSettlement() {
   } | null => {
     const targets = targetSetFor(settlingLid);
     const shares = allocateRow({
-      leader1_id: r.leader1_id, leader2_id: r.leader2_id,
+      leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
       split_type: r.split_type, two_person: r.two_person,
       metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
       regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
