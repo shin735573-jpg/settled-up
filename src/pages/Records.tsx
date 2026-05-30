@@ -729,7 +729,7 @@ export default function Records() {
                       <SelectItem value={NONE}>선택 안 함</SelectItem>
                       {selectableLeaders.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
-                          {l.name}
+                          {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1636,7 +1636,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                               <SelectItem value={NONE}>(빈칸)</SelectItem>
                               {selectableLeaders.map((l) => (
                                 <SelectItem key={l.id} value={l.id}>
-                                  {l.name}
+                                  {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
                                 </SelectItem>
                               ))}
                             </SelectContent>
