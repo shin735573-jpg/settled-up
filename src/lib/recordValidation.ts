@@ -293,6 +293,7 @@ export function validateAll(
   });
   issues.push(...detectDuplicates(rows));
   issues.push(...validateTeamParity(rows, ctx, labelOf));
+  issues.push(...validateSettleRedirect(rows, ctx, labelOf));
   return issues;
 }
 
