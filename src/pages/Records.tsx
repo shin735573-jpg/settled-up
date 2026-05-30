@@ -351,6 +351,51 @@ export default function Records() {
     if (!form.date) { toast.error("날짜를 입력하세요"); return; }
     const company = companies.find((c) => c.id === form.company_id);
     if (!company) { toast.error("업체를 선택하세요"); return; }
+    if (form.is_missing && !form.missing_reason.trim()) {
+      toast.error("누락 사유를 입력해주세요"); return;
+    }
+    // 누락분 모드에서는 저장 직전 자동 검사
+    if (form.is_missing) {
+      const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
+      const draft: ValRecord = {
+        id: form.id || "_draft",
+        date: form.date,
+        company_id: form.company_id,
+        company_name: company.name,
+        leader1_id: form.leader1_id || null,
+        leader1_name: leaderName(form.leader1_id),
+        leader2_id: form.leader2_id || null,
+        leader2_name: leaderName(form.leader2_id),
+        customer_name: form.customer_name || null,
+        region: form.region || null,
+        region_type: form.region_type === "unknown" ? null : form.region_type,
+        item: form.item || null,
+        note: form.note || null,
+        metro_fee: parseNum(form.metro_fee) || 0,
+        note_amount: parseNum(form.note_amount) || 0,
+        regional_fee: parseNum(form.regional_fee) || 0,
+        cod_amount: parseNum(form.cod_amount) || 0,
+        split_type: form.split_type || null,
+        paid: form.paid,
+        is_missing: true,
+      };
+      const ctx: ValidationContext = {
+        companies: companies.map((c) => ({ id: c.id, name: c.name })),
+        leaders: leaders.map((l) => ({ id: l.id, name: l.name, is_rejected: l.is_rejected })),
+        holidays: holidays.map((h) => ({ date: h.date, scope: h.scope as any, team_leader_id: h.team_leader_id })),
+        classifyRegion,
+      };
+      const issues = validateAll([draft], ctx);
+      const errs = issues.filter((i) => i.severity === "error");
+      const warns = issues.filter((i) => i.severity === "warning");
+      if (errs.length > 0) {
+        toast.error(`누락분 저장 불가: ${errs.map((e) => e.message).join(" / ")}`);
+        return;
+      }
+      if (warns.length > 0) {
+        if (!confirm(`경고 ${warns.length}건:\n${warns.map((w) => `- ${w.message}`).join("\n")}\n\n그대로 저장할까요?`)) return;
+      }
+    }
     const metroN = parseNum(form.metro_fee) || 0;
     const regionalN = parseNum(form.regional_fee) || 0;
     if (!form.region) {
