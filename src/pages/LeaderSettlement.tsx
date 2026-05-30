@@ -123,18 +123,24 @@ export default function LeaderSettlement() {
   const masterRows = useMemo(() => {
     return settlingLeaders.map((l) => {
       const rs = rowsForSettling(l.id);
-      let metro = 0, noteAmt = 0, regional = 0, cod = 0;
+      let metro = 0, noteAmt = 0, regional = 0, cod = 0, fees = 0;
       rs.forEach((r) => {
         metro += num(r.metro_fee);
         noteAmt += num(r.note_amount);
         regional += num(r.regional_fee);
         cod += num(r.cod_amount);
+        fees += feeFor(r, r.company_id ? companyById.get(r.company_id) : undefined);
       });
+      const total = metro + noteAmt + regional;
+      const afterFees = total - fees;
+      const deduction = num(l.deduction_amount) + num(l.trash_cost);
+      const net = afterFees - deduction;
       return {
         leader: l,
         count: rs.length,
         metro, noteAmt, regional, cod,
-        total: metro + noteAmt + regional,
+        total,
+        fees, afterFees, deduction, net,
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,8 +230,12 @@ export default function LeaderSettlement() {
                 <TableHead className="text-right">수도권배송비</TableHead>
                 <TableHead className="text-right">비고금액</TableHead>
                 <TableHead className="text-right">지방배송비</TableHead>
-                <TableHead className="text-right">합배송비</TableHead>
-                <TableHead className="text-right">착불 합계</TableHead>
+                <TableHead className="text-right">실지급배송비</TableHead>
+                <TableHead className="text-right">착불합계</TableHead>
+                <TableHead className="text-right">수수료합계</TableHead>
+                <TableHead className="text-right">계산후 지급금액</TableHead>
+                <TableHead className="text-right">공제총액</TableHead>
+                <TableHead className="text-right">실지급액</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -242,10 +252,14 @@ export default function LeaderSettlement() {
                   <TableCell className="text-right">{fmt(m.regional)}</TableCell>
                   <TableCell className="text-right font-semibold">{fmt(m.total)}</TableCell>
                   <TableCell className="text-right">{fmt(m.cod)}</TableCell>
+                  <TableCell className="text-right">{fmt(m.fees)}</TableCell>
+                  <TableCell className="text-right">{fmt(m.afterFees)}</TableCell>
+                  <TableCell className="text-right">{fmt(m.deduction)}</TableCell>
+                  <TableCell className="text-right font-bold">{fmt(m.net)}</TableCell>
                 </TableRow>
               ))}
               {masterRows.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">정산대상 팀장 없음</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-6">정산대상 팀장 없음</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -276,7 +290,7 @@ export default function LeaderSettlement() {
             <Stat label="수도권배송비" value={detailCalc.metro} />
             <Stat label="비고금액" value={detailCalc.noteAmt} />
             <Stat label="지방배송비" value={detailCalc.regional} />
-            <Stat label="합배송비" value={detailCalc.total} />
+            <Stat label="실지급배송비" value={detailCalc.total} />
             <Stat label="착불 합계" value={detailCalc.cod} />
             <Stat label="수수료 합계" value={detailCalc.fees} />
             <Stat label="계산후 지급금액" value={detailCalc.afterFees} />
@@ -301,7 +315,7 @@ export default function LeaderSettlement() {
                   <TableHead className="text-right">비고금액</TableHead>
                   <TableHead className="text-right">지방배송비</TableHead>
                   <TableHead className="text-right">착불</TableHead>
-                  <TableHead className="text-right">합배송비</TableHead>
+                  <TableHead className="text-right">실지급배송비</TableHead>
                   <TableHead>분할</TableHead>
                   <TableHead className="text-right">건별 수수료</TableHead>
                   <TableHead className="text-right">건별 계산후 지급액</TableHead>
