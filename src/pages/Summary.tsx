@@ -24,7 +24,7 @@ export default function Summary() {
       const [{ data: d }, { data: c }, { data: l }] = await Promise.all([
         supabase.from("deliveries").select("*").gte("date", start).lt("date", end),
         supabase.from("companies").select("id,name,active").order("name"),
-        supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id").order("name"),
+        supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases").order("name"),
       ]);
       setRows(d || []);
       setCompanies((c as Company[]) || []);
