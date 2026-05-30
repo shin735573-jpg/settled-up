@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { matchesCompany } from "@/lib/companyMatch";
+import { getCompanyFacingName } from "@/lib/leaderResolver";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -22,7 +23,7 @@ export default function CompanySettlement() {
     (async () => {
       const [{ data: c }, { data: l }] = await Promise.all([
         supabase.from("companies").select("*").eq("active", true).order("name"),
-        supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,settle_to_id"),
+        supabase.from("team_leaders").select("id,name,aliases,is_rejected,is_virtual,settle_to_id"),
       ]);
       setCompanies(c || []);
       setLeaders(l || []);
@@ -69,14 +70,13 @@ export default function CompanySettlement() {
 
   const company = companies.find((c) => c.id === companyId);
 
-  // 거부 팀장 → 그 팀장을 settle_to로 가진 가상기사 이름으로 대체.
+  // 업체 제출용 표시: 거부기사는 별칭1 (없으면 "가상기사"), 그 외는 정식 팀장명.
+  // 정산 계산은 leader_id 기준이므로 이 표시는 화면용일 뿐.
   const displayLeaderName = (id: string | null, fallbackName: string | null): string => {
     if (!id) return fallbackName || "-";
     const real = leaders.find((l) => l.id === id);
     if (!real) return fallbackName || "-";
-    if (!real.is_rejected) return real.name;
-    const proxy = leaders.find((l) => l.is_virtual && l.settle_to_id === real.id);
-    return proxy?.name || "가상기사";
+    return getCompanyFacingName(real);
   };
 
   // 업체별 요약 계산
