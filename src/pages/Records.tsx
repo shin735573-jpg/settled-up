@@ -405,6 +405,65 @@ export default function Records() {
     await removeRow(form.id);
   };
 
+  // 종합 오류 검사 실행
+  const runValidation = () => {
+    const ctx: ValidationContext = {
+      companies: companies.map((c) => ({ id: c.id, name: c.name })),
+      leaders: leaders.map((l) => ({
+        id: l.id, name: l.name, is_rejected: l.is_rejected,
+        is_virtual: l.is_virtual, active: l.active,
+      })),
+      holidays: holidays.map((h) => ({
+        date: h.date, scope: h.scope as any, team_leader_id: h.team_leader_id,
+      })),
+      classifyRegion,
+    };
+    const recs = records as ValRecord[];
+    const issues = validateAll(recs, ctx, (r) => `${r.date || "?"} ${r.company_name || ""} ${r.customer_name || ""}`);
+    const s = summarize(issues, recs.length);
+    const periodChecks = comparePeriodTotals(recs, filterMonth);
+    setValidation({
+      issues,
+      summary: s,
+      periodChecks,
+      ranAt: new Date().toLocaleString("ko-KR"),
+    });
+    if (s.errorCount === 0 && s.warningCount === 0)
+      toast.success(`전체 ${s.totalRows}건 모두 정상`);
+    else
+      toast.message(`검사 완료: 오류 ${s.errorCount} / 경고 ${s.warningCount} / 정상 ${s.okCount}`);
+  };
+
+  const startMissing = () => {
+    setForm({ ...emptyForm(), is_missing: true });
+    setFormOpen(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast.message("누락분 모드 — 누락 사유를 함께 입력해주세요");
+  };
+
+  // rowId → 이슈 그룹
+  const issuesByRow = useMemo(() => {
+    const m = new Map<string, ValidationIssue[]>();
+    if (!validation) return m;
+    for (const i of validation.issues) {
+      if (!m.has(i.rowId)) m.set(i.rowId, []);
+      m.get(i.rowId)!.push(i);
+    }
+    return m;
+  }, [validation]);
+
+  const visibleIssueRows = useMemo(() => {
+    if (!validation) return [] as { rowId: string; severity: "error" | "warning"; items: ValidationIssue[] }[];
+    return Array.from(issuesByRow.entries()).map(([rowId, items]) => ({
+      rowId,
+      items,
+      severity: items.some((i) => i.severity === "error") ? ("error" as const) : ("warning" as const),
+    })).filter((g) => showOnly === "all" || g.severity === showOnly);
+  }, [issuesByRow, validation, showOnly]);
+
+  const hasErrors = (validation?.summary.errorCount ?? 0) > 0;
+  const hasPeriodMismatch = (validation?.periodChecks || []).some((p) => p.status === "불일치");
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -412,6 +471,150 @@ export default function Records() {
         <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40" />
         <Button onClick={() => setPasteOpen(true)}><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Button
+          size="lg"
+          variant="default"
+          className="h-14 text-base font-semibold"
+          onClick={runValidation}
+        >
+          <ShieldAlert className="h-5 w-5 mr-2" /> 오류 검사
+        </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="h-14 text-base font-semibold"
+          onClick={startMissing}
+        >
+          <FileWarning className="h-5 w-5 mr-2" /> 누락분 추가
+        </Button>
+      </div>
+
+      {validation && (
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="text-sm text-muted-foreground">검사 시각: {validation.ranAt}</div>
+            <Button size="sm" variant="ghost" onClick={() => setValidation(null)}>닫기</Button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              className={cn("rounded-md border p-3 text-left", showOnly === "all" && "ring-2 ring-primary")}
+              onClick={() => setShowOnly("all")}
+            >
+              <div className="text-xs text-muted-foreground">전체</div>
+              <div className="text-2xl font-bold">{validation.summary.totalRows}</div>
+            </button>
+            <button
+              className={cn("rounded-md border p-3 text-left bg-destructive/5", showOnly === "error" && "ring-2 ring-destructive")}
+              onClick={() => setShowOnly("error")}
+            >
+              <div className="text-xs text-destructive">오류</div>
+              <div className="text-2xl font-bold text-destructive">{validation.summary.errorCount}</div>
+            </button>
+            <button
+              className={cn("rounded-md border p-3 text-left bg-orange-500/5", showOnly === "warning" && "ring-2 ring-orange-500")}
+              onClick={() => setShowOnly("warning")}
+            >
+              <div className="text-xs text-orange-600">경고</div>
+              <div className="text-2xl font-bold text-orange-600">{validation.summary.warningCount}</div>
+            </button>
+            <div className="rounded-md border p-3 bg-green-500/5">
+              <div className="text-xs text-green-700">정상</div>
+              <div className="text-2xl font-bold text-green-700">{validation.summary.okCount}</div>
+            </div>
+          </div>
+
+          {/* #13 기간별 총액 비교 */}
+          <div className="border rounded p-3">
+            <div className="text-sm font-semibold mb-2">기간별 업체 vs 팀장 총액 ({filterMonth})</div>
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>기간</TableHead>
+                  <TableHead className="text-right">업체 배송비 총액</TableHead>
+                  <TableHead className="text-right">팀장 배송비 총액</TableHead>
+                  <TableHead className="text-right">차이</TableHead>
+                  <TableHead>상태</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {validation.periodChecks.map((p) => (
+                  <TableRow key={p.period}>
+                    <TableCell>{p.period === "1-15" ? "1~15일" : p.period === "16-end" ? "16~말일" : "월전체"}</TableCell>
+                    <TableCell className="text-right">{fmt(p.companyTotal)}</TableCell>
+                    <TableCell className="text-right">{fmt(p.leaderTotal)}</TableCell>
+                    <TableCell className={cn("text-right", p.diff !== 0 && "text-destructive font-semibold")}>{fmt(p.diff)}</TableCell>
+                    <TableCell>
+                      <Badge variant={p.status === "정상" ? "secondary" : "destructive"}>{p.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {hasPeriodMismatch && (
+              <div className="text-xs text-destructive mt-2">
+                ⚠ 업체 총액과 팀장 총액이 불일치합니다. 불일치 상태에서는 정산마감을 권장하지 않습니다.
+              </div>
+            )}
+          </div>
+
+          {visibleIssueRows.length > 0 ? (
+            <div className="border rounded max-h-96 overflow-y-auto">
+              <Table className="text-xs">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>행</TableHead>
+                    <TableHead>심각도</TableHead>
+                    <TableHead>오류 종류</TableHead>
+                    <TableHead>내용</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleIssueRows.flatMap((g) =>
+                    g.items.map((it, i) => {
+                      const rec = records.find((r) => r.id === g.rowId);
+                      return (
+                        <TableRow key={g.rowId + i}
+                          className={cn(
+                            it.severity === "error" ? "bg-destructive/5" : "bg-orange-500/5"
+                          )}>
+                          <TableCell className="whitespace-nowrap">{it.rowLabel || g.rowId.slice(0, 6)}</TableCell>
+                          <TableCell>
+                            {it.severity === "error"
+                              ? <Badge variant="destructive">오류</Badge>
+                              : <Badge className="bg-orange-500 hover:bg-orange-600">경고</Badge>}
+                          </TableCell>
+                          <TableCell className="font-mono text-[10px]">{it.code}</TableCell>
+                          <TableCell>{it.message}</TableCell>
+                          <TableCell>
+                            {rec && (
+                              <Button size="sm" variant="outline" onClick={() => editRow(rec)}>수정</Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-green-700 text-sm">
+              <CheckCircle2 className="h-4 w-4" />
+              {showOnly === "all" ? "이슈가 없습니다 — 모든 행 정상." : `해당 필터에 항목이 없습니다.`}
+            </div>
+          )}
+
+          {hasErrors && (
+            <div className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              오류가 있는 상태에서는 저장/정산마감이 차단됩니다. 행 [수정] 버튼으로 보정 후 다시 검사하세요.
+            </div>
+          )}
+        </Card>
+      )}
 
       <Button
         size="lg"
