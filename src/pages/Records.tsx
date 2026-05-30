@@ -71,6 +71,7 @@ export default function Records() {
   const [formOpen, setFormOpen] = useState(true);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
@@ -243,9 +244,14 @@ export default function Records() {
               <Label>지역</Label>
               <Input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
               <Label>품목</Label>
-              <Input value={form.item} onChange={(e) => setForm({ ...form, item: e.target.value })} />
+              <Textarea
+                value={form.item}
+                onChange={(e) => setForm({ ...form, item: e.target.value })}
+                rows={4}
+                className="min-h-[112px] whitespace-pre-wrap break-words"
+              />
             </div>
             <div className="space-y-1 sm:col-span-2 lg:col-span-4">
               <Label>비고</Label>
@@ -327,7 +333,20 @@ export default function Records() {
                   <TableCell className="whitespace-nowrap">{r.leader2_name || "-"}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
-                  <TableCell>{r.item || "-"}</TableCell>
+                  <TableCell
+                    className="align-top max-w-[240px] cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedItems((prev) => ({ ...prev, [r.id]: !prev[r.id] }));
+                    }}
+                    title={r.item || ""}
+                  >
+                    <div
+                      className={`whitespace-pre-wrap break-words ${expandedItems[r.id] ? "" : "line-clamp-3"}`}
+                    >
+                      {r.item || "-"}
+                    </div>
+                  </TableCell>
                   <TableCell>{r.note || "-"}</TableCell>
                   <TableCell className="text-right">{fmt(r.metro_fee)}</TableCell>
                   <TableCell className="text-right">{fmt(r.note_amount)}</TableCell>

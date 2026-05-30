@@ -105,7 +105,7 @@ export default function CompanySettlement() {
                   <TableCell className="whitespace-nowrap">{names.join(", ") || "-"}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell>{r.region || "-"}</TableCell>
-                  <TableCell>{r.item || "-"}</TableCell>
+                  <TableCell className="align-top min-w-[160px] max-w-[320px] whitespace-pre-wrap break-words">{r.item || "-"}</TableCell>
                   <TableCell className="text-right">{fmt(Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee))}</TableCell>
                   <TableCell className="text-right">{fmt(r.cod_amount)}</TableCell>
                 </TableRow>
