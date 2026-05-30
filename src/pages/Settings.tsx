@@ -13,7 +13,18 @@ import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName, resolveLeaderName } from "@/lib/leaderResolver";
 
-type Company = { id: string; name: string; issues_invoice: boolean; vat_included: boolean; fee_rate_metro: number; fee_rate_regional: number; active: boolean };
+type Company = {
+  id: string;
+  name: string;
+  issues_invoice: boolean;
+  vat_included: boolean;
+  fee_rate_metro: number;
+  fee_rate_regional: number;
+  active: boolean;
+  account_number: string | null;
+  settlement_cycle: "biweekly" | "monthly";
+  rejected_leader_id: string | null;
+};
 type Leader = { id: string; name: string; region: string | null; is_rejected: boolean; is_virtual: boolean; deduction_amount: number; trash_cost: number; settle_to_id: string | null; active: boolean; aliases: string[]; display_suffix: string | null };
 type Holiday = { id: string; date: string; scope: string; team_leader_id: string | null };
 
@@ -91,10 +102,15 @@ function CompaniesTab() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Company[]>([]);
   const [name, setName] = useState("");
+  const [leaders, setLeadersList] = useState<{ id: string; name: string }[]>([]);
 
   const load = async () => {
-    const { data } = await supabase.from("companies").select("*").order("name");
+    const [{ data }, { data: ls }] = await Promise.all([
+      supabase.from("companies").select("*").order("name"),
+      supabase.from("team_leaders").select("id,name").eq("active", true).order("name"),
+    ]);
     setRows((data as Company[]) || []);
+    setLeadersList((ls as any) || []);
   };
   useEffect(() => { load(); }, []);
 
@@ -126,10 +142,10 @@ function CompaniesTab() {
           <TableRow>
             <TableHead>업체명</TableHead>
             <TableHead>계산서</TableHead>
-            <TableHead>부가세 포함</TableHead>
-            <TableHead>수도권 수수료%</TableHead>
-            <TableHead>지방 수수료%</TableHead>
-            <TableHead>활성</TableHead>
+            <TableHead>계좌번호</TableHead>
+            <TableHead>정산주기</TableHead>
+            <TableHead>거부팀장</TableHead>
+            <TableHead>사용</TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
@@ -138,9 +154,38 @@ function CompaniesTab() {
             <TableRow key={r.id}>
               <TableCell><Input defaultValue={r.name} onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} /></TableCell>
               <TableCell><Checkbox checked={r.issues_invoice} onCheckedChange={(v) => update(r.id, { issues_invoice: !!v })} /></TableCell>
-              <TableCell><Checkbox checked={r.vat_included} onCheckedChange={(v) => update(r.id, { vat_included: !!v })} /></TableCell>
-              <TableCell><Input type="number" className="w-20" defaultValue={r.fee_rate_metro} onBlur={(e) => update(r.id, { fee_rate_metro: Number(e.target.value) })} /></TableCell>
-              <TableCell><Input type="number" className="w-20" defaultValue={r.fee_rate_regional} onBlur={(e) => update(r.id, { fee_rate_regional: Number(e.target.value) })} /></TableCell>
+              <TableCell>
+                <Input
+                  className="w-44"
+                  placeholder="예: 신한 110-123-456"
+                  defaultValue={r.account_number || ""}
+                  onBlur={(e) => e.target.value !== (r.account_number || "") && update(r.id, { account_number: e.target.value || null } as any)}
+                />
+              </TableCell>
+              <TableCell>
+                <Select
+                  value={r.settlement_cycle || "biweekly"}
+                  onValueChange={(v) => update(r.id, { settlement_cycle: v } as any)}
+                >
+                  <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="biweekly">보름</SelectItem>
+                    <SelectItem value="monthly">한달</SelectItem>
+                  </SelectContent>
+                </Select>
+              </TableCell>
+              <TableCell>
+                <Select
+                  value={r.rejected_leader_id || "__none__"}
+                  onValueChange={(v) => update(r.id, { rejected_leader_id: v === "__none__" ? null : v } as any)}
+                >
+                  <SelectTrigger className="w-32"><SelectValue placeholder="없음" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">없음</SelectItem>
+                    {leaders.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </TableCell>
               <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
