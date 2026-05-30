@@ -795,7 +795,14 @@ export default function LeaderSettlement() {
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
                       <TableCell className={src ? "text-amber-800 font-medium" : "text-muted-foreground"}>
-                        {src ? `${src.name} → ${detailLeader.name}` : "본인"}
+                        <div className="space-y-0.5">
+                          <div>{src ? `${src.name} → ${detailLeader.name}` : "본인"}</div>
+                          {share?.reasons?.length ? (
+                            <div className="text-[11px] text-muted-foreground">
+                              {Array.from(new Set(share.reasons)).join(" · ")}
+                            </div>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
