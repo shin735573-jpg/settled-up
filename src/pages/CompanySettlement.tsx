@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
+import { matchesCompany } from "@/lib/companyMatch";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -67,15 +68,6 @@ export default function CompanySettlement() {
   }, [range.start]);
 
   const company = companies.find((c) => c.id === companyId);
-
-  // company_id가 null인 과거 데이터를 company_name으로 폴백 매칭.
-  // 이름 비교는 공백/대소문자 무시. 다른 업체에 절대 섞이지 않도록
-  // company_id가 있으면 id 일치만 인정한다.
-  const normName = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
-  const matchesCompany = (r: any, c: any) => {
-    if (r.company_id) return r.company_id === c.id;
-    return !!c?.name && normName(r.company_name) === normName(c.name);
-  };
 
   // 거부 팀장 → 그 팀장을 settle_to로 가진 가상기사 이름으로 대체.
   const displayLeaderName = (id: string | null, fallbackName: string | null): string => {
