@@ -60,7 +60,7 @@ function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null 
   return byId.has(id) ? id : null;
 }
 
-/** 건별 수수료: region_type별로 업체 수수료율 적용. */
+/** 행 전체 수수료 (분배 전) — 표시용. region_type별로 업체 수수료율 적용. */
 function feeFor(r: Delivery, company: Company | undefined): number {
   if (!company) return 0;
   const total = sumFee(r);
