@@ -166,9 +166,9 @@ export default function LeaderSettlement() {
       .filter((d) => d.leader_id === lid)
       .reduce((s, d) => s + (num(d.amount) > 0 && (d.label || "").trim() ? num(d.amount) : 0), 0);
 
-  /** 정산대상 팀장 목록: 활성 + 가상기사 아님 + 다른 팀장에게 정산귀속 안 된 팀장 */
+  /** 정산대상 팀장 목록: 활성 + 다른 팀장에게 정산귀속 안 된 팀장 */
   const settlingLeaders = useMemo(
-    () => leaders.filter((l) => l.active && !l.is_virtual && !l.settle_to_id),
+    () => leaders.filter((l) => l.active && !l.settle_to_id),
     [leaders],
   );
 
