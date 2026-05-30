@@ -959,6 +959,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       leader2_id: r.leaderIds[1], leader2_name: r.leaders[1],
       customer_name: r.customer || null,
       region: r.region || null,
+      region_type: r.regionType === "unknown" ? null : r.regionType,
       item: r.item || null,
       note: r.note || null,
       metro_fee: r.metro, note_amount: r.noteAmt, regional_fee: r.regional, cod_amount: r.cod,
@@ -1144,7 +1145,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                       <TableHead className="whitespace-nowrap min-w-[120px]">팀장1</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">팀장2</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">고객명</TableHead>
-                      <TableHead className="whitespace-nowrap min-w-[120px]">지역</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px]">배송지</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[110px]">지역구분</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[220px]">품목</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[220px]">비고</TableHead>
