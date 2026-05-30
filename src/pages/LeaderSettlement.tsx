@@ -16,9 +16,9 @@ type Period = "all" | "first" | "second" | "month";
 type Leader = {
   id: string; name: string; aliases?: string[] | null; display_suffix?: string | null;
   is_rejected: boolean; is_virtual: boolean; active: boolean;
-  settle_to_id: string | null; deduction_amount: number; trash_cost: number;
+  settle_to_id: string | null; fee_rate_metro: number; fee_rate_regional: number;
+  deduction_amount: number; trash_cost: number;
 };
-type Company = { id: string; name: string; fee_rate_metro: number; fee_rate_regional: number };
 type Delivery = {
   id: string; date: string; company_id: string | null; company_name: string;
   customer_name: string | null; region: string | null; item: string | null; note: string | null;
@@ -60,22 +60,11 @@ function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null 
   return byId.has(id) ? id : null;
 }
 
-/** 행 전체 수수료 (분배 전) — 표시용. region_type별로 업체 수수료율 적용. */
-function feeFor(r: Delivery, company: Company | undefined): number {
-  if (!company) return 0;
-  const total = sumFee(r);
-  const rate = r.region_type === "regional"
-    ? num(company.fee_rate_regional)
-    : num(company.fee_rate_metro);
-  return Math.round(total * rate / 100);
-}
-
 export default function LeaderSettlement() {
   const { user } = useAuth();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [period, setPeriod] = useState<Period>("month");
   const [leaders, setLeaders] = useState<Leader[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [rows, setRows] = useState<Delivery[]>([]);
   const [leaderId, setLeaderId] = useState<string>("");
   const [commonDeductions, setCommonDeductions] = useState<CommonDeduction[]>([]);
@@ -106,13 +95,11 @@ export default function LeaderSettlement() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: l }, { data: c }, { data: cd }] = await Promise.all([
+      const [{ data: l }, { data: cd }] = await Promise.all([
         supabase.from("team_leaders").select("*").order("name"),
-        supabase.from("companies").select("id,name,fee_rate_metro,fee_rate_regional"),
         supabase.from("common_deductions").select("id,label,amount,active").order("sort_order"),
       ]);
       setLeaders((l as Leader[]) || []);
-      setCompanies((c as Company[]) || []);
       setCommonDeductions((cd as CommonDeduction[]) || []);
     })();
   }, []);
@@ -160,7 +147,6 @@ export default function LeaderSettlement() {
   }, [commonKeysJoined]);
 
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
-  const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
 
   /** 신동석/강형주 팀장 ID — 정식명 또는 별칭(동석/형주)으로 매칭. 재분배에 사용. */
   const findLeaderIdByNames = (names: string[]): string | null => {
@@ -271,12 +257,12 @@ export default function LeaderSettlement() {
   const feeForRowSettling = (r: Delivery, settlingLid: string): number => {
     const share = shareForSettling(r, settlingLid);
     if (!share) return 0;
-    const c = r.company_id ? companyById.get(r.company_id) : undefined;
-    if (!c) return 0;
-    // region_type에 따라 어느 수수료율을 쓸지: 기존과 동일하게 분배된 금액 기반
+    const leader = leadersById.get(settlingLid);
+    if (!leader) return 0;
+    // 팀장별 수수료율 기준. 비고금액은 feeForShare 내부에서 제외된다.
     return feeForShare(
       { metro: share.metro, regional: share.regional },
-      { metro: num(c.fee_rate_metro), regional: num(c.fee_rate_regional) },
+      { metro: num(leader.fee_rate_metro), regional: num(leader.fee_rate_regional) },
     );
   };
 
@@ -374,7 +360,7 @@ export default function LeaderSettlement() {
     const net = afterFees - cod - deduction;
     return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal, count };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailRows, companyById, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides]);
+  }, [detailRows, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides]);
 
   // 상세 진입 시 개별공제 로드
   useEffect(() => {

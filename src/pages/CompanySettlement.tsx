@@ -111,7 +111,7 @@ export default function CompanySettlement() {
       cod += Number(r.cod_amount);
     });
     const carry = carryForCompany.reduce((s, r) => s + Number(r.cod_amount), 0);
-    const net = unpaid + carry;
+    const net = Math.max(0, unpaid - cod - carry);
     return { count: companyRows.length, total, paid, unpaid, cod, carry, net };
   };
 
