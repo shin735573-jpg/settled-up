@@ -332,6 +332,8 @@ export default function Records() {
       cod_amount: String(r.cod_amount ?? ""),
       split_type: r.split_type || "",
       paid: !!r.paid,
+      is_missing: !!r.is_missing,
+      missing_reason: r.missing_reason || "",
     });
     setFormOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
