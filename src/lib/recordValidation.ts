@@ -196,6 +196,96 @@ export function validateRow(
   return out;
 }
 
+// ────────────────────────────────────────────────────
+// 정산귀속(settle_to_id) 검사 — 오은규 → 오동선 같은 특수정산
+//  - 귀속 대상 팀장(L)이 포함된 행에서 allocateRow가 L에게 몫을 만들고,
+//    그 몫이 정산기사(T = L.settle_to_id)에 합산될 수 있어야 함.
+//  - L이 다른 팀장(T)에게 귀속됐는데 T가 존재하지 않으면 오류.
+//  - 같은 행에 L과 T가 동시에 등장해도 중복 계산되지 않아야 함
+//    (allocateRow는 weight를 분배하므로 자동 보장; 합이 행 총액을 초과하면 오류).
+// ────────────────────────────────────────────────────
+
+export function validateSettleRedirect(
+  rows: DeliveryRecord[],
+  ctx: ValidationContext,
+  labelOf?: (r: DeliveryRecord, idx: number) => string,
+): ValidationIssue[] {
+  const out: ValidationIssue[] = [];
+  const byId = new Map(ctx.leaders.map((l) => [l.id, l] as const));
+  // 귀속 매핑이 있는 팀장 목록 (L → T)
+  const redirects = ctx.leaders.filter((l) => l.settle_to_id);
+  if (redirects.length === 0) return out;
+
+  // 1) 매핑 자체의 유효성: T가 존재해야 함
+  for (const l of redirects) {
+    const t = l.settle_to_id ? byId.get(l.settle_to_id) : undefined;
+    if (!t) {
+      out.push({
+        rowId: `__settle_to__:${l.id}`,
+        code: "settle.target.missing",
+        severity: "error",
+        message: `팀장 "${l.name}"의 정산귀속 대상이 등록되어 있지 않습니다`,
+      });
+    }
+  }
+
+  // 2) 행 단위 — 귀속 대상 팀장이 포함된 행에서 합산 정합성
+  const redirectIds = new Set(redirects.map((l) => l.id));
+
+  rows.forEach((r, i) => {
+    const rowLabel = labelOf ? labelOf(r, i) : `행 ${i + 1}`;
+    const ids = [r.leader1_id, r.leader2_id].filter(Boolean) as string[];
+    const involved = ids.find((id) => redirectIds.has(id));
+    if (!involved) return;
+    const L = byId.get(involved)!;
+    const T = L.settle_to_id ? byId.get(L.settle_to_id) : undefined;
+    if (!T) return; // 위에서 별도로 보고됨
+
+    const shares = allocateRow(
+      {
+        leader1_id: r.leader1_id,
+        leader2_id: r.leader2_id,
+        split_type: r.split_type,
+        two_person: r.two_person ?? false,
+        metro_fee: isNumLike(r.metro_fee).n,
+        note_amount: isNumLike(r.note_amount).n,
+        regional_fee: isNumLike(r.regional_fee).n,
+        cod_amount: isNumLike(r.cod_amount).n,
+      },
+      {},
+    );
+
+    const lShare = shares.find((s) => s.leader_id === L.id);
+    if (!lShare || lShare.weight <= 0) {
+      out.push({
+        rowId: r.id,
+        rowLabel,
+        code: "settle.redirect.missing",
+        severity: "error",
+        message: `${L.name} 관련 건이지만 배분이 누락 — ${T.name} 정산에 합산되지 못함`,
+      });
+      return;
+    }
+    // 행 총액 vs (L + T) 몫 합 — 중복 계산되면 행 총액 초과
+    const rowTotal = isNumLike(r.metro_fee).n + isNumLike(r.note_amount).n + isNumLike(r.regional_fee).n;
+    const tShare = shares.find((s) => s.leader_id === T.id);
+    const merged =
+      (lShare.metro + lShare.note_amount + lShare.regional) +
+      ((tShare?.metro ?? 0) + (tShare?.note_amount ?? 0) + (tShare?.regional ?? 0));
+    if (merged > rowTotal + 0.5) {
+      out.push({
+        rowId: r.id,
+        rowLabel,
+        code: "settle.redirect.double",
+        severity: "error",
+        message: `${L.name}+${T.name} 합산(${Math.round(merged)})이 행 총액(${Math.round(rowTotal)})을 초과 — 중복 계산 의심`,
+      });
+    }
+  });
+
+  return out;
+}
+
 /** 중복 의심 검사 (#12) — 행 묶음 비교 */
 export function detectDuplicates(rows: DeliveryRecord[]): ValidationIssue[] {
   const out: ValidationIssue[] = [];
