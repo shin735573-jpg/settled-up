@@ -6,6 +6,7 @@ import {
   detectDuplicates,
   findAliasConflict,
   findDisplayNameConflict,
+  getCompanyFacingName,
 } from "./leaderResolver";
 
 const leaders = [
@@ -86,5 +87,20 @@ describe("findDisplayNameConflict", () => {
   });
   it("자기 자신은 검사 제외", () => {
     expect(findDisplayNameConflict("e", "김민수", "2", leaders)).toBeNull();
+  });
+});
+
+describe("getCompanyFacingName", () => {
+  it("거부 아님 → 정식 이름", () => {
+    expect(getCompanyFacingName({ id: "x", name: "오동선", is_rejected: false })).toBe("오동선");
+  });
+  it("거부 + 별칭1 있음 → 별칭1", () => {
+    expect(
+      getCompanyFacingName({ id: "x", name: "오동선", is_rejected: true, aliases: ["가사팀장", "동선"] }),
+    ).toBe("가사팀장");
+  });
+  it("거부 + 별칭1 없음 → '가상기사'", () => {
+    expect(getCompanyFacingName({ id: "x", name: "오동선", is_rejected: true, aliases: [] })).toBe("가상기사");
+    expect(getCompanyFacingName({ id: "x", name: "오동선", is_rejected: true, aliases: ["", "동선"] })).toBe("가상기사");
   });
 });
