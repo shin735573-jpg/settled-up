@@ -716,7 +716,7 @@ export default function LeaderSettlement() {
                 <h3 className="font-semibold text-sm">개별 공제 ({periodLabel})</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-sm num font-semibold">{fmt(detailCalc.indivTotal)}</span>
-                  <Button size="sm" variant="outline" onClick={addDetailDeduction} disabled={detailDeductions.length >= 20}>
+                  <Button size="sm" variant="outline" onClick={addDetailDeduction} disabled={detailDeductions.length >= 10}>
                     <Plus className="h-3 w-3 mr-1" />추가
                   </Button>
                   <Button size="sm" onClick={saveDetailDeductions} disabled={savingDeductions}>저장</Button>
