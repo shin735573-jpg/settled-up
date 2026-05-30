@@ -27,7 +27,21 @@ type Company = {
   rejected_leader_id_2: string | null;
   rejected_leader_id_3: string | null;
 };
-type Leader = { id: string; name: string; region: string | null; is_rejected: boolean; is_virtual: boolean; deduction_amount: number; trash_cost: number; settle_to_id: string | null; active: boolean; aliases: string[]; display_suffix: string | null };
+type Leader = {
+  id: string;
+  name: string;
+  region: string | null;
+  is_rejected: boolean;
+  is_virtual: boolean;
+  fee_rate_metro: number;
+  fee_rate_regional: number;
+  deduction_amount: number;
+  trash_cost: number;
+  settle_to_id: string | null;
+  active: boolean;
+  aliases: string[];
+  display_suffix: string | null;
+};
 type Holiday = { id: string; date: string; scope: string; team_leader_id: string | null };
 
 export default function Settings() {
@@ -401,6 +415,8 @@ function LeadersTab() {
             <TableHead>구분명</TableHead>
             <TableHead>지역</TableHead>
             <TableHead>거부</TableHead>
+            <TableHead>수도권 수수료율</TableHead>
+            <TableHead>지방 수수료율</TableHead>
             <TableHead>공제금</TableHead>
             <TableHead>쓰레기비</TableHead>
             <TableHead>정산귀속</TableHead>
@@ -454,6 +470,8 @@ function LeadersTab() {
               </TableCell>
               <TableCell><Input className="w-24" defaultValue={r.region || ""} onBlur={(e) => update(r.id, { region: e.target.value })} /></TableCell>
               <TableCell><Checkbox checked={r.is_rejected} onCheckedChange={(v) => update(r.id, { is_rejected: !!v })} /></TableCell>
+              <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_metro ?? 0} onBlur={(e) => update(r.id, { fee_rate_metro: Number(e.target.value) } as any)} /></TableCell>
+              <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_regional ?? 0} onBlur={(e) => update(r.id, { fee_rate_regional: Number(e.target.value) } as any)} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.deduction_amount} onBlur={(e) => update(r.id, { deduction_amount: Number(e.target.value) })} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.trash_cost} onBlur={(e) => update(r.id, { trash_cost: Number(e.target.value) })} /></TableCell>
               <TableCell>
@@ -485,7 +503,7 @@ function LeadersTab() {
             </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
