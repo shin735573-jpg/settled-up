@@ -14,7 +14,7 @@ export const parseNum = (v: unknown): number => {
   return isNaN(n) ? 0 : n;
 };
 
-export const parseDate = (v: unknown): string | null => {
+export const parseDate = (v: unknown, monthHint?: string | null): string | null => {
   if (!v) return null;
   const s = String(v).trim();
   if (!s) return null;
@@ -30,7 +30,12 @@ export const parseDate = (v: unknown): string | null => {
       if (parts[2].length === 4) { y = +parts[2]; m = +parts[0]; d = +parts[1]; }
     }
   } else if (parts.length === 2) {
-    y = new Date().getFullYear(); m = +parts[0]; d = +parts[1];
+    m = +parts[0]; d = +parts[1];
+    y = new Date().getFullYear();
+    if (monthHint) {
+      const mh = String(monthHint).match(/^(\d{4})-(\d{2})$/);
+      if (mh) y = +mh[1];
+    }
   } else return null;
   if (!y || !m || !d || m < 1 || m > 12 || d < 1 || d > 31) return null;
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;

@@ -604,6 +604,7 @@ export default function Records() {
         leaders={leaders}
         holidays={holidays}
         userId={user?.id || ""}
+        defaultMonth={filterMonth}
         onSaved={() => { setPasteOpen(false); load(); }}
         onReload={load}
       />
@@ -614,7 +615,8 @@ export default function Records() {
 type RowError = { field: string; msg: string };
 type ParsedRow = {
   raw: string[];
-  date: string | null;
+  rawDate: string;
+  autoDate: string | null;
   company: string;
   leaders: (string | null)[];
   customer: string; region: string; item: string; note: string;
@@ -627,8 +629,8 @@ type ParsedRow = {
   warnings: RowError[];
 };
 
-function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSaved, onReload }: {
-  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; onSaved: () => void; onReload: () => void | Promise<void>;
+function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defaultMonth, onSaved, onReload }: {
+  open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; defaultMonth?: string; onSaved: () => void; onReload: () => void | Promise<void>;
 }) {
   const [text, setText] = useState("");
   const [skipErrors, setSkipErrors] = useState(false);
@@ -640,6 +642,10 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   const [leaderOverrides, setLeaderOverrides] = useState<Record<number, { l1?: string; l2?: string }>>({});
   // 행별 수도권/지방 수동 수정
   const [regionOverrides, setRegionOverrides] = useState<Record<number, RegionType>>({});
+  // 행별 날짜 수동 입력 (raw 텍스트). undefined = 자동, 그 외 = 사용자 입력
+  const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
+  // 일괄 적용용 입력값
+  const [bulkDate, setBulkDate] = useState("");
   // 미리보기에서 사용자가 제외한 행
   const [excludedRows, setExcludedRows] = useState<Record<number, boolean>>({});
 
@@ -777,10 +783,10 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       const errors: RowError[] = [];
       const warnings: RowError[] = [];
 
-      let date = parseDate(cell(cols, "date"));
-      if (!date && lastDate) date = lastDate;
-      if (!date) errors.push({ field: "날짜", msg: "날짜 형식 오류" });
-      else lastDate = date;
+      const rawDate = cell(cols, "date");
+      const autoDate = parseDate(rawDate, defaultMonth);
+      // 날짜 fill-down/오류 처리는 effective 단계에서 수행 (사용자 수정 반영)
+      const date = autoDate;
 
       const company = cell(cols, "company");
       if (!company) errors.push({ field: "업체", msg: "업체 누락" });
@@ -855,7 +861,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       // 신호가 충분한데 날짜만 없으면 위 lastDate가 fill-down 처리됨 (이미 위에서 적용)
 
       return {
-        raw: cols, date, company,
+        raw: cols, rawDate, autoDate, company,
         leaders: leaderNames,
         customer, region, item, note,
         metro, noteAmt, regional, cod,
@@ -869,7 +875,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   }, [grid, mapping, headerInfo, companies, leaders, holidays, leaderIndex, leaderById, defaultLeaderInfo]);
 
   // 사용자 수정 반영된 최종 팀장 적용
-  const effective = useMemo(() => parsed.map((r, i) => {
+  const effective = useMemo(() => {
+    let lastDate: string | null = null;
+    return parsed.map((r, i) => {
     const ov = leaderOverrides[i] || {};
     const applyOne = (autoId: string | null, autoName: string | null, ovVal: string | undefined) => {
       if (ovVal === undefined) return { id: autoId, name: autoName };
@@ -882,6 +890,25 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     // 수도권/지방 override 반영 + 지역 경고
     const regionType: RegionType = regionOverrides[i] ?? r.regionType;
     const warnings = [...r.warnings];
+    const errors = [...r.errors];
+    // 날짜: 사용자 입력 > 자동인식 > 위 행 fill-down
+    const ovDate = dateOverrides[i];
+    let date: string | null = null;
+    let dateInputValue = "";
+    if (ovDate !== undefined) {
+      dateInputValue = ovDate;
+      const parsed = parseDate(ovDate, defaultMonth);
+      if (ovDate.trim() && !parsed) {
+        errors.push({ field: "날짜", msg: `날짜 형식 오류: ${ovDate}` });
+      }
+      date = parsed;
+    } else if (r.autoDate) {
+      date = r.autoDate;
+      dateInputValue = r.autoDate;
+    }
+    if (!date && lastDate) date = lastDate;
+    if (!date) errors.push({ field: "날짜", msg: "날짜 누락 — 직접 입력" });
+    else lastDate = date;
     if (!r.region) warnings.push({ field: "배송지", msg: "배송지 빈칸 — 확인 필요" });
     if (regionType === "metro" && r.regional > 0 && r.metro === 0) {
       warnings.push({ field: "지역구분", msg: "수도권인데 지방배송비만 입력됨" });
@@ -891,12 +918,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     }
     return {
       ...r,
+      date,
+      dateInputValue,
       leaderIds: [a.id, b.id] as (string | null)[],
       leaders: [a.name, b.name] as (string | null)[],
       regionType,
+      errors,
       warnings,
     };
-  }), [parsed, leaderOverrides, leaderById, regionOverrides]);
+    });
+  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, defaultMonth]);
 
   const visible = useMemo(
     () => effective.map((r, i) => ({ row: r, i })).filter(({ i }) => !excludedRows[i]),
@@ -987,6 +1018,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     if (missingRequired.length > 0) {
       toast.error(`필수 항목 누락: ${missingRequired.join(", ")}`); return;
     }
+    // 날짜 누락 검사 (skipErrors와 무관하게 막음)
+    const missingDateCount = visible.filter(({ row }) => !row.date).length;
+    if (missingDateCount > 0) {
+      toast.error(`날짜가 없는 행 ${missingDateCount}건. 미리보기에서 날짜를 입력해주세요.`);
+      return;
+    }
     const toSave = visible.map(({ row }) => row).filter((r) => skipErrors ? !r.errors.length : true);
     if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
     if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
@@ -1013,6 +1050,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     setText("");
     setLeaderOverrides({});
     setRegionOverrides({});
+    setDateOverrides({});
+    setBulkDate("");
     setExcludedRows({});
     onSaved();
   };
@@ -1176,6 +1215,49 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                   정상 행만 저장
                 </label>
               </div>
+              <div className="flex flex-wrap items-center gap-2 border rounded p-2 bg-muted/30">
+                <span className="text-xs font-semibold">날짜 일괄</span>
+                <Input
+                  value={bulkDate}
+                  onChange={(e) => setBulkDate(e.target.value)}
+                  placeholder={defaultMonth ? `${defaultMonth}-01 또는 5/1` : "YYYY-MM-DD"}
+                  className="h-7 text-xs w-[160px]"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const parsed = parseDate(bulkDate, defaultMonth);
+                    if (!parsed) { toast.error("날짜 형식 오류"); return; }
+                    const next: Record<number, string> = {};
+                    for (const { i } of visible) next[i] = parsed;
+                    setDateOverrides((p) => ({ ...p, ...next }));
+                    toast.success(`${visible.length}건 날짜 ${parsed} 적용`);
+                  }}
+                >전체 적용</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // 빈 날짜 행에 위 행의 최종 날짜를 채워넣음 (사용자 override로 고정)
+                    let last: string | null = null;
+                    const next: Record<number, string> = {};
+                    let filled = 0;
+                    for (const { row, i } of visible) {
+                      if (row.date) { last = row.date; continue; }
+                      if (last) { next[i] = last; filled++; }
+                    }
+                    if (filled === 0) { toast.info("채울 빈 날짜가 없습니다"); return; }
+                    setDateOverrides((p) => ({ ...p, ...next }));
+                    toast.success(`빈 날짜 ${filled}건 채움`);
+                  }}
+                >빈 날짜 채우기</Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setDateOverrides({}); setBulkDate(""); }}
+                >초기화</Button>
+              </div>
               <div className="overflow-x-auto border rounded min-h-[500px]">
                 <Table className="text-xs num w-max min-w-full">
                   <TableHeader>
@@ -1235,7 +1317,17 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                       return (
                         <TableRow key={i} className={hasErr ? "bg-destructive/10" : ""}>
                           <TableCell>{displayIdx + 1}</TableCell>
-                          <TableCell className="whitespace-nowrap">{r.date || "-"}</TableCell>
+                          <TableCell className="whitespace-nowrap min-w-[120px]">
+                            <Input
+                              value={r.dateInputValue}
+                              onChange={(e) => setDateOverrides((p) => ({ ...p, [i]: e.target.value }))}
+                              placeholder={r.autoDate || "YYYY-MM-DD"}
+                              className={`h-7 text-xs w-[110px] ${!r.date ? "border-destructive text-destructive" : ""}`}
+                            />
+                            {r.date && r.dateInputValue && r.date !== r.dateInputValue && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5">→ {r.date}</div>
+                            )}
+                          </TableCell>
                           <TableCell className="min-w-[140px] whitespace-nowrap">{r.company || "-"}</TableCell>
                           <TableCell>{leaderCell(0)}</TableCell>
                           <TableCell>{leaderCell(1)}</TableCell>
