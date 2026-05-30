@@ -871,7 +871,7 @@ export default function Records() {
               <Label>결제유무</Label>
               <label className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer">
                 <Checkbox checked={form.paid} onCheckedChange={(v) => setForm({ ...form, paid: !!v })} />
-                <span>{form.paid ? "결제 완료" : "미결제"}</span>
+                <span>{form.paid ? "결제완료" : "미결제"}</span>
               </label>
             </div>
             <div className="space-y-1 sm:col-span-2 lg:col-span-4">
