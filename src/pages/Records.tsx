@@ -526,6 +526,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   const [saving, setSaving] = useState(false);
   // 행별 팀장 수동 수정: rowIndex -> { l1?: id|""(=빈칸), l2?: id|"" }
   const [leaderOverrides, setLeaderOverrides] = useState<Record<number, { l1?: string; l2?: string }>>({});
+  // 미리보기에서 사용자가 제외한 행
+  const [excludedRows, setExcludedRows] = useState<Record<number, boolean>>({});
 
   const leaderIndex = useMemo(() => buildLeaderIndex(leaders), [leaders]);
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
@@ -733,14 +735,18 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     return { ...r, leaderIds: [a.id, b.id] as (string | null)[], leaders: [a.name, b.name] as (string | null)[] };
   }), [parsed, leaderOverrides, leaderById]);
 
-  const errorCount = effective.filter((r) => r.errors.length).length;
+  const visible = useMemo(
+    () => effective.map((r, i) => ({ row: r, i })).filter(({ i }) => !excludedRows[i]),
+    [effective, excludedRows]
+  );
+  const errorCount = visible.filter(({ row }) => row.errors.length).length;
 
   const save = async () => {
     if (!userId) return;
     if (missingRequired.length > 0) {
       toast.error(`필수 항목 누락: ${missingRequired.join(", ")}`); return;
     }
-    const toSave = skipErrors ? effective.filter((r) => !r.errors.length) : effective;
+    const toSave = visible.map(({ row }) => row).filter((r) => skipErrors ? !r.errors.length : true);
     if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
     if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
     setSaving(true);
@@ -764,6 +770,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
     toast.success(`${rows.length}건 저장 완료`);
     setText("");
     setLeaderOverrides({});
+    setExcludedRows({});
     onSaved();
   };
 
@@ -840,7 +847,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
             <>
               <div className="flex items-center justify-between">
                 <div className="text-sm">
-                  총 <b>{effective.length}</b>건 / 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
+                  자동감지 <b>{effective.length}</b>건 · 미리보기 <b>{visible.length}</b>건 · 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
                 </div>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={skipErrors} onCheckedChange={(v) => setSkipErrors(!!v)} />
@@ -858,10 +865,11 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                       <TableHead>수도권</TableHead><TableHead>비고금액</TableHead><TableHead>지방</TableHead>
                       <TableHead>총액</TableHead><TableHead>착불</TableHead><TableHead>분할</TableHead><TableHead>결제</TableHead>
                       <TableHead>오류/경고</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {effective.map((r, i) => {
+                    {visible.map(({ row: r, i }, displayIdx) => {
                       const total = r.metro + r.noteAmt + r.regional;
                       const hasErr = r.errors.length > 0;
                       const leaderCell = (slot: 0 | 1) => {
@@ -893,7 +901,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                       };
                       return (
                         <TableRow key={i} className={hasErr ? "bg-destructive/10" : ""}>
-                          <TableCell>{i + 1}</TableCell>
+                          <TableCell>{displayIdx + 1}</TableCell>
                           <TableCell className="whitespace-nowrap">{r.date || "-"}</TableCell>
                           <TableCell>{r.company || "-"}</TableCell>
                           <TableCell>{leaderCell(0)}</TableCell>
@@ -912,19 +920,32 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
                             {r.errors.map((e, j) => <Badge key={j} variant="destructive" className="mr-1">{e.field}: {e.msg}</Badge>)}
                             {r.warnings.map((w, j) => <Badge key={"w"+j} variant="secondary" className="mr-1">{w.field}: {w.msg}</Badge>)}
                           </TableCell>
+                          <TableCell>
+                            <Button size="icon" variant="ghost" title="이 행 제외"
+                              onClick={() => setExcludedRows((p) => ({ ...p, [i]: true }))}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                 </Table>
               </div>
+              {Object.keys(excludedRows).length > 0 && (
+                <div className="text-xs">
+                  <button className="underline text-muted-foreground" onClick={() => setExcludedRows({})}>
+                    제외한 {Object.keys(excludedRows).length}개 행 복원
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>취소</Button>
-          <Button onClick={save} disabled={saving || effective.length === 0 || missingRequired.length > 0}>
-            {skipErrors ? `정상 ${effective.length - errorCount}건 저장` : `${effective.length}건 저장`}
+          <Button onClick={save} disabled={saving || visible.length === 0 || missingRequired.length > 0}>
+            {skipErrors ? `정상 ${visible.length - errorCount}건 저장` : `${visible.length}건 저장`}
           </Button>
         </DialogFooter>
       </DialogContent>
