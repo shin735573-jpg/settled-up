@@ -198,6 +198,63 @@ export type Database = {
           },
         ]
       }
+      price_list: {
+        Row: {
+          active: boolean
+          cod_default: number
+          company_id: string | null
+          company_name: string
+          created_at: string
+          id: string
+          item: string | null
+          metro_fee: number
+          note: string | null
+          note_amount: number
+          region_detail: string | null
+          region_type: string
+          regional_fee: number
+          spec: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          cod_default?: number
+          company_id?: string | null
+          company_name: string
+          created_at?: string
+          id?: string
+          item?: string | null
+          metro_fee?: number
+          note?: string | null
+          note_amount?: number
+          region_detail?: string | null
+          region_type: string
+          regional_fee?: number
+          spec?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          cod_default?: number
+          company_id?: string | null
+          company_name?: string
+          created_at?: string
+          id?: string
+          item?: string | null
+          metro_fee?: number
+          note?: string | null
+          note_amount?: number
+          region_detail?: string | null
+          region_type?: string
+          regional_fee?: number
+          spec?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

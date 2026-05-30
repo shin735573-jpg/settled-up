@@ -1,10 +1,11 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save } from "lucide-react";
+import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save, Tag } from "lucide-react";
 
 const nav = [
   { to: "/records", label: "기록입력", icon: FileSpreadsheet },
+  { to: "/pricing", label: "단가표", icon: Tag },
   { to: "/company-settlement", label: "업체정산", icon: Building2 },
   { to: "/leader-settlement", label: "팀장정산", icon: Users },
   { to: "/summary", label: "한눈요약", icon: Eye },
