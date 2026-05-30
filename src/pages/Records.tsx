@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { fmt, parseNum, parseDate } from "@/lib/format";
 import { toast } from "sonner";
 import { ko } from "date-fns/locale";
-import { canonicalLeaderName } from "@/lib/leaderResolver";
+import { canonicalLeaderName, getDisplayName } from "@/lib/leaderResolver";
 import {
   validateAll,
   comparePeriodTotals,
