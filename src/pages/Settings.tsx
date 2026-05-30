@@ -419,13 +419,17 @@ function LeadersTab() {
             </TableHead>
             <TableHead>구분명</TableHead>
             <TableHead>지역</TableHead>
+            <TableHead>계산서</TableHead>
+            <TableHead>계좌번호</TableHead>
             <TableHead>거부</TableHead>
             <TableHead>수도권 수수료율</TableHead>
             <TableHead>지방 수수료율</TableHead>
             <TableHead>공제금</TableHead>
             <TableHead>쓰레기비</TableHead>
+            <TableHead>정산상태</TableHead>
             <TableHead>정산귀속</TableHead>
             <TableHead>특수정산</TableHead>
+            <TableHead className="min-w-[120px]">최저보장</TableHead>
             <TableHead>활성</TableHead>
             <TableHead></TableHead>
           </TableRow>
