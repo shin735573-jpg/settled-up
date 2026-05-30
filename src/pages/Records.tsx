@@ -320,7 +320,8 @@ export default function Records() {
   };
 
   const activeCompanies = useMemo(() => companies.filter((c) => c.active), [companies]);
-  const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
+  // 거부기사도 선택 가능 (저장 시 별칭 적용 — 경고만 표시)
+  const selectableLeaders = useMemo(() => leaders.filter((l) => l.active), [leaders]);
 
   // 표시명: 가능하면 leader_id로 정식 팀장명을 찾아 표시(동명이인 구분 포함).
   // ID가 없거나 매칭 실패면 저장된 원본 이름 사용.
