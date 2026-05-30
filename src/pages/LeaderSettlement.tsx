@@ -451,19 +451,57 @@ export default function LeaderSettlement() {
           <div className="grid md:grid-cols-2 gap-3 mb-4">
             <Card className="p-3 bg-muted/30">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-sm">공통 공제</h3>
-                <span className="text-sm num font-semibold">{fmt(commonDeductionTotal)}</span>
+                <h3 className="font-semibold text-sm">공통 공제 ({periodLabel})</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm num font-semibold">{fmt(detailCalc.commonTotal)}</span>
+                  <Button size="sm" onClick={saveDetailCommon} disabled={savingCommon || Object.keys(detailCommonEdits).length === 0}>
+                    저장
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-1 text-sm num">
-                {activeCommonDeductions.length === 0 && (
-                  <div className="text-muted-foreground">적용 중인 공통 공제 없음</div>
-                )}
-                {activeCommonDeductions.map((c) => (
-                  <div key={c.id} className="flex justify-between">
-                    <span>{c.label}</span>
-                    <span>{fmt(num(c.amount))}</span>
-                  </div>
-                ))}
+              {activeCommonDeductions.length === 0 && (
+                <div className="text-sm text-muted-foreground">공통 공제 항목이 없습니다. 설정 &gt; 공통공제에서 추가하세요.</div>
+              )}
+              <div className="space-y-1">
+                {activeCommonDeductions.map((cd) => {
+                  const saved = detailLeader ? effectiveCommonAmount(detailLeader.id, cd) : num(cd.amount);
+                  const edited = detailCommonEdits[cd.id];
+                  const current = typeof edited === "number" ? edited : saved;
+                  const base = num(cd.amount);
+                  const ovExists = detailLeader
+                    ? commonOverrides.some((o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id)
+                    : false;
+                  const isCustom = typeof edited === "number" ? edited !== base : ovExists && saved !== base;
+                  return (
+                    <div key={cd.id} className="flex gap-2 items-center">
+                      <span className="flex-1 text-sm">
+                        {cd.label}
+                        {isCustom && <span className="ml-1 text-xs text-amber-700">(수정됨)</span>}
+                        <span className="ml-1 text-xs text-muted-foreground">기본 {fmt(base)}</span>
+                      </span>
+                      <Input
+                        type="number"
+                        className="h-8 w-32 text-right num"
+                        value={current}
+                        onChange={(e) =>
+                          setDetailCommonEdits((m) => ({ ...m, [cd.id]: Number(e.target.value) || 0 }))
+                        }
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        title="기본값으로 되돌리기"
+                        onClick={() => resetCommonOverride(cd.id, base)}
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                * 수정값은 해당 팀장/해당 정산기간({periodKey})에만 저장됩니다. 다른 팀장·기간엔 영향 없음.
               </div>
             </Card>
 
