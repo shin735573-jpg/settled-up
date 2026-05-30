@@ -524,6 +524,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   const [text, setText] = useState("");
   const [skipErrors, setSkipErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 기본 팀장 입력 (붙여넣은 행에 팀장이 없을 때 적용)
+  const [defaultLeadersText, setDefaultLeadersText] = useState("");
   // 행별 팀장 수동 수정: rowIndex -> { l1?: id|""(=빈칸), l2?: id|"" }
   const [leaderOverrides, setLeaderOverrides] = useState<Record<number, { l1?: string; l2?: string }>>({});
   // 미리보기에서 사용자가 제외한 행
@@ -532,6 +534,29 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
   const leaderIndex = useMemo(() => buildLeaderIndex(leaders), [leaders]);
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
   const leaderById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+
+  // 기본 팀장 파싱 결과
+  const defaultLeaderInfo = useMemo(() => {
+    const text = defaultLeadersText.trim();
+    if (!text) return { ids: [] as string[], raw: [] as string[], rawTokens: [] as string[], unknown: [] as string[], tooMany: false };
+    const extracted = extractLeaders(text, leaderIndex);
+    const rawTokens = text.split(LEADER_SPLIT_RE).map((t) => t.trim()).filter(Boolean);
+    // 매칭 안 된 토큰 = 미등록 팀장 후보
+    const matchedRaw = new Set(extracted.raw);
+    const unknown = rawTokens.filter((t) => {
+      if (matchedRaw.has(t)) return false;
+      // 토큰 안에 매칭된 키가 포함됐는지 확인
+      for (const k of leaderIndex.keys) if (t.includes(k)) return false;
+      return true;
+    });
+    return {
+      ids: extracted.ids,
+      raw: extracted.raw,
+      rawTokens,
+      unknown,
+      tooMany: extracted.ids.length >= 3,
+    };
+  }, [defaultLeadersText, leaderIndex]);
 
   // 붙여넣은 원본을 grid로 변환
   const grid = useMemo<string[][]>(() => {
@@ -651,18 +676,24 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
       // 팀장 자동 인식
       const leaderText = collectLeaderText(cols);
       const extracted = extractLeaders(leaderText, leaderIndex);
-      let leaderIds: (string | null)[] = [extracted.ids[0] || null, extracted.ids[1] || null];
+      // 행 안에서 팀장 인식 실패 시 기본 팀장 입력란 값 적용
+      const usedDefault = extracted.ids.length === 0 && defaultLeaderInfo.ids.length > 0;
+      const effectiveIds = usedDefault ? defaultLeaderInfo.ids : extracted.ids;
+      let leaderIds: (string | null)[] = [effectiveIds[0] || null, effectiveIds[1] || null];
       // 인식 실패 시: leader1/leader2 셀 원문 그대로 (미등록 경고용)
       const fallbackNames: (string | null)[] = [cell(cols, "leader1") || null, cell(cols, "leader2") || null];
       const leaderNames: (string | null)[] = leaderIds.map((id, i) =>
         id ? leaderById.get(id)?.name || null : fallbackNames[i]
       );
       // 미등록 팀장: 텍스트에는 이름이 있는데 매칭 실패한 경우
-      if (leaderText && extracted.ids.length === 0 && leaderText.replace(LEADER_SPLIT_RE, "").length > 0) {
+      if (!usedDefault && leaderText && extracted.ids.length === 0 && leaderText.replace(LEADER_SPLIT_RE, "").length > 0) {
         errors.push({ field: "팀장", msg: `미등록 팀장: ${leaderText}` });
       }
-      if (extracted.ids.length >= 3) {
-        warnings.push({ field: "팀장", msg: `${extracted.ids.length}명 인식 — 앞 2명만 사용 (팀장3 미사용)` });
+      if (effectiveIds.length >= 3) {
+        warnings.push({ field: "팀장", msg: `${effectiveIds.length}명 인식 — 앞 2명만 사용 (팀장3 미사용)` });
+      }
+      if (usedDefault) {
+        warnings.push({ field: "팀장", msg: "기본 팀장 적용" });
       }
       // 거부/휴무 검사
       leaderIds.forEach((id, i) => {
@@ -720,7 +751,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
         errors, warnings,
       } as ParsedRow;
     }).filter((r): r is ParsedRow => r !== null);
-  }, [grid, mapping, headerInfo, companies, leaders, holidays, leaderIndex, leaderById]);
+  }, [grid, mapping, headerInfo, companies, leaders, holidays, leaderIndex, leaderById, defaultLeaderInfo]);
 
   // 사용자 수정 반영된 최종 팀장 적용
   const effective = useMemo(() => parsed.map((r, i) => {
@@ -787,6 +818,44 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, onSa
             엑셀에서 복사하면 첫 줄의 컬럼명을 읽어 자동 분류합니다. 컬럼 순서가 달라도 됩니다.<br/>
             • 컬럼명이 없거나 인식 안 된 열은 아래 “컬럼 매핑”에서 직접 지정 • 날짜가 빈칸이면 바로 위 날짜 자동 적용 • 금액은 쉼표 허용 • 배송비총액은 자동 계산 (붙여넣기 값 무시)
           </div>
+
+          <div className="border rounded p-3 space-y-2 bg-muted/30">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <Label className="text-sm font-semibold">기본 팀장</Label>
+              <div className="text-xs text-muted-foreground">
+                행에 팀장이 없을 때 자동 적용 · 구분자: / , &amp; + 공백 줄바꿈
+              </div>
+            </div>
+            <Input
+              value={defaultLeadersText}
+              onChange={(e) => setDefaultLeadersText(e.target.value)}
+              placeholder="예) 동석/형주  또는  오동선, 김용익"
+            />
+            {defaultLeadersText.trim() && (
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                {defaultLeaderInfo.ids.slice(0, 2).map((id, i) => {
+                  const rec = leaderById.get(id);
+                  return (
+                    <Badge key={id} variant="secondary">
+                      팀장{i + 1}: {rec?.name || "?"}
+                    </Badge>
+                  );
+                })}
+                {defaultLeaderInfo.ids.length === 1 && (
+                  <span className="text-muted-foreground">팀장2는 빈칸</span>
+                )}
+                {defaultLeaderInfo.tooMany && (
+                  <Badge variant="destructive">
+                    {defaultLeaderInfo.ids.length}명 입력 — 앞 2명만 사용. 미리보기에서 확인하세요.
+                  </Badge>
+                )}
+                {defaultLeaderInfo.unknown.map((u) => (
+                  <Badge key={u} variant="destructive">미등록: {u}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
