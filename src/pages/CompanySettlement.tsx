@@ -59,7 +59,7 @@ export default function CompanySettlement() {
     (async () => {
       const { data } = await supabase
         .from("deliveries")
-        .select("company_id,cod_amount,paid,date")
+        .select("company_id,company_name,cod_amount,paid,date")
         .lt("date", range.start!)
         .eq("paid", false);
       setCarryRows(data || []);
@@ -67,6 +67,15 @@ export default function CompanySettlement() {
   }, [range.start]);
 
   const company = companies.find((c) => c.id === companyId);
+
+  // company_id가 null인 과거 데이터를 company_name으로 폴백 매칭.
+  // 이름 비교는 공백/대소문자 무시. 다른 업체에 절대 섞이지 않도록
+  // company_id가 있으면 id 일치만 인정한다.
+  const normName = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
+  const matchesCompany = (r: any, c: any) => {
+    if (r.company_id) return r.company_id === c.id;
+    return !!c?.name && normName(r.company_name) === normName(c.name);
+  };
 
   // 거부 팀장 → 그 팀장을 settle_to로 가진 가상기사 이름으로 대체.
   const displayLeaderName = (id: string | null, fallbackName: string | null): string => {
@@ -94,21 +103,21 @@ export default function CompanySettlement() {
 
   const companySummaries = useMemo(() => {
     return companies.map((c) => {
-      const rs = allRows.filter((r) => r.company_id === c.id);
-      const cr = carryRows.filter((r) => r.company_id === c.id);
+      const rs = allRows.filter((r) => matchesCompany(r, c));
+      const cr = carryRows.filter((r) => matchesCompany(r, c));
       return { company: c, ...summarize(rs, cr) };
     });
   }, [companies, allRows, carryRows]);
 
   const detailRows = useMemo(
-    () => (companyId ? allRows.filter((r) => r.company_id === companyId) : []),
-    [companyId, allRows]
+    () => (company ? allRows.filter((r) => matchesCompany(r, company)) : []),
+    [company, allRows]
   );
   const detailSummary = useMemo(() => {
-    if (!companyId) return null;
-    const cr = carryRows.filter((r) => r.company_id === companyId);
+    if (!company) return null;
+    const cr = carryRows.filter((r) => matchesCompany(r, company));
     return summarize(detailRows, cr);
-  }, [companyId, detailRows, carryRows]);
+  }, [company, detailRows, carryRows]);
 
   const periodLabel =
     period === "all" ? "전체 기간" :
