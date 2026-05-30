@@ -115,13 +115,26 @@ export default function CompanySettlement() {
     return { count: companyRows.length, total, paid, unpaid, cod, carry, net };
   };
 
+  // 정산주기에 따라 업체 표시 필터
+  // - biweekly(보름): 1~15일, 16~말일 정산서 생성. 월전체에는 표시하지 않음(중복 방지).
+  // - monthly(한달): 월전체에만 표시.
+  // - all(전체기간): 모두 표시.
+  const visibleCompanies = useMemo(() => {
+    return companies.filter((c) => {
+      const cyc = c.settlement_cycle || "biweekly";
+      if (period === "all") return true;
+      if (cyc === "monthly") return period === "month";
+      return period === "first" || period === "second";
+    });
+  }, [companies, period]);
+
   const companySummaries = useMemo(() => {
-    return companies.map((c) => {
+    return visibleCompanies.map((c) => {
       const rs = allRows.filter((r) => matchesCompany(r, c));
       const cr = carryRows.filter((r) => matchesCompany(r, c));
       return { company: c, ...summarize(rs, cr) };
     });
-  }, [companies, allRows, carryRows]);
+  }, [visibleCompanies, allRows, carryRows]);
 
   const detailRows = useMemo(
     () => (company ? allRows.filter((r) => matchesCompany(r, company)) : []),
