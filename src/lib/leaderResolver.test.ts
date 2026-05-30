@@ -99,8 +99,8 @@ describe("getCompanyFacingName", () => {
       getCompanyFacingName({ id: "x", name: "오동선", is_rejected: true, aliases: ["가사팀장", "동선"] }),
     ).toBe("가사팀장");
   });
-  it("거부 + 별칭1 없음 → '가상기사'", () => {
-    expect(getCompanyFacingName({ id: "x", name: "오동선", is_rejected: true, aliases: [] })).toBe("가상기사");
-    expect(getCompanyFacingName({ id: "x", name: "오동선", is_rejected: true, aliases: ["", "동선"] })).toBe("가상기사");
+  it("거부 + 별칭 없음 → 빈 문자열 (자동으로 '가상기사' 채우지 않음)", () => {
+    expect(getCompanyFacingName({ id: "x", name: "오동선", is_rejected: true, aliases: [] })).toBe("");
+    expect(getCompanyFacingName({ id: "x", name: "오동선", is_rejected: true, aliases: ["", "동선"] })).toBe("");
   });
 });

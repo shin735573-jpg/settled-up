@@ -47,14 +47,14 @@ export default function Summary() {
     });
   }, [companies, rows]);
 
-  // 팀장 표시: 활성·비거부만. 가상팀장은 settle_to_id 실제 팀장에 합산.
+  // 팀장 표시: 활성·비거부만. settle_to_id가 지정된 경우 실제 팀장에 합산.
   const leaderRows = useMemo(() => {
     const byId = new Map(leaders.map((l) => [l.id, l]));
-    // 정착지 매핑: 가상팀장 → 최종 settle_to 실제 팀장 (체이닝 방어)
+    // 정착지 매핑: settle_to_id 체인을 따라 최종 팀장으로 (순환 방어)
     const resolveSettleId = (id: string): string => {
       let cur = byId.get(id);
       const seen = new Set<string>();
-      while (cur?.is_virtual && cur.settle_to_id && !seen.has(cur.id)) {
+      while (cur?.settle_to_id && !seen.has(cur.id)) {
         seen.add(cur.id);
         const nxt = byId.get(cur.settle_to_id);
         if (!nxt) break;
@@ -63,8 +63,8 @@ export default function Summary() {
       return cur?.id ?? id;
     };
 
-    // 표시 대상: 활성·비거부·비가상
-    const visible = leaders.filter((l) => l.active && !l.is_rejected && !l.is_virtual);
+    // 표시 대상: 활성·비거부, settle_to_id 없는 팀장만 (귀속된 팀장은 본 팀장에 합산)
+    const visible = leaders.filter((l) => l.active && !l.is_rejected && !l.settle_to_id);
     const acc = new Map(visible.map((l) => [l.id, { id: l.id, name: l.name, count: 0, fee: 0, cod: 0 }]));
 
     for (const r of rows) {
@@ -125,7 +125,7 @@ export default function Summary() {
         </Card>
 
         <Card className="overflow-x-auto">
-          <div className="px-4 py-3 border-b font-semibold">팀장별 요약 <span className="text-xs text-muted-foreground">(활성·비거부, 가상팀장은 실제 팀장에 합산)</span></div>
+          <div className="px-4 py-3 border-b font-semibold">팀장별 요약 <span className="text-xs text-muted-foreground">(활성·비거부, 정산귀속은 본 팀장에 합산)</span></div>
           <Table className="text-sm num">
             <TableHeader>
               <TableRow>

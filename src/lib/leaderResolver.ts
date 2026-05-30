@@ -71,15 +71,22 @@ export function getDisplayName<T extends LeaderLike>(leader: T, leaders: T[]): s
 
 /**
  * 업체 제출용 표시 이름.
- * - 거부기사(is_rejected=true): 별칭1(aliases[0]) 사용, 없으면 "가상기사"
+ * - 거부기사(is_rejected=true): 별칭(aliases[0]) 사용. 별칭이 없으면 빈 문자열을 반환하고
+ *   호출자가 저장 차단/경고 표시를 처리해야 함 (자동으로 "가상기사" 같은 단어를 채우지 않음).
  * - 일반: 정식 팀장명
  * 정산 계산엔 절대 사용하지 말 것 (표시 전용).
  */
 export function getCompanyFacingName<T extends LeaderLike>(leader: T): string {
   if (!leader.is_rejected) return leader.name.trim();
   const a1 = (leader.aliases ?? [])[0];
-  const trimmed = String(a1 ?? "").trim();
-  return trimmed || "가상기사";
+  return String(a1 ?? "").trim();
+}
+
+/** 거부기사인데 업체 표시용 별칭이 없는 경우 true. */
+export function isMissingCompanyAlias<T extends LeaderLike>(leader: T): boolean {
+  if (!leader.is_rejected) return false;
+  const a1 = (leader.aliases ?? [])[0];
+  return !String(a1 ?? "").trim();
 }
 
 /** 별칭 중복 검사 (클라이언트). 같은 사용자 내에서 alias가 다른 팀장 이름/별칭과 충돌하면 메시지 반환. */
