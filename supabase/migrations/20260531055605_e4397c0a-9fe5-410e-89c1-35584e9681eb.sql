@@ -1,0 +1,1 @@
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS has_cod boolean NOT NULL DEFAULT true;

@@ -54,6 +54,7 @@ export type Database = {
           created_at: string
           fee_rate_metro: number
           fee_rate_regional: number
+          has_cod: boolean
           id: string
           issues_invoice: boolean
           name: string
@@ -71,6 +72,7 @@ export type Database = {
           created_at?: string
           fee_rate_metro?: number
           fee_rate_regional?: number
+          has_cod?: boolean
           id?: string
           issues_invoice?: boolean
           name: string
@@ -88,6 +90,7 @@ export type Database = {
           created_at?: string
           fee_rate_metro?: number
           fee_rate_regional?: number
+          has_cod?: boolean
           id?: string
           issues_invoice?: boolean
           name?: string
