@@ -462,21 +462,9 @@ export default function Saves() {
     setPendingSave(null);
   };
 
-  // ─── 정산마감 게이트 (입력마감일/자동생성일/저장차단 사유) ────────
-  const gate = useMemo(
-    () => computeGate(uid, month, period, hqHolidays),
-    [uid, month, period, hqHolidays],
-  );
-  const [gateTick, setGateTick] = useState(0);
-  const blockedReason = gate.blockedReason;
-  const saveBlocked = !!blockedReason;
-  const toggleClose = (next: boolean) => {
-    if (!uid) return;
-    setGateClosed(uid, month, period, next);
-    setGateTick((t) => t + 1);
-  };
-  // gateTick은 useMemo 의존성에는 없지만 setGateClosed 후 리렌더 트리거용
-  void gateTick;
+  // 정산마감 게이트 제거 — 언제든지 저장 가능
+  const blockedReason: string | undefined = undefined;
+  const saveBlocked = false;
 
   return (
     <div className="space-y-4">
