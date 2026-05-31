@@ -10,7 +10,7 @@ type Props = {
   readOnly?: boolean;
 };
 
-const format = (n: number) => (n ? n.toLocaleString() : "");
+const format = (n: number) => n.toLocaleString();
 
 export function AmountInput({ value, onChange, className, placeholder, readOnly }: Props) {
   const [text, setText] = useState<string>(format(Number(value || 0)));
