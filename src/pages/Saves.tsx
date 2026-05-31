@@ -879,8 +879,8 @@ function CompanyPreview({
   // 요약 라인 (분기별)
   const lines: Array<{ label: string; value: number; emphasize?: boolean }> = [];
   if (hasCod) {
-    lines.push({ label: "총합", value: data.feeTotal });
     lines.push({ label: "착불", value: data.codTotal });
+    lines.push({ label: "배송비", value: data.feeTotal });
     lines.push({ label: "이월착불", value: data.carryInCod });
   }
   lines.push({ label: "청구총합", value: claimTotal, emphasize: !issuesInvoice });
