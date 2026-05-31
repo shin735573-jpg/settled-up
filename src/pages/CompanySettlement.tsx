@@ -10,6 +10,39 @@ import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolve
 
 type Period = "all" | "first" | "second" | "month";
 
+// 업체정산 목록 컬럼 정의 — 헤더/바디가 100% 동일하게 공유하는 단일 정의
+const COMPANY_COLUMNS: Array<{
+  key: string;
+  label: string;
+  width: number;
+  align: "left" | "right" | "center";
+  amount?: boolean;
+}> = [
+  { key: "name",     label: "업체명",       width: 160, align: "left" },
+  { key: "count",    label: "건수",         width: 80,  align: "center" },
+  { key: "total",    label: "배송비합계",   width: 140, align: "right", amount: true },
+  { key: "paid",     label: "결제완료금액", width: 150, align: "right", amount: true },
+  { key: "unpaid",   label: "미결제금액",   width: 150, align: "right", amount: true },
+  { key: "cod",      label: "착불합계",     width: 130, align: "right", amount: true },
+  { key: "carry",    label: "이월착불금",   width: 140, align: "right", amount: true },
+  { key: "net",      label: "실청구액",     width: 140, align: "right", amount: true },
+  { key: "status",   label: "결제상태",     width: 120, align: "center" },
+  { key: "detail",   label: "상세보기",     width: 100, align: "center" },
+];
+const COMPANY_TOTAL_WIDTH = COMPANY_COLUMNS.reduce((s, c) => s + c.width, 0);
+
+const alignClass = (a: "left" | "right" | "center") =>
+  a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left";
+
+const fmtAmount = (n: number) => (n && n !== 0 ? fmt(n) : "-");
+
+const paymentStatus = (paid: number, unpaid: number): string => {
+  if (paid > 0 && unpaid > 0) return "혼합";
+  if (unpaid > 0) return "미결제";
+  if (paid > 0) return "결제완료";
+  return "-";
+};
+
 export default function CompanySettlement() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [period, setPeriod] = useState<Period>("month");
@@ -174,6 +207,35 @@ export default function CompanySettlement() {
     };
   }, [visibleCompanies, allRows]);
 
+  // 컬럼 위치 검증: 헤더 컬럼 수와 데이터 셀 수가 일치하는지 + 순서가 정의와 일치하는지
+  const [colAlignError, setColAlignError] = useState<string | null>(null);
+  useEffect(() => {
+    if (companyId) { setColAlignError(null); return; }
+    // requestAnimationFrame 으로 DOM 렌더 후 검사
+    const id = requestAnimationFrame(() => {
+      const table = document.querySelector<HTMLTableElement>("[data-testid='company-summary-table']");
+      if (!table) { setColAlignError(null); return; }
+      const headCells = table.querySelectorAll("thead tr th");
+      const bodyRows = table.querySelectorAll("tbody tr");
+      const expected = COMPANY_COLUMNS.length;
+      if (headCells.length !== expected) {
+        setColAlignError(`업체정산 목록의 헤더와 데이터 컬럼 위치가 일치하지 않습니다. (헤더 ${headCells.length} / 정의 ${expected})`);
+        return;
+      }
+      for (let i = 0; i < bodyRows.length; i++) {
+        const cells = bodyRows[i].querySelectorAll("td");
+        // colSpan 안내 행은 1개일 수 있으므로 제외
+        if (cells.length === 1 && (cells[0] as HTMLTableCellElement).colSpan === expected) continue;
+        if (cells.length !== expected) {
+          setColAlignError(`업체정산 목록의 헤더와 데이터 컬럼 위치가 일치하지 않습니다. (행 ${i + 1}: ${cells.length} / ${expected})`);
+          return;
+        }
+      }
+      setColAlignError(null);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [companyId, companySummaries]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -225,39 +287,94 @@ export default function CompanySettlement() {
       {!companyId && (
         <Card className="p-4">
           <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 업체명 클릭 시 상세보기</div>
-          <Table className="text-sm num">
-            <TableHeader>
-              <TableRow>
-                <TableHead>업체명</TableHead>
-                <TableHead className="text-right">건수</TableHead>
-                <TableHead className="text-right">배송비합계</TableHead>
-                <TableHead className="text-right">결제완료금액</TableHead>
-                <TableHead className="text-right">미결제금액</TableHead>
-                <TableHead className="text-right">착불합계</TableHead>
-                <TableHead className="text-right">이월착불금</TableHead>
-                <TableHead className="text-right">실청구액</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {companySummaries.map((s) => (
-                <TableRow key={s.company.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setCompanyId(s.company.id)}>
-                  <TableCell>
-                    <button className="text-primary hover:underline font-medium">{s.company.name}</button>
-                  </TableCell>
-                  <TableCell className="text-right">{s.count || "-"}</TableCell>
-                  <TableCell className="text-right">{fmt(s.total)}</TableCell>
-                  <TableCell className="text-right">{fmt(s.paid)}</TableCell>
-                  <TableCell className="text-right">{fmt(s.unpaid)}</TableCell>
-                  <TableCell className="text-right">{fmt(s.cod)}</TableCell>
-                  <TableCell className="text-right">{fmt(s.carry)}</TableCell>
-                  <TableCell className="text-right font-semibold">{fmt(s.net)}</TableCell>
+          {colAlignError && (
+            <div className="mb-2 p-2 rounded border border-destructive bg-destructive/10 text-sm text-destructive">
+              {colAlignError}
+            </div>
+          )}
+          <div className="overflow-x-auto">
+            <Table
+              data-testid="company-summary-table"
+              className="text-sm num table-fixed"
+              style={{ width: COMPANY_TOTAL_WIDTH, minWidth: COMPANY_TOTAL_WIDTH }}
+            >
+              <colgroup>
+                {COMPANY_COLUMNS.map((c) => (
+                  <col key={c.key} style={{ width: c.width }} />
+                ))}
+              </colgroup>
+              <TableHeader>
+                <TableRow>
+                  {COMPANY_COLUMNS.map((c) => (
+                    <TableHead
+                      key={c.key}
+                      className={`${alignClass(c.align)} ${c.amount ? "bg-muted/40" : ""}`}
+                    >
+                      {c.label}
+                    </TableHead>
+                  ))}
                 </TableRow>
-              ))}
-              {companySummaries.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">업체 없음</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {companySummaries.map((s) => {
+                  const status = paymentStatus(s.paid, s.unpaid);
+                  const cells: Record<string, React.ReactNode> = {
+                    name: (
+                      <button
+                        className="text-primary hover:underline font-medium text-left truncate"
+                        onClick={() => setCompanyId(s.company.id)}
+                      >
+                        {s.company.name}
+                      </button>
+                    ),
+                    count: s.count || "-",
+                    total: fmtAmount(s.total),
+                    paid: fmtAmount(s.paid),
+                    unpaid: fmtAmount(s.unpaid),
+                    cod: fmtAmount(s.cod),
+                    carry: fmtAmount(s.carry),
+                    net: <span className="font-semibold">{fmtAmount(s.net)}</span>,
+                    status: (
+                      <span
+                        className={
+                          status === "결제완료"
+                            ? "text-emerald-600 font-medium"
+                            : status === "미결제"
+                            ? "text-destructive font-medium"
+                            : status === "혼합"
+                            ? "text-amber-600 font-medium"
+                            : ""
+                        }
+                      >
+                        {status}
+                      </span>
+                    ),
+                    detail: (
+                      <Button size="sm" variant="outline" onClick={() => setCompanyId(s.company.id)}>
+                        상세
+                      </Button>
+                    ),
+                  };
+                  return (
+                    <TableRow key={s.company.id} className="hover:bg-muted/50">
+                      {COMPANY_COLUMNS.map((c) => (
+                        <TableCell key={c.key} className={`${alignClass(c.align)} tabular-nums truncate`}>
+                          {cells[c.key]}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })}
+                {companySummaries.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={COMPANY_COLUMNS.length} className="text-center text-muted-foreground py-6">
+                      업체 없음
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </Card>
       )}
 
