@@ -230,8 +230,8 @@ export default function CompanySettlement() {
                 <TableHead>업체명</TableHead>
                 <TableHead className="text-right">건수</TableHead>
                 <TableHead className="text-right">배송비합계</TableHead>
-                <TableHead className="text-right">결제완료</TableHead>
-                <TableHead className="text-right">미결제</TableHead>
+                <TableHead className="text-right">결제완료금액</TableHead>
+                <TableHead className="text-right">미결제금액</TableHead>
                 <TableHead className="text-right">착불합계</TableHead>
                 <TableHead className="text-right">이월착불금</TableHead>
                 <TableHead className="text-right">실청구액</TableHead>
