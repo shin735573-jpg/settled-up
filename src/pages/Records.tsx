@@ -300,10 +300,18 @@ type RecordsColumn = {
     displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
     displaySettlementStatus: (r: any) => string;
     removeRow: (id: string) => void;
+    selected: boolean;
+    toggleSelect: () => void;
+  }) => React.ReactNode;
+  renderHeader?: (ctx: {
+    allSelected: boolean;
+    someSelected: boolean;
+    toggleAll: (v: boolean) => void;
   }) => React.ReactNode;
 };
 
 const RECORDS_EXPECTED_SEQUENCE = [
+  ["select", "선택", 44],
   ["kind", "구분", 70],
   ["date", "날짜", 110],
   ["company", "업체", 120],
@@ -335,6 +343,22 @@ const RECORDS_CENTER_COLUMN_KEYS = new Set([
 ]);
 
 const RECORDS_COLUMNS: RecordsColumn[] = [
+  { key: "select", label: "선택", width: 44, headerCls: "text-center", cellCls: "text-center whitespace-nowrap",
+    render: (r, { selected, toggleSelect }) => (
+      <Checkbox
+        checked={selected}
+        onCheckedChange={() => toggleSelect()}
+        onClick={(e) => e.stopPropagation()}
+        aria-label="행 선택"
+      />
+    ),
+    renderHeader: ({ allSelected, someSelected, toggleAll }) => (
+      <Checkbox
+        checked={allSelected ? true : someSelected ? "indeterminate" as any : false}
+        onCheckedChange={(v) => toggleAll(!!v)}
+        aria-label="전체 선택"
+      />
+    ) },
   { key: "kind", label: "구분", width: 70, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.is_missing
       ? <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>
@@ -411,6 +435,7 @@ function validateRecordsTableColumnDefinition(): ValidationIssue[] {
 
 function RecordsTable({
   records, issuesByRow, expandedItems, setExpandedItems, editRow, removeRow, displayLeaderById, displaySettlementStatus,
+  selectedIds, setSelectedIds,
 }: {
   records: any[];
   issuesByRow: Map<string, ValidationIssue[]>;
@@ -420,6 +445,8 @@ function RecordsTable({
   removeRow: (id: string) => void;
   displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
   displaySettlementStatus: (r: any) => string;
+  selectedIds: Set<string>;
+  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
@@ -531,7 +558,20 @@ function RecordsTable({
                     : undefined
                 }
               >
-                {badCols.has(i) ? `⚠ ${c.label}` : c.label}
+                {c.renderHeader
+                  ? c.renderHeader({
+                      allSelected: records.length > 0 && records.every((r) => selectedIds.has(r.id)),
+                      someSelected: records.some((r) => selectedIds.has(r.id)),
+                      toggleAll: (v) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          if (v) records.forEach((r) => next.add(r.id));
+                          else records.forEach((r) => next.delete(r.id));
+                          return next;
+                        });
+                      },
+                    })
+                  : (badCols.has(i) ? `⚠ ${c.label}` : c.label)}
               </TableHead>
             ))}
           </TableRow>
@@ -550,6 +590,12 @@ function RecordsTable({
               displayLeaderById,
               removeRow,
               displaySettlementStatus,
+              selected: selectedIds.has(r.id),
+              toggleSelect: () => setSelectedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                return next;
+              }),
             };
             return (
               <TableRow
@@ -677,6 +723,7 @@ export default function Records() {
   const [searchCompany, setSearchCompany] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchLeader, setSearchLeader] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
@@ -699,6 +746,19 @@ export default function Records() {
     if (!confirm("삭제하시겠습니까?")) return;
     await supabase.from("deliveries").delete().eq("id", id);
     if (form.id === id) setForm(emptyForm());
+    setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    load();
+  };
+
+  const bulkDeleteSelected = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) { toast.error("선택된 항목이 없습니다."); return; }
+    if (!confirm(`선택한 ${ids.length}건을 삭제하시겠습니까?`)) return;
+    const { error } = await supabase.from("deliveries").delete().in("id", ids);
+    if (error) { toast.error(`삭제 실패: ${error.message}`); return; }
+    if (form.id && ids.includes(form.id)) setForm(emptyForm());
+    setSelectedIds(new Set());
+    toast.success(`${ids.length}건 삭제 완료`);
     load();
   };
 
@@ -1214,6 +1274,19 @@ export default function Records() {
       )}
 
       <Card className="overflow-x-auto">
+        <div className="flex items-center justify-between gap-2 p-2 border-b">
+          <div className="text-xs text-muted-foreground">
+            선택 {selectedIds.size}건 / 표시 {filteredRecords.length}건
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={bulkDeleteSelected}
+            disabled={selectedIds.size === 0}
+          >
+            <Trash2 className="h-4 w-4 mr-1" /> 선택 삭제
+          </Button>
+        </div>
         {(searchCompany || searchCustomer || searchLeader) && filteredRecords.length === 0 && (
           <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
         )}
@@ -1226,6 +1299,8 @@ export default function Records() {
           removeRow={removeRow}
           displayLeaderById={displayLeaderById}
           displaySettlementStatus={displaySettlementStatus}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
         />
       </Card>
 
