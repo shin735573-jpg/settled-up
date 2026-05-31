@@ -39,8 +39,15 @@ import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Cloud, CloudOff } from "lucide-react";
+import { Cloud, CloudOff, FolderOpen, FolderCheck } from "lucide-react";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
+import {
+  pickSaveDirectory,
+  getSavedDirectoryHandle,
+  clearSavedDirectoryHandle,
+  isFsAccessSupported,
+  ensureWritePermission,
+} from "@/lib/saveDirectory";
 
 function getCurrentSavingPeriod() {
   const { month, half } = getCurrentHalf();
@@ -304,6 +311,45 @@ export default function Saves() {
     setUploadOD(v);
     try { localStorage.setItem("saves.uploadOD", v ? "1" : "0"); } catch { /* noop */ }
   };
+
+  // ─── 저장 폴더 (바탕화면/삼호정산서) ─────────────────────
+  const [saveDir, setSaveDir] = useState<FileSystemDirectoryHandle | null>(null);
+  const [saveDirName, setSaveDirName] = useState<string>("");
+  useEffect(() => {
+    (async () => {
+      const h = await getSavedDirectoryHandle();
+      if (h) { setSaveDir(h); setSaveDirName(h.name); }
+    })();
+  }, []);
+  async function onPickSaveDir() {
+    try {
+      const h = await pickSaveDirectory();
+      setSaveDir(h);
+      setSaveDirName(h.name);
+      toast({ title: "저장 폴더 지정 완료", description: `${h.name} (이 폴더 안에 오늘날짜_정산서/업체|팀장 자동 생성)` });
+    } catch (e) {
+      const msg = String((e as Error)?.message ?? e);
+      if (!/abort/i.test(msg)) {
+        toast({ title: "폴더 지정 실패", description: msg, variant: "destructive" });
+      }
+    }
+  }
+  async function onClearSaveDir() {
+    await clearSavedDirectoryHandle();
+    setSaveDir(null);
+    setSaveDirName("");
+    toast({ title: "저장 폴더 해제", description: "이후 저장은 브라우저 기본 다운로드 폴더로 진행됩니다." });
+  }
+  // 저장 직전 권한 확인 (사용자 제스처 컨텍스트에서 호출)
+  async function getReadyDir(): Promise<FileSystemDirectoryHandle | null> {
+    if (!saveDir) return null;
+    const ok = await ensureWritePermission(saveDir);
+    if (!ok) {
+      toast({ title: "폴더 권한 거부", description: "저장 폴더를 다시 지정해 주세요.", variant: "destructive" });
+      return null;
+    }
+    return saveDir;
+  }
 
   // ─── 기간 변경 자동저장 옵션 ────────────────────────────
   const [autoSaveOnChange, setAutoSaveOnChange] = useState<boolean>(() => {
