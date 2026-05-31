@@ -2088,6 +2088,27 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                   onClick={() => { setDateOverrides({}); setBulkDate(""); }}
                 >초기화</Button>
               </div>
+              <div className="flex flex-wrap items-center gap-2 border rounded p-2 bg-muted/30">
+                <span className="text-xs font-semibold">분할 일괄</span>
+                <Select
+                  onValueChange={(v) => {
+                    const target = v === "__none__" ? "" : v;
+                    const next: Record<number, string> = {};
+                    for (const { i } of visible) next[i] = target;
+                    setSplitOverrides((p) => ({ ...p, ...next }));
+                    toast.success(`${visible.length}건 분할: ${target || "(빈칸)"} 적용`);
+                  }}
+                >
+                  <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue placeholder="선택…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">(빈칸)</SelectItem>
+                    <SelectItem value="3분할">3분할</SelectItem>
+                    <SelectItem value="형주동석">형주동석</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="ghost" onClick={() => setSplitOverrides({})}>초기화</Button>
+                <span className="text-[10px] text-muted-foreground ml-1">개별 행은 표의 분할 열에서 직접 변경할 수 있습니다.</span>
+              </div>
               <div className="overflow-x-auto border rounded min-h-[500px]">
                 <Table className="text-xs num w-max min-w-full">
                   <TableHeader>
