@@ -550,6 +550,10 @@ export default function HQSettlement() {
           <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 수익 요약</div>
           <div className="divide-y text-sm">
             <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">본사 총배송비</span>
+              <span className="font-medium">{fmt(totalDeliveryFee)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">적재비</span>
               <span className="font-medium">{fmt(loadingTotal)}</span>
             </div>
