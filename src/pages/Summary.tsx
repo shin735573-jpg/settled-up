@@ -181,7 +181,8 @@ export default function Summary() {
         l.id,
         {
           id: l.id, name: l.name, count: 0, fee: 0, cod: 0, commission: 0,
-          deduct: Number(l.deduction_amount || 0) + Number(l.trash_cost || 0),
+          // 자동공제는 쓰레기비용만 고정. 그 외 공제는 팀장정산에서 수동 입력해야 한다.
+          deduct: Number(l.trash_cost || 0),
         },
       ]),
     );
