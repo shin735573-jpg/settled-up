@@ -1419,6 +1419,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
   // 행별 2인배송 수동 토글
   const [twoOverrides, setTwoOverrides] = useState<Record<number, boolean>>({});
+  // 행별 분할 수동 선택 ("" | "3분할" | "형주동석")
+  const [splitOverrides, setSplitOverrides] = useState<Record<number, string>>({});
   // 일괄 적용용 입력값
   const [bulkDate, setBulkDate] = useState("");
   // 미리보기에서 사용자가 제외한 행
@@ -1638,8 +1640,14 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       const regional = checkNum(cell(cols, "regional"), "지방배송비");
       const cod = checkNum(cell(cols, "cod"), "착불");
 
-      const splitRaw = cell(cols, "split");
-      const split = ["", "3분할", "형주동석"].includes(splitRaw) ? splitRaw : splitRaw;
+      // 분할 컬럼 정규화 — 다양한 표기를 허용 값(빈칸 / 3분할 / 형주동석)으로 매핑
+      const splitRaw = cell(cols, "split").trim();
+      const splitNorm = splitRaw.replace(/\s+/g, "").toLowerCase();
+      let split = "";
+      if (["3분할", "삼분할", "1/3", "33%", "3split", "three"].includes(splitNorm)) split = "3분할";
+      else if (["형주동석", "형동", "강신", "강형주신동석", "동석형주", "hd", "hyungdong"].includes(splitNorm)) split = "형주동석";
+      else if (["", "없음", "기본", "일반", "none", "no", "-"].includes(splitNorm)) split = "";
+      else split = ""; // 알 수 없는 값은 빈칸으로 안전 처리
       const paidRaw = cell(cols, "paid").toLowerCase();
       const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v", "결제완료"].includes(paidRaw) || paidRaw === "1";
       const twoRaw = cell(cols, "twoPerson").toLowerCase();
@@ -1723,11 +1731,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       leaders: [a.name, b.name] as (string | null)[],
       regionType,
       twoPerson: twoOverrides[i] !== undefined ? twoOverrides[i] : r.twoPerson,
+      split: splitOverrides[i] !== undefined ? splitOverrides[i] : r.split,
       errors,
       warnings,
     };
     });
-  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, twoOverrides, defaultMonth]);
+  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, twoOverrides, splitOverrides, defaultMonth]);
 
   const visible = useMemo(
     () => effective.map((r, i) => ({ row: r, i })).filter(({ i }) => !excludedRows[i]),
@@ -1853,6 +1862,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     setRegionOverrides({});
     setDateOverrides({});
     setTwoOverrides({});
+    setSplitOverrides({});
     setBulkDate("");
     setExcludedRows({});
     onSaved();
@@ -2078,6 +2088,27 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                   onClick={() => { setDateOverrides({}); setBulkDate(""); }}
                 >초기화</Button>
               </div>
+              <div className="flex flex-wrap items-center gap-2 border rounded p-2 bg-muted/30">
+                <span className="text-xs font-semibold">분할 일괄</span>
+                <Select
+                  onValueChange={(v) => {
+                    const target = v === "__none__" ? "" : v;
+                    const next: Record<number, string> = {};
+                    for (const { i } of visible) next[i] = target;
+                    setSplitOverrides((p) => ({ ...p, ...next }));
+                    toast.success(`${visible.length}건 분할: ${target || "(빈칸)"} 적용`);
+                  }}
+                >
+                  <SelectTrigger className="h-7 text-xs w-[140px]"><SelectValue placeholder="선택…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">(빈칸)</SelectItem>
+                    <SelectItem value="3분할">3분할</SelectItem>
+                    <SelectItem value="형주동석">형주동석</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="ghost" onClick={() => setSplitOverrides({})}>초기화</Button>
+                <span className="text-[10px] text-muted-foreground ml-1">개별 행은 표의 분할 열에서 직접 변경할 수 있습니다.</span>
+              </div>
               <div className="overflow-x-auto border rounded min-h-[500px]">
                 <Table className="text-xs num w-max min-w-full">
                   <TableHeader>
@@ -2226,7 +2257,19 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell>{r.split || "-"}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={r.split || "__none__"}
+                              onValueChange={(v) => setSplitOverrides((p) => ({ ...p, [i]: v === "__none__" ? "" : v }))}
+                            >
+                              <SelectTrigger className="h-7 text-xs min-w-[90px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">(빈칸)</SelectItem>
+                                <SelectItem value="3분할">3분할</SelectItem>
+                                <SelectItem value="형주동석">형주동석</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell>{r.paid ? "✓" : "-"}</TableCell>
                           <TableCell className="space-y-1 min-w-[220px]">
                             {r.errors.map((e, j) => <Badge key={j} variant="destructive" className="mr-1">{e.field}: {e.msg}</Badge>)}
