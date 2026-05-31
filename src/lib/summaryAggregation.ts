@@ -116,12 +116,16 @@ export function aggregateSummary(
     .sort((a, b) => b.fee - a.fee);
 
   const visibleLeaders = leaders.filter(isCountableLeader);
+  // trash_cost 는 보름 단위 차감 — 월전체일 때는 2회 적용한다.
+  // LeaderSettlement(정산 원천) 의 자동공제 로직과 일치시킨다.
+  // (deduction_amount 는 레거시 필드로, 실제 정산에는 사용되지 않음)
+  const trashCostMultiplier = period === "all" ? 2 : 1;
   const acc = new Map(
     visibleLeaders.map((l) => [
       l.id,
       {
         id: l.id, name: l.name, count: 0, fee: 0, cod: 0,
-        deduct: Number(l.deduction_amount || 0) + Number(l.trash_cost || 0),
+        deduct: Number(l.trash_cost || 0) * trashCostMultiplier,
       },
     ]),
   );
