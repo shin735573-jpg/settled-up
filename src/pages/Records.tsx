@@ -1039,6 +1039,8 @@ export default function Records() {
 
   const hasErrors = (validation?.summary.errorCount ?? 0) > 0;
   const hasPeriodMismatch = (validation?.periodChecks || []).some((p) => p.status === "불일치");
+  const recordsRootRef = useRef<HTMLDivElement>(null);
+  useArrowKeyNav(recordsRootRef);
 
   return (
     <div className="space-y-4" ref={recordsRootRef}>
