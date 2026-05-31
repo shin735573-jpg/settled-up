@@ -705,26 +705,29 @@ function CompanyPreview({
         </div>
       )}
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-xs">
+        <table className="text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1080 }}>
+          <colgroup>
+            {[70,140,110,110,130,180,180,110,80].map((w,i)=>(<col key={i} style={{ width: w }} />))}
+          </colgroup>
           <thead className="bg-muted">
             <tr>
               {["날짜","업체","팀장1","팀장2","고객명","품목","비고","배송비","결제"].map((h) => (
-                <th key={h} className="px-2 py-1 text-left font-medium">{h}</th>
+                <th key={h} className="px-2 py-1 text-center font-medium whitespace-nowrap border-b">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t">
-                <td className="px-2 py-1">{r.date.slice(5)}</td>
-                <td className="px-2 py-1">{c.name}</td>
-                <td className="px-2 py-1">{r.display_leader1}</td>
-                <td className="px-2 py-1">{r.display_leader2}</td>
-                <td className="px-2 py-1">{r.customer_name ?? ""}</td>
-                <td className="px-2 py-1">{r.item ?? ""}</td>
-                <td className="px-2 py-1">{r.note ?? ""}</td>
-                <td className="px-2 py-1 text-right">{fmt(r.delivery_fee)}</td>
-                <td className="px-2 py-1 text-center">
+                <td className="px-2 py-1 text-center align-middle truncate">{r.date.slice(5)}</td>
+                <td className="px-2 py-1 text-center align-middle truncate">{c.name}</td>
+                <td className="px-2 py-1 text-center align-middle truncate">{r.display_leader1 ?? ""}</td>
+                <td className="px-2 py-1 text-center align-middle truncate">{r.display_leader2 ?? ""}</td>
+                <td className="px-2 py-1 text-center align-middle truncate">{r.customer_name ?? ""}</td>
+                <td className="px-2 py-1 text-center align-middle truncate">{r.item ?? ""}</td>
+                <td className="px-2 py-1 text-center align-middle truncate">{r.note ?? ""}</td>
+                <td className="px-2 py-1 text-center align-middle">{fmt(r.delivery_fee)}</td>
+                <td className="px-2 py-1 text-center align-middle">
                   {r.paid ? <Badge variant="secondary" className="text-[10px]">완료</Badge> : "-"}
                 </td>
               </tr>
@@ -820,49 +823,59 @@ function LeaderPreview({
         </div>
       )}
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-xs">
-          <thead className="bg-muted">
-            <tr>
-              {["날짜","업체","실제기사1","실제기사2","정산기사","고객명","배송지","품목","비고","수도권배송비","비고금액","지방배송비","착불","실지급배송비","분할","2인배송","건별 수수료","건별 계산후 지급액","건별 실지급액","정산처리"].map((h, i) => (
-                <th key={i} className="px-1 py-1 text-left font-medium whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr
-                key={r.delivery.id + "-" + i}
-                className={"border-t " + (r.isOeunkyuTransfer ? "bg-yellow-100/60" : "")}
-              >
-                <td className="px-1 py-1">{r.delivery.date.slice(5)}</td>
-                <td className="px-1 py-1">{r.delivery.company_name}</td>
-                <td className="px-1 py-1">{r.delivery.leader1_name ?? ""}</td>
-                <td className="px-1 py-1">{r.delivery.leader2_name ?? ""}</td>
-                <td className="px-1 py-1">{l.name}</td>
-                <td className="px-1 py-1">{r.delivery.customer_name ?? ""}</td>
-                <td className="px-1 py-1">{r.delivery.region ?? ""}</td>
-                <td className="px-1 py-1">{r.delivery.item ?? ""}</td>
-                <td className="px-1 py-1">{r.delivery.note ?? ""}</td>
-                <td className="px-1 py-1 text-right">{fmt(r.share.metro)}</td>
-                <td className="px-1 py-1 text-right">{fmt(r.share.note_amount)}</td>
-                <td className="px-1 py-1 text-right">{fmt(r.share.regional)}</td>
-                <td className="px-1 py-1 text-right">{fmt(r.share.cod)}</td>
-                <td className="px-1 py-1 text-right">{fmt(r.share.metro + r.share.note_amount + r.share.regional)}</td>
-                <td className="px-1 py-1">{r.delivery.split_type ?? ""}</td>
-                <td className="px-1 py-1 text-center">{r.delivery.two_person ? "✓" : ""}</td>
-                <td className="px-1 py-1 text-right">{fmt(r.unitFee)}</td>
-                <td className="px-1 py-1 text-right">{fmt(r.unitAfterFee)}</td>
-                <td className="px-1 py-1 text-right">{fmt(r.unitPayout)}</td>
-                <td className="px-1 py-1 text-[10px]">
-                  {r.isOeunkyuTransfer ? "오은규 → 오동선" : (r.share.reason ?? "")}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td colSpan={20} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
-            )}
-          </tbody>
-        </table>
+        {(() => {
+          const widths = [60,120,100,100,100,110,110,140,140,110,100,110,90,120,70,70,90,120,110,110];
+          const headers = ["날짜","업체","실제기사1","실제기사2","정산기사","고객명","배송지","품목","비고","수도권배송비","비고금액","지방배송비","착불","실지급배송비","분할","2인배송","건별 수수료","건별 계산후 지급액","건별 실지급액","정산처리"];
+          const minWidth = widths.reduce((a,b)=>a+b,0);
+          return (
+            <table className="text-xs border-collapse" style={{ tableLayout: "fixed", minWidth }}>
+              <colgroup>
+                {widths.map((w,i)=>(<col key={i} style={{ width: w }} />))}
+              </colgroup>
+              <thead className="bg-muted">
+                <tr>
+                  {headers.map((h, i) => (
+                    <th key={i} className="px-1 py-1 text-center font-medium whitespace-nowrap border-b">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr
+                    key={r.delivery.id + "-" + i}
+                    className={"border-t " + (r.isOeunkyuTransfer ? "bg-yellow-100/60" : "")}
+                  >
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.date.slice(5)}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.company_name}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.leader1_name ?? ""}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.leader2_name ?? ""}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{l.name}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.customer_name ?? ""}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.region ?? ""}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.item ?? ""}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.note ?? ""}</td>
+                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.metro)}</td>
+                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.note_amount)}</td>
+                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.regional)}</td>
+                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.cod)}</td>
+                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.metro + r.share.note_amount + r.share.regional)}</td>
+                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.split_type ?? ""}</td>
+                    <td className="px-1 py-1 text-center align-middle">{r.delivery.two_person ? "✓" : ""}</td>
+                    <td className="px-1 py-1 text-center align-middle">{fmt(r.unitFee)}</td>
+                    <td className="px-1 py-1 text-center align-middle">{fmt(r.unitAfterFee)}</td>
+                    <td className="px-1 py-1 text-center align-middle">{fmt(r.unitPayout)}</td>
+                    <td className="px-1 py-1 text-center align-middle text-[10px] truncate">
+                      {r.isOeunkyuTransfer ? "오은규 → 오동선" : (r.share.reason ?? "")}
+                    </td>
+                  </tr>
+                ))}
+                {rows.length === 0 && (
+                  <tr><td colSpan={20} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
+                )}
+              </tbody>
+            </table>
+          );
+        })()}
       </div>
       {l.account_number && (
         <div className="rounded-md border bg-muted/40 p-3 text-sm font-semibold">
