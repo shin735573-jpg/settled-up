@@ -592,10 +592,6 @@ export default function HQSettlement() {
               <span className="font-medium">{fmt(otherCommissionTotal)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">전체 매출</span>
-              <span className="font-medium">{fmt(grossSales)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">지출합계</span>
               <span className="font-medium">{fmt(expenseTotal)}</span>
             </div>
