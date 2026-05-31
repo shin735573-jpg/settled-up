@@ -115,11 +115,11 @@ export default function HQSettlement() {
       const [{ data: d }, { data: c }, { data: l }] = await Promise.all([
         supabase.from("deliveries").select("*").gte("date", start).lt("date", end),
         supabase.from("companies").select("id,name,active,issues_invoice,fee_rate_metro,fee_rate_regional").order("name"),
-        supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases,settle_status,deduction_amount,trash_cost,fee_rate_metro,fee_rate_regional,min_guarantee_enabled,min_guarantee_amount").order("name"),
+        supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases,settle_status,deduction_amount,trash_cost,region,fee_rate_metro,fee_rate_regional,min_guarantee_enabled,min_guarantee_amount").order("name"),
       ]);
       setRows(d || []);
       setCompanies((c as Company[]) || []);
-      setLeaders((l as Leader[]) || []);
+      setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
     })();
   }, [month]);
 
