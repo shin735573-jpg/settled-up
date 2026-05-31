@@ -401,8 +401,7 @@ export default function HQSettlement() {
   // ── 매출 / 수익
   // companyDeliveryTotal 에는 자동등록된 적재비가 이미 포함되므로
   // 미등록 적재비만 추가해 중복 집계를 방지한다.
-  // 신동석·삼호 수수료는 별도 항목으로 노출하고 기타 팀장 수수료와 합산
-  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal + hqDirectFee + otherCommissionTotal + shindongseokCommission + samhoCommission;
+  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal + hqDirectFee + leaderCommissionTotal;
   const hqProfit = grossSales - expenseTotal;
 
   // 업체정산관리 요약
