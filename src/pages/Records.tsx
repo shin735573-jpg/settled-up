@@ -367,6 +367,11 @@ function RecordsTable({
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
   const [badCols, setBadCols] = useState<Set<number>>(new Set());
   const [badRowIds, setBadRowIds] = useState<Set<string>>(new Set());
+  const [diag, setDiag] = useState<{
+    headCount: number;
+    expected: number;
+    rowCounts: Map<string, number>;
+  }>({ headCount: 0, expected: RECORDS_COLUMNS.length, rowCounts: new Map() });
 
   useEffect(() => {
     const tbl = tableRef.current;
@@ -379,6 +384,7 @@ function RecordsTable({
     const mismatches: string[] = [];
     const badColSet = new Set<number>();
     const badRowSet = new Set<string>();
+    const rowCounts = new Map<string, number>();
     if (headCount !== expected) {
       mismatches.push(`헤더 셀 수(${headCount}) ≠ 정의된 컬럼 수(${expected})`);
       // mark every column from divergence point
@@ -389,13 +395,15 @@ function RecordsTable({
       // skip placeholder row (uses colSpan)
       const isPlaceholder = tr.querySelector("td[colspan]");
       if (isPlaceholder) return;
+      const rid = (tr as HTMLElement).dataset.rowId;
+      if (rid) rowCounts.set(rid, tdCount);
       if (tdCount !== headCount) {
         mismatches.push(`${i + 1}행 셀 수(${tdCount}) ≠ 헤더(${headCount})`);
-        const rid = (tr as HTMLElement).dataset.rowId;
         if (rid) badRowSet.add(rid);
         for (let c = Math.min(tdCount, headCount); c < Math.max(tdCount, headCount); c++) badColSet.add(c);
       }
     });
+    setDiag({ headCount, expected, rowCounts });
     if (mismatches.length > 0) {
       const msg = `금액 컬럼 표시 위치가 맞지 않습니다. 헤더와 데이터 셀 순서를 확인하세요. [${mismatches.slice(0, 3).join(" / ")}]`;
       // eslint-disable-next-line no-console
@@ -431,6 +439,11 @@ function RecordsTable({
                   c.headerCls,
                   badCols.has(i) && "bg-destructive text-destructive-foreground ring-2 ring-destructive",
                 )}
+                title={
+                  badCols.has(i)
+                    ? `예상(헤더): #${i + 1} ${c.label}\n실제 헤더 셀 수: ${diag.headCount} / 정의된 컬럼 수: ${diag.expected}\n→ 이 위치에 데이터 셀이 없거나 어긋났습니다.`
+                    : undefined
+                }
               >
                 {badCols.has(i) ? `⚠ ${c.label}` : c.label}
               </TableHead>
@@ -470,6 +483,11 @@ function RecordsTable({
                     (extraProps as any).title = r.item || "";
                   }
                   const highlight = isBadRow && badCols.has(ci);
+                  if (highlight) {
+                    const actualCount = diag.rowCounts.get(r.id) ?? 0;
+                    (extraProps as any).title =
+                      `예상(헤더): #${ci + 1} ${c.label}\n실제 데이터 셀 인덱스: #${ci + 1} (행 셀 수 ${actualCount} / 헤더 ${diag.headCount})\n→ 헤더와 데이터 컬럼 순서를 확인하세요.`;
+                  }
                   return (
                     <TableCell
                       key={c.key}
