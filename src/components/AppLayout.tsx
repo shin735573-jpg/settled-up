@@ -17,37 +17,50 @@ const nav = [
 export default function AppLayout() {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const handleLogout = async () => { await signOut(); navigate("/auth"); };
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-muted/30">
-      <aside className="md:w-56 md:min-h-screen bg-card border-r flex md:flex-col">
-        <div className="px-4 py-4 border-b w-full">
-          <div className="font-bold text-lg">삼호정산표</div>
-          <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+      <aside className="md:w-56 md:min-h-screen bg-card border-r flex md:flex-col w-full">
+        <div className="px-4 py-3 border-b w-full flex items-center justify-between gap-2 md:block">
+          <div className="min-w-0">
+            <div className="font-bold text-lg leading-tight">삼호정산표</div>
+            <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+          </div>
+          {/* 모바일: 헤더 우측 로그아웃 버튼 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden shrink-0"
+            onClick={handleLogout}
+            aria-label="로그아웃"
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
         </div>
-        <nav className="flex md:flex-col flex-1 overflow-x-auto">
+        <nav className="flex md:flex-col flex-1 overflow-x-auto md:overflow-visible">
           {nav.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
               className={({ isActive }) =>
-                `flex items-center gap-2 px-4 py-3 text-sm whitespace-nowrap hover:bg-accent ${
-                  isActive ? "bg-accent font-semibold border-l-2 border-primary" : ""
+                `flex items-center gap-2 px-3 md:px-4 py-3 text-sm whitespace-nowrap shrink-0 hover:bg-accent min-h-[44px] ${
+                  isActive ? "bg-accent font-semibold border-b-2 md:border-b-0 md:border-l-2 border-primary" : ""
                 }`
               }
             >
-              <Icon className="h-4 w-4" />
-              {label}
+              <Icon className="h-4 w-4 shrink-0" />
+              <span>{label}</span>
             </NavLink>
           ))}
         </nav>
         <div className="p-3 border-t hidden md:block">
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={async () => { await signOut(); navigate("/auth"); }}>
+          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" /> 로그아웃
           </Button>
         </div>
       </aside>
-      <main className="flex-1 p-4 md:p-6 overflow-x-auto">
+      <main className="flex-1 p-3 md:p-6 overflow-x-auto min-w-0">
         <Outlet />
       </main>
     </div>
