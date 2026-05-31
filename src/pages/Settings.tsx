@@ -556,7 +556,7 @@ function CompaniesTab() {
       </Table>
       </div>
       <Dialog open={dupOpen} onOpenChange={setDupOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>업체 중복 검사 결과</DialogTitle>
           </DialogHeader>
