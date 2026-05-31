@@ -1426,6 +1426,82 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   // 미리보기에서 사용자가 제외한 행
   const [excludedRows, setExcludedRows] = useState<Record<number, boolean>>({});
 
+  // 사진(계약서/송장) OCR
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const readFileAsDataURL = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result));
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(file);
+    });
+
+  const tsvEscape = (s: string) => String(s ?? "").replace(/\t/g, " ").replace(/\r?\n/g, " ").trim();
+
+  const handlePhotos = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const arr = Array.from(files).slice(0, 20);
+    if (files.length > 20) {
+      toast({ title: "최대 20장까지만 처리됩니다", description: `${files.length}장 중 앞 20장만 사용`, variant: "destructive" });
+    }
+    setOcrLoading(true);
+    setOcrProgress({ done: 0, total: arr.length });
+    try {
+      // 파일 → base64 (브라우저 메모리에만, 저장소 업로드 없음)
+      const images: string[] = [];
+      for (let i = 0; i < arr.length; i++) {
+        images.push(await readFileAsDataURL(arr[i]));
+        setOcrProgress({ done: i + 1, total: arr.length * 2 });
+      }
+      const { data, error } = await supabase.functions.invoke("extract-invoice", { body: { images } });
+      // 메모리에서 즉시 제거
+      images.length = 0;
+      if (photoInputRef.current) photoInputRef.current.value = "";
+      if (error) throw error;
+      const rows: Array<{ customer: string; region: string; item: string; note: string; uncertain: string[]; source: number }> =
+        (data?.rows as any[]) ?? [];
+      const errors: Array<{ index: number; message: string }> = (data?.errors as any[]) ?? [];
+      if (rows.length === 0) {
+        toast({ title: "추출 결과 없음", description: errors[0]?.message || "사진에서 정보를 찾지 못했습니다", variant: "destructive" });
+        return;
+      }
+      // 기존 텍스트가 TSV 헤더로 시작하는지 확인, 없으면 헤더 추가
+      const headers = ["고객명", "배송지", "품목", "비고"];
+      const headerLine = headers.join("\t");
+      const prev = text.replace(/\s+$/, "");
+      const hasHeader = prev.split("\n").some((l) => l.trim() === headerLine);
+      const newLines: string[] = [];
+      if (!prev || !hasHeader) newLines.push(headerLine);
+      const mark = (v: string, key: string, uncertain: string[]) =>
+        uncertain.includes(key) ? (v ? `체크요망:${v}` : "체크요망") : v;
+      for (const r of rows) {
+        newLines.push([
+          tsvEscape(mark(r.customer, "customer", r.uncertain)),
+          tsvEscape(mark(r.region, "region", r.uncertain)),
+          tsvEscape(mark(r.item, "item", r.uncertain)),
+          tsvEscape(mark(r.note, "note", r.uncertain)),
+        ].join("\t"));
+      }
+      const next = (prev ? prev + "\n" : "") + newLines.join("\n");
+      setText(next);
+      toast({
+        title: `${rows.length}건 추출 완료`,
+        description: errors.length
+          ? `${errors.length}장 실패. 체크요망 표시는 수동 확인하세요.`
+          : `체크요망 표시된 셀은 수동으로 확인하세요.`,
+      });
+    } catch (e: any) {
+      toast({ title: "사진 분석 실패", description: e?.message || String(e), variant: "destructive" });
+    } finally {
+      setOcrLoading(false);
+      setOcrProgress(null);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  };
+
   const leaderIndex = useMemo(() => buildLeaderIndex(leaders), [leaders]);
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
   const leaderById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
