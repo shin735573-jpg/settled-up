@@ -73,6 +73,30 @@ const sumFee = (r: Delivery) => num(r.metro_fee) + num(r.note_amount) + num(r.re
 const normalizeDeductionLabel = (v: string) => v.trim().replace(/\s+/g, "").toLowerCase();
 
 /** 행에서 정산기사(=정산귀속 후의 팀장) ID 찾기. settle_to_id 따라 redirect. */
+function settlementLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null {
+  for (const id of [r.leader1_id, r.leader2_id, r.leader3_id]) {
+    if (!id) continue;
+    const l = byId.get(id);
+    if (!l) continue;
+    let cur: Leader | undefined = l;
+    const seen = new Set<string>();
+    while (cur?.settle_to_id && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      const nxt = byId.get(cur.settle_to_id);
+      if (!nxt) break;
+      cur = nxt;
+    }
+    return cur?.id ?? l.id;
+  }
+  return null;
+}
+
+function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null {
+  const id = r.leader1_id;
+  if (!id) return null;
+  return byId.has(id) ? id : null;
+}
+
 export default function LeaderSettlement() {
   const { user } = useAuth();
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
