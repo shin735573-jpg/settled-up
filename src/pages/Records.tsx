@@ -723,6 +723,8 @@ export default function Records() {
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchLeader, setSearchLeader] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // 동(洞) 단독 입력 시 수도권/지방 선택 다이얼로그
+  const [dongPrompt, setDongPrompt] = useState<string | null>(null);
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
