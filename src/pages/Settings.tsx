@@ -764,6 +764,46 @@ function CompaniesTab() {
     if (groups.length === 0) toast.success("중복된 업체가 없습니다.");
   };
 
+  // 그룹별 선택 상태 초기화: 모두 체크 + 첫 번째를 기준
+  const initSel = (groups: Company[][]) => {
+    const out: Record<string, { checked: Set<string>; canonical: string | null }> = {};
+    groups.forEach((g, i) => {
+      const key = groupKey(g, i);
+      out[key] = { checked: new Set(g.map((c) => c.id)), canonical: g[0]?.id || null };
+    });
+    return out;
+  };
+  const groupKey = (g: Company[], i: number) => `${i}:${g.map((c) => c.id).join(",")}`;
+  const toggleDupCheck = (key: string, id: string) => {
+    setDupSel((prev) => {
+      const cur = prev[key] || { checked: new Set<string>(), canonical: null };
+      const next = new Set(cur.checked);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      let canonical = cur.canonical;
+      if (canonical && !next.has(canonical)) canonical = null;
+      return { ...prev, [key]: { checked: next, canonical } };
+    });
+  };
+  const setDupCanonical = (key: string, id: string) => {
+    setDupSel((prev) => {
+      const cur = prev[key] || { checked: new Set<string>([id]), canonical: id };
+      const next = new Set(cur.checked);
+      next.add(id);
+      return { ...prev, [key]: { checked: next, canonical: id } };
+    });
+  };
+  const skipDupGroup = (g: Company[]) => {
+    setDupGroups((prev) => prev.filter((x) => x !== g));
+  };
+  const previewSelected = async (g: Company[], key: string) => {
+    const sel = dupSel[key];
+    if (!sel || !sel.canonical) { toast.error("기준 업체를 선택해 주세요."); return; }
+    const picked = g.filter((c) => sel.checked.has(c.id));
+    if (picked.length < 2) { toast.error("2개 이상 선택해 주세요."); return; }
+    if (!picked.some((c) => c.id === sel.canonical)) { toast.error("기준 업체를 선택 항목에 포함해 주세요."); return; }
+    await openPreview(picked, sel.canonical);
+  };
+
   // 유사 이름 검사: 임계값 이상 유사한 업체끼리 묶기 (Union-Find)
   const detectSimilar = (threshold = 0.7) => {
     const n = rows.length;
