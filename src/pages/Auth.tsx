@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 export default function Auth() {
-  const [email, setEmail] = useState("admin@test.com");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { session } = useAuth();
@@ -37,6 +38,20 @@ export default function Auth() {
     else { toast.success("회원가입 완료. 바로 로그인됩니다."); navigate("/"); }
   };
 
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      setLoading(false);
+      toast.error("구글 로그인 실패: " + result.error.message);
+      return;
+    }
+    if (result.redirected) return;
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
       <Card className="w-full max-w-md">
@@ -53,11 +68,25 @@ export default function Auth() {
               <div><Label>이메일</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" /></div>
               <div><Label>비밀번호</Label><Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" /></div>
               <Button className="w-full" onClick={signIn} disabled={loading}>로그인</Button>
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">또는</span></div>
+              </div>
+              <Button type="button" variant="outline" className="w-full" onClick={signInWithGoogle} disabled={loading}>
+                Google로 로그인
+              </Button>
             </TabsContent>
             <TabsContent value="signup" className="space-y-4 pt-4">
               <div><Label>이메일</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" /></div>
               <div><Label>비밀번호 (6자 이상)</Label><Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" /></div>
               <Button className="w-full" onClick={signUp} disabled={loading}>회원가입</Button>
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">또는</span></div>
+              </div>
+              <Button type="button" variant="outline" className="w-full" onClick={signInWithGoogle} disabled={loading}>
+                Google로 가입
+              </Button>
             </TabsContent>
           </Tabs>
         </CardContent>
