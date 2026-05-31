@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
@@ -21,6 +24,14 @@ import {
   type StmtDelivery,
   type StmtLeader,
 } from "@/lib/statementData";
+import {
+  validateCompanyStatement,
+  validateLeaderStatement,
+  validateOeunkyuTransferCoverage,
+  mergeResults,
+  type CheckResult,
+} from "@/lib/statementValidation";
+import { toast } from "@/hooks/use-toast";
 
 export default function Saves() {
   const { user } = useAuth();
@@ -90,7 +101,101 @@ export default function Saves() {
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
 
-  const notImpl = () => alert("이 기능은 다음 단계에서 추가됩니다 (PNG 생성 / 저장 / 검사).");
+  // ─── 저장 전 오류 검사 + 후속 저장 액션 ────────────────────
+  const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
+  const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
+  const [checkTitle, setCheckTitle] = useState<string>("");
+
+  function runChecksFor(opts: { company?: boolean; leader?: boolean; all?: boolean }): CheckResult {
+    const results: CheckResult[] = [];
+    const targetsC =
+      opts.all || (opts.company && !selectedCompanyId)
+        ? companyStmts
+        : opts.company && selectedCompany
+        ? [selectedCompany]
+        : [];
+    const targetsL =
+      opts.all || (opts.leader && !selectedLeaderId)
+        ? leaderStmts
+        : opts.leader && selectedLeader
+        ? [selectedLeader]
+        : [];
+
+    for (const data of targetsC) results.push(validateCompanyStatement(data));
+    for (const data of targetsL) {
+      results.push(
+        validateLeaderStatement(data, {
+          leaders,
+          ...special,
+          oeunkyuSpecial,
+        }),
+      );
+    }
+    // 오은규→오동선 누락 (공통 1회)
+    if ((opts.all || opts.leader) && special.oeunkyuId && special.odongseonId) {
+      const odongseonStmt = leaderStmts.find((s) => s.leader.id === special.odongseonId);
+      results.push(
+        validateOeunkyuTransferCoverage(
+          deliveries,
+          odongseonStmt,
+          special.oeunkyuId,
+          special.odongseonId,
+          oeunkyuSpecial,
+        ),
+      );
+    }
+    return mergeResults(...results);
+  }
+
+  function withValidation(title: string, opts: { company?: boolean; leader?: boolean; all?: boolean }, save: () => void) {
+    const result = runChecksFor(opts);
+    setCheckTitle(title);
+    setCheckResult(result);
+    if (result.ok && result.warnings.length === 0) {
+      // 완전 통과 → 즉시 다이얼로그 닫고 실행
+      setCheckResult(null);
+      save();
+      return;
+    }
+    // 오류 or 경고 → 다이얼로그 표시. setState(fn) 은 updater 로 해석되므로 한 번 더 감싼다.
+    setPendingSave(() => (result.ok ? save : null));
+  }
+
+  const doSaveStub = (label: string) => () => {
+    toast({ title: "저장 단계 준비 중", description: `${label} — 오류 검사 통과. PNG 생성/업로드는 다음 단계에서 활성화됩니다.` });
+  };
+
+  const onSaveCompanyOne = () => withValidation(
+    `${selectedCompany?.company.name ?? "업체"} 정산서 저장`,
+    { company: true },
+    doSaveStub(`${selectedCompany?.company.name} 업체 정산서`),
+  );
+  const onSaveCompanyAll = () => withValidation(
+    "업체 전체 정산서 저장",
+    { all: true, company: true },
+    doSaveStub("업체 전체"),
+  );
+  const onSaveLeaderOne = () => withValidation(
+    `${selectedLeader?.leader.name ?? "팀장"} 정산서 저장`,
+    { leader: true },
+    doSaveStub(`${selectedLeader?.leader.name} 팀장 정산서`),
+  );
+  const onSaveLeaderAll = () => withValidation(
+    "팀장 전체 정산서 저장",
+    { all: true, leader: true },
+    doSaveStub("팀장 전체"),
+  );
+  const onRegenerate = () => withValidation(
+    "정산서 재생성",
+    { all: true, company: true, leader: true },
+    doSaveStub("재생성"),
+  );
+  const onCheckOnly = () => {
+    const result = runChecksFor({ all: true, company: true, leader: true });
+    setCheckTitle("저장 전 오류 검사 결과");
+    setCheckResult(result);
+    setPendingSave(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -131,12 +236,12 @@ export default function Saves() {
       {/* 기본 액션 버튼 */}
       <Card className="p-4">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Button size="lg" className="h-14" onClick={notImpl}>업체 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={notImpl}>업체 전체 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={notImpl}>팀장 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={notImpl}>팀장 전체 사진 저장</Button>
-          <Button size="lg" variant="secondary" className="h-14" onClick={notImpl}>정산서 재생성</Button>
-          <Button size="lg" variant="outline" className="h-14" onClick={notImpl}>저장 전 오류 검사</Button>
+          <Button size="lg" className="h-14" onClick={onSaveCompanyOne} disabled={!selectedCompany}>업체 사진 저장</Button>
+          <Button size="lg" className="h-14" onClick={onSaveCompanyAll} disabled={companyStmts.length === 0}>업체 전체 사진 저장</Button>
+          <Button size="lg" className="h-14" onClick={onSaveLeaderOne} disabled={!selectedLeader}>팀장 사진 저장</Button>
+          <Button size="lg" className="h-14" onClick={onSaveLeaderAll} disabled={leaderStmts.length === 0}>팀장 전체 사진 저장</Button>
+          <Button size="lg" variant="secondary" className="h-14" onClick={onRegenerate}>정산서 재생성</Button>
+          <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
         </div>
       </Card>
 
@@ -248,6 +353,68 @@ export default function Saves() {
       <p className="text-xs text-muted-foreground">
         ※ 1단계: 구조 + 기간/대상 선택 + 데이터 집계 완료. 다음 단계에서 정산서 렌더링(PNG 생성)·저장·오류검사가 추가됩니다.
       </p>
+
+      <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {checkTitle}
+              {checkResult && (
+                checkResult.errors.length > 0
+                  ? <Badge variant="destructive" className="ml-2">오류 {checkResult.errors.length}</Badge>
+                  : checkResult.warnings.length > 0
+                  ? <Badge variant="secondary" className="ml-2">경고 {checkResult.warnings.length}</Badge>
+                  : <Badge className="ml-2">통과</Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {checkResult?.errors.length
+                ? "오류가 있어 저장이 차단됩니다. 아래 항목을 수정 후 다시 시도하세요."
+                : checkResult?.warnings.length
+                ? "경고가 있습니다. 내용을 확인하고 진행 여부를 선택하세요."
+                : "이상 없습니다."}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[360px] pr-3">
+            <ul className="space-y-1 text-sm">
+              {checkResult?.findings.map((f, i) => (
+                <li
+                  key={i}
+                  className={
+                    "rounded border px-2 py-1 " +
+                    (f.severity === "error"
+                      ? "border-destructive/50 bg-destructive/10 text-destructive"
+                      : "border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-200")
+                  }
+                >
+                  <span className="mr-1 font-semibold">{f.severity === "error" ? "오류" : "경고"}</span>
+                  {f.message}
+                </li>
+              ))}
+              {checkResult && checkResult.findings.length === 0 && (
+                <li className="text-center text-muted-foreground">검사 완료 — 발견된 항목 없음</li>
+              )}
+            </ul>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCheckResult(null); setPendingSave(null); }}>
+              닫기
+            </Button>
+            {pendingSave && (
+              <Button
+                onClick={() => {
+                  const fn = pendingSave;
+                  setCheckResult(null);
+                  setPendingSave(null);
+                  fn();
+                }}
+              >
+                경고 확인 후 저장 진행
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
