@@ -38,6 +38,7 @@ import {
   type ParsedBackup,
   type RestoreMode,
   type RestoreResult,
+  type BatchError,
 } from "@/lib/excelBackup";
 import { validateBackupForRestore, type RestoreValidationResult } from "@/lib/restoreValidation";
 
