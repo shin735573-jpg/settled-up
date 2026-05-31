@@ -155,6 +155,16 @@ function CompaniesTab() {
   const [dupOpen, setDupOpen] = useState(false);
   const [dupGroups, setDupGroups] = useState<Company[][]>([]);
   const [merging, setMerging] = useState(false);
+  const [preview, setPreview] = useState<{
+    group: Company[];
+    canonical: Company;
+    others: Company[];
+    deliveries: any[];
+    deliveriesTotal: number;
+    prices: any[];
+    pricesTotal: number;
+    loading: boolean;
+  } | null>(null);
 
   const load = async () => {
     const [{ data }, { data: ls }] = await Promise.all([
@@ -263,6 +273,66 @@ function CompaniesTab() {
     } finally {
       setMerging(false);
     }
+  };
+
+  // 통합 전 미리보기: 옮겨질 배송/단가 데이터를 조회
+  const openPreview = async (group: Company[], canonicalId: string) => {
+    const canonical = group.find((g) => g.id === canonicalId);
+    if (!canonical) return;
+    const others = group.filter((g) => g.id !== canonicalId);
+    const otherIds = others.map((o) => o.id);
+    const otherNames = others.map((o) => o.name);
+    setPreview({
+      group, canonical, others,
+      deliveries: [], deliveriesTotal: 0, prices: [], pricesTotal: 0,
+      loading: true,
+    });
+    try {
+      // 배송: company_id 매칭 + (company_id null & 이름 매칭)
+      const [byId, byName, priceRes] = await Promise.all([
+        supabase
+          .from("deliveries")
+          .select("id,date,company_name,leader1_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount", { count: "exact" })
+          .in("company_id", otherIds.length ? otherIds : ["00000000-0000-0000-0000-000000000000"])
+          .order("date", { ascending: false })
+          .limit(50),
+        otherNames.length
+          ? supabase
+              .from("deliveries")
+              .select("id,date,company_name,leader1_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount", { count: "exact" })
+              .is("company_id", null)
+              .in("company_name", otherNames)
+              .order("date", { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [], count: 0 } as any),
+        supabase
+          .from("price_list")
+          .select("id,company_name,region_type,region_detail,item,spec,metro_fee,note_amount,regional_fee,cod_default", { count: "exact" })
+          .in("company_id", otherIds.length ? otherIds : ["00000000-0000-0000-0000-000000000000"])
+          .order("company_name")
+          .limit(50),
+      ]);
+      const dels = [...((byId.data as any[]) || []), ...((byName.data as any[]) || [])].slice(0, 50);
+      const delTotal = (byId.count || 0) + (byName.count || 0);
+      setPreview({
+        group, canonical, others,
+        deliveries: dels,
+        deliveriesTotal: delTotal,
+        prices: (priceRes.data as any[]) || [],
+        pricesTotal: priceRes.count || 0,
+        loading: false,
+      });
+    } catch (err: any) {
+      toast.error("미리보기 실패: " + (err?.message || String(err)));
+      setPreview(null);
+    }
+  };
+
+  const confirmMerge = async () => {
+    if (!preview) return;
+    const { group, canonical } = preview;
+    setPreview(null);
+    await mergeGroup(group, canonical.id);
   };
 
   const mergeAll = async () => {
@@ -377,9 +447,9 @@ function CompaniesTab() {
                           size="sm"
                           variant="outline"
                           disabled={merging}
-                          onClick={() => mergeGroup(g, c.id)}
+                          onClick={() => openPreview(g, c.id)}
                         >
-                          이 업체로 통합
+                          이 업체로 통합 (미리보기)
                         </Button>
                       </div>
                     ))}
@@ -393,6 +463,109 @@ function CompaniesTab() {
               <Button onClick={mergeAll} disabled={merging}>전체 자동 통합</Button>
             )}
             <Button variant="outline" onClick={() => setDupOpen(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!preview} onOpenChange={(v) => !v && setPreview(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>통합 미리보기</DialogTitle>
+          </DialogHeader>
+          {preview && (
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                <div>
+                  기준 업체: <span className="font-bold">{preview.canonical.name}</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  통합 대상({preview.others.length}개): {preview.others.map((o) => o.name).join(", ")}
+                </div>
+                <div className="mt-2 flex gap-4 text-xs">
+                  <span>배송 기록: <b>{preview.loading ? "…" : preview.deliveriesTotal}</b>건 이동</span>
+                  <span>단가표: <b>{preview.loading ? "…" : preview.pricesTotal}</b>건 이동</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">
+                  배송 기록 미리보기 (최대 50건)
+                </div>
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/60">
+                      <tr>
+                        {["날짜", "현재업체명", "팀장", "고객", "품목", "수도권", "비고금액", "지방", "착불"].map((h) => (
+                          <th key={h} className="px-2 py-1 text-left font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.deliveries.map((d) => (
+                        <tr key={d.id} className="border-t">
+                          <td className="px-2 py-1 whitespace-nowrap">{d.date}</td>
+                          <td className="px-2 py-1">{d.company_name}</td>
+                          <td className="px-2 py-1">{d.leader1_name || ""}</td>
+                          <td className="px-2 py-1">{d.customer_name || ""}</td>
+                          <td className="px-2 py-1 truncate max-w-[160px]">{d.item || ""}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{Number(d.metro_fee || 0).toLocaleString()}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{Number(d.note_amount || 0).toLocaleString()}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{Number(d.regional_fee || 0).toLocaleString()}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{Number(d.cod_amount || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {!preview.loading && preview.deliveries.length === 0 && (
+                        <tr><td colSpan={9} className="px-2 py-3 text-center text-muted-foreground">이동할 배송 기록이 없습니다.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 text-xs font-medium text-muted-foreground">
+                  단가표 미리보기 (최대 50건)
+                </div>
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/60">
+                      <tr>
+                        {["현재업체명", "권역", "상세", "품목", "규격", "수도권", "비고금액", "지방", "착불기본"].map((h) => (
+                          <th key={h} className="px-2 py-1 text-left font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.prices.map((p) => (
+                        <tr key={p.id} className="border-t">
+                          <td className="px-2 py-1">{p.company_name}</td>
+                          <td className="px-2 py-1">{p.region_type || ""}</td>
+                          <td className="px-2 py-1">{p.region_detail || ""}</td>
+                          <td className="px-2 py-1 truncate max-w-[160px]">{p.item || ""}</td>
+                          <td className="px-2 py-1">{p.spec || ""}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{Number(p.metro_fee || 0).toLocaleString()}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{Number(p.note_amount || 0).toLocaleString()}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{Number(p.regional_fee || 0).toLocaleString()}</td>
+                          <td className="px-2 py-1 text-right tabular-nums">{Number(p.cod_default || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {!preview.loading && preview.prices.length === 0 && (
+                        <tr><td colSpan={9} className="px-2 py-3 text-center text-muted-foreground">이동할 단가표가 없습니다.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-muted-foreground">
+                실행하면 위 데이터의 업체가 <b>{preview.canonical.name}</b>(으)로 변경되고, 기존 중복 업체 {preview.others.length}개는 삭제됩니다. 되돌릴 수 없습니다.
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreview(null)} disabled={merging}>취소</Button>
+            <Button onClick={confirmMerge} disabled={merging || !preview || preview.loading}>
+              {merging ? "통합 중…" : "통합 실행"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
