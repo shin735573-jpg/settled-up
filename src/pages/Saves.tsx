@@ -41,15 +41,69 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Cloud, CloudOff } from "lucide-react";
 
+/**
+ * 오늘 날짜 기준으로 "현재 저장 대상 기간"을 자동 계산
+ *  - 매월 1~15일  → 직전 달의 h2 (16~말일)  정산서 저장 시기
+ *  - 매월 16~말일 → 이번 달의 h1 (1~15일) 정산서 저장 시기
+ */
+function getCurrentSavingPeriod(today: Date = new Date()): { month: string; period: PeriodKey } {
+  const y = today.getFullYear();
+  const m = today.getMonth(); // 0-base
+  const d = today.getDate();
+  if (d <= 15) {
+    // 직전 달의 h2
+    const prev = new Date(y, m - 1, 1);
+    const month = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+    return { month, period: "h2" };
+  }
+  // 이번 달의 h1
+  const month = `${y}-${String(m + 1).padStart(2, "0")}`;
+  return { month, period: "h1" };
+}
+
 export default function Saves() {
   const { user } = useAuth();
   const uid = user?.id;
   const settings = useMemo(() => (uid ? loadCompanySettings(uid) : null), [uid]);
 
-  const [month, setMonth] = useState<string>(() =>
-    settings?.defaultMonth || new Date().toISOString().slice(0, 7),
-  );
-  const [period, setPeriod] = useState<PeriodKey>("h1");
+  // 날짜에 맞춰 자동으로 월/기간 초기화
+  const initial = useMemo(() => getCurrentSavingPeriod(), []);
+  const [month, setMonth] = useState<string>(() => settings?.defaultMonth || initial.month);
+  const [period, setPeriod] = useState<PeriodKey>(initial.period);
+  const [autoPeriod, setAutoPeriod] = useState<boolean>(() => {
+    try { return localStorage.getItem("saves.autoPeriod") !== "0"; } catch { return true; }
+  });
+  const toggleAutoPeriod = (v: boolean) => {
+    setAutoPeriod(v);
+    try { localStorage.setItem("saves.autoPeriod", v ? "1" : "0"); } catch { /* noop */ }
+    if (v) {
+      const cur = getCurrentSavingPeriod();
+      setMonth(cur.month);
+      setPeriod(cur.period);
+    }
+  };
+
+  // 자동 모드일 때: 마운트 후 자정 경과/탭 포커스 복귀 시 현재 기간으로 재동기화
+  useEffect(() => {
+    if (!autoPeriod) return;
+    const sync = () => {
+      const cur = getCurrentSavingPeriod();
+      setMonth((prev) => (prev === cur.month ? prev : cur.month));
+      setPeriod((prev) => (prev === cur.period ? prev : cur.period));
+    };
+    sync();
+    const onFocus = () => sync();
+    const onVis = () => { if (document.visibilityState === "visible") sync(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    // 매 시간 한 번씩 점검 (자정 경과 대응)
+    const id = window.setInterval(sync, 60 * 60 * 1000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+      window.clearInterval(id);
+    };
+  }, [autoPeriod]);
 
   const [companies, setCompanies] = useState<StmtCompany[]>([]);
   const [leaders, setLeaders] = useState<StmtLeader[]>([]);
@@ -481,13 +535,13 @@ export default function Saves() {
             <Input
               type="month"
               value={month}
-              onChange={(e) => setMonth(e.target.value)}
+              onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }}
               className="w-[160px]"
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">기간</Label>
-            <Select value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
+            <Select value={period} onValueChange={(v) => { setPeriod(v as PeriodKey); if (autoPeriod) toggleAutoPeriod(false); }}>
               <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="h1">1~15일</SelectItem>
@@ -495,6 +549,15 @@ export default function Saves() {
                 <SelectItem value="all">월전체</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">날짜 자동</Label>
+            <div className="flex h-10 items-center gap-2 rounded-md border px-3">
+              <Switch checked={autoPeriod} onCheckedChange={toggleAutoPeriod} />
+              <span className="text-xs text-muted-foreground">
+                {autoPeriod ? "자동" : "수동"}
+              </span>
+            </div>
           </div>
           <Button variant="outline" onClick={reload} disabled={loading}>
             새로고침
