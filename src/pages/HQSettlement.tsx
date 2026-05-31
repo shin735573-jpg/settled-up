@@ -17,6 +17,8 @@ import { allocateRow, feeForShare } from "@/lib/splitAllocation";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
+import { Switch } from "@/components/ui/switch";
+import { getCurrentHalf } from "@/lib/autoPeriod";
 import { toast } from "@/hooks/use-toast";
 
 type Period = "h1" | "h2" | "all";
@@ -98,8 +100,40 @@ const DEFAULT_EXPENSES: Expenses = {
 export default function HQSettlement() {
   const { user } = useAuth();
   const uid = user?.id ?? "anon";
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [period, setPeriod] = useState<Period>("all");
+  const initial = useMemo(() => getCurrentHalf(), []);
+  const [autoPeriod, setAutoPeriod] = useState<boolean>(() => {
+    try { return localStorage.getItem("hqSettlement.autoPeriod") !== "0"; } catch { return true; }
+  });
+  const [month, setMonth] = useState(() => initial.month);
+  const [period, setPeriod] = useState<Period>(initial.half);
+  const toggleAutoPeriod = (v: boolean) => {
+    setAutoPeriod(v);
+    try { localStorage.setItem("hqSettlement.autoPeriod", v ? "1" : "0"); } catch { /* noop */ }
+    if (v) {
+      const cur = getCurrentHalf();
+      setMonth(cur.month);
+      setPeriod(cur.half);
+    }
+  };
+  useEffect(() => {
+    if (!autoPeriod) return;
+    const sync = () => {
+      const cur = getCurrentHalf();
+      setMonth((prev) => (prev === cur.month ? prev : cur.month));
+      setPeriod((prev) => (prev === cur.half ? prev : cur.half));
+    };
+    sync();
+    const onFocus = () => sync();
+    const onVis = () => { if (document.visibilityState === "visible") sync(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    const id = window.setInterval(sync, 60 * 60 * 1000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+      window.clearInterval(id);
+    };
+  }, [autoPeriod]);
   const [rows, setRows] = useState<Delivery[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
@@ -450,14 +484,18 @@ export default function HQSettlement() {
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-2xl font-bold flex-1">본사정산</h1>
         <PrintButton documentTitle={`본사정산_${month}`} />
-        <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-40" />
-        <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
+        <Input type="month" value={month} onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }} className="w-40" />
+        <Tabs value={period} onValueChange={(v) => { setPeriod(v as Period); if (autoPeriod) toggleAutoPeriod(false); }}>
           <TabsList>
             <TabsTrigger value="all">전체</TabsTrigger>
             <TabsTrigger value="h1">1~15일</TabsTrigger>
             <TabsTrigger value="h2">16~말일</TabsTrigger>
           </TabsList>
         </Tabs>
+        <div className="flex items-center gap-2 ml-2">
+          <span className="text-xs text-muted-foreground">날짜 자동</span>
+          <Switch checked={autoPeriod} onCheckedChange={toggleAutoPeriod} />
+        </div>
       </div>
 
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
