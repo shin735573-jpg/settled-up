@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,8 @@ import {
   type CheckResult,
 } from "@/lib/statementValidation";
 import { toast } from "@/hooks/use-toast";
+import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
+import { getEntry, keyFor } from "@/lib/statementVersion";
 
 export default function Saves() {
   const { user } = useAuth();
