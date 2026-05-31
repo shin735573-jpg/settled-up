@@ -1375,7 +1375,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   };
 
   // 미등록 팀장 목록
-  const VIRTUAL_LEADER_KEYWORDS: string[] = [];
+  const VIRTUAL_LEADER_KEYWORDS: string[] = ["가상", "virtual", "가상기사", "가상팀장"];
   const unregisteredLeaders = useMemo(() => {
     const set = new Set<string>();
     const add = (raw: string) => {
