@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -73,10 +74,10 @@ export default function CompanySettlement() {
     (async () => {
       const [{ data: c }, { data: l }] = await Promise.all([
         supabase.from("companies").select("*").eq("active", true).order("name"),
-        supabase.from("team_leaders").select("id,name,aliases,is_rejected,settle_to_id"),
+        supabase.from("team_leaders").select("id,name,aliases,is_rejected,settle_to_id,region,fee_rate_metro,fee_rate_regional"),
       ]);
       setCompanies(c || []);
-      setLeaders(l || []);
+      setLeaders(sortLeadersByFeeAsc(l || []));
     })();
   }, []);
 

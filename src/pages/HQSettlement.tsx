@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { sortLeadersByFeeAsc, compareLeadersByFeeAsc } from "@/lib/leaderSort";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ type Leader = {
   id: string; name: string; active: boolean; is_rejected: boolean; is_virtual: boolean;
   settle_to_id: string | null; settle_status?: "included" | "excluded" | null;
   aliases?: string[] | null; deduction_amount?: number; trash_cost?: number;
+  region?: string | null;
   fee_rate_metro?: number; fee_rate_regional?: number;
   min_guarantee_enabled?: boolean; min_guarantee_amount?: number;
 };
@@ -114,11 +116,11 @@ export default function HQSettlement() {
       const [{ data: d }, { data: c }, { data: l }] = await Promise.all([
         supabase.from("deliveries").select("*").gte("date", start).lt("date", end),
         supabase.from("companies").select("id,name,active,issues_invoice,fee_rate_metro,fee_rate_regional").order("name"),
-        supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases,settle_status,deduction_amount,trash_cost,fee_rate_metro,fee_rate_regional,min_guarantee_enabled,min_guarantee_amount").order("name"),
+        supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases,settle_status,deduction_amount,trash_cost,region,fee_rate_metro,fee_rate_regional,min_guarantee_enabled,min_guarantee_amount").order("name"),
       ]);
       setRows(d || []);
       setCompanies((c as Company[]) || []);
-      setLeaders((l as Leader[]) || []);
+      setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
     })();
   }, [month]);
 
@@ -221,7 +223,12 @@ export default function HQSettlement() {
         fee, cod: x.cod, commission, deduct: x.deduct, payout,
         minGuarantee: x.minGuarantee, topUp,
       };
-    }).sort((a, b) => b.payout - a.payout);
+    }).sort((a, b) => {
+      const la = byId.get(a.id);
+      const lb = byId.get(b.id);
+      if (la && lb) return compareLeadersByFeeAsc(la, lb);
+      return (a.name || "").localeCompare(b.name || "");
+    });
   }, [leaders, validRows, byId]);
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
