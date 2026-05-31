@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save } from "lucide-react";
@@ -30,10 +30,10 @@ export default function AppLayout() {
     <div className="min-h-screen flex flex-col md:flex-row bg-muted/30">
       <aside className="md:w-56 md:min-h-screen bg-card border-r flex flex-col w-full print:hidden">
         <div className="px-3 py-2 md:px-4 md:py-3 border-b w-full flex items-center justify-between gap-2 md:block">
-          <div className="min-w-0">
+          <Link to="/" className="min-w-0 flex-1 md:flex-none">
             <div className="font-bold text-base md:text-lg leading-tight">삼호정산표</div>
             <div className="hidden md:block text-xs text-muted-foreground truncate">{user?.email}</div>
-          </div>
+          </Link>
           {/* 모바일: 헤더 우측 로그아웃 버튼 */}
           <Button
             variant="ghost"
