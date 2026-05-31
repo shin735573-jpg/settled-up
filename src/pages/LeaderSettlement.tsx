@@ -284,6 +284,17 @@ export default function LeaderSettlement() {
     [leaders],
   );
 
+  // 자동검증 (내부 관점)
+  const audit = useMemo(
+    () => auditDeliveries({
+      deliveries: rows as any,
+      companies,
+      leaders,
+      mode: "internal",
+    }),
+    [rows, companies, leaders],
+  );
+
   /** leaderId(정산기사) → 합산 대상 ID 집합 (본인 + 본인에게 settle_to인 팀장들) */
   const targetSetFor = (lid: string): Set<string> => {
     const s = new Set<string>([lid]);
@@ -670,6 +681,8 @@ export default function LeaderSettlement() {
           ))}
         </div>
       </div>
+
+      <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
       {!leaderId && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
