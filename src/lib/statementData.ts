@@ -184,12 +184,22 @@ export type LeaderDeductionDetail = {
 function computeLeaderDeductions(
   leaderId: string,
   ctx: DeductionContext | undefined,
+  leader?: SummaryLeader,
 ): LeaderDeductionDetail {
   const out: LeaderDeductionDetail = {
     commonLines: [], personalLines: [],
     commonTotal: 0, personalTotal: 0, total: 0,
   };
   if (!ctx) return out;
+  const isHyungjuDongseok = (() => {
+    const name = (leader?.name || "").trim();
+    const aliases = leader?.aliases || [];
+    return name === "강형주" || name === "신동석" || aliases.includes("형주") || aliases.includes("동석");
+  })();
+  const isTrashLabel = (label: string) => {
+    const key = (label || "").trim().replace(/\s+/g, "").toLowerCase();
+    return key.includes("쓰레기") || key.includes("trash");
+  };
   // 공통공제: 활성 항목 × commonPeriodKeys (보름당 1회)
   const uniqueCommon = new Map<string, StmtCommonDeduction>();
   for (const cd of ctx.commonDeductions) {
@@ -201,7 +211,7 @@ function computeLeaderDeductions(
       const ov = ctx.commonOverrides.find(
         (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id && o.period_key === pk,
       );
-      const amount = ov ? Number(ov.amount) : Number(cd.amount);
+      const amount = ov ? Number(ov.amount) : (isHyungjuDongseok && isTrashLabel(cd.label) ? 0 : Number(cd.amount));
       if (amount > 0) {
         out.commonLines.push({ label: cd.label, amount, periodKey: pk });
         out.commonTotal += amount;
@@ -384,7 +394,7 @@ export function buildLeaderStatements(
     const codSum = rows.reduce((s, r) => s + r.share.cod, 0);
     const feeTotal = rows.reduce((s, r) => s + r.unitFee, 0);
     const afterFee = realFee - feeTotal;
-    const ded = computeLeaderDeductions(leader.id, deductionCtx);
+    const ded = computeLeaderDeductions(leader.id, deductionCtx, leader);
     const deductionTotal = ded.total;
     const payout = afterFee - codSum - deductionTotal;
     const vat = leader.issues_invoice ? Math.round(payout * 0.1) : 0;
