@@ -558,7 +558,20 @@ function RecordsTable({
                     : undefined
                 }
               >
-                {badCols.has(i) ? `⚠ ${c.label}` : c.label}
+                {c.renderHeader
+                  ? c.renderHeader({
+                      allSelected: records.length > 0 && records.every((r) => selectedIds.has(r.id)),
+                      someSelected: records.some((r) => selectedIds.has(r.id)),
+                      toggleAll: (v) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          if (v) records.forEach((r) => next.add(r.id));
+                          else records.forEach((r) => next.delete(r.id));
+                          return next;
+                        });
+                      },
+                    })
+                  : (badCols.has(i) ? `⚠ ${c.label}` : c.label)}
               </TableHead>
             ))}
           </TableRow>
@@ -577,6 +590,12 @@ function RecordsTable({
               displayLeaderById,
               removeRow,
               displaySettlementStatus,
+              selected: selectedIds.has(r.id),
+              toggleSelect: () => setSelectedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                return next;
+              }),
             };
             return (
               <TableRow
