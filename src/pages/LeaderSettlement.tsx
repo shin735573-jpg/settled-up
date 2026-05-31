@@ -813,17 +813,51 @@ export default function LeaderSettlement() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4 num">
-            <Stat label="배송건수" value={detailCalc.count} raw />
-            <Stat label="수도권배송비" value={detailCalc.metro} />
-            <Stat label="비고금액" value={detailCalc.noteAmt} />
-            <Stat label="지방배송비" value={detailCalc.regional} />
-            <Stat label="실지급배송비" value={detailCalc.total} />
-            <Stat label="착불 합계" value={detailCalc.cod} />
-            <Stat label="수수료 합계" value={detailCalc.fees} />
-            <Stat label="계산후 지급금액" value={detailCalc.afterFees} />
-            <Stat label="공제총액" value={detailCalc.deduction} />
-            <Stat label="실지급액" value={detailCalc.net} highlight />
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 mb-4">
+            {/* 좌측: 팀장 내역 */}
+            <div>
+              <h3 className="font-semibold text-sm mb-2">팀장 내역</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 num">
+                <Stat label="배송건수" value={detailCalc.count} raw />
+                <Stat label="수도권배송비" value={detailCalc.metro} />
+                <Stat label="비고금액" value={detailCalc.noteAmt} />
+                <Stat label="지방배송비" value={detailCalc.regional} />
+                <Stat label="착불 합계" value={detailCalc.cod} />
+                <Stat label="수수료 합계" value={detailCalc.fees} />
+                <Stat label="계산후 지급금액" value={detailCalc.afterFees} />
+                <Stat label="공제총액" value={detailCalc.deduction} />
+                <Stat label="실지급액" value={detailCalc.net} highlight />
+              </div>
+            </div>
+            {/* 우측: 배송한 업체 상위 7개 */}
+            <div>
+              <h3 className="font-semibold text-sm mb-2">배송한 업체 상위 7개</h3>
+              <div className="rounded border overflow-hidden">
+                <table className="w-full text-xs num">
+                  <thead className="bg-muted/40">
+                    <tr className="border-b">
+                      <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">업체명</th>
+                      <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-16">건수</th>
+                      <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-28">배송비합</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailByCompany.slice(0, 7).map((c) => (
+                      <tr key={c.company} className="border-b last:border-0">
+                        <td className="px-2 py-1.5 truncate max-w-[160px]">{c.company}</td>
+                        <td className="px-2 py-1.5 text-right">{c.count.toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold">{fmt(c.total)}</td>
+                      </tr>
+                    ))}
+                    {detailByCompany.length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="text-center text-muted-foreground py-4">데이터 없음</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-3 mb-4">
@@ -950,7 +984,6 @@ export default function LeaderSettlement() {
                     <TableHead className="text-right">수도권배송비</TableHead>
                     <TableHead className="text-right">비고금액</TableHead>
                     <TableHead className="text-right">지방배송비</TableHead>
-                    <TableHead className="text-right">실지급배송비</TableHead>
                     <TableHead className="text-right">착불합계</TableHead>
                     <TableHead className="text-right">수수료합계</TableHead>
                     <TableHead className="text-right">계산후 지급금액</TableHead>
@@ -964,14 +997,13 @@ export default function LeaderSettlement() {
                       <TableCell className="text-right">{fmt(c.metro)}</TableCell>
                       <TableCell className="text-right">{fmt(c.noteAmt)}</TableCell>
                       <TableCell className="text-right">{fmt(c.regional)}</TableCell>
-                      <TableCell className="text-right font-semibold">{fmt(c.total)}</TableCell>
                       <TableCell className="text-right">{fmt(c.cod)}</TableCell>
                       <TableCell className="text-right">{fmt(c.fees)}</TableCell>
                       <TableCell className="text-right font-bold">{fmt(c.afterFees)}</TableCell>
                     </TableRow>
                   ))}
                   {detailByCompany.length === 0 && (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-4">데이터 없음</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-4">데이터 없음</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
