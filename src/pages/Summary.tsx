@@ -7,9 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fmt } from "@/lib/format";
 import { allocateRow } from "@/lib/splitAllocation";
+import { auditDeliveries } from "@/lib/liveAudit";
+import { AuditBanner } from "@/components/AuditBanner";
 
 type Delivery = any;
-type Company = { id: string; name: string; active: boolean };
+type Company = {
+  id: string; name: string; active: boolean;
+  issues_invoice?: boolean | null;
+  rejected_leader_id?: string | null;
+  rejected_leader_id_2?: string | null;
+  rejected_leader_id_3?: string | null;
+};
 type Leader = {
   id: string; name: string; active: boolean; is_rejected: boolean; is_virtual: boolean;
   settle_to_id: string | null; settle_status?: "included" | "excluded" | null;
@@ -55,7 +63,7 @@ export default function Summary() {
       const end = next.toISOString().slice(0, 10);
       const [{ data: d }, { data: c }, { data: l }] = await Promise.all([
         supabase.from("deliveries").select("*").gte("date", start).lt("date", end),
-        supabase.from("companies").select("id,name,active").order("name"),
+        supabase.from("companies").select("id,name,active,issues_invoice,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
         supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases,settle_status,deduction_amount,trash_cost,region,fee_rate_metro,fee_rate_regional").order("name"),
       ]);
       setRows(d || []);
@@ -268,6 +276,17 @@ export default function Summary() {
     ];
   }, [companyAgg, leaderAgg, byId, leaders, shindongseokId, ganghyungjuId]);
 
+  // 자동검증 (내부 관점)
+  const audit = useMemo(
+    () => auditDeliveries({
+      deliveries: periodRows,
+      companies,
+      leaders,
+      mode: "internal",
+    }),
+    [periodRows, companies, leaders],
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -282,6 +301,7 @@ export default function Summary() {
           <TabsTrigger value="all">월전체</TabsTrigger>
         </TabsList>
         <TabsContent value={period} className="space-y-4">
+      <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="font-semibold">
