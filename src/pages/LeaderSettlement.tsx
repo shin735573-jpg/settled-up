@@ -11,6 +11,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
 import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
+import { auditDeliveries } from "@/lib/liveAudit";
+import { AuditBanner } from "@/components/AuditBanner";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -104,6 +106,12 @@ export default function LeaderSettlement() {
   const [period, setPeriod] = useState<Period>("month");
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [rows, setRows] = useState<Delivery[]>([]);
+  const [companies, setCompanies] = useState<Array<{
+    id: string; name: string; issues_invoice: boolean;
+    rejected_leader_id: string | null;
+    rejected_leader_id_2: string | null;
+    rejected_leader_id_3: string | null;
+  }>>([]);
   const [leaderId, setLeaderId] = useState<string>("");
   const [commonDeductions, setCommonDeductions] = useState<CommonDeduction[]>([]);
   const [periodDeductions, setPeriodDeductions] = useState<LeaderPeriodDeduction[]>([]);
@@ -134,12 +142,14 @@ export default function LeaderSettlement() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: l }, { data: cd }] = await Promise.all([
+      const [{ data: l }, { data: cd }, { data: co }] = await Promise.all([
         supabase.from("team_leaders").select("*").order("name"),
         supabase.from("common_deductions").select("id,label,amount,active").order("sort_order"),
+        supabase.from("companies").select("id,name,issues_invoice,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
       ]);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
       setCommonDeductions((cd as CommonDeduction[]) || []);
+      setCompanies((co as any) || []);
     })();
   }, []);
 
