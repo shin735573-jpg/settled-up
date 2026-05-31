@@ -40,6 +40,7 @@ import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExpor
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { computeGate, setClosed as setGateClosed } from "@/lib/settlementGate";
+import { Cloud, CloudOff } from "lucide-react";
 
 export default function Saves() {
   const { user } = useAuth();
@@ -264,6 +265,32 @@ export default function Saves() {
     skippedCompanies: { name: string; reason: string }[];
     skippedLeaders: { name: string; reason: string }[];
   }>(null);
+
+  // ─── OneDrive 업로드 옵션 ────────────────────────────────
+  const [uploadOD, setUploadOD] = useState<boolean>(() => {
+    try { return localStorage.getItem("saves.uploadOD") === "1"; } catch { return false; }
+  });
+  const toggleUploadOD = (v: boolean) => {
+    setUploadOD(v);
+    try { localStorage.setItem("saves.uploadOD", v ? "1" : "0"); } catch { /* noop */ }
+  };
+  const [verifyingOD, setVerifyingOD] = useState(false);
+  async function verifyOneDrive() {
+    setVerifyingOD(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("onedrive-upload", { body: { action: "verify" } });
+      if (error) throw new Error(error.message);
+      if (data?.ok) {
+        toast({ title: "OneDrive 연결 확인", description: `드라이브: ${data.drive?.name ?? "OK"}${data.drive?.owner ? ` (${data.drive.owner})` : ""}` });
+      } else {
+        toast({ title: "OneDrive 연결 실패", description: data?.error ?? "응답 없음", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: "OneDrive 연결 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setVerifyingOD(false);
+    }
+  }
 
   // ─── 저장 전 오류 검사 + 후속 저장 액션 ────────────────────
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
