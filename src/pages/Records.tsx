@@ -435,6 +435,7 @@ function validateRecordsTableColumnDefinition(): ValidationIssue[] {
 
 function RecordsTable({
   records, issuesByRow, expandedItems, setExpandedItems, editRow, removeRow, displayLeaderById, displaySettlementStatus,
+  selectedIds, setSelectedIds,
 }: {
   records: any[];
   issuesByRow: Map<string, ValidationIssue[]>;
@@ -444,6 +445,8 @@ function RecordsTable({
   removeRow: (id: string) => void;
   displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
   displaySettlementStatus: (r: any) => string;
+  selectedIds: Set<string>;
+  setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
