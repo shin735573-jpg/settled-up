@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -294,6 +295,9 @@ export default function LeaderSettlement() {
     }),
     [rows, companies, leaders],
   );
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  useArrowKeyNav(rootRef);
 
   /** leaderId(정산기사) → 합산 대상 ID 집합 (본인 + 본인에게 settle_to인 팀장들) */
   const targetSetFor = (lid: string): Set<string> => {
@@ -656,7 +660,7 @@ export default function LeaderSettlement() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={rootRef}>
       <div className="flex flex-wrap items-center gap-2">
         {leaderId && (
           <Button variant="outline" size="sm" onClick={() => setLeaderId("")}>

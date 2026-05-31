@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1039,9 +1039,11 @@ export default function Records() {
 
   const hasErrors = (validation?.summary.errorCount ?? 0) > 0;
   const hasPeriodMismatch = (validation?.periodChecks || []).some((p) => p.status === "불일치");
+  const recordsRootRef = useRef<HTMLDivElement>(null);
+  useArrowKeyNav(recordsRootRef);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={recordsRootRef}>
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold flex-1">기록입력</h1>
         <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40" />

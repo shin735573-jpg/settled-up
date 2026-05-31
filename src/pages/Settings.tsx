@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,8 +58,10 @@ type Leader = {
 type Holiday = { id: string; date: string; scope: string; team_leader_id: string | null };
 
 export default function Settings() {
+  const rootRef = useRef<HTMLDivElement>(null);
+  useArrowKeyNav(rootRef);
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={rootRef}>
       <h1 className="text-2xl font-bold">설정</h1>
       <Tabs defaultValue="company">
         <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
