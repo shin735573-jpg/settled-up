@@ -600,6 +600,16 @@ function Stat({ label, value, accent }: { label: string; value: number | string;
   );
 }
 
+/** rowCount 를 pageSize 단위로 잘라 [start, end) 범위 배열을 반환. 0건이면 1페이지(빈) 반환 */
+function paginate(rowCount: number, pageSize: number): Array<{ start: number; end: number }> {
+  if (rowCount <= 0) return [{ start: 0, end: 0 }];
+  const out: Array<{ start: number; end: number }> = [];
+  for (let s = 0; s < rowCount; s += pageSize) {
+    out.push({ start: s, end: Math.min(s + pageSize, rowCount) });
+  }
+  return out;
+}
+
 function CompanyPreview({
   data,
 }: {
