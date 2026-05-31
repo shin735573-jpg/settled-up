@@ -645,14 +645,14 @@ function Stat({ label, value, highlight }: { label: string; value: number; highl
 }
 
 function SummaryCard({
-  label, value, sub, accent, bold,
-}: { label: string; value: string; sub?: string; accent?: boolean; bold?: boolean }) {
+  label, value, sub, accent, bold, red,
+}: { label: string; value: string; sub?: string; accent?: boolean; bold?: boolean; red?: boolean }) {
   return (
     <div className="p-4 rounded-lg border border-sky-200 bg-sky-50">
       <div className="text-xs text-sky-900/70">{label}</div>
       <div
         className={`mt-1 num ${bold ? "text-2xl font-extrabold" : "text-2xl font-bold"} ${
-          accent ? "text-orange-600" : "text-sky-900"
+          red ? "text-red-600" : accent ? "text-orange-600" : "text-sky-900"
         }`}
       >
         {value}
