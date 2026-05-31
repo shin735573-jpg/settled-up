@@ -765,9 +765,14 @@ function LeadersTab() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Leader[]>([]);
   const [name, setName] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = async () => {
-    const { data } = await supabase.from("team_leaders").select("*").order("name");
+    // 입력순(생성일 오름차순)으로 정렬
+    const { data } = await supabase
+      .from("team_leaders")
+      .select("*")
+      .order("created_at", { ascending: true });
     setRows((data as Leader[]) || []);
   };
   useEffect(() => { load(); }, []);
