@@ -423,6 +423,38 @@ export default function LeaderSettlement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailRows, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides]);
 
+  // 상세화면 업체별 요약 (기준서: 업체명/건수/수도권/비고/지방/실지급배송비/착불/수수료/계산후 지급금액)
+  const detailByCompany = useMemo(() => {
+    if (!leaderId) return [] as Array<{
+      company: string; count: number; metro: number; noteAmt: number; regional: number;
+      total: number; cod: number; fees: number; afterFees: number;
+    }>;
+    const map = new Map<string, {
+      company: string; count: number; metro: number; noteAmt: number; regional: number;
+      cod: number; fees: number;
+    }>();
+    detailRows.forEach((r) => {
+      const share = shareForSettling(r, leaderId);
+      if (!share) return;
+      const key = r.company_name || "(미지정)";
+      const cur = map.get(key) || { company: key, count: 0, metro: 0, noteAmt: 0, regional: 0, cod: 0, fees: 0 };
+      cur.count += share.count;
+      cur.metro += share.metro;
+      cur.noteAmt += share.noteAmt;
+      cur.regional += share.regional;
+      cur.cod += share.cod;
+      cur.fees += feeForRowSettling(r, leaderId);
+      map.set(key, cur);
+    });
+    return Array.from(map.values())
+      .map((v) => {
+        const total = v.metro + v.noteAmt + v.regional;
+        return { ...v, total, afterFees: total - v.fees };
+      })
+      .sort((a, b) => b.total - a.total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailRows, leaderId, leaders]);
+
   // 상세 진입 시 개별공제 로드
   useEffect(() => {
     if (!leaderId) { setDetailDeductions([]); setDetailCommonEdits({}); return; }
@@ -794,6 +826,45 @@ export default function LeaderSettlement() {
               </div>
             </Card>
           </div>
+
+          <Card className="p-3 mb-4">
+            <h3 className="font-semibold text-sm mb-2">업체별 요약</h3>
+            <div className="overflow-x-auto">
+              <Table className="text-xs num">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>업체명</TableHead>
+                    <TableHead className="text-right">배송건수</TableHead>
+                    <TableHead className="text-right">수도권배송비</TableHead>
+                    <TableHead className="text-right">비고금액</TableHead>
+                    <TableHead className="text-right">지방배송비</TableHead>
+                    <TableHead className="text-right">실지급배송비</TableHead>
+                    <TableHead className="text-right">착불합계</TableHead>
+                    <TableHead className="text-right">수수료합계</TableHead>
+                    <TableHead className="text-right">계산후 지급금액</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailByCompany.map((c) => (
+                    <TableRow key={c.company}>
+                      <TableCell>{c.company}</TableCell>
+                      <TableCell className="text-right">{c.count}</TableCell>
+                      <TableCell className="text-right">{fmt(c.metro)}</TableCell>
+                      <TableCell className="text-right">{fmt(c.noteAmt)}</TableCell>
+                      <TableCell className="text-right">{fmt(c.regional)}</TableCell>
+                      <TableCell className="text-right font-semibold">{fmt(c.total)}</TableCell>
+                      <TableCell className="text-right">{fmt(c.cod)}</TableCell>
+                      <TableCell className="text-right">{fmt(c.fees)}</TableCell>
+                      <TableCell className="text-right font-bold">{fmt(c.afterFees)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {detailByCompany.length === 0 && (
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-4">데이터 없음</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
 
           <div className="overflow-x-auto">
             <Table className="text-xs num">
