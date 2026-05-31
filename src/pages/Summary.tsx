@@ -13,7 +13,7 @@ import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { getCurrentHalf } from "@/lib/autoPeriod";
+import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 
 type Delivery = any;
 type Company = {
@@ -73,25 +73,11 @@ export default function Summary() {
       setPeriod(cur.half);
     }
   };
-  useEffect(() => {
-    if (!autoPeriod) return;
-    const sync = () => {
-      const cur = getCurrentHalf();
-      setMonth((prev) => (prev === cur.month ? prev : cur.month));
-      setPeriod((prev) => (prev === cur.half ? prev : cur.half));
-    };
-    sync();
-    const onFocus = () => sync();
-    const onVis = () => { if (document.visibilityState === "visible") sync(); };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVis);
-    const id = window.setInterval(sync, 60 * 60 * 1000);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVis);
-      window.clearInterval(id);
-    };
-  }, [autoPeriod]);
+  useAutoPeriodSync(autoPeriod, () => {
+    const cur = getCurrentHalf();
+    setMonth((prev) => (prev === cur.month ? prev : cur.month));
+    setPeriod((prev) => (prev === cur.half ? prev : cur.half));
+  });
 
   useEffect(() => {
     (async () => {

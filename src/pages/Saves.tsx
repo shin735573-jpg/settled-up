@@ -40,7 +40,7 @@ import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExpor
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Cloud, CloudOff } from "lucide-react";
-import { getCurrentHalf } from "@/lib/autoPeriod";
+import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 
 function getCurrentSavingPeriod() {
   const { month, half } = getCurrentHalf();
@@ -74,27 +74,12 @@ export default function Saves() {
     }
   };
 
-  // 자동 모드일 때: 마운트 후 자정 경과/탭 포커스 복귀 시 현재 기간으로 재동기화
-  useEffect(() => {
-    if (!autoPeriod) return;
-    const sync = () => {
-      const cur = getCurrentSavingPeriod();
-      setMonth((prev) => (prev === cur.month ? prev : cur.month));
-      setPeriod((prev) => (prev === cur.period ? prev : cur.period));
-    };
-    sync();
-    const onFocus = () => sync();
-    const onVis = () => { if (document.visibilityState === "visible") sync(); };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVis);
-    // 매 시간 한 번씩 점검 (자정 경과 대응)
-    const id = window.setInterval(sync, 60 * 60 * 1000);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVis);
-      window.clearInterval(id);
-    };
-  }, [autoPeriod]);
+  // 자동 모드: 자정 경계/포커스/가시성/bfcache/온라인 복귀 시 정확히 재동기화
+  useAutoPeriodSync(autoPeriod, () => {
+    const cur = getCurrentSavingPeriod();
+    setMonth((prev) => (prev === cur.month ? prev : cur.month));
+    setPeriod((prev) => (prev === cur.period ? prev : cur.period));
+  });
 
   const [companies, setCompanies] = useState<StmtCompany[]>([]);
   const [leaders, setLeaders] = useState<StmtLeader[]>([]);

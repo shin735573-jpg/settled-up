@@ -13,7 +13,7 @@ import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
 import { Switch } from "@/components/ui/switch";
-import { getCurrentHalf } from "@/lib/autoPeriod";
+import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -71,26 +71,12 @@ export default function CompanySettlement() {
       setPeriod(cur.half === "h1" ? "first" : "second");
     }
   };
-  useEffect(() => {
-    if (!autoPeriod) return;
-    const sync = () => {
-      const cur = getCurrentHalf();
-      const wantP: Period = cur.half === "h1" ? "first" : "second";
-      setMonth((prev) => (prev === cur.month ? prev : cur.month));
-      setPeriod((prev) => (prev === wantP ? prev : wantP));
-    };
-    sync();
-    const onFocus = () => sync();
-    const onVis = () => { if (document.visibilityState === "visible") sync(); };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVis);
-    const id = window.setInterval(sync, 60 * 60 * 1000);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVis);
-      window.clearInterval(id);
-    };
-  }, [autoPeriod]);
+  useAutoPeriodSync(autoPeriod, () => {
+    const cur = getCurrentHalf();
+    const wantP: Period = cur.half === "h1" ? "first" : "second";
+    setMonth((prev) => (prev === cur.month ? prev : cur.month));
+    setPeriod((prev) => (prev === wantP ? prev : wantP));
+  });
   const [companies, setCompanies] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string>("");
   const [allRows, setAllRows] = useState<any[]>([]);
