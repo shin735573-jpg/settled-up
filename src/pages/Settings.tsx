@@ -1004,8 +1004,8 @@ function LeadersTab() {
         ‘팀장 이름 정리’: 기존 기록에서 별칭으로 저장된 팀장명을 정식 팀장명/ID로 통합합니다.
         별칭(예: 형주 → 강형주, 동석 → 신동석)이 등록되어 있어야 합니다.
       </div>
-      <div className="[&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
-      <Table>
+      <div className="overflow-x-auto [&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
+      <Table className="min-w-[1200px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-12">연번</TableHead>
