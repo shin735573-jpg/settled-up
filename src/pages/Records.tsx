@@ -382,6 +382,28 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
 
 const RECORDS_TABLE_WIDTH = RECORDS_COLUMNS.reduce((sum, c) => sum + c.width, 0);
 
+function validateRecordsTableColumnDefinition(): ValidationIssue[] {
+  const mismatches: string[] = [];
+  RECORDS_EXPECTED_SEQUENCE.forEach(([key, label, width], i) => {
+    const col = RECORDS_COLUMNS[i];
+    if (!col) mismatches.push(`#${i + 1} ${label}: 데이터 셀 없음`);
+    else if (col.key !== key || col.label !== label || col.width !== width) {
+      mismatches.push(`#${i + 1} 예상 ${label}(${key}, ${width}px) / 실제 ${col.label}(${col.key}, ${col.width}px)`);
+    }
+  });
+  if (RECORDS_COLUMNS.length !== RECORDS_EXPECTED_SEQUENCE.length) {
+    mismatches.push(`컬럼 수: 헤더 ${RECORDS_EXPECTED_SEQUENCE.length} / 데이터 ${RECORDS_COLUMNS.length}`);
+  }
+  return mismatches.length === 0 ? [] : [{
+    rowId: "__records_table_columns__",
+    rowLabel: "테이블 컬럼 위치 검사",
+    code: "table.columns.mismatch",
+    field: "기록입력 목록",
+    severity: "error",
+    message: `기록입력 목록의 헤더와 데이터 컬럼 위치가 일치하지 않습니다. ${mismatches.join(" / ")}`,
+  }];
+}
+
 function RecordsTable({
   records, issuesByRow, expandedItems, setExpandedItems, editRow, removeRow, displayLeaderById, displaySettlementStatus,
 }: {
@@ -516,6 +538,7 @@ function RecordsTable({
               toggleExpand: () => setExpandedItems((prev) => ({ ...prev, [r.id]: !prev[r.id] })),
               displayLeaderById,
               removeRow,
+              displaySettlementStatus,
             };
             return (
               <TableRow
