@@ -740,7 +740,7 @@ export default function Records() {
     const start = filterMonth + "-01";
     const next = new Date(filterMonth + "-01"); next.setMonth(next.getMonth() + 1);
     const end = next.toISOString().slice(0, 10);
-    const { data: d } = await supabase.from("deliveries").select("*").gte("date", start).lt("date", end).order("date").order("created_at");
+    const { data: d } = await supabase.from("deliveries").select("*").gte("date", start).lt("date", end).order("date", { ascending: false }).order("created_at", { ascending: false });
     setRecords(d || []);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filterMonth]);
