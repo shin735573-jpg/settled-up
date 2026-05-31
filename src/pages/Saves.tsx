@@ -496,7 +496,6 @@ export default function Saves() {
                   )}
                   {companyStmts.map((s) => {
                     const active = s.company.id === selectedCompanyId;
-                    const ver = getEntry(keyFor("company", s.company.id, month, period));
                     const noClaim = s.finalClaim <= 0;
                     return (
                       <button
