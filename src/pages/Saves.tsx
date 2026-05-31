@@ -554,7 +554,6 @@ export default function Saves() {
                   )}
                   {leaderStmts.map((s) => {
                     const active = s.leader.id === selectedLeaderId;
-                    const ver = getEntry(keyFor("leader", s.leader.id, month, period));
                     const empty = s.deliveryCount === 0;
                     return (
                       <button
