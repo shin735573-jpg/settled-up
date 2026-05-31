@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2 } from "lucide-react";
+import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2, ScanSearch } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { CompanyCombobox } from "@/components/CompanyCombobox";
@@ -37,6 +37,7 @@ import {
   type ValidationContext,
 } from "@/lib/recordValidation";
 import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
+import OcrCheckPanel, { type ExtractedRow } from "@/components/OcrCheckPanel";
 
 type Company = {
   id: string;
@@ -1434,6 +1435,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  // OCR 점검 (정확도 확인 + 분석결과 등록) 다이얼로그
+  const [ocrCheckOpen, setOcrCheckOpen] = useState(false);
 
   const readFileAsDataURL = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -1504,6 +1507,30 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   };
 
   const leaderIndex = useMemo(() => buildLeaderIndex(leaders), [leaders]);
+
+  // OCR 점검에서 등록된 추출 결과를 텍스트(TSV)로 합치기 (handlePhotos와 동일 포맷)
+  const appendExtractedRows = (rows: ExtractedRow[]) => {
+    if (!rows || rows.length === 0) return;
+    const headers = ["고객명", "배송지", "품목", "비고"];
+    const headerLine = headers.join("\t");
+    const prev = text.replace(/\s+$/, "");
+    const hasHeader = prev.split("\n").some((l) => l.trim() === headerLine);
+    const newLines: string[] = [];
+    if (!prev || !hasHeader) newLines.push(headerLine);
+    const mark = (v: string, key: string, uncertain: string[]) =>
+      uncertain.includes(key) ? (v ? `체크요망:${v}` : "체크요망") : v;
+    for (const r of rows) {
+      newLines.push([
+        tsvEscape(mark(r.customer, "customer", r.uncertain)),
+        tsvEscape(mark(r.region, "region", r.uncertain)),
+        tsvEscape(mark(r.item, "item", r.uncertain)),
+        tsvEscape(mark(r.note, "note", r.uncertain)),
+      ].join("\t"));
+    }
+    const next = (prev ? prev + "\n" : "") + newLines.join("\n");
+    setText(next);
+    setOcrCheckOpen(false);
+  };
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
   const leaderById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
 
@@ -1946,6 +1973,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[98vw] w-[98vw] max-h-[95vh] sm:max-w-[98vw] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
@@ -2041,6 +2069,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                 >
                   <Camera className="h-3 w-3 mr-1" />
                   카메라 촬영
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setOcrCheckOpen(true)}
+                  disabled={ocrLoading}
+                >
+                  <ScanSearch className="h-3 w-3 mr-1" />
+                  OCR 점검 (최대 10장)
                 </Button>
                 {ocrProgress && (
                   <span className="text-[11px] text-muted-foreground">
@@ -2432,5 +2470,14 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <Dialog open={ocrCheckOpen} onOpenChange={setOcrCheckOpen}>
+      <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>OCR 점검 · 분석 후 등록 (최대 10장)</DialogTitle>
+        </DialogHeader>
+        <OcrCheckPanel max={10} onRegister={appendExtractedRows} />
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
