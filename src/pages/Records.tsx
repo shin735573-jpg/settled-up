@@ -300,10 +300,18 @@ type RecordsColumn = {
     displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
     displaySettlementStatus: (r: any) => string;
     removeRow: (id: string) => void;
+    selected: boolean;
+    toggleSelect: () => void;
+  }) => React.ReactNode;
+  renderHeader?: (ctx: {
+    allSelected: boolean;
+    someSelected: boolean;
+    toggleAll: (v: boolean) => void;
   }) => React.ReactNode;
 };
 
 const RECORDS_EXPECTED_SEQUENCE = [
+  ["select", "선택", 44],
   ["kind", "구분", 70],
   ["date", "날짜", 110],
   ["company", "업체", 120],
@@ -335,6 +343,22 @@ const RECORDS_CENTER_COLUMN_KEYS = new Set([
 ]);
 
 const RECORDS_COLUMNS: RecordsColumn[] = [
+  { key: "select", label: "선택", width: 44, headerCls: "text-center", cellCls: "text-center whitespace-nowrap",
+    render: (r, { selected, toggleSelect }) => (
+      <Checkbox
+        checked={selected}
+        onCheckedChange={() => toggleSelect()}
+        onClick={(e) => e.stopPropagation()}
+        aria-label="행 선택"
+      />
+    ),
+    renderHeader: ({ allSelected, someSelected, toggleAll }) => (
+      <Checkbox
+        checked={allSelected ? true : someSelected ? "indeterminate" as any : false}
+        onCheckedChange={(v) => toggleAll(!!v)}
+        aria-label="전체 선택"
+      />
+    ) },
   { key: "kind", label: "구분", width: 70, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.is_missing
       ? <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>
