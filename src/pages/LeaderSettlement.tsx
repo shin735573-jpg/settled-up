@@ -10,10 +10,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
 import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
-import {
-  loadCrossCheckConfig, subscribeCrossCheckConfig, CROSSCHECK_ITEM_LABELS,
-  type CrossCheckConfig, type CrossCheckItem,
-} from "@/lib/crossCheckConfig";
 
 type Period = "all" | "first" | "second" | "month";
 
