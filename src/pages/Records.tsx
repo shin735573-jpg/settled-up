@@ -1638,8 +1638,14 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       const regional = checkNum(cell(cols, "regional"), "지방배송비");
       const cod = checkNum(cell(cols, "cod"), "착불");
 
-      const splitRaw = cell(cols, "split");
-      const split = ["", "3분할", "형주동석"].includes(splitRaw) ? splitRaw : splitRaw;
+      // 분할 컬럼 정규화 — 다양한 표기를 허용 값(빈칸 / 3분할 / 형주동석)으로 매핑
+      const splitRaw = cell(cols, "split").trim();
+      const splitNorm = splitRaw.replace(/\s+/g, "").toLowerCase();
+      let split = "";
+      if (["3분할", "삼분할", "1/3", "33%", "3split", "three"].includes(splitNorm)) split = "3분할";
+      else if (["형주동석", "형동", "강신", "강형주신동석", "동석형주", "hd", "hyungdong"].includes(splitNorm)) split = "형주동석";
+      else if (["", "없음", "기본", "일반", "none", "no", "-"].includes(splitNorm)) split = "";
+      else split = ""; // 알 수 없는 값은 빈칸으로 안전 처리
       const paidRaw = cell(cols, "paid").toLowerCase();
       const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v", "결제완료"].includes(paidRaw) || paidRaw === "1";
       const twoRaw = cell(cols, "twoPerson").toLowerCase();
