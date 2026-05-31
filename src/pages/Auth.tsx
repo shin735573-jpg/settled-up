@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +61,11 @@ export default function Auth() {
                 <div className="space-y-1">
                   <Label htmlFor="si-pw">비밀번호</Label>
                   <Input id="si-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                </div>
+                <div className="text-right">
+                  <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                    비밀번호를 잊으셨나요?
+                  </Link>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>로그인</Button>
               </form>
