@@ -232,7 +232,7 @@ export default function Summary() {
 
   const companyGridTemplate = COMPANY_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
   const leaderGridTemplate = LEADER_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
-  const cellBase = "flex items-center justify-center text-center px-2 py-2 text-sm border-b";
+  const cellBase = "flex items-center justify-center text-center px-4 py-3 text-base border-b";
 
   // 기준서 #12 — 한눈요약 오류 6종 자동 탐지
   const errorChecks = useMemo(() => {
@@ -329,93 +329,89 @@ export default function Summary() {
         <TabsContent value={period} className="space-y-4">
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
       <Card className="overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <div className="font-semibold">
-            업체/팀장 요약 <span className="text-xs text-muted-foreground">(업체 금액=수도권+비고+지방, 팀장 금액=실수령액)</span>
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="font-semibold text-base">
+            업체/팀장 요약 <span className="text-sm text-muted-foreground">(업체 금액=수도권+비고+지방, 팀장 금액=실수령액)</span>
           </div>
           <div className="flex items-center gap-2">
             {diagMsg && (
-              <span className={diagMsg.startsWith("정상") ? "text-xs text-primary" : "text-xs text-destructive"}>
+              <span className={diagMsg.startsWith("정상") ? "text-sm text-primary" : "text-sm text-destructive"}>
                 {diagMsg}
               </span>
             )}
           </div>
         </div>
-        <div className="flex gap-4 p-4">
+        <div className="flex gap-6 p-6">
           {/* 왼쪽: 업체 테이블 */}
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm mb-2 text-center">업체</div>
-            <div className="overflow-x-auto">
-              <div>
-                <div className="grid bg-muted/50 font-medium text-muted-foreground" style={{ gridTemplateColumns: companyGridTemplate }}>
-                  {COMPANY_COLUMNS.map((c) => (
-                    <div key={c.key} className={cellBase + " border-r last:border-r-0"}>{c.label}</div>
-                  ))}
-                </div>
-                {companyAgg.map((c, idx) => {
-                  const cells: Record<string, React.ReactNode> = {
-                    rank: idx + 1,
-                    company: c.name,
-                    company_count: c.count,
-                    company_amount: fmt(c.fee),
-                    company_share: `${c.share.toFixed(1)}%`,
-                  };
-                  return (
-                    <div key={c.id} className="grid hover:bg-muted/30" style={{ gridTemplateColumns: companyGridTemplate }}>
-                      {COMPANY_COLUMNS.map((col) => (
-                        <div key={col.key} className={cellBase + " border-r last:border-r-0"}>{cells[col.key]}</div>
-                      ))}
-                    </div>
-                  );
-                })}
-                {companyAgg.length === 0 && (
-                  <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
-                )}
+            <div className="font-semibold text-base mb-3 text-center">업체</div>
+            <div className="w-full border rounded-md overflow-hidden">
+              <div className="grid bg-muted/50 font-medium text-muted-foreground" style={{ gridTemplateColumns: companyGridTemplate }}>
+                {COMPANY_COLUMNS.map((c) => (
+                  <div key={c.key} className={cellBase + " border-r last:border-r-0 py-3.5"}>{c.label}</div>
+                ))}
               </div>
+              {companyAgg.map((c, idx) => {
+                const cells: Record<string, React.ReactNode> = {
+                  rank: idx + 1,
+                  company: c.name,
+                  company_count: c.count,
+                  company_amount: fmt(c.fee),
+                  company_share: `${c.share.toFixed(1)}%`,
+                };
+                return (
+                  <div key={c.id} className="grid hover:bg-muted/30" style={{ gridTemplateColumns: companyGridTemplate }}>
+                    {COMPANY_COLUMNS.map((col) => (
+                      <div key={col.key} className={cellBase + " border-r last:border-r-0"}>{cells[col.key]}</div>
+                    ))}
+                  </div>
+                );
+              })}
+              {companyAgg.length === 0 && (
+                <div className="py-10 text-center text-muted-foreground text-base">표시할 데이터가 없습니다.</div>
+              )}
             </div>
           </div>
           {/* 오른쪽: 팀장 테이블 */}
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm mb-2 text-center">팀장</div>
-            <div className="overflow-x-auto">
-              <div>
-                <div className="grid bg-muted/50 font-medium text-muted-foreground" style={{ gridTemplateColumns: leaderGridTemplate }}>
-                  {LEADER_COLUMNS.map((c) => (
-                    <div key={c.key} className={cellBase + " border-r last:border-r-0"}>{c.label}</div>
-                  ))}
-                </div>
-                {leaderAgg.map((l, idx) => {
-                  const cells: Record<string, React.ReactNode> = {
-                    rank: idx + 1,
-                    leader: l.name,
-                    leader_count: l.count,
-                    leader_amount: fmt(l.payout),
-                    leader_share: `${l.share.toFixed(1)}%`,
-                  };
-                  return (
-                    <div key={l.id} className="grid hover:bg-muted/30" style={{ gridTemplateColumns: leaderGridTemplate }}>
-                      {LEADER_COLUMNS.map((col) => (
-                        <div key={col.key} className={cellBase + " border-r last:border-r-0"}>{cells[col.key]}</div>
-                      ))}
-                    </div>
-                  );
-                })}
-                {leaderAgg.length === 0 && (
-                  <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
-                )}
+            <div className="font-semibold text-base mb-3 text-center">팀장</div>
+            <div className="w-full border rounded-md overflow-hidden">
+              <div className="grid bg-muted/50 font-medium text-muted-foreground" style={{ gridTemplateColumns: leaderGridTemplate }}>
+                {LEADER_COLUMNS.map((c) => (
+                  <div key={c.key} className={cellBase + " border-r last:border-r-0 py-3.5"}>{c.label}</div>
+                ))}
               </div>
+              {leaderAgg.map((l, idx) => {
+                const cells: Record<string, React.ReactNode> = {
+                  rank: idx + 1,
+                  leader: l.name,
+                  leader_count: l.count,
+                  leader_amount: fmt(l.payout),
+                  leader_share: `${l.share.toFixed(1)}%`,
+                };
+                return (
+                  <div key={l.id} className="grid hover:bg-muted/30" style={{ gridTemplateColumns: leaderGridTemplate }}>
+                    {LEADER_COLUMNS.map((col) => (
+                      <div key={col.key} className={cellBase + " border-r last:border-r-0"}>{cells[col.key]}</div>
+                    ))}
+                  </div>
+                );
+              })}
+              {leaderAgg.length === 0 && (
+                <div className="py-10 text-center text-muted-foreground text-base">표시할 데이터가 없습니다.</div>
+              )}
             </div>
           </div>
         </div>
       </Card>
 
       {/* 오류 검사 (기준서 #12) */}
-      <Card className="p-4 space-y-2">
-        <div className="font-semibold text-sm">오류 검사</div>
-        <ul className="text-sm space-y-1">
+      <Card className="p-6 space-y-3">
+        <div className="font-semibold text-base">오류 검사</div>
+        <ul className="text-base space-y-2">
           {errorChecks.map((c) => (
-            <li key={c.label} className="flex items-center gap-2">
-              <span className={c.err ? "text-destructive" : "text-primary"}>{c.err ? "✗" : "✓"}</span>
+            <li key={c.label} className="flex items-center gap-3">
+              <span className={c.err ? "text-destructive text-lg" : "text-primary text-lg"}>{c.err ? "✗" : "✓"}</span>
               <span className={c.err ? "text-destructive" : ""}>{c.label}</span>
             </li>
           ))}
