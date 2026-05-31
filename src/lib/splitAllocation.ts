@@ -43,16 +43,17 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
 
   let weights: number[] = [1, 0, 0];
   let reasons: string[] = ["일반 100%", "", ""];
-  if (l1 && l2 && l3) {
-    // 3인배송: 1/3씩 균등 분배
-    weights = [1 / 3, 1 / 3, 1 / 3];
-    reasons = ["3인배송 1/3", "3인배송 1/3", "3인배송 1/3"];
-  } else if (split === "형주동석" && l1 && l2) {
+  // 우선순위: 형주동석 > 3분할 > 3인배송 > 2인배송 > 일반
+  if (split === "형주동석" && l1 && l2) {
     weights = [0.5, 0.5];
     reasons = ["형주동석 50%", "형주동석 50%"];
   } else if (split === "3분할" && l1 && l2) {
     weights = [2 / 3, 1 / 3];
     reasons = ["3분할 2/3", "3분할 1/3"];
+  } else if (l1 && l2 && l3) {
+    // 3인배송: 1/3씩 균등 분배
+    weights = [1 / 3, 1 / 3, 1 / 3];
+    reasons = ["3인배송 1/3", "3인배송 1/3", "3인배송 1/3"];
   } else if (r.two_person && l1 && l2) {
     weights = [0.5, 0.5];
     reasons = ["2인배송 50%", "2인배송 50%"];

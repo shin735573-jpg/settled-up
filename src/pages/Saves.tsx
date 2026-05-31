@@ -1069,11 +1069,12 @@ function LeaderPreview({
   const l = data.leader;
   const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
 
-  // 총합배송비 = 수도권 + 비고 + 지방 (착불/수수료/공제 차감 없음 — 배송 기준)
+  // 총합배송비 = 수도권 + 비고 + 지방 (배송 기준 그대로)
   const totalDelivery = data.metroSum + data.noteSum + data.regionalSum;
   const issuesInvoice = !!l.issues_invoice;
-  const vat = issuesInvoice ? Math.round(totalDelivery * 0.1) : 0;
-  const totalWithVat = issuesInvoice ? totalDelivery + vat : 0;
+  // 부가세는 저장된 정산값(payout 기준)과 100% 일치시킴 — 미리보기/저장 불일치 방지
+  const vat = data.vat;
+  const totalWithVat = data.payoutWithVat;
 
   // 기간 라벨: "기간: 2026년 05월 1~15일"
   const firstDate = data.rows[0]?.delivery.date ?? "";
