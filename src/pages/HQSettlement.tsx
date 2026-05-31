@@ -353,7 +353,7 @@ export default function HQSettlement() {
       </div>
 
       {/* 상단: 본사 수익 요약 + 적재비 입력 */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-0 overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 수익 요약</div>
           <div className="divide-y text-sm">
