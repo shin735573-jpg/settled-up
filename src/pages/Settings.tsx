@@ -39,6 +39,7 @@ import {
   type RestoreMode,
   type RestoreResult,
 } from "@/lib/excelBackup";
+import { validateBackupForRestore, type RestoreValidationResult } from "@/lib/restoreValidation";
 
 type Company = {
   id: string;
@@ -288,16 +289,31 @@ function RestoreSection({ uid }: { uid: string }) {
     ? parsed.tables.filter((t) => selected[t.table]).reduce((s, t) => s + t.rows.length, 0)
     : 0;
 
+  // 선택 변경 시 즉시 재검증
+  const validation: RestoreValidationResult | null = parsed
+    ? validateBackupForRestore(
+        parsed,
+        Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
+      )
+    : null;
+
   const canRun = (() => {
     if (!parsed || busy) return false;
     if (!Object.values(selected).some(Boolean)) return false;
     if (mode === "replace" && confirmText.trim() !== "REPLACE") return false;
+    if (validation && !validation.ok) return false;
     return true;
   })();
 
   const run = async () => {
     if (!parsed || !uid || uid === "anon") {
       toast.error("로그인이 필요합니다.");
+      return;
+    }
+    if (validation && !validation.ok) {
+      toast.error("복구 차단", {
+        description: `금지 규칙 ${validation.errors.length}건 위반 — 백업 파일을 점검하세요.`,
+      });
       return;
     }
     const tables = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
@@ -430,6 +446,40 @@ function RestoreSection({ uid }: { uid: string }) {
                     onChange={(e) => setConfirmText(e.target.value)}
                     placeholder="REPLACE"
                   />
+                </div>
+              )}
+
+              {validation && validation.issues.length > 0 && (
+                <div
+                  className={
+                    "text-xs space-y-1 border rounded p-2 " +
+                    (validation.ok
+                      ? "border-yellow-500/40 bg-yellow-500/5"
+                      : "border-destructive bg-destructive/5")
+                  }
+                >
+                  <div className={"font-semibold " + (validation.ok ? "" : "text-destructive")}>
+                    {validation.ok
+                      ? `경고 ${validation.warnings.length}건 — 진행 가능`
+                      : `금지 규칙 위반 ${validation.errors.length}건 — 복구 차단`}
+                  </div>
+                  {validation.errors.map((i, idx) => (
+                    <div key={`e-${idx}`} className="text-destructive">
+                      • {i.message}
+                      {i.detail && <span className="opacity-70"> — {i.detail}</span>}
+                    </div>
+                  ))}
+                  {validation.warnings.map((i, idx) => (
+                    <div key={`w-${idx}`} className="text-yellow-700 dark:text-yellow-400">
+                      • {i.message}
+                      {i.detail && <span className="opacity-70"> — {i.detail}</span>}
+                    </div>
+                  ))}
+                  {!validation.ok && (
+                    <div className="pt-1 text-[11px] text-destructive">
+                      위 규칙을 통과해야 복구를 실행할 수 있습니다. 백업 파일을 점검 후 다시 시도하세요.
+                    </div>
+                  )}
                 </div>
               )}
 
