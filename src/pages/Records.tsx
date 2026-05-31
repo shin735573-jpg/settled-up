@@ -312,8 +312,8 @@ const RECORDS_EXPECTED_SEQUENCE = [
   ["customer", "고객명", 120],
   ["region", "배송지", 150],
   ["region_type", "지역구분", 100],
-  ["item", "품목", 220],
-  ["note", "비고", 180],
+  ["item", "품목", 240],
+  ["note", "비고", 200],
   ["metro_fee", "수도권배송비", 140],
   ["note_amount", "비고금액", 130],
   ["regional_fee", "지방배송비", 140],
@@ -329,7 +329,8 @@ const RECORDS_EXPECTED_SEQUENCE = [
 const RECORDS_AMOUNT_COLUMN_KEYS = new Set(["metro_fee", "note_amount", "regional_fee", "cod_amount", "total"]);
 const RECORDS_STATUS_COLUMN_KEYS = new Set(["region_type", "two_person", "split", "paid", "settle"]);
 const RECORDS_CENTER_COLUMN_KEYS = new Set([
-  "region_type", "metro_fee", "note_amount", "regional_fee", "cod_amount", "total",
+  "region_type", "item", "note",
+  "metro_fee", "note_amount", "regional_fee", "cod_amount", "total",
   "two_person", "split", "paid",
 ]);
 
@@ -352,12 +353,12 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r) => r.region || "-" },
   { key: "region_type", label: "지역구분", width: 100, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.region_type === "metro" ? "수도권" : r.region_type === "regional" ? "지방" : "-" },
-  { key: "item", label: "품목", width: 220, cellCls: "align-top cursor-pointer",
+  { key: "item", label: "품목", width: 240, headerCls: "text-center", cellCls: "align-middle text-center cursor-pointer",
     render: (r, { expanded }) => (
-      <div className={`whitespace-pre-wrap break-words ${expanded ? "" : "line-clamp-3"}`}>{r.item || "-"}</div>
+      <div className={`whitespace-pre-wrap break-words text-center ${expanded ? "" : "line-clamp-3"}`}>{r.item || "-"}</div>
     ) },
-  { key: "note", label: "비고", width: 180, cellCls: "align-top",
-    render: (r) => <div className="whitespace-pre-wrap break-words">{r.note || "-"}</div> },
+  { key: "note", label: "비고", width: 200, headerCls: "text-center", cellCls: "align-middle text-center",
+    render: (r) => <div className="whitespace-pre-wrap break-words text-center">{r.note || "-"}</div> },
   { key: "metro_fee", label: "수도권배송비", width: 140, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.metro_fee) },
   { key: "note_amount", label: "비고금액", width: 130, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums",
