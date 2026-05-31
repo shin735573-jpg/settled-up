@@ -1731,11 +1731,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       leaders: [a.name, b.name] as (string | null)[],
       regionType,
       twoPerson: twoOverrides[i] !== undefined ? twoOverrides[i] : r.twoPerson,
+      split: splitOverrides[i] !== undefined ? splitOverrides[i] : r.split,
       errors,
       warnings,
     };
     });
-  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, twoOverrides, defaultMonth]);
+  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, twoOverrides, splitOverrides, defaultMonth]);
 
   const visible = useMemo(
     () => effective.map((r, i) => ({ row: r, i })).filter(({ i }) => !excludedRows[i]),
