@@ -16,6 +16,9 @@ import {
   CROSSCHECK_ITEM_LABELS, DEFAULT_CROSSCHECK, loadCrossCheckConfig, saveCrossCheckConfig,
   type CrossCheckConfig, type CrossCheckItem,
 } from "@/lib/crossCheckConfig";
+import {
+  loadCompanySettings, saveCompanySettings, type CompanySettings,
+} from "@/lib/companySettings";
 
 type Company = {
   id: string;
@@ -57,23 +60,104 @@ export default function Settings() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">설정</h1>
-      <Tabs defaultValue="companies">
+      <Tabs defaultValue="company">
         <TabsList>
-          <TabsTrigger value="companies">업체</TabsTrigger>
-          <TabsTrigger value="leaders">팀장</TabsTrigger>
-          <TabsTrigger value="common-deductions">공통공제</TabsTrigger>
-          <TabsTrigger value="holidays">휴무일</TabsTrigger>
-          <TabsTrigger value="crosscheck">교차검증</TabsTrigger>
-          <TabsTrigger value="onedrive">원드라이브</TabsTrigger>
+          <TabsTrigger value="company">회사 설정</TabsTrigger>
+          <TabsTrigger value="companies">업체관리</TabsTrigger>
+          <TabsTrigger value="leaders">팀장관리</TabsTrigger>
+          <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
+          <TabsTrigger value="advanced">고급</TabsTrigger>
         </TabsList>
+        <TabsContent value="company"><CompanyTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
-        <TabsContent value="holidays"><HolidaysTab /></TabsContent>
-        <TabsContent value="crosscheck"><CrossCheckTab /></TabsContent>
-        <TabsContent value="onedrive"><OneDriveTab /></TabsContent>
+        <TabsContent value="advanced">
+          <div className="space-y-4">
+            <HolidaysTab />
+            <CrossCheckTab />
+            <OneDriveTab />
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function CompanyTab() {
+  const { user } = useAuth();
+  const uid = user?.id ?? "anon";
+  const [s, setS] = useState<CompanySettings>(() => loadCompanySettings(uid));
+  useEffect(() => { setS(loadCompanySettings(uid)); }, [uid]);
+
+  const update = (patch: Partial<CompanySettings>) => {
+    const next = { ...s, ...patch };
+    setS(next);
+    saveCompanySettings(uid, next);
+  };
+
+  return (
+    <Card className="p-6 space-y-5 max-w-2xl">
+      <div>
+        <h2 className="font-semibold mb-1">회사 설정</h2>
+        <p className="text-xs text-muted-foreground">
+          저장 즉시 모든 화면(정산서·본사정산·한눈요약 등)에 반영됩니다.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label className="text-sm">회사명</Label>
+          <Input
+            className="mt-1"
+            value={s.companyName}
+            onChange={(e) => update({ companyName: e.target.value })}
+            placeholder="예: 삼호물류"
+          />
+        </div>
+        <div>
+          <Label className="text-sm">기본 정산월</Label>
+          <Input
+            type="month"
+            className="mt-1"
+            value={s.defaultMonth}
+            onChange={(e) => update({ defaultMonth: e.target.value })}
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            적재비 일자 입력 시 이 정산월을 기준으로 월·일이 자동 변환됩니다.
+          </p>
+        </div>
+        <div className="md:col-span-2">
+          <Label className="text-sm">기본 계좌번호</Label>
+          <Input
+            className="mt-1"
+            value={s.defaultAccount}
+            onChange={(e) => update({ defaultAccount: e.target.value })}
+            placeholder="예: 신한 110-123-456789"
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            업체별 계좌번호가 있으면 그 계좌가 우선 적용됩니다.
+          </p>
+        </div>
+        <div className="md:col-span-2">
+          <Label className="text-sm">정산서 하단 안내문</Label>
+          <Input
+            className="mt-1"
+            value={s.footerNote}
+            onChange={(e) => update({ footerNote: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-3 pt-2 border-t">
+        <Checkbox
+          id="oeunkyu-special"
+          checked={s.oeunkyuSpecial}
+          onCheckedChange={(v) => update({ oeunkyuSpecial: !!v })}
+        />
+        <Label htmlFor="oeunkyu-special" className="text-sm font-normal cursor-pointer">
+          오은규 특수정산 적용 (오은규 금액을 오동선에게 합산)
+        </Label>
+      </div>
+    </Card>
   );
 }
 
@@ -500,25 +584,19 @@ function LeadersTab() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>팀장명</TableHead>
+            <TableHead>정식 팀장명</TableHead>
             <TableHead className="min-w-[110px]">
-              별칭
+              별칭(1개)
               <div className="text-[10px] text-amber-700 font-normal">거부기사 업체표시용</div>
             </TableHead>
-            <TableHead>구분명</TableHead>
-            <TableHead>지역</TableHead>
             <TableHead>계산서</TableHead>
-            <TableHead>계좌번호</TableHead>
-            <TableHead>거부</TableHead>
             <TableHead>수도권 수수료율</TableHead>
             <TableHead>지방 수수료율</TableHead>
-            <TableHead>공제금</TableHead>
-            <TableHead>쓰레기비</TableHead>
             <TableHead>정산상태</TableHead>
-            <TableHead>정산귀속</TableHead>
-            <TableHead>특수정산</TableHead>
+            <TableHead>정산기사</TableHead>
+            <TableHead>계좌번호</TableHead>
+            <TableHead>사용여부</TableHead>
             <TableHead className="min-w-[120px]">최저보장</TableHead>
-            <TableHead>활성</TableHead>
             <TableHead></TableHead>
           </TableRow>
         </TableHeader>
@@ -560,18 +638,6 @@ function LeadersTab() {
                 )}
               </TableCell>
               <TableCell>
-                <Input
-                  className="w-20"
-                  defaultValue={r.display_suffix || ""}
-                  placeholder={isDup ? "예: 2" : ""}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim() || null;
-                    if (v !== (r.display_suffix || null)) updateSuffix(r.id, v);
-                  }}
-                />
-              </TableCell>
-              <TableCell><Input className="w-24" defaultValue={r.region || ""} onBlur={(e) => update(r.id, { region: e.target.value })} /></TableCell>
-              <TableCell>
                 <Select
                   value={r.issues_invoice ? "yes" : "no"}
                   onValueChange={(v) => {
@@ -587,28 +653,8 @@ function LeadersTab() {
                   </SelectContent>
                 </Select>
               </TableCell>
-              <TableCell>
-                <Input
-                  className={`w-36 ${acctMissing ? "border-destructive" : ""}`}
-                  defaultValue={r.account_number || ""}
-                  placeholder="은행 000-000"
-                  onBlur={(e) => {
-                    const v = e.target.value.trim() || null;
-                    if (v !== (r.account_number || null)) {
-                      update(r.id, { account_number: v } as any);
-                      if (r.issues_invoice && !v) toast.warning(`${r.name}: 계산서 발행 팀장은 계좌번호 입력이 필요합니다`);
-                      else if (v && v.replace(/\s/g, "").length < 8) toast.warning(`${r.name}: 계좌번호 형식을 확인하세요`);
-                    }
-                  }}
-                />
-                {acctMissing && <div className="text-[10px] text-destructive mt-1">계좌번호 필요</div>}
-                {!acctMissing && acctTooShort && <div className="text-[10px] text-amber-600 mt-1">형식 확인</div>}
-              </TableCell>
-              <TableCell><Checkbox checked={r.is_rejected} onCheckedChange={(v) => update(r.id, { is_rejected: !!v })} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_metro ?? 0} onBlur={(e) => update(r.id, { fee_rate_metro: Number(e.target.value) } as any)} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_regional ?? 0} onBlur={(e) => update(r.id, { fee_rate_regional: Number(e.target.value) } as any)} /></TableCell>
-              <TableCell><Input type="number" className="w-24" defaultValue={r.deduction_amount} onBlur={(e) => update(r.id, { deduction_amount: Number(e.target.value) })} /></TableCell>
-              <TableCell><Input type="number" className="w-24" defaultValue={r.trash_cost} onBlur={(e) => update(r.id, { trash_cost: Number(e.target.value) })} /></TableCell>
               <TableCell>
                 <Select
                   value={r.settle_status || "included"}
@@ -637,20 +683,21 @@ function LeadersTab() {
                 </Select>
               </TableCell>
               <TableCell>
-                {isSpecial ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-amber-100 text-amber-900 whitespace-nowrap">
-                    적용 → {getDisplayName(settleTarget!, rows)}
-                  </span>
-                ) : r.is_rejected ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-destructive/10 text-destructive whitespace-nowrap">
-                    거부·귀속없음
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-muted text-muted-foreground whitespace-nowrap">
-                    독립정산
-                  </span>
-                )}
+                <Input
+                  className={`w-36 ${acctMissing ? "border-destructive" : ""}`}
+                  defaultValue={r.account_number || ""}
+                  placeholder="은행 000-000"
+                  onBlur={(e) => {
+                    const v = e.target.value.trim() || null;
+                    if (v !== (r.account_number || null)) {
+                      update(r.id, { account_number: v } as any);
+                    }
+                  }}
+                />
+                {acctMissing && <div className="text-[10px] text-destructive mt-1">계좌번호 필요</div>}
+                {!acctMissing && acctTooShort && <div className="text-[10px] text-amber-600 mt-1">형식 확인</div>}
               </TableCell>
+              <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
                   <Checkbox
@@ -684,12 +731,11 @@ function LeadersTab() {
                 </div>
                 {minGuaranteeInvalid && <div className="text-[10px] text-destructive mt-1">금액 입력 필요</div>}
               </TableCell>
-              <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={17} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
