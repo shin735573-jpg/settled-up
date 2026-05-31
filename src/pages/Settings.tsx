@@ -16,6 +16,9 @@ import {
   CROSSCHECK_ITEM_LABELS, DEFAULT_CROSSCHECK, loadCrossCheckConfig, saveCrossCheckConfig,
   type CrossCheckConfig, type CrossCheckItem,
 } from "@/lib/crossCheckConfig";
+import {
+  loadCompanySettings, saveCompanySettings, type CompanySettings,
+} from "@/lib/companySettings";
 
 type Company = {
   id: string;
@@ -57,23 +60,104 @@ export default function Settings() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">설정</h1>
-      <Tabs defaultValue="companies">
+      <Tabs defaultValue="company">
         <TabsList>
-          <TabsTrigger value="companies">업체</TabsTrigger>
-          <TabsTrigger value="leaders">팀장</TabsTrigger>
-          <TabsTrigger value="common-deductions">공통공제</TabsTrigger>
-          <TabsTrigger value="holidays">휴무일</TabsTrigger>
-          <TabsTrigger value="crosscheck">교차검증</TabsTrigger>
-          <TabsTrigger value="onedrive">원드라이브</TabsTrigger>
+          <TabsTrigger value="company">회사 설정</TabsTrigger>
+          <TabsTrigger value="companies">업체관리</TabsTrigger>
+          <TabsTrigger value="leaders">팀장관리</TabsTrigger>
+          <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
+          <TabsTrigger value="advanced">고급</TabsTrigger>
         </TabsList>
+        <TabsContent value="company"><CompanyTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
-        <TabsContent value="holidays"><HolidaysTab /></TabsContent>
-        <TabsContent value="crosscheck"><CrossCheckTab /></TabsContent>
-        <TabsContent value="onedrive"><OneDriveTab /></TabsContent>
+        <TabsContent value="advanced">
+          <div className="space-y-4">
+            <HolidaysTab />
+            <CrossCheckTab />
+            <OneDriveTab />
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function CompanyTab() {
+  const { user } = useAuth();
+  const uid = user?.id ?? "anon";
+  const [s, setS] = useState<CompanySettings>(() => loadCompanySettings(uid));
+  useEffect(() => { setS(loadCompanySettings(uid)); }, [uid]);
+
+  const update = (patch: Partial<CompanySettings>) => {
+    const next = { ...s, ...patch };
+    setS(next);
+    saveCompanySettings(uid, next);
+  };
+
+  return (
+    <Card className="p-6 space-y-5 max-w-2xl">
+      <div>
+        <h2 className="font-semibold mb-1">회사 설정</h2>
+        <p className="text-xs text-muted-foreground">
+          저장 즉시 모든 화면(정산서·본사정산·한눈요약 등)에 반영됩니다.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label className="text-sm">회사명</Label>
+          <Input
+            className="mt-1"
+            value={s.companyName}
+            onChange={(e) => update({ companyName: e.target.value })}
+            placeholder="예: 삼호물류"
+          />
+        </div>
+        <div>
+          <Label className="text-sm">기본 정산월</Label>
+          <Input
+            type="month"
+            className="mt-1"
+            value={s.defaultMonth}
+            onChange={(e) => update({ defaultMonth: e.target.value })}
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            적재비 일자 입력 시 이 정산월을 기준으로 월·일이 자동 변환됩니다.
+          </p>
+        </div>
+        <div className="md:col-span-2">
+          <Label className="text-sm">기본 계좌번호</Label>
+          <Input
+            className="mt-1"
+            value={s.defaultAccount}
+            onChange={(e) => update({ defaultAccount: e.target.value })}
+            placeholder="예: 신한 110-123-456789"
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            업체별 계좌번호가 있으면 그 계좌가 우선 적용됩니다.
+          </p>
+        </div>
+        <div className="md:col-span-2">
+          <Label className="text-sm">정산서 하단 안내문</Label>
+          <Input
+            className="mt-1"
+            value={s.footerNote}
+            onChange={(e) => update({ footerNote: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-3 pt-2 border-t">
+        <Checkbox
+          id="oeunkyu-special"
+          checked={s.oeunkyuSpecial}
+          onCheckedChange={(v) => update({ oeunkyuSpecial: !!v })}
+        />
+        <Label htmlFor="oeunkyu-special" className="text-sm font-normal cursor-pointer">
+          오은규 특수정산 적용 (오은규 금액을 오동선에게 합산)
+        </Label>
+      </div>
+    </Card>
   );
 }
 
