@@ -1507,6 +1507,30 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   };
 
   const leaderIndex = useMemo(() => buildLeaderIndex(leaders), [leaders]);
+
+  // OCR 점검에서 등록된 추출 결과를 텍스트(TSV)로 합치기 (handlePhotos와 동일 포맷)
+  const appendExtractedRows = (rows: ExtractedRow[]) => {
+    if (!rows || rows.length === 0) return;
+    const headers = ["고객명", "배송지", "품목", "비고"];
+    const headerLine = headers.join("\t");
+    const prev = text.replace(/\s+$/, "");
+    const hasHeader = prev.split("\n").some((l) => l.trim() === headerLine);
+    const newLines: string[] = [];
+    if (!prev || !hasHeader) newLines.push(headerLine);
+    const mark = (v: string, key: string, uncertain: string[]) =>
+      uncertain.includes(key) ? (v ? `체크요망:${v}` : "체크요망") : v;
+    for (const r of rows) {
+      newLines.push([
+        tsvEscape(mark(r.customer, "customer", r.uncertain)),
+        tsvEscape(mark(r.region, "region", r.uncertain)),
+        tsvEscape(mark(r.item, "item", r.uncertain)),
+        tsvEscape(mark(r.note, "note", r.uncertain)),
+      ].join("\t"));
+    }
+    const next = (prev ? prev + "\n" : "") + newLines.join("\n");
+    setText(next);
+    setOcrCheckOpen(false);
+  };
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active && !l.is_rejected), [leaders]);
   const leaderById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
 
@@ -2044,6 +2068,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                 >
                   <Camera className="h-3 w-3 mr-1" />
                   카메라 촬영
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setOcrCheckOpen(true)}
+                  disabled={ocrLoading}
+                >
+                  <ScanSearch className="h-3 w-3 mr-1" />
+                  OCR 점검 (최대 10장)
                 </Button>
                 {ocrProgress && (
                   <span className="text-[11px] text-muted-foreground">
