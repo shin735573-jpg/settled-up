@@ -431,7 +431,7 @@ export default function CompanySettlement() {
       />
 
       {!companyId && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <SummaryCard
             label="총업체수"
             value={`${topSummary.totalCompanies} / ${topSummary.deliveringCompanies}`}
@@ -440,7 +440,6 @@ export default function CompanySettlement() {
           <SummaryCard label="총배송건수" value={topSummary.totalDeliveries.toLocaleString()} />
           <SummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
           <SummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
-          <SummaryCard label="팀장총배송비" value={fmt(topSummary.totalFee)} red />
         </div>
       )}
 

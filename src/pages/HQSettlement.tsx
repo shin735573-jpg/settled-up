@@ -267,15 +267,15 @@ export default function HQSettlement() {
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
 
-  // 자동검증 (내부 관점)
+  // 자동검증 (내부 관점) — 현재 기간 탭에 표시되는 행만 검사
   const audit = useMemo(
     () => auditDeliveries({
-      deliveries: rows as any,
+      deliveries: periodRows as any,
       companies,
       leaders: leaders as any,
       mode: "internal",
     }),
-    [rows, companies, leaders],
+    [periodRows, companies, leaders],
   );
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -320,6 +320,29 @@ export default function HQSettlement() {
   const loadingBilled = loadingCosts.reduce((s, x) => s + (x.billed === "billed" ? Number(x.amount || 0) : 0), 0);
   const loadingUnbilled = loadingTotal - loadingBilled;
 
+  // 자동등록된 적재비(배송 행)는 이미 companyDeliveryTotal 에 포함되므로
+  // grossSales 계산 시 중복 집계를 피하려면 미등록분만 별도로 더한다.
+  const registeredLoadingKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      if (((r.item as string) || "").trim() === "적재비" && r.company_id) {
+        set.add(`${r.date}|${r.company_id}`);
+      }
+    }
+    return set;
+  }, [rows]);
+  const unregisteredLoadingTotal = useMemo(() => {
+    const [y, m] = month.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return loadingCosts.reduce((s, lc) => {
+      if (!lc.company_id || !lc.amount) return s;
+      const day = Math.min(Math.max(Number(lc.day) || 1, 1), lastDay);
+      const key = `${month}-${pad(day)}|${lc.company_id}`;
+      return registeredLoadingKeys.has(key) ? s : s + Number(lc.amount || 0);
+    }, 0);
+  }, [loadingCosts, registeredLoadingKeys, month]);
+
   // 같은 달 동일 업체 적재비 중복 청구 검사
   const dupLoadingCompanies = useMemo(() => {
     const cnt = new Map<string, number>();
@@ -347,7 +370,9 @@ export default function HQSettlement() {
   const expenseTotal = fixedTotal + additionalTotal + minGuaranteeTopUp;
 
   // ── 매출 / 수익
-  const grossSales = companyDeliveryTotal + loadingTotal;
+  // companyDeliveryTotal 에는 자동등록된 적재비가 이미 포함되므로
+  // 미등록 적재비만 추가해 중복 집계를 방지한다.
+  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal;
   const hqProfit = grossSales - expenseTotal;
 
   // 업체정산관리 요약
