@@ -40,6 +40,7 @@ import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExpor
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { computeGate, setClosed as setGateClosed } from "@/lib/settlementGate";
+import { Cloud, CloudOff } from "lucide-react";
 
 export default function Saves() {
   const { user } = useAuth();
@@ -195,7 +196,7 @@ export default function Saves() {
     }
     setExportingMsg(`${name} 저장 중…`);
     try {
-      const { filename } = await exportSingle(target, month, period, regenerate);
+      const { filename } = await exportSingle(target, month, period, regenerate, { uploadOneDrive: uploadOD });
       toast({ title: "저장 완료", description: filename });
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
@@ -240,6 +241,7 @@ export default function Saves() {
       const { filename, count } = await exportZip(
         targets, month, period, regenerate,
         (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
+        { uploadOneDrive: uploadOD },
       );
       const skipCount = skippedCompanies.length + skippedLeaders.length;
       setBulkResult({
@@ -264,6 +266,32 @@ export default function Saves() {
     skippedCompanies: { name: string; reason: string }[];
     skippedLeaders: { name: string; reason: string }[];
   }>(null);
+
+  // ─── OneDrive 업로드 옵션 ────────────────────────────────
+  const [uploadOD, setUploadOD] = useState<boolean>(() => {
+    try { return localStorage.getItem("saves.uploadOD") === "1"; } catch { return false; }
+  });
+  const toggleUploadOD = (v: boolean) => {
+    setUploadOD(v);
+    try { localStorage.setItem("saves.uploadOD", v ? "1" : "0"); } catch { /* noop */ }
+  };
+  const [verifyingOD, setVerifyingOD] = useState(false);
+  async function verifyOneDrive() {
+    setVerifyingOD(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("onedrive-upload", { body: { action: "verify" } });
+      if (error) throw new Error(error.message);
+      if (data?.ok) {
+        toast({ title: "OneDrive 연결 확인", description: `드라이브: ${data.drive?.name ?? "OK"}${data.drive?.owner ? ` (${data.drive.owner})` : ""}` });
+      } else {
+        toast({ title: "OneDrive 연결 실패", description: data?.error ?? "응답 없음", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: "OneDrive 연결 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setVerifyingOD(false);
+    }
+  }
 
   // ─── 저장 전 오류 검사 + 후속 저장 액션 ────────────────────
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
@@ -390,6 +418,7 @@ export default function Saves() {
       const { filename, count } = await exportZip(
         targets, month, period, regenerate,
         (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
+        { uploadOneDrive: uploadOD },
       );
       toast({ title: "저장 완료", description: `${filename} (${count}건, 오류 ${all.length - count}건 제외)` });
     } catch (e) {
@@ -530,6 +559,19 @@ export default function Saves() {
           <GateButton reason={blockedReason} onClick={onSaveLeaderAll} disabled={leaderStmts.length === 0 || isLocked("leader") || saveBlocked}>팀장 전체 사진 저장</GateButton>
           <GateButton reason={blockedReason} variant="secondary" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader") || saveBlocked}>정산서 재생성</GateButton>
           <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3 text-sm">
+          <div className="flex items-center gap-2">
+            {uploadOD ? <Cloud className="h-4 w-4 text-primary" /> : <CloudOff className="h-4 w-4 text-muted-foreground" />}
+            <Label htmlFor="save-od" className="cursor-pointer">OneDrive에도 업로드</Label>
+            <Switch id="save-od" checked={uploadOD} onCheckedChange={toggleUploadOD} />
+          </div>
+          <Button variant="outline" size="sm" onClick={verifyOneDrive} disabled={verifyingOD}>
+            {verifyingOD ? "확인 중…" : "OneDrive 연결 확인"}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            업로드 폴더: <span className="font-mono">정산서_저장/{month}_{period === "h1" ? "1-15일" : period === "h2" ? "16-말일" : "월전체"}/업체|팀장/</span>
+          </span>
         </div>
       </Card>
 
