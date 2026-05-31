@@ -291,6 +291,19 @@ export default function LeaderSettlement() {
   const commonTotalFor = (leaderId: string): number =>
     activeCommonDeductions.reduce((s, cd) => s + effectiveCommonAmount(leaderId, cd), 0);
 
+  /**
+   * 팀장별 자동 쓰레기비용 — team_leaders.trash_cost 를 보름 단위로 1번씩 자동 차감.
+   * 1~15일 / 16~말일: 1번, 월전체: 2번, 전체기간: 1번.
+   * 모든 팀장이 동일한 common_deductions 값에 종속되지 않고, 팀장별 trash_cost 가
+   * 0보다 크면 무조건 자동 적용된다. 누락 팀장 없이 100% 적용 보장.
+   */
+  const trashCostAutoFor = (leaderId: string): number => {
+    const lead = leadersById.get(leaderId);
+    const base = num(lead?.trash_cost);
+    if (base <= 0) return 0;
+    return base * commonPeriodKeys.length;
+  };
+
   const individualTotalFor = (lid: string): number =>
     periodDeductions
       .filter((d) => d.leader_id === lid)
@@ -390,7 +403,8 @@ export default function LeaderSettlement() {
       const afterFees = total - fees;
       const indiv = individualTotalFor(l.id);
       // 배송건이 없는 팀장에게는 공통공제(쓰레기비용 등)를 적용하지 않음
-      const common = count > 0 ? commonTotalFor(l.id) : 0;
+      // 쓰레기비용은 팀장별 trash_cost 를 보름 단위로 자동 차감 (한달=2번)
+      const common = count > 0 ? commonTotalFor(l.id) + trashCostAutoFor(l.id) : 0;
       const deduction = common + indiv;
       // 정산금은 음수 불가 — HQ 화면과 동일하게 0으로 클램프
       const net = Math.max(0, afterFees - cod - deduction);
@@ -493,7 +507,7 @@ export default function LeaderSettlement() {
     );
     // 상세 공통공제: 팀장 × 표시기간당 1번만 합산. 월전체만 보름 2개 합산.
     // 배송건이 없는 팀장은 공통공제(쓰레기비용 등)를 적용하지 않음
-    const commonTotal = count === 0 ? 0 : activeCommonDeductions.reduce((s, cd) => {
+    const commonBase = count === 0 ? 0 : activeCommonDeductions.reduce((s, cd) => {
       const cdTotal = commonPeriodKeys.reduce((periodSum, pKey) => {
         const editKey = `${cd.id}__${pKey}`;
         const edited = detailCommonEdits[editKey];
@@ -507,6 +521,9 @@ export default function LeaderSettlement() {
       }, 0);
       return s + cdTotal;
     }, 0);
+    // 팀장별 쓰레기비용 자동 차감 (보름 단위 × 보름수). 배송건 0이면 0.
+    const trashAuto = count === 0 || !detailLeader ? 0 : trashCostAutoFor(detailLeader.id);
+    const commonTotal = commonBase + trashAuto;
     const deduction = commonTotal + indivTotal;
     const net = afterFees - cod - deduction;
     return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal, count };
