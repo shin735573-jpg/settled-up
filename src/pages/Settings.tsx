@@ -319,19 +319,37 @@ function RestoreSection({ uid }: { uid: string }) {
     }
     const tables = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
     setBusy(true);
+    setResults(null);
     try {
       const res = await restoreBackup(uid, parsed, tables, mode);
       setResults(res);
-      const ok = res.filter((r) => !r.error);
-      const fail = res.filter((r) => r.error);
-      const inserted = ok.reduce((s, r) => s + r.inserted, 0);
-      if (fail.length === 0) {
-        toast.success(`복구 완료 · ${inserted}건 적용`, {
-          description: ok.map((r) => `${r.sheet} ${r.inserted}건`).join(", "),
+
+      const okSheets = res.filter((r) => !r.error && r.skipped === 0);
+      const partialSheets = res.filter((r) => !r.error && r.skipped > 0);
+      const failSheets = res.filter((r) => r.error);
+
+      const totalInserted = res.reduce((s, r) => s + r.inserted, 0);
+      const totalDeleted = res.reduce((s, r) => s + r.deleted, 0);
+      const totalSkipped = res.reduce((s, r) => s + r.skipped, 0);
+      const totalRows = res.reduce((s, r) => s + r.total, 0);
+
+      if (failSheets.length === 0 && partialSheets.length === 0) {
+        toast.success(`복구 완료 · ${okSheets.length}개 시트 · ${totalInserted.toLocaleString()}건 적용`, {
+          description:
+            mode === "replace"
+              ? `삭제 ${totalDeleted.toLocaleString()}건 · 적용 ${totalInserted.toLocaleString()}건 / ${totalRows.toLocaleString()}건`
+              : `병합 적용 ${totalInserted.toLocaleString()}건 / ${totalRows.toLocaleString()}건`,
+          duration: 6000,
+        });
+      } else if (failSheets.length === 0) {
+        toast.warning(`복구 완료 · 일부 배치 실패`, {
+          description: `성공 ${totalInserted.toLocaleString()}건 · 건너뛴 ${totalSkipped.toLocaleString()}건 · ${partialSheets.length}개 시트`,
+          duration: 8000,
         });
       } else {
-        toast.error(`일부 실패 · 성공 ${ok.length} / 실패 ${fail.length}`, {
-          description: fail.map((r) => `${r.sheet}: ${r.error}`).join(" | "),
+        toast.error(`복구 중 오류 발생 · ${failSheets.length}개 시트 실패`, {
+          description: `성공 ${okSheets.length + partialSheets.length}개 · 실패 ${failSheets.length}개 · 건너뛴 ${totalSkipped.toLocaleString()}건`,
+          duration: 8000,
         });
       }
     } catch (e) {
