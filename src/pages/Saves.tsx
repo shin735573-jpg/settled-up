@@ -307,7 +307,7 @@ export default function Saves() {
 
   // ─── 기간 변경 자동저장 옵션 ────────────────────────────
   const [autoSaveOnChange, setAutoSaveOnChange] = useState<boolean>(() => {
-    try { return localStorage.getItem("saves.autoSaveOnChange") !== "0"; } catch { return true; }
+    try { return localStorage.getItem("saves.autoSaveOnChange") === "1"; } catch { return false; }
   });
   const toggleAutoSaveOnChange = (v: boolean) => {
     setAutoSaveOnChange(v);
@@ -322,6 +322,9 @@ export default function Saves() {
     try { localStorage.setItem(autoSavedKey(m, p), "1"); } catch { /* noop */ }
   };
   const autoSavingRef = useRef<string | null>(null);
+  // 최초 마운트 시점의 (month, period) 를 기록 → 이후 "변경"된 경우에만 자동저장
+  const lastPeriodRef = useRef<string>(`${month}:${period}`);
+  const mountedRef = useRef(false);
   const [verifyingOD, setVerifyingOD] = useState(false);
   async function verifyOneDrive() {
     setVerifyingOD(true);
