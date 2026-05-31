@@ -655,6 +655,7 @@ function CompaniesTab() {
   const [leaders, setLeadersList] = useState<{ id: string; name: string }[]>([]);
   const [dupOpen, setDupOpen] = useState(false);
   const [dupGroups, setDupGroups] = useState<Company[][]>([]);
+  const [dupSel, setDupSel] = useState<Record<string, { checked: Set<string>; canonical: string | null }>>({});
   const [merging, setMerging] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
@@ -758,6 +759,7 @@ function CompaniesTab() {
     }
     const groups = Array.from(map.values()).filter((g) => g.length > 1);
     setDupGroups(groups);
+    setDupSel(initSel(groups));
     setDupOpen(true);
     if (groups.length === 0) toast.success("중복된 업체가 없습니다.");
   };
@@ -786,6 +788,7 @@ function CompaniesTab() {
     }
     const groups = Array.from(buckets.values()).filter((g) => g.length > 1);
     setDupGroups(groups);
+    setDupSel(initSel(groups));
     setDupOpen(true);
     if (groups.length === 0) toast.success("유사한 업체가 없습니다.");
     else toast.info(`유사 후보 ${groups.length}개 그룹을 찾았습니다.`);
