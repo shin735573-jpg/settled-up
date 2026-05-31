@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc, compareLeadersByFeeAsc } from "@/lib/leaderSort";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -287,8 +288,11 @@ export default function Summary() {
     [periodRows, companies, leaders],
   );
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  useArrowKeyNav(rootRef);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={rootRef}>
       <div className="flex items-center gap-2">
         <h1 className="text-2xl font-bold flex-1">한눈요약</h1>
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-40" />
