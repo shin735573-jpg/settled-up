@@ -1,7 +1,6 @@
 export const fmt = (n: number | null | undefined) => {
   if (n === null || n === undefined || isNaN(Number(n))) return "-";
   const num = Number(n);
-  if (num === 0) return "-";
   return num < 0 ? `(${Math.abs(num).toLocaleString()})` : num.toLocaleString();
 };
 
