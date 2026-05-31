@@ -106,33 +106,33 @@ export default function Saves() {
   const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
   const [checkTitle, setCheckTitle] = useState<string>("");
 
-  function runChecksFor(opts: { company?: boolean; leader?: boolean; all?: boolean }): CheckResult {
+  /**
+   * scope:
+   *  - "company-one" / "company-all"
+   *  - "leader-one"  / "leader-all"
+   *  - "both-all"  (재생성 / 저장 전 오류 검사)
+   */
+  type Scope = "company-one" | "company-all" | "leader-one" | "leader-all" | "both-all";
+
+  function runChecksFor(scope: Scope): CheckResult {
     const results: CheckResult[] = [];
-    const targetsC =
-      opts.all || (opts.company && !selectedCompanyId)
-        ? companyStmts
-        : opts.company && selectedCompany
-        ? [selectedCompany]
-        : [];
-    const targetsL =
-      opts.all || (opts.leader && !selectedLeaderId)
-        ? leaderStmts
-        : opts.leader && selectedLeader
-        ? [selectedLeader]
-        : [];
+    const targetsC: typeof companyStmts =
+      scope === "company-one" && selectedCompany ? [selectedCompany]
+      : scope === "company-all" || scope === "both-all" ? companyStmts
+      : [];
+    const targetsL: typeof leaderStmts =
+      scope === "leader-one" && selectedLeader ? [selectedLeader]
+      : scope === "leader-all" || scope === "both-all" ? leaderStmts
+      : [];
 
     for (const data of targetsC) results.push(validateCompanyStatement(data));
     for (const data of targetsL) {
       results.push(
-        validateLeaderStatement(data, {
-          leaders,
-          ...special,
-          oeunkyuSpecial,
-        }),
+        validateLeaderStatement(data, { leaders, ...special, oeunkyuSpecial }),
       );
     }
-    // 오은규→오동선 누락 (공통 1회)
-    if ((opts.all || opts.leader) && special.oeunkyuId && special.odongseonId) {
+    // 오은규→오동선 누락 (팀장 검사가 포함된 경우만 1회)
+    if (targetsL.length > 0 && special.oeunkyuId && special.odongseonId) {
       const odongseonStmt = leaderStmts.find((s) => s.leader.id === special.odongseonId);
       results.push(
         validateOeunkyuTransferCoverage(
@@ -147,8 +147,8 @@ export default function Saves() {
     return mergeResults(...results);
   }
 
-  function withValidation(title: string, opts: { company?: boolean; leader?: boolean; all?: boolean }, save: () => void) {
-    const result = runChecksFor(opts);
+  function withValidation(title: string, scope: Scope, save: () => void) {
+    const result = runChecksFor(scope);
     setCheckTitle(title);
     setCheckResult(result);
     if (result.ok && result.warnings.length === 0) {
@@ -167,32 +167,26 @@ export default function Saves() {
 
   const onSaveCompanyOne = () => withValidation(
     `${selectedCompany?.company.name ?? "업체"} 정산서 저장`,
-    { company: true },
+    "company-one",
     doSaveStub(`${selectedCompany?.company.name} 업체 정산서`),
   );
   const onSaveCompanyAll = () => withValidation(
-    "업체 전체 정산서 저장",
-    { all: true, company: true },
-    doSaveStub("업체 전체"),
+    "업체 전체 정산서 저장", "company-all", doSaveStub("업체 전체"),
   );
   const onSaveLeaderOne = () => withValidation(
     `${selectedLeader?.leader.name ?? "팀장"} 정산서 저장`,
-    { leader: true },
+    "leader-one",
     doSaveStub(`${selectedLeader?.leader.name} 팀장 정산서`),
   );
   const onSaveLeaderAll = () => withValidation(
-    "팀장 전체 정산서 저장",
-    { all: true, leader: true },
-    doSaveStub("팀장 전체"),
+    "팀장 전체 정산서 저장", "leader-all", doSaveStub("팀장 전체"),
   );
   const onRegenerate = () => withValidation(
-    "정산서 재생성",
-    { all: true, company: true, leader: true },
-    doSaveStub("재생성"),
+    "정산서 재생성", "both-all", doSaveStub("재생성"),
   );
   const onCheckOnly = () => {
-    const result = runChecksFor({ all: true, company: true, leader: true });
-    setCheckTitle("저장 전 오류 검사 결과");
+    const result = runChecksFor("both-all");
+    setCheckTitle("저장 전 오류 검사 결과 (업체 + 팀장)");
     setCheckResult(result);
     setPendingSave(null);
   };
