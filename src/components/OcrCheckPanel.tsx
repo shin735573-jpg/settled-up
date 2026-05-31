@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Camera, Loader2, RefreshCw, Trash2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type Field = "customer" | "region" | "item" | "note";
 const FIELDS: { key: Field; label: string }[] = [
@@ -15,6 +16,55 @@ const FIELDS: { key: Field; label: string }[] = [
   { key: "item", label: "품목" },
   { key: "note", label: "비고" },
 ];
+
+const TSV_HEADERS = ["고객명", "배송지", "품목", "비고"] as const;
+const TSV_COL_COUNT = TSV_HEADERS.length;
+const MAX_FIELD_LEN = 200;
+
+/**
+ * 추출 결과가 TSV(고객명/배송지/품목/비고) 등록 규칙을 만족하는지 검증.
+ * 실패한 항목은 { index, fileName, reasons[] } 형태로 반환.
+ * 규칙:
+ *  - 4개 필드(customer/region/item/note)가 모두 string 이어야 함
+ *  - 값에 탭/개행/캐리지리턴 포함 불가 (TSV 열 깨짐 방지)
+ *  - 각 값 길이 ≤ MAX_FIELD_LEN
+ *  - customer/region/item 중 최소 1개 이상 비어있지 않아야 함
+ */
+export type ExtractRowError = { index: number; fileName: string; reasons: string[] };
+export function validateExtractedRowsForTsv(
+  rows: Array<ExtractedRow & { __fileName?: string }>,
+): ExtractRowError[] {
+  const errors: ExtractRowError[] = [];
+  rows.forEach((r, i) => {
+    const reasons: string[] = [];
+    const values: Array<[Field, unknown]> = [
+      ["customer", r.customer],
+      ["region", r.region],
+      ["item", r.item],
+      ["note", r.note],
+    ];
+    if (values.length !== TSV_COL_COUNT) {
+      reasons.push(`열 개수 불일치 (${values.length}/${TSV_COL_COUNT})`);
+    }
+    for (const [k, v] of values) {
+      if (typeof v !== "string") {
+        reasons.push(`${k}: 문자열 아님`);
+        continue;
+      }
+      if (/[\t\r\n]/.test(v)) reasons.push(`${k}: 탭·개행 포함 (TSV 열이 깨질 수 있음)`);
+      if (v.length > MAX_FIELD_LEN) reasons.push(`${k}: 길이 초과 (${v.length}>${MAX_FIELD_LEN})`);
+    }
+    const meaningful =
+      (typeof r.customer === "string" && r.customer.trim()) ||
+      (typeof r.region === "string" && r.region.trim()) ||
+      (typeof r.item === "string" && r.item.trim());
+    if (!meaningful) reasons.push("고객명/배송지/품목 중 최소 1개 필요");
+    if (reasons.length > 0) {
+      errors.push({ index: i + 1, fileName: r.__fileName ?? `샘플 ${i + 1}`, reasons });
+    }
+  });
+  return errors;
+}
 
 type ExtractedRow = { customer: string; region: string; item: string; note: string; uncertain: string[] };
 
@@ -69,6 +119,7 @@ export default function OcrCheckPanel({ max = 10, onRegister, clearOnRegister = 
   const fileRef = useRef<HTMLInputElement>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [busy, setBusy] = useState(false);
+  const [registerErrors, setRegisterErrors] = useState<ExtractRowError[]>([]);
 
   const onPick = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -186,13 +237,22 @@ export default function OcrCheckPanel({ max = 10, onRegister, clearOnRegister = 
       toast.warning("등록할 분석 결과가 없습니다 (먼저 분석 실행)");
       return;
     }
-    const rows: ExtractedRow[] = done.map((s) => ({
+    const rowsWithFile = done.map((s) => ({
       customer: s.actual?.customer ?? "",
       region: s.actual?.region ?? "",
       item: s.actual?.item ?? "",
       note: s.actual?.note ?? "",
       uncertain: s.uncertain ?? [],
+      __fileName: s.fileName,
     }));
+    const errs = validateExtractedRowsForTsv(rowsWithFile);
+    if (errs.length > 0) {
+      setRegisterErrors(errs);
+      toast.error(`검증 실패: ${errs.length}건 (수정 후 다시 등록)`);
+      return;
+    }
+    setRegisterErrors([]);
+    const rows: ExtractedRow[] = rowsWithFile.map(({ __fileName, ...r }) => r);
     onRegister(rows);
     toast.success(`${rows.length}건 등록`);
     if (clearOnRegister) setSamples([]);
