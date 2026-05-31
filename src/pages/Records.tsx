@@ -705,6 +705,10 @@ export default function Records() {
   // 거부기사도 선택 가능 (저장 시 별칭 적용 — 경고만 표시)
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active), [leaders]);
 
+  // 표시명: 가능하면 leader_id로 정식 팀장명을 찾아 표시(동명이인 구분 포함).
+  // ID가 없거나 매칭 실패면 저장된 원본 이름 사용.
+  const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+
   // 검색 필터 (보기 전용 — 데이터 손상 없음)
   const norm = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
   const filteredRecords = useMemo(() => {
@@ -738,9 +742,6 @@ export default function Records() {
     });
   }, [records, searchCompany, searchCustomer, searchLeader, leaders, leadersById]);
 
-  // 표시명: 가능하면 leader_id로 정식 팀장명을 찾아 표시(동명이인 구분 포함).
-  // ID가 없거나 매칭 실패면 저장된 원본 이름 사용.
-  const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
   const displayLeaderById = (id: string | null, fallback: string | null): string => {
     if (id) {
       const l = leadersById.get(id);
