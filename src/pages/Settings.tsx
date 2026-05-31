@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, CheckCircle2, AlertCircle, XCircle, ChevronDown, ChevronUp, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName, resolveLeaderName } from "@/lib/leaderResolver";
@@ -38,6 +38,7 @@ import {
   type ParsedBackup,
   type RestoreMode,
   type RestoreResult,
+  type BatchError,
 } from "@/lib/excelBackup";
 import { validateBackupForRestore, type RestoreValidationResult } from "@/lib/restoreValidation";
 
@@ -318,19 +319,37 @@ function RestoreSection({ uid }: { uid: string }) {
     }
     const tables = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
     setBusy(true);
+    setResults(null);
     try {
       const res = await restoreBackup(uid, parsed, tables, mode);
       setResults(res);
-      const ok = res.filter((r) => !r.error);
-      const fail = res.filter((r) => r.error);
-      const inserted = ok.reduce((s, r) => s + r.inserted, 0);
-      if (fail.length === 0) {
-        toast.success(`복구 완료 · ${inserted}건 적용`, {
-          description: ok.map((r) => `${r.sheet} ${r.inserted}건`).join(", "),
+
+      const okSheets = res.filter((r) => !r.error && r.skipped === 0);
+      const partialSheets = res.filter((r) => !r.error && r.skipped > 0);
+      const failSheets = res.filter((r) => r.error);
+
+      const totalInserted = res.reduce((s, r) => s + r.inserted, 0);
+      const totalDeleted = res.reduce((s, r) => s + r.deleted, 0);
+      const totalSkipped = res.reduce((s, r) => s + r.skipped, 0);
+      const totalRows = res.reduce((s, r) => s + r.total, 0);
+
+      if (failSheets.length === 0 && partialSheets.length === 0) {
+        toast.success(`복구 완료 · ${okSheets.length}개 시트 · ${totalInserted.toLocaleString()}건 적용`, {
+          description:
+            mode === "replace"
+              ? `삭제 ${totalDeleted.toLocaleString()}건 · 적용 ${totalInserted.toLocaleString()}건 / ${totalRows.toLocaleString()}건`
+              : `병합 적용 ${totalInserted.toLocaleString()}건 / ${totalRows.toLocaleString()}건`,
+          duration: 6000,
+        });
+      } else if (failSheets.length === 0) {
+        toast.warning(`복구 완료 · 일부 배치 실패`, {
+          description: `성공 ${totalInserted.toLocaleString()}건 · 건너뛴 ${totalSkipped.toLocaleString()}건 · ${partialSheets.length}개 시트`,
+          duration: 8000,
         });
       } else {
-        toast.error(`일부 실패 · 성공 ${ok.length} / 실패 ${fail.length}`, {
-          description: fail.map((r) => `${r.sheet}: ${r.error}`).join(" | "),
+        toast.error(`복구 중 오류 발생 · ${failSheets.length}개 시트 실패`, {
+          description: `성공 ${okSheets.length + partialSheets.length}개 · 실패 ${failSheets.length}개 · 건너뛴 ${totalSkipped.toLocaleString()}건`,
+          duration: 8000,
         });
       }
     } catch (e) {
@@ -483,18 +502,7 @@ function RestoreSection({ uid }: { uid: string }) {
                 </div>
               )}
 
-              {results && (
-                <div className="text-xs space-y-1 border-t pt-2">
-                  <div className="font-semibold">결과</div>
-                  {results.map((r) => (
-                    <div key={r.table} className={r.error ? "text-destructive" : ""}>
-                      {r.sheet}: 적용 {r.inserted}건
-                      {mode === "replace" && r.deleted > 0 && ` · 삭제 ${r.deleted}건`}
-                      {r.error && ` — ${r.error}`}
-                    </div>
-                  ))}
-                </div>
-              )}
+              {results && <RestoreResultPanel results={results} mode={mode} />}
             </div>
           )}
 
@@ -522,6 +530,123 @@ function RestoreSection({ uid }: { uid: string }) {
 }
 
 
+
+function RestoreResultPanel({
+  results,
+  mode,
+}: {
+  results: RestoreResult[];
+  mode: RestoreMode;
+}) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggle = (table: string) =>
+    setExpanded((s) => ({ ...s, [table]: !s[table] }));
+
+  const totalRows = results.reduce((s, r) => s + r.total, 0);
+  const totalInserted = results.reduce((s, r) => s + r.inserted, 0);
+  const totalDeleted = results.reduce((s, r) => s + r.deleted, 0);
+  const totalSkipped = results.reduce((s, r) => s + r.skipped, 0);
+  const failCount = results.filter((r) => r.error || r.skipped > 0).length;
+  const allOk = failCount === 0;
+
+  return (
+    <div className="space-y-2 border rounded p-3 bg-muted/20">
+      <div className="flex items-center gap-2">
+        {allOk ? (
+          <CheckCircle2 className="w-4 h-4 text-green-600" />
+        ) : (
+          <AlertCircle className="w-4 h-4 text-amber-600" />
+        )}
+        <span className="text-sm font-semibold">
+          복구 결과 {allOk ? "· 전체 성공" : `· ${failCount}개 시트 이슈`}
+        </span>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {totalInserted.toLocaleString()}건 적용 / {totalRows.toLocaleString()}건
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="bg-green-50 dark:bg-green-950/30 rounded p-2">
+          <div className="text-xs text-muted-foreground">적용</div>
+          <div className="text-base font-bold text-green-700 dark:text-green-400">
+            {totalInserted.toLocaleString()}
+          </div>
+        </div>
+        {mode === "replace" && (
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded p-2">
+            <div className="text-xs text-muted-foreground">삭제</div>
+            <div className="text-base font-bold text-blue-700 dark:text-blue-400">
+              {totalDeleted.toLocaleString()}
+            </div>
+          </div>
+        )}
+        {totalSkipped > 0 && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 rounded p-2">
+            <div className="text-xs text-muted-foreground">건너뜀</div>
+            <div className="text-base font-bold text-amber-700 dark:text-amber-400">
+              {totalSkipped.toLocaleString()}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        {results.map((r) => {
+          const ok = !r.error && r.skipped === 0;
+          const hasErrors = !!r.error || (r.batchErrors && r.batchErrors.length > 0);
+          return (
+            <div key={r.table} className="border rounded bg-background">
+              <button
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-left"
+                onClick={() => toggle(r.table)}
+              >
+                {ok ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                ) : hasErrors ? (
+                  <XCircle className="w-3.5 h-3.5 text-destructive shrink-0" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                )}
+                <span className="text-sm flex-1">{r.sheet}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {r.inserted.toLocaleString()}/{r.total.toLocaleString()}건
+                </span>
+                {expanded[r.table] ? (
+                  <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+              </button>
+              {expanded[r.table] && (
+                <div className="px-2 pb-2 space-y-1 text-xs">
+                  <div className="grid grid-cols-3 gap-1 text-center">
+                    <div>적용: <span className="font-medium">{r.inserted}</span></div>
+                    {mode === "replace" && <div>삭제: <span className="font-medium">{r.deleted}</span></div>}
+                    {r.skipped > 0 && <div>건너뜀: <span className="font-medium text-amber-700">{r.skipped}</span></div>}
+                  </div>
+                  {r.error && (
+                    <div className="text-destructive bg-destructive/5 rounded px-2 py-1">
+                      {r.error}
+                    </div>
+                  )}
+                  {r.batchErrors && r.batchErrors.length > 0 && (
+                    <div className="space-y-0.5">
+                      {r.batchErrors.map((be, idx) => (
+                        <div key={idx} className="text-destructive/90">
+                          · 배치 {be.batchIndex} ({be.count}건): {be.message}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function CompaniesTab() {
   const { user } = useAuth();

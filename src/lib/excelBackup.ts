@@ -325,15 +325,24 @@ export async function parseBackupFile(file: File): Promise<ParsedBackup> {
   return { meta, tables };
 }
 
-export type RestoreMode = "upsert" | "replace";
+export type BatchError = {
+  batchIndex: number;
+  count: number;
+  message: string;
+};
 
 export type RestoreResult = {
   table: string;
   sheet: string;
-  inserted: number;
-  deleted: number;
-  error?: string;
+  total: number;          // 전체 행 수
+  inserted: number;       // 성공적으로 적용된 행 수
+  deleted: number;        // 삭제된 행 수 (replace 모드)
+  skipped: number;        // 오류로 인해 건너뛴 행 수
+  error?: string;          // 전체 실패 시 오류 메시지
+  batchErrors?: BatchError[];
 };
+
+export type RestoreMode = "upsert" | "replace";
 
 /**
  * 선택된 테이블만 복구.
@@ -353,7 +362,15 @@ export async function restoreBackup(
 
   for (const t of parsed.tables) {
     if (!selectedTables.includes(t.table)) continue;
-    const res: RestoreResult = { table: t.table, sheet: t.sheet, inserted: 0, deleted: 0 };
+    const res: RestoreResult = {
+      table: t.table,
+      sheet: t.sheet,
+      total: t.rows.length,
+      inserted: 0,
+      deleted: 0,
+      skipped: 0,
+      batchErrors: [],
+    };
     try {
       if (mode === "replace") {
         const { error: delErr, count } = await supabase
@@ -374,11 +391,22 @@ export async function restoreBackup(
           mode === "upsert"
             ? await q.upsert(chunk as never, { onConflict: "id" })
             : await q.insert(chunk as never);
-        if (error) throw new Error(`${i + 1}번째 배치 실패: ${error.message}`);
-        res.inserted += chunk.length;
+        if (error) {
+          res.batchErrors!.push({
+            batchIndex: Math.floor(i / BATCH) + 1,
+            count: chunk.length,
+            message: error.message,
+          });
+          res.skipped += chunk.length;
+        } else {
+          res.inserted += chunk.length;
+        }
       }
     } catch (e) {
       res.error = (e as Error).message;
+      // 전체 실패 시 미적용 행을 skipped 에 반영
+      const remaining = t.rows.length - res.inserted - res.skipped;
+      if (remaining > 0) res.skipped += remaining;
     }
     results.push(res);
   }
