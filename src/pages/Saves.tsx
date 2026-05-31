@@ -462,16 +462,42 @@ export default function Saves() {
           pointerEvents: "none",
         }}
       >
-        {companyStmts.map((s) => (
-          <div key={"c-" + s.company.id} data-stmt={`company:${s.company.id}`} className="p-6 bg-white text-black">
-            <CompanyPreview data={s} />
-          </div>
-        ))}
-        {leaderStmts.map((s) => (
-          <div key={"l-" + s.leader.id} data-stmt={`leader:${s.leader.id}`} className="p-6 bg-white text-black">
-            <LeaderPreview data={s} />
-          </div>
-        ))}
+        {companyStmts.flatMap((s) => {
+          const pages = paginate(s.rows.length, 25);
+          return pages.map((slice, idx) => (
+            <div
+              key={`c-${s.company.id}-${idx}`}
+              data-stmt-id={`company:${s.company.id}`}
+              data-stmt-page={idx + 1}
+              className="p-6 bg-white text-black"
+            >
+              <CompanyPreview
+                data={s}
+                rowsSlice={slice}
+                pageIndex={idx + 1}
+                totalPages={pages.length}
+              />
+            </div>
+          ));
+        })}
+        {leaderStmts.flatMap((s) => {
+          const pages = paginate(s.rows.length, 25);
+          return pages.map((slice, idx) => (
+            <div
+              key={`l-${s.leader.id}-${idx}`}
+              data-stmt-id={`leader:${s.leader.id}`}
+              data-stmt-page={idx + 1}
+              className="p-6 bg-white text-black"
+            >
+              <LeaderPreview
+                data={s}
+                rowsSlice={slice}
+                pageIndex={idx + 1}
+                totalPages={pages.length}
+              />
+            </div>
+          ));
+        })}
       </div>
 
       <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
