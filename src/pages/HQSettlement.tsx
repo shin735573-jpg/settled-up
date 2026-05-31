@@ -568,6 +568,9 @@ export default function HQSettlement() {
               <span className="font-semibold">최종 본사 수익</span>
               <span className={`font-bold ${hqProfit < 0 ? "text-destructive" : "text-primary"}`}>{fmt(hqProfit)}</span>
             </div>
+            <div className="px-4 py-2 bg-muted/20 text-xs text-muted-foreground text-center">
+              (신동석 {fmt(shindongseokFee)} + 삼호 {fmt(samhoFee)} + 적재비 {fmt(loadingTotal)} + 수수료 {fmt(leaderCommissionTotal)}) - 총지출 {fmt(expenseTotal)} = {fmt(hqProfit)}
+            </div>
           </div>
         </Card>
 
@@ -674,9 +677,14 @@ export default function HQSettlement() {
         {/* 지출관리 */}
         <Card className="overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold flex items-center justify-between">
-            지출관리
+            <div className="flex flex-col">
+              <span>지출관리</span>
+              <span className="text-xs text-muted-foreground font-normal">
+                고정지출 {fmt(fixedTotal)} + 추가지출 {fmt(additionalTotal)} + 최저보장보전금 {fmt(minGuaranteeTopUp)} = {fmt(expenseTotal)}
+              </span>
+            </div>
             <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs text-muted-foreground">합계 {fmt(expenseTotal)}</span>
+              <span className="text-xs font-medium">총지출 {fmt(expenseTotal)}</span>
               <Button size="sm" variant="outline" onClick={addAdditional}>
                 <Plus className="w-4 h-4 mr-1" />추가
               </Button>
