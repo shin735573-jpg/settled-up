@@ -1681,6 +1681,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                       <TableHead className="whitespace-nowrap min-w-[120px] text-right">지방배송비</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px] text-right">착불</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[130px] text-right">배송비총액</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[100px]">2인배송</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[100px]">분할</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[100px]">결제유무</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[220px]">오류/경고</TableHead>
