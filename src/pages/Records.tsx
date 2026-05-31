@@ -1139,6 +1139,7 @@ export default function Records() {
           editRow={editRow}
           removeRow={removeRow}
           displayLeaderById={displayLeaderById}
+          displaySettlementStatus={displaySettlementStatus}
         />
       </Card>
 
