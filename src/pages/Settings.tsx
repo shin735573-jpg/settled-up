@@ -468,10 +468,14 @@ function CompaniesTab() {
         <div>
           <Input placeholder="업체 검색 (업체명 일부 입력)" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full" />
         </div>
+        <div className="text-xs text-muted-foreground">
+          전체 {rows.length}개 업체{search.trim() ? ` · 검색 결과 ${filteredRows.length}개` : ""}
+        </div>
       </div>
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-12">연번</TableHead>
             <TableHead>업체명</TableHead>
             <TableHead>계산서</TableHead>
             <TableHead>계좌번호</TableHead>
@@ -485,8 +489,9 @@ function CompaniesTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredRows.map((r) => (
+          {filteredRows.map((r, idx) => (
             <TableRow key={r.id}>
+              <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
               <TableCell><Input defaultValue={r.name} onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} /></TableCell>
               <TableCell><Checkbox checked={r.issues_invoice} onCheckedChange={(v) => update(r.id, { issues_invoice: !!v })} /></TableCell>
               <TableCell>
@@ -534,7 +539,7 @@ function CompaniesTab() {
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
           ))}
-          {filteredRows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 업체가 없습니다"}</TableCell></TableRow>}
+          {filteredRows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 업체가 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
       <Dialog open={dupOpen} onOpenChange={setDupOpen}>
@@ -760,9 +765,14 @@ function LeadersTab() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Leader[]>([]);
   const [name, setName] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = async () => {
-    const { data } = await supabase.from("team_leaders").select("*").order("name");
+    // 입력순(생성일 오름차순)으로 정렬
+    const { data } = await supabase
+      .from("team_leaders")
+      .select("*")
+      .order("created_at", { ascending: true });
     setRows((data as Leader[]) || []);
   };
   useEffect(() => { load(); }, []);
@@ -785,6 +795,14 @@ function LeadersTab() {
   };
 
   const dupCounts = detectDuplicates(rows);
+
+  const filteredRows = rows.filter((r) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    if ((r.name || "").toLowerCase().includes(q)) return true;
+    const aliases = r.aliases || [];
+    return aliases.some((a) => (a || "").toLowerCase().includes(q));
+  });
 
   /** 별칭 1개만 허용 */
   const updateAlias = async (id: string, value: string) => {
@@ -886,12 +904,20 @@ function LeadersTab() {
 
   return (
     <Card className="p-4 space-y-4">
-      <div className="flex gap-2">
-        <Input placeholder="팀장명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
-        <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
-        <Button variant="outline" onClick={cleanLeaderNames} disabled={cleaning}>
-          {cleaning ? "정리 중..." : "팀장 이름 정리"}
-        </Button>
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <Input placeholder="팀장명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
+          <Button variant="outline" onClick={cleanLeaderNames} disabled={cleaning}>
+            {cleaning ? "정리 중..." : "팀장 이름 정리"}
+          </Button>
+        </div>
+        <div>
+          <Input placeholder="팀장 검색 (이름 또는 별칭 일부 입력)" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full" />
+        </div>
+        <div className="text-xs text-muted-foreground">
+          전체 {rows.length}명 팀장{search.trim() ? ` · 검색 결과 ${filteredRows.length}명` : ""}
+        </div>
       </div>
       <div className="text-xs text-muted-foreground">
         ‘팀장 이름 정리’: 기존 기록에서 별칭으로 저장된 팀장명을 정식 팀장명/ID로 통합합니다.
@@ -900,6 +926,7 @@ function LeadersTab() {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-12">연번</TableHead>
             <TableHead>정식 팀장명</TableHead>
             <TableHead className="min-w-[110px]">
               별칭(1개)
@@ -917,7 +944,7 @@ function LeadersTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r) => {
+          {filteredRows.map((r, idx) => {
             const isDup = (dupCounts.get(r.name.trim()) ?? 0) > 1;
             const al = r.aliases || [];
             const needsAlias = r.is_rejected && !(al[0] || "").trim();
@@ -930,6 +957,7 @@ function LeadersTab() {
             const minGuaranteeInvalid = r.min_guarantee_enabled && (!r.min_guarantee_amount || r.min_guarantee_amount <= 0);
             return (
             <TableRow key={r.id}>
+              <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
                   <Input defaultValue={r.name} onBlur={(e) => e.target.value.trim() !== r.name && updateName(r.id, e.target.value)} />
@@ -1051,7 +1079,7 @@ function LeadersTab() {
             </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+          {filteredRows.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 팀장이 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
