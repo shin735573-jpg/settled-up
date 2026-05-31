@@ -25,6 +25,12 @@ import {
   classifyRegion,
 } from "@/lib/regionClassifier";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  runBackup,
+  getAutoBackupEnabled,
+  setAutoBackupEnabled,
+  getLastBackupAt,
+} from "@/lib/excelBackup";
 
 type Company = {
   id: string;
@@ -96,6 +102,7 @@ function CompanyTab() {
   };
 
   return (
+    <div className="space-y-4 max-w-2xl">
     <Card className="p-6 space-y-5 max-w-2xl">
       <div>
         <h2 className="font-semibold mb-1">회사 설정</h2>
@@ -156,6 +163,80 @@ function CompanyTab() {
           오은규 특수정산 적용 (오은규 금액을 오동선에게 합산)
         </Label>
       </div>
+    </Card>
+    <BackupCard uid={uid} />
+    </div>
+  );
+}
+
+function BackupCard({ uid }: { uid: string }) {
+  const [auto, setAuto] = useState<boolean>(() => getAutoBackupEnabled(uid));
+  const [lastAt, setLastAt] = useState<string | null>(() => getLastBackupAt(uid));
+  const [busy, setBusy] = useState<"" | "local" | "onedrive">("");
+  useEffect(() => {
+    setAuto(getAutoBackupEnabled(uid));
+    setLastAt(getLastBackupAt(uid));
+  }, [uid]);
+
+  const toggleAuto = (v: boolean) => {
+    setAuto(v);
+    setAutoBackupEnabled(uid, v);
+  };
+
+  const run = async (mode: "local" | "onedrive") => {
+    if (!uid || uid === "anon") {
+      toast.error("로그인이 필요합니다.");
+      return;
+    }
+    setBusy(mode);
+    try {
+      const { filename, size, uploaded } = await runBackup(uid, {
+        download: true,
+        uploadOneDrive: mode === "onedrive",
+      });
+      const kb = Math.round(size / 1024);
+      toast.success(
+        `백업 완료 (${kb}KB)` + (uploaded ? " · OneDrive 업로드 성공" : ""),
+        { description: filename },
+      );
+      setLastAt(getLastBackupAt(uid));
+    } catch (e) {
+      toast.error("백업 실패", { description: String((e as Error)?.message ?? e) });
+    } finally {
+      setBusy("");
+    }
+  };
+
+  return (
+    <Card className="p-6 space-y-4 max-w-2xl">
+      <div>
+        <h2 className="font-semibold mb-1">엑셀 백업</h2>
+        <p className="text-xs text-muted-foreground">
+          업체·팀장·배송기록·휴무일·공제·단가표 등 모든 데이터를 한 파일(.xlsx)로 저장합니다.
+          OneDrive 사용 시 <span className="font-mono">삼호정산표_백업/</span> 폴더에 함께 업로드됩니다.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Button onClick={() => run("local")} disabled={busy !== ""}>
+          {busy === "local" ? "백업 중…" : "지금 백업 다운로드"}
+        </Button>
+        <Button variant="secondary" onClick={() => run("onedrive")} disabled={busy !== ""}>
+          {busy === "onedrive" ? "업로드 중…" : "다운로드 + OneDrive 업로드"}
+        </Button>
+      </div>
+      <div className="flex items-center gap-3 pt-2 border-t">
+        <Checkbox
+          id="auto-backup"
+          checked={auto}
+          onCheckedChange={(v) => toggleAuto(!!v)}
+        />
+        <Label htmlFor="auto-backup" className="text-sm font-normal cursor-pointer">
+          매일 첫 접속 시 자동 백업 (24시간 1회)
+        </Label>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        마지막 백업: {lastAt ? new Date(lastAt).toLocaleString() : "없음"}
+      </p>
     </Card>
   );
 }
