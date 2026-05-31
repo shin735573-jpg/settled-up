@@ -31,6 +31,23 @@ const COMPANY_COLUMNS: Array<{
 ];
 const COMPANY_TOTAL_WIDTH = COMPANY_COLUMNS.reduce((s, c) => s + c.width, 0);
 
+type DiagRow = {
+  scope: string;
+  index: number;
+  expectedKey: string;
+  expectedLabel: string;
+  expectedWidth: number;
+  actualWidth: number;
+  ok: boolean;
+  note?: string;
+};
+type DiagReport = {
+  ranAt: string;
+  ok: boolean;
+  summary: string;
+  rows: DiagRow[];
+};
+
 const alignClass = (a: "left" | "right" | "center") =>
   a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left";
 
@@ -209,6 +226,106 @@ export default function CompanySettlement() {
 
   // 컬럼 위치 검증: 헤더 컬럼 수와 데이터 셀 수가 일치하는지 + 순서가 정의와 일치하는지
   const [colAlignError, setColAlignError] = useState<string | null>(null);
+  const [diagReport, setDiagReport] = useState<DiagReport | null>(null);
+
+  const runColumnDiagnostic = () => {
+    const table = document.querySelector<HTMLTableElement>("[data-testid='company-summary-table']");
+    if (!table) {
+      setDiagReport({
+        ranAt: new Date().toLocaleTimeString(),
+        ok: false,
+        summary: "테이블을 찾을 수 없습니다. (전체 업체 목록 화면에서 실행하세요)",
+        rows: [],
+      });
+      return;
+    }
+    const expected = COMPANY_COLUMNS.length;
+    const headCells = Array.from(table.querySelectorAll<HTMLTableCellElement>("thead tr th"));
+    const bodyRows = Array.from(table.querySelectorAll<HTMLTableRowElement>("tbody tr"));
+    const rows: DiagRow[] = [];
+    let ok = true;
+
+    // 헤더 검사
+    COMPANY_COLUMNS.forEach((c, i) => {
+      const th = headCells[i];
+      const actualLabel = th?.textContent?.trim() ?? "";
+      const actualWidth = th ? Math.round(th.getBoundingClientRect().width) : 0;
+      const labelMatch = actualLabel === c.label;
+      const cellOk = !!th && labelMatch;
+      if (!cellOk) ok = false;
+      rows.push({
+        scope: "헤더",
+        index: i,
+        expectedKey: c.key,
+        expectedLabel: c.label,
+        expectedWidth: c.width,
+        actualWidth,
+        ok: cellOk,
+        note: !th ? "th 없음" : !labelMatch ? `실제: "${actualLabel}"` : undefined,
+      });
+    });
+    if (headCells.length !== expected) {
+      ok = false;
+      rows.push({
+        scope: "헤더 개수",
+        index: -1,
+        expectedKey: "-",
+        expectedLabel: `${expected}개`,
+        expectedWidth: 0,
+        actualWidth: headCells.length,
+        ok: false,
+        note: `실제 ${headCells.length}개`,
+      });
+    }
+
+    // 본문 행별 셀 수/너비 검사
+    bodyRows.forEach((tr, rIdx) => {
+      const cells = Array.from(tr.querySelectorAll<HTMLTableCellElement>("td"));
+      if (cells.length === 1 && cells[0].colSpan === expected) return; // 빈 안내 행
+      if (cells.length !== expected) {
+        ok = false;
+        rows.push({
+          scope: `행 ${rIdx + 1} 셀 수`,
+          index: rIdx,
+          expectedKey: "-",
+          expectedLabel: `${expected}개`,
+          expectedWidth: 0,
+          actualWidth: cells.length,
+          ok: false,
+          note: `실제 ${cells.length}개`,
+        });
+        return;
+      }
+      // 첫 행에서 셀 너비도 헤더 너비와 비교
+      if (rIdx === 0) {
+        cells.forEach((td, i) => {
+          const w = Math.round(td.getBoundingClientRect().width);
+          const headW = headCells[i] ? Math.round(headCells[i].getBoundingClientRect().width) : 0;
+          const widthOk = headW > 0 && Math.abs(w - headW) <= 1;
+          if (!widthOk) ok = false;
+          rows.push({
+            scope: "행1 셀너비",
+            index: i,
+            expectedKey: COMPANY_COLUMNS[i].key,
+            expectedLabel: COMPANY_COLUMNS[i].label,
+            expectedWidth: headW,
+            actualWidth: w,
+            ok: widthOk,
+            note: widthOk ? undefined : `헤더 ${headW}px / 셀 ${w}px`,
+          });
+        });
+      }
+    });
+
+    setDiagReport({
+      ranAt: new Date().toLocaleTimeString(),
+      ok,
+      summary: ok
+        ? `정상: 헤더 ${expected}개, 본문 ${bodyRows.length}행 모두 일치`
+        : `불일치 발견: ${rows.filter(r => !r.ok).length}건`,
+      rows,
+    });
+  };
   useEffect(() => {
     if (companyId) { setColAlignError(null); return; }
     // requestAnimationFrame 으로 DOM 렌더 후 검사
@@ -286,7 +403,64 @@ export default function CompanySettlement() {
 
       {!companyId && (
         <Card className="p-4">
-          <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 업체명 클릭 시 상세보기</div>
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <div className="text-sm text-muted-foreground">{periodLabel} 기준 · 업체명 클릭 시 상세보기</div>
+            <Button size="sm" variant="outline" onClick={runColumnDiagnostic}>
+              컬럼 위치 진단
+            </Button>
+          </div>
+          {diagReport && (
+            <div
+              className={`mb-2 p-2 rounded border text-xs ${
+                diagReport.ok
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  : "border-destructive bg-destructive/10 text-destructive"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <strong>진단 결과 ({diagReport.ranAt}): {diagReport.summary}</strong>
+                <button
+                  className="underline text-xs"
+                  onClick={() => setDiagReport(null)}
+                  type="button"
+                >
+                  닫기
+                </button>
+              </div>
+              {diagReport.rows.length > 0 && (
+                <div className="overflow-x-auto mt-1">
+                  <table className="text-xs border-collapse">
+                    <thead>
+                      <tr className="text-left">
+                        <th className="pr-3">구분</th>
+                        <th className="pr-3">idx</th>
+                        <th className="pr-3">key</th>
+                        <th className="pr-3">예상 라벨</th>
+                        <th className="pr-3">예상 너비</th>
+                        <th className="pr-3">실제</th>
+                        <th className="pr-3">결과</th>
+                        <th className="pr-3">메모</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {diagReport.rows.map((r, i) => (
+                        <tr key={i} className={r.ok ? "" : "font-semibold"}>
+                          <td className="pr-3">{r.scope}</td>
+                          <td className="pr-3">{r.index}</td>
+                          <td className="pr-3">{r.expectedKey}</td>
+                          <td className="pr-3">{r.expectedLabel}</td>
+                          <td className="pr-3">{r.expectedWidth}</td>
+                          <td className="pr-3">{r.actualWidth}</td>
+                          <td className="pr-3">{r.ok ? "OK" : "FAIL"}</td>
+                          <td className="pr-3">{r.note ?? ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
           {colAlignError && (
             <div className="mb-2 p-2 rounded border border-destructive bg-destructive/10 text-sm text-destructive">
               {colAlignError}
