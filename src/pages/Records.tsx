@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { CompanyCombobox } from "@/components/CompanyCombobox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
