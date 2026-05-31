@@ -12,6 +12,8 @@ import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolve
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
+import { Switch } from "@/components/ui/switch";
+import { getCurrentHalf } from "@/lib/autoPeriod";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -54,8 +56,41 @@ const alignClass = (a: "left" | "right" | "center") =>
 const fmtAmount = (n: number) => (n && n !== 0 ? fmt(n) : "-");
 
 export default function CompanySettlement() {
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [period, setPeriod] = useState<Period>("month");
+  const initial = useMemo(() => getCurrentHalf(), []);
+  const [autoPeriod, setAutoPeriod] = useState<boolean>(() => {
+    try { return localStorage.getItem("companySettlement.autoPeriod") !== "0"; } catch { return true; }
+  });
+  const [month, setMonth] = useState(() => initial.month);
+  const [period, setPeriod] = useState<Period>(initial.half === "h1" ? "first" : "second");
+  const toggleAutoPeriod = (v: boolean) => {
+    setAutoPeriod(v);
+    try { localStorage.setItem("companySettlement.autoPeriod", v ? "1" : "0"); } catch { /* noop */ }
+    if (v) {
+      const cur = getCurrentHalf();
+      setMonth(cur.month);
+      setPeriod(cur.half === "h1" ? "first" : "second");
+    }
+  };
+  useEffect(() => {
+    if (!autoPeriod) return;
+    const sync = () => {
+      const cur = getCurrentHalf();
+      const wantP: Period = cur.half === "h1" ? "first" : "second";
+      setMonth((prev) => (prev === cur.month ? prev : cur.month));
+      setPeriod((prev) => (prev === wantP ? prev : wantP));
+    };
+    sync();
+    const onFocus = () => sync();
+    const onVis = () => { if (document.visibilityState === "visible") sync(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    const id = window.setInterval(sync, 60 * 60 * 1000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+      window.clearInterval(id);
+    };
+  }, [autoPeriod]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [companyId, setCompanyId] = useState<string>("");
   const [allRows, setAllRows] = useState<any[]>([]);
@@ -376,7 +411,7 @@ export default function CompanySettlement() {
         <input
           type="month"
           value={month}
-          onChange={(e) => setMonth(e.target.value)}
+          onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }}
           disabled={period === "all"}
           className="border rounded px-3 py-2"
         />
@@ -391,11 +426,15 @@ export default function CompanySettlement() {
               key={p}
               size="sm"
               variant={period === p ? "default" : "outline"}
-              onClick={() => setPeriod(p)}
+              onClick={() => { setPeriod(p); if (autoPeriod) toggleAutoPeriod(false); }}
             >
               {label}
             </Button>
           ))}
+        </div>
+        <div className="flex items-center gap-2 ml-2">
+          <span className="text-xs text-muted-foreground">날짜 자동</span>
+          <Switch checked={autoPeriod} onCheckedChange={toggleAutoPeriod} />
         </div>
       </div>
 
