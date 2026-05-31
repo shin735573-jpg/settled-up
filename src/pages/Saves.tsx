@@ -526,21 +526,21 @@ export default function Saves() {
       lastPeriodRef.current = key;
       return;
     }
-    // (month, period) 가 실제로 바뀐 경우에만 동작
+    // (month, period) 가 실제로 바뀐 경우에만 동작 (loading 완료까지 ref 갱신은 보류)
     if (lastPeriodRef.current === key) return;
-    lastPeriodRef.current = key;
 
     if (!autoSaveOnChange) return;
     if (!uid) return;
     if (loading) return;
     if (autoSavingRef.current === key) return;
-    if (isAutoSavedFor(month, period)) return;
+    if (isAutoSavedFor(month, period)) { lastPeriodRef.current = key; return; }
     if (locks.has(lockKey("company")) || locks.has(lockKey("leader"))) return;
     // 저장 대상이 하나도 없으면 스킵 (플래그도 세우지 않음 → 데이터 들어오면 재시도)
     const hasCompany = companyStmts.some((s) => s.finalClaim > 0);
     const hasLeader = leaderStmts.some((s) => s.deliveryCount > 0);
     if (!hasCompany && !hasLeader) return;
     autoSavingRef.current = key;
+    lastPeriodRef.current = key;
     // DOM(숨겨진 export 노드)이 그려질 시간을 확보
     const t = setTimeout(async () => {
       try {
