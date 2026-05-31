@@ -75,6 +75,10 @@ type LeaderCommonOverride = {
 const num = (v: unknown) => Number(v ?? 0) || 0;
 const sumFee = (r: Delivery) => num(r.metro_fee) + num(r.note_amount) + num(r.regional_fee);
 const normalizeDeductionLabel = (v: string) => v.trim().replace(/\s+/g, "").toLowerCase();
+const isTrashDeductionLabel = (v: string) => {
+  const key = normalizeDeductionLabel(v || "");
+  return key.includes("쓰레기") || key.includes("trash");
+};
 
 /** 행에서 정산기사(=정산귀속 후의 팀장) ID 찾기. settle_to_id 따라 redirect. */
 function settlementLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null {
@@ -235,6 +239,12 @@ export default function LeaderSettlement() {
     [leaders],
   );
   const sdsOpts = { shindongseokId, ganghyungjuId };
+  const isHyungjuDongseokLeader = (lid: string): boolean => lid === shindongseokId || lid === ganghyungjuId;
+  const commonDefaultAmountFor = (lid: string, cd: CommonDeduction): number => {
+    // 강형주/신동석은 한 팀 재분배 대상이므로 쓰레기비용 공통공제 50,000원을 기본 고정하지 않는다.
+    if (isHyungjuDongseokLeader(lid) && isTrashDeductionLabel(cd.label)) return 0;
+    return num(cd.amount);
+  };
 
   /** 원본 배분(재분배 전) 기준 한 팀장의 합계. basis="raw"일 때 사용. */
   const rawTotalsFor = (lid: string) => {
@@ -282,7 +292,7 @@ export default function LeaderSettlement() {
       const ov = commonOverrides.find(
         (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id && o.period_key === k,
       );
-      total += ov ? num(ov.amount) : num(cd.amount);
+      total += ov ? num(ov.amount) : commonDefaultAmountFor(leaderId, cd);
     }
     return total;
   };
@@ -517,7 +527,7 @@ export default function LeaderSettlement() {
               (o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id && o.period_key === pKey,
             )
           : undefined;
-        return periodSum + (ov ? num(ov.amount) : num(cd.amount));
+        return periodSum + (ov ? num(ov.amount) : commonDefaultAmountFor(detailLeader.id, cd));
       }, 0);
       return s + cdTotal;
     }, 0);
@@ -651,7 +661,8 @@ export default function LeaderSettlement() {
       if (!cdId || !pKey) continue;
       const cd = commonDeductions.find((c) => c.id === cdId);
       if (!cd) continue;
-      if (Number(amount) === num(cd.amount)) {
+      const base = commonDefaultAmountFor(leaderId, cd);
+      if (Number(amount) === base) {
         await supabase
           .from("leader_common_overrides")
           .delete()
@@ -909,7 +920,7 @@ export default function LeaderSettlement() {
               <div className="space-y-1">
                 {activeCommonDeductions.flatMap((cd) =>
                   commonPeriodKeys.map((pKey) => {
-                    const base = num(cd.amount);
+                    const base = detailLeader ? commonDefaultAmountFor(detailLeader.id, cd) : num(cd.amount);
                     const ov = detailLeader
                       ? commonOverrides.find(
                           (o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id && o.period_key === pKey,
