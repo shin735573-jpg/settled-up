@@ -398,6 +398,11 @@ export default function HQSettlement() {
   const additionalTotal = expenses.additional.reduce((s, x) => s + Number(x.amount || 0), 0);
   const expenseTotal = fixedTotal + additionalTotal + minGuaranteeTopUp;
 
+  // ── 본사 총배송비 (참고용, 계산 미포함)
+  const totalDeliveryFee = periodRows.reduce(
+    (s, r) => s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee), 0,
+  );
+
   // ── 매출 / 수익
   // 본사 수익 = 신동석 + 삼호 + 적재비 + 수수료
   const grossSales = hqDirectFee + loadingTotal + leaderCommissionTotal;
