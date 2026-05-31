@@ -14,6 +14,7 @@ import { getDisplayName } from "@/lib/leaderResolver";
 import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
+import PrintButton from "@/components/PrintButton";
 
 type Period = "all" | "first" | "second" | "month";
 
