@@ -1329,6 +1329,47 @@ export default function Records() {
         onSaved={() => { setPasteOpen(false); load(); }}
         onReload={load}
       />
+      <Dialog open={!!dongPrompt} onOpenChange={(v) => !v && setDongPrompt(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>지역구분 선택</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm">
+              배송지가 <b>'{dongPrompt}'</b> 한 단어로만 입력되어 자동 분류가 어렵습니다.
+              <br />수도권/지방을 선택해 주세요. (수도권 선택 시 다음부터 자동 분류됩니다)
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!dongPrompt) return;
+                  setForm((f) => ({ ...f, region_type: "regional" }));
+                  setDongPrompt(null);
+                }}
+              >
+                지방
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!dongPrompt) return;
+                  const uid = user?.id || "anon";
+                  const list = loadMetroKeywords(uid);
+                  if (!list.includes(dongPrompt)) {
+                    saveMetroKeywords(uid, [...list, dongPrompt]);
+                    setMetroKeywordsCache(loadMetroKeywords(uid));
+                  }
+                  setForm((f) => ({ ...f, region_type: "metro" }));
+                  toast.success(`'${dongPrompt}' → 수도권으로 저장되었습니다`);
+                  setDongPrompt(null);
+                }}
+              >
+                수도권
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
