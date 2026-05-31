@@ -39,7 +39,6 @@ import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { computeGate, setClosed as setGateClosed } from "@/lib/settlementGate";
 import { Cloud, CloudOff } from "lucide-react";
 
 export default function Saves() {
