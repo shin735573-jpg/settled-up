@@ -449,6 +449,40 @@ function RestoreSection({ uid }: { uid: string }) {
                 </div>
               )}
 
+              {validation && validation.issues.length > 0 && (
+                <div
+                  className={
+                    "text-xs space-y-1 border rounded p-2 " +
+                    (validation.ok
+                      ? "border-yellow-500/40 bg-yellow-500/5"
+                      : "border-destructive bg-destructive/5")
+                  }
+                >
+                  <div className={"font-semibold " + (validation.ok ? "" : "text-destructive")}>
+                    {validation.ok
+                      ? `경고 ${validation.warnings.length}건 — 진행 가능`
+                      : `금지 규칙 위반 ${validation.errors.length}건 — 복구 차단`}
+                  </div>
+                  {validation.errors.map((i, idx) => (
+                    <div key={`e-${idx}`} className="text-destructive">
+                      • {i.message}
+                      {i.detail && <span className="opacity-70"> — {i.detail}</span>}
+                    </div>
+                  ))}
+                  {validation.warnings.map((i, idx) => (
+                    <div key={`w-${idx}`} className="text-yellow-700 dark:text-yellow-400">
+                      • {i.message}
+                      {i.detail && <span className="opacity-70"> — {i.detail}</span>}
+                    </div>
+                  ))}
+                  {!validation.ok && (
+                    <div className="pt-1 text-[11px] text-destructive">
+                      위 규칙을 통과해야 복구를 실행할 수 있습니다. 백업 파일을 점검 후 다시 시도하세요.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {results && (
                 <div className="text-xs space-y-1 border-t pt-2">
                   <div className="font-semibold">결과</div>
