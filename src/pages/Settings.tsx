@@ -826,23 +826,23 @@ function LeadersTab() {
   const filteredRows = rows
     .filter((r) => matchRegion(r) && matchSearch(r))
     .sort((a, b) => {
-      const getRegionOrder = (r: Leader) => {
-        const v = (r.region || "").trim();
-        if (v === "metro") return 0;
-        if (v === "regional") return 1;
-        return 2;
+      // 수수료가 낮은 팀장이 항상 위로 오도록 정렬.
+      // 위치(수도권/지방)에 맞는 수수료율을 기준으로 비교하되,
+      // 위치 미지정이면 두 값 중 0이 아닌 값을 사용 (둘 다 있으면 작은 값).
+      const effectiveFee = (r: Leader) => {
+        const reg = (r.region || "").trim();
+        const m = Number(r.fee_rate_metro || 0);
+        const g = Number(r.fee_rate_regional || 0);
+        if (reg === "metro") return m;
+        if (reg === "regional") return g;
+        const nonzero = [m, g].filter((v) => v > 0);
+        if (nonzero.length === 0) return Number.POSITIVE_INFINITY;
+        return Math.min(...nonzero);
       };
-      const ao = getRegionOrder(a);
-      const bo = getRegionOrder(b);
-      if (ao !== bo) return ao - bo;
-      const region = (a.region || "").trim();
-      if (region === "metro") {
-        return (a.fee_rate_metro || 0) - (b.fee_rate_metro || 0);
-      }
-      if (region === "regional") {
-        return (a.fee_rate_regional || 0) - (b.fee_rate_regional || 0);
-      }
-      return 0;
+      const af = effectiveFee(a);
+      const bf = effectiveFee(b);
+      if (af !== bf) return af - bf;
+      return (a.name || "").localeCompare(b.name || "");
     });
 
   const regionCounts = {
