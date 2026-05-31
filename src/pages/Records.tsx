@@ -1214,7 +1214,7 @@ export default function Records() {
 
       <Card className="overflow-x-auto">
         <RecordsTable
-          records={records}
+          records={filteredRecords}
           issuesByRow={issuesByRow}
           expandedItems={expandedItems}
           setExpandedItems={setExpandedItems}
