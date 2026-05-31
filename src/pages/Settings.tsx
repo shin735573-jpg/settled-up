@@ -217,6 +217,31 @@ function CompaniesTab() {
   const normalize = (s: string) =>
     (s || "").toLowerCase().replace(/[\s\(\)\[\]\-_.,/\\·•:;'"`]+/g, "");
 
+  // Levenshtein 거리
+  const lev = (a: string, b: string) => {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const dp = Array.from({ length: a.length + 1 }, (_, i) => i);
+    for (let j = 1; j <= b.length; j++) {
+      let prev = dp[0];
+      dp[0] = j;
+      for (let i = 1; i <= a.length; i++) {
+        const tmp = dp[i];
+        dp[i] = a[i - 1] === b[j - 1] ? prev : Math.min(prev, dp[i], dp[i - 1]) + 1;
+        prev = tmp;
+      }
+    }
+    return dp[a.length];
+  };
+  // 유사도 (0~1)
+  const similarity = (a: string, b: string) => {
+    const A = normalize(a), B = normalize(b);
+    if (!A || !B) return 0;
+    const m = Math.max(A.length, B.length);
+    return 1 - lev(A, B) / m;
+  };
+
   const detectDups = () => {
     const map = new Map<string, Company[]>();
     for (const r of rows) {
@@ -229,6 +254,35 @@ function CompaniesTab() {
     setDupGroups(groups);
     setDupOpen(true);
     if (groups.length === 0) toast.success("중복된 업체가 없습니다.");
+  };
+
+  // 유사 이름 검사: 임계값 이상 유사한 업체끼리 묶기 (Union-Find)
+  const detectSimilar = (threshold = 0.7) => {
+    const n = rows.length;
+    const parent = Array.from({ length: n }, (_, i) => i);
+    const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+    const union = (x: number, y: number) => { const a = find(x), b = find(y); if (a !== b) parent[a] = b; };
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = normalize(rows[i].name), b = normalize(rows[j].name);
+        if (!a || !b) continue;
+        if (a === b) { union(i, j); continue; }
+        // 한쪽이 다른 쪽을 포함하면 유사로 간주
+        if (a.includes(b) || b.includes(a)) { union(i, j); continue; }
+        if (similarity(rows[i].name, rows[j].name) >= threshold) union(i, j);
+      }
+    }
+    const buckets = new Map<number, Company[]>();
+    for (let i = 0; i < n; i++) {
+      const r = find(i);
+      if (!buckets.has(r)) buckets.set(r, []);
+      buckets.get(r)!.push(rows[i]);
+    }
+    const groups = Array.from(buckets.values()).filter((g) => g.length > 1);
+    setDupGroups(groups);
+    setDupOpen(true);
+    if (groups.length === 0) toast.success("유사한 업체가 없습니다.");
+    else toast.info(`유사 후보 ${groups.length}개 그룹을 찾았습니다.`);
   };
 
   // 한 그룹을 canonical로 통합
@@ -350,6 +404,7 @@ function CompaniesTab() {
         <Input placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
         <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
         <Button variant="outline" onClick={detectDups}>중복 검사</Button>
+        <Button variant="outline" onClick={() => detectSimilar(0.7)}>유사 이름 검사</Button>
       </div>
       <Table>
         <TableHeader>
