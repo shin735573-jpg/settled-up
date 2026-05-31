@@ -13,6 +13,7 @@ const nav = [
   { to: "/settings", label: "설정", icon: SettingsIcon },
   { to: "/saves", label: "정산서저장", icon: Save },
   { to: "/pricing", label: "삼호물류 단가표", icon: Tag },
+  { to: "/pricing", label: "삼호물류 단가표", icon: Tag },
 ];
 
 export default function AppLayout() {
