@@ -222,28 +222,34 @@ export type Database = {
       }
       holidays: {
         Row: {
+          active: boolean
           created_at: string
           date: string
           id: string
           note: string | null
+          reason: string | null
           scope: string
           team_leader_id: string | null
           user_id: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
           date: string
           id?: string
           note?: string | null
+          reason?: string | null
           scope: string
           team_leader_id?: string | null
           user_id: string
         }
         Update: {
+          active?: boolean
           created_at?: string
           date?: string
           id?: string
           note?: string | null
+          reason?: string | null
           scope?: string
           team_leader_id?: string | null
           user_id?: string

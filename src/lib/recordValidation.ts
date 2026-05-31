@@ -191,6 +191,11 @@ export function validateRow(
         (h) => h.scope === "leader" && h.date === r.date && h.team_leader_id === lx.id);
       if (off) push("error", "holiday.leader", `${lx.name} 휴무일`, `팀장${i + 1}`);
     });
+    // 일요일 경고 (본사 휴무일이 아닐 때만)
+    const d = new Date(r.date + "T00:00:00");
+    if (!isNaN(d.getTime()) && d.getDay() === 0 && !hqOff) {
+      push("warning", "holiday.sunday", "일요일 배송입니다. 확인 후 저장하세요.", "날짜");
+    }
   }
 
   return out;
