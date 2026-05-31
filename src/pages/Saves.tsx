@@ -617,7 +617,7 @@ export default function Saves() {
         })}
       </div>
 
-      <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
+      <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); setPendingPartial(null); } }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>
@@ -682,15 +682,30 @@ export default function Saves() {
             </ul>
           </ScrollArea>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setCheckResult(null); setPendingSave(null); }}>
+            <Button variant="outline" onClick={() => { setCheckResult(null); setPendingSave(null); setPendingPartial(null); }}>
               닫기
             </Button>
+            {pendingPartial && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const fn = pendingPartial.fn;
+                  setCheckResult(null);
+                  setPendingSave(null);
+                  setPendingPartial(null);
+                  fn();
+                }}
+              >
+                {pendingPartial.label}
+              </Button>
+            )}
             {pendingSave && (
               <Button
                 onClick={() => {
                   const fn = pendingSave;
                   setCheckResult(null);
                   setPendingSave(null);
+                  setPendingPartial(null);
                   fn();
                 }}
               >
