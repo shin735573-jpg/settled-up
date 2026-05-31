@@ -514,6 +514,33 @@ export default function Saves() {
   const blockedReason: string | undefined = undefined;
   const saveBlocked = false;
 
+  // ─── 기간 변경 시 자동저장 (업체+팀장 전체, 1회) ──────────
+  useEffect(() => {
+    if (!autoSaveOnChange) return;
+    if (!uid) return;
+    if (loading) return;
+    const key = `${month}:${period}`;
+    if (autoSavingRef.current === key) return;
+    if (isAutoSavedFor(month, period)) return;
+    if (locks.has(lockKey("company")) || locks.has(lockKey("leader"))) return;
+    // 저장 대상이 하나도 없으면 스킵 (플래그도 세우지 않음 → 데이터 들어오면 재시도)
+    const hasCompany = companyStmts.some((s) => s.finalClaim > 0);
+    const hasLeader = leaderStmts.some((s) => s.deliveryCount > 0);
+    if (!hasCompany && !hasLeader) return;
+    autoSavingRef.current = key;
+    // DOM(숨겨진 export 노드)이 그려질 시간을 확보
+    const t = setTimeout(async () => {
+      try {
+        await doExportAll("both", false);
+        markAutoSavedFor(month, period);
+      } finally {
+        autoSavingRef.current = null;
+      }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, month, period, loading, companyStmts, leaderStmts, autoSaveOnChange]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
