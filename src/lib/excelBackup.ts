@@ -342,6 +342,8 @@ export type RestoreResult = {
   batchErrors?: BatchError[];
 };
 
+export type RestoreMode = "upsert" | "replace";
+
 /**
  * 선택된 테이블만 복구.
  * - "upsert": id 기준 병합 (기존 데이터 유지, 동일 id 는 덮어씀)
