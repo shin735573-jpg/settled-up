@@ -407,7 +407,7 @@ export default function CompanySettlement() {
       />
 
       {!companyId && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <SummaryCard
             label="총업체수"
             value={`${topSummary.totalCompanies} / ${topSummary.deliveringCompanies}`}
@@ -416,6 +416,7 @@ export default function CompanySettlement() {
           <SummaryCard label="총배송건수" value={topSummary.totalDeliveries.toLocaleString()} />
           <SummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
           <SummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
+          <SummaryCard label="팀장총배송비" value={fmt(topSummary.totalFee)} red />
         </div>
       )}
 
@@ -484,15 +485,14 @@ export default function CompanySettlement() {
               {colAlignError}
             </div>
           )}
-          <div className="overflow-x-auto">
+          <div className="w-full">
             <Table
               data-testid="company-summary-table"
-              className="text-sm num table-fixed"
-              style={{ width: COMPANY_TOTAL_WIDTH, minWidth: COMPANY_TOTAL_WIDTH }}
+              className="text-sm num table-fixed w-full"
             >
               <colgroup>
                 {COMPANY_COLUMNS.map((c) => (
-                  <col key={c.key} style={{ width: c.width }} />
+                  <col key={c.key} style={{ width: `${(c.width / COMPANY_TOTAL_WIDTH) * 100}%` }} />
                 ))}
               </colgroup>
               <TableHeader>
@@ -645,14 +645,14 @@ function Stat({ label, value, highlight }: { label: string; value: number; highl
 }
 
 function SummaryCard({
-  label, value, sub, accent, bold,
-}: { label: string; value: string; sub?: string; accent?: boolean; bold?: boolean }) {
+  label, value, sub, accent, bold, red,
+}: { label: string; value: string; sub?: string; accent?: boolean; bold?: boolean; red?: boolean }) {
   return (
     <div className="p-4 rounded-lg border border-sky-200 bg-sky-50">
       <div className="text-xs text-sky-900/70">{label}</div>
       <div
         className={`mt-1 num ${bold ? "text-2xl font-extrabold" : "text-2xl font-bold"} ${
-          accent ? "text-orange-600" : "text-sky-900"
+          red ? "text-red-600" : accent ? "text-orange-600" : "text-sky-900"
         }`}
       >
         {value}
