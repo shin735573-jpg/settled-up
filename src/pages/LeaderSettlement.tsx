@@ -13,6 +13,35 @@ import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocatio
 
 type Period = "all" | "first" | "second" | "month";
 
+// ===== 팀장정산 전체 목록 컬럼 정의 (헤더/바디 단일 소스) =====
+type LeaderColKey =
+  | "name" | "count" | "metro" | "note" | "regional" | "total"
+  | "cod" | "fees" | "afterFees" | "deduction" | "net" | "status" | "detail";
+
+type LeaderCol = {
+  key: LeaderColKey;
+  label: string;
+  width: number; // px (최소 너비, table-fixed + colgroup 으로 헤더/바디 동일 적용)
+  align: "center";
+};
+
+const LEADER_COLUMNS: LeaderCol[] = [
+  { key: "name",       label: "팀장명",         width: 130, align: "center" },
+  { key: "count",      label: "배송건수",       width: 90,  align: "center" },
+  { key: "metro",      label: "수도권배송비",   width: 140, align: "center" },
+  { key: "note",       label: "비고금액",       width: 130, align: "center" },
+  { key: "regional",   label: "지방배송비",     width: 140, align: "center" },
+  { key: "total",      label: "실지급배송비",   width: 150, align: "center" },
+  { key: "cod",        label: "착불합계",       width: 130, align: "center" },
+  { key: "fees",       label: "수수료합계",     width: 140, align: "center" },
+  { key: "afterFees",  label: "계산후 지급금액", width: 160, align: "center" },
+  { key: "deduction",  label: "공제총액",       width: 130, align: "center" },
+  { key: "net",        label: "실지급액",       width: 140, align: "center" },
+  { key: "status",     label: "정산상태",       width: 120, align: "center" },
+  { key: "detail",     label: "상세보기",       width: 100, align: "center" },
+];
+const LEADER_TABLE_MIN_WIDTH = LEADER_COLUMNS.reduce((s, c) => s + c.width, 0);
+
 type Leader = {
   id: string; name: string; aliases?: string[] | null; display_suffix?: string | null;
   is_rejected: boolean; is_virtual: boolean; active: boolean;
