@@ -502,18 +502,7 @@ function RestoreSection({ uid }: { uid: string }) {
                 </div>
               )}
 
-              {results && (
-                <div className="text-xs space-y-1 border-t pt-2">
-                  <div className="font-semibold">결과</div>
-                  {results.map((r) => (
-                    <div key={r.table} className={r.error ? "text-destructive" : ""}>
-                      {r.sheet}: 적용 {r.inserted}건
-                      {mode === "replace" && r.deleted > 0 && ` · 삭제 ${r.deleted}건`}
-                      {r.error && ` — ${r.error}`}
-                    </div>
-                  ))}
-                </div>
-              )}
+              {results && <RestoreResultPanel results={results} mode={mode} />}
             </div>
           )}
 
