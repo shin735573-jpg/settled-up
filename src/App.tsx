@@ -9,6 +9,7 @@ import AppLayout from "@/components/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Records from "./pages/Records";
+import MobileHome from "./pages/MobileHome";
 import CompanySettlement from "./pages/CompanySettlement";
 import LeaderSettlement from "./pages/LeaderSettlement";
 import Summary from "./pages/Summary";
@@ -32,7 +33,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/" element={<Records />} />
+              <Route path="/" element={<MobileHome />} />
               <Route path="/records" element={<Records />} />
               <Route path="/company-settlement" element={<CompanySettlement />} />
               <Route path="/leader-settlement" element={<LeaderSettlement />} />
