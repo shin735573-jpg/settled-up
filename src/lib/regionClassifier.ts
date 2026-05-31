@@ -1,7 +1,9 @@
 // 지역(수도권/지방) 자동 분류기 — 키워드 사용자 편집 가능 (localStorage 영속)
+import { METRO_DONGS } from "./metroDongs";
+
 export type RegionType = "metro" | "regional" | "unknown";
 
-export const DEFAULT_METRO_KEYWORDS: string[] = [
+const BASE_METRO_KEYWORDS: string[] = [
   "서울","경기","인천",
   // 서울 25개 구
   "강남구","강동구","강북구","강서구","관악구","광진구","구로구","금천구","노원구","도봉구",
@@ -15,6 +17,12 @@ export const DEFAULT_METRO_KEYWORDS: string[] = [
   "검단","청라","송도","부평","계양","남동구","연수구","미추홀구","강화","영종",
 ];
 
+// 수도권 모든 행정동/읍/면 자동 등록 + 중복 제거.
+// 사용자가 저장한 키워드는 loadMetroKeywords 시 이 목록과 합집합으로 합쳐짐.
+export const DEFAULT_METRO_KEYWORDS: string[] = Array.from(
+  new Set([...BASE_METRO_KEYWORDS, ...METRO_DONGS])
+);
+
 const KEY = (uid: string) => `region_metro_keywords:${uid || "anon"}`;
 
 export function loadMetroKeywords(uid: string): string[] {
@@ -26,7 +34,8 @@ export function loadMetroKeywords(uid: string): string[] {
     const clean = arr
       .map((x) => String(x ?? "").trim())
       .filter((x) => x.length > 0);
-    return Array.from(new Set(clean));
+    // 사용자 저장 키워드 + 기본 수도권 목록 합집합 (사용자가 빠진 항목 자동 채움)
+    return Array.from(new Set([...DEFAULT_METRO_KEYWORDS, ...clean]));
   } catch {
     return [...DEFAULT_METRO_KEYWORDS];
   }
