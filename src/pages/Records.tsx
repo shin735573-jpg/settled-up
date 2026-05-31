@@ -689,6 +689,17 @@ function RecordsTable({
 
 export default function Records() {
   const { user } = useAuth();
+  // 사용자 지정 수도권 키워드 캐시 동기화
+  useEffect(() => {
+    setMetroKeywordsCache(loadMetroKeywords(user?.id || "anon"));
+    const onChange = () => setMetroKeywordsCache(loadMetroKeywords(user?.id || "anon"));
+    window.addEventListener("region-keywords-changed", onChange);
+    window.addEventListener("storage", onChange);
+    return () => {
+      window.removeEventListener("region-keywords-changed", onChange);
+      window.removeEventListener("storage", onChange);
+    };
+  }, [user?.id]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
