@@ -734,23 +734,6 @@ export default function Records() {
                 <span>{form.paid ? "결제완료" : "미결제"}</span>
               </label>
             </div>
-            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={form.is_missing}
-                  onCheckedChange={(v) => setForm({ ...form, is_missing: !!v })}
-                />
-                <span className="font-medium">누락분 (정산일 이후 추가 등록)</span>
-              </label>
-              {form.is_missing && (
-                <Input
-                  className="mt-2"
-                  placeholder="누락 사유 (필수)"
-                  value={form.missing_reason}
-                  onChange={(e) => setForm({ ...form, missing_reason: e.target.value })}
-                />
-              )}
-            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
