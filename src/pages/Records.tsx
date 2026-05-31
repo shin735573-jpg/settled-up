@@ -1462,6 +1462,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       // 메모리에서 즉시 제거
       images.length = 0;
       if (photoInputRef.current) photoInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
       if (error) throw error;
       const rows: Array<{ customer: string; region: string; item: string; note: string; uncertain: string[]; source: number }> =
         (data?.rows as any[]) ?? [];
@@ -1496,6 +1497,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       setOcrLoading(false);
       setOcrProgress(null);
       if (photoInputRef.current) photoInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   };
 
