@@ -571,7 +571,7 @@ export default function HQSettlement() {
             </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">지출합계</span>
-              <span className="font-medium">{fmt(expenseTotal)}</span>
+              <span className="font-medium text-destructive">{expenseTotal ? `-${fmt(expenseTotal)}` : "0"}</span>
             </div>
             <div className="flex justify-between px-4 py-3 bg-muted/30">
               <span className="font-semibold">최종 본사 수익</span>
