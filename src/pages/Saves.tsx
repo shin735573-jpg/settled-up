@@ -612,15 +612,25 @@ function paginate(rowCount: number, pageSize: number): Array<{ start: number; en
 
 function CompanyPreview({
   data,
+  rowsSlice,
+  pageIndex,
+  totalPages,
 }: {
   data: ReturnType<typeof buildCompanyStatements>[number];
+  rowsSlice?: { start: number; end: number };
+  pageIndex?: number;
+  totalPages?: number;
 }) {
   const c = data.company;
+  const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-xs text-muted-foreground">{PERIOD_LABEL[data.period]} · 미리보기</div>
+          <div className="text-xs text-muted-foreground">
+            {PERIOD_LABEL[data.period]}
+            {totalPages && totalPages > 1 ? ` · ${pageIndex} / ${totalPages}` : " · 미리보기"}
+          </div>
           <h2 className="text-xl font-bold">{c.name} 정산서</h2>
         </div>
         <div className="flex gap-1">
@@ -662,7 +672,7 @@ function CompanyPreview({
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((r) => (
+            {rows.map((r) => (
               <tr key={r.id} className="border-t">
                 <td className="px-2 py-1">{r.date.slice(5)}</td>
                 <td className="px-2 py-1">{c.name}</td>
@@ -677,7 +687,7 @@ function CompanyPreview({
                 </td>
               </tr>
             ))}
-            {data.rows.length === 0 && (
+            {rows.length === 0 && (
               <tr><td colSpan={9} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
@@ -691,21 +701,34 @@ function CompanyPreview({
           </div>
         </div>
       )}
+      {totalPages && totalPages > 1 && (
+        <div className="text-right text-xs text-muted-foreground">{pageIndex} / {totalPages}</div>
+      )}
     </div>
   );
 }
 
 function LeaderPreview({
   data,
+  rowsSlice,
+  pageIndex,
+  totalPages,
 }: {
   data: ReturnType<typeof buildLeaderStatements>[number];
+  rowsSlice?: { start: number; end: number };
+  pageIndex?: number;
+  totalPages?: number;
 }) {
   const l = data.leader;
+  const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-xs text-muted-foreground">{PERIOD_LABEL[data.period]} · 미리보기</div>
+          <div className="text-xs text-muted-foreground">
+            {PERIOD_LABEL[data.period]}
+            {totalPages && totalPages > 1 ? ` · ${pageIndex} / ${totalPages}` : " · 미리보기"}
+          </div>
           <h2 className="text-xl font-bold">{l.name} 정산서</h2>
         </div>
         <div className="flex gap-1">
