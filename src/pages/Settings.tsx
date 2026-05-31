@@ -1153,7 +1153,7 @@ function LeadersTab() {
             </TableRow>
             );
           })}
-          {filteredRows.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 팀장이 없습니다"}</TableCell></TableRow>}
+          {filteredRows.length === 0 && <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">{(search.trim() || regionFilter !== "all") ? "검색 결과가 없습니다" : "등록된 팀장이 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
       </div>
