@@ -741,7 +741,7 @@ export default function Saves() {
             </DialogDescription>
           </DialogHeader>
           {checkResult && (
-            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
               <div className="rounded-md border p-2">
                 <div className="text-muted-foreground">전체 검사</div>
                 <div className="text-base font-bold">{checkResult.findings.length}</div>
@@ -826,7 +826,7 @@ export default function Saves() {
           </DialogHeader>
           {bulkResult && (
             <>
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                 <div className="rounded-md border p-2">
                   <div className="text-muted-foreground">등록 업체</div>
                   <div className="text-base font-bold">{companyStmts.length}</div>

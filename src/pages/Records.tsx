@@ -1870,11 +1870,11 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[98vw] w-[98vw] max-h-[95vh] overflow-y-auto sm:max-w-[98vw]">
-        <DialogHeader>
+      <DialogContent className="max-w-[98vw] w-[98vw] max-h-[95vh] sm:max-w-[98vw] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
           <DialogTitle>엑셀 붙여넣기 (자동 분류)</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-3 flex-1 min-h-0 overflow-y-auto px-6 pb-4">
           <div className="text-xs text-muted-foreground">
             엑셀에서 복사하면 첫 줄의 컬럼명을 읽어 자동 분류합니다. 컬럼 순서가 달라도 됩니다.<br/>
             • 컬럼명이 없거나 인식 안 된 열은 아래 “컬럼 매핑”에서 직접 지정 • 날짜가 빈칸이면 바로 위 날짜 자동 적용 • 금액은 쉼표 허용 • 배송비총액은 자동 계산 (붙여넣기 값 무시)
@@ -2297,7 +2297,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
             </>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="px-6 py-3 border-t bg-background shrink-0 sticky bottom-0">
           <Button variant="outline" onClick={onClose}>취소</Button>
           <Button onClick={save} disabled={saving || visible.length === 0 || missingRequired.length > 0}>
             {skipErrors ? `정상 ${visible.length - errorCount}건 저장` : `${visible.length}건 저장`}

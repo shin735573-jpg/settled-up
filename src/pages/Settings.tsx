@@ -60,13 +60,15 @@ export default function Settings() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">설정</h1>
       <Tabs defaultValue="company">
-        <TabsList>
-          <TabsTrigger value="company">회사 설정</TabsTrigger>
-          <TabsTrigger value="companies">업체관리</TabsTrigger>
-          <TabsTrigger value="leaders">팀장관리</TabsTrigger>
-          <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
-          <TabsTrigger value="region">지역분류</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-max md:w-auto">
+            <TabsTrigger value="company">회사 설정</TabsTrigger>
+            <TabsTrigger value="companies">업체관리</TabsTrigger>
+            <TabsTrigger value="leaders">팀장관리</TabsTrigger>
+            <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
+            <TabsTrigger value="region">지역분류</TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="company"><CompanyTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
@@ -467,8 +469,8 @@ function CompaniesTab() {
   return (
     <Card className="p-4 space-y-4">
       <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Input placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+        <div className="flex flex-wrap gap-2">
+          <Input className="min-w-0 flex-1 basis-[160px]" placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
           <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
           <Button variant="outline" onClick={detectDups}>중복 검사</Button>
           <Button variant="outline" onClick={() => detectSimilar(0.7)}>유사 이름 검사</Button>
@@ -481,8 +483,8 @@ function CompaniesTab() {
           전체 {rows.length}개 업체{search.trim() ? ` · 검색 결과 ${filteredRows.length}개` : ""}
         </div>
       </div>
-      <div className="[&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
-      <Table>
+      <div className="overflow-x-auto [&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
+      <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-12">연번</TableHead>
@@ -554,7 +556,7 @@ function CompaniesTab() {
       </Table>
       </div>
       <Dialog open={dupOpen} onOpenChange={setDupOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>업체 중복 검사 결과</DialogTitle>
           </DialogHeader>
@@ -601,7 +603,7 @@ function CompaniesTab() {
         </DialogContent>
       </Dialog>
       <Dialog open={!!preview} onOpenChange={(v) => !v && setPreview(null)}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>통합 미리보기</DialogTitle>
           </DialogHeader>
@@ -704,7 +706,7 @@ function CompaniesTab() {
         </DialogContent>
       </Dialog>
       <Dialog open={manualOpen} onOpenChange={setManualOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="w-[95vw] max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>지정 통합</DialogTitle>
           </DialogHeader>
@@ -1002,8 +1004,8 @@ function LeadersTab() {
         ‘팀장 이름 정리’: 기존 기록에서 별칭으로 저장된 팀장명을 정식 팀장명/ID로 통합합니다.
         별칭(예: 형주 → 강형주, 동석 → 신동석)이 등록되어 있어야 합니다.
       </div>
-      <div className="[&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
-      <Table>
+      <div className="overflow-x-auto [&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
+      <Table className="min-w-[1200px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-12">연번</TableHead>
