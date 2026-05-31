@@ -665,21 +665,36 @@ function CompanyPreview({
 }) {
   const c = data.company;
   const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
+  const issuesInvoice = !!c.issues_invoice;
+  const hasCod = (data.codTotal + data.carryInCod) > 0;
+  const claimTotal = data.finalClaim;
+
+  // 기간 라벨: "기간: 2026년 05월 1~15일"
+  const firstDate = data.rows[0]?.date ?? "";
+  const ymMatch = firstDate.match(/^(\d{4})-(\d{2})/);
+  const periodKR = data.period === "h1" ? "1~15일" : data.period === "h2" ? "16~말일" : "월전체";
+  const periodLabel = ymMatch ? `기간: ${ymMatch[1]}년 ${ymMatch[2]}월 ${periodKR}` : `기간: ${periodKR}`;
+
+  // 요약 라인 (분기별)
+  const lines: Array<{ label: string; value: number; emphasize?: boolean }> = [];
+  if (hasCod) {
+    lines.push({ label: "총합", value: data.feeTotal });
+    lines.push({ label: "착불", value: data.codTotal });
+    lines.push({ label: "이월착불", value: data.carryInCod });
+  }
+  lines.push({ label: "청구총합", value: claimTotal, emphasize: !issuesInvoice });
+  if (issuesInvoice) {
+    lines.push({ label: "부가세", value: data.vat });
+    lines.push({ label: "부가세포함총합", value: data.claimWithVat, emphasize: true });
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="text-xs text-muted-foreground">
-            {PERIOD_LABEL[data.period]}
-            {totalPages && totalPages > 1 ? ` · ${pageIndex} / ${totalPages}` : " · 미리보기"}
-          </div>
-          <h2 className="text-xl font-bold">{c.name} 정산서</h2>
-        </div>
-        <div className="flex gap-1">
-          {c.issues_invoice && <Badge>계산서 발행</Badge>}
-          <Badge variant="outline">
-            {c.settlement_cycle === "monthly" ? "한달 정산" : "보름 정산"}
-          </Badge>
+      <div>
+        <h2 className="text-xl font-bold">{c.name} 정산서</h2>
+        <div className="text-xs text-muted-foreground">
+          {periodLabel}
+          {totalPages && totalPages > 1 ? ` · ${pageIndex} / ${totalPages}` : ""}
         </div>
       </div>
       {data.errors.length > 0 && (
@@ -687,31 +702,38 @@ function CompanyPreview({
           {data.errors.map((e, i) => (<div key={i}>• {e}</div>))}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
-        <Stat label="배송비합계" value={data.feeTotal} />
-        <Stat label="결제완료" value={data.paidTotal} />
-        <Stat label="미결제" value={data.unpaidTotal} />
-        <Stat label="착불합계" value={data.codTotal} />
-        <Stat label="이전이월착불금" value={data.carryInCod} />
-        <Stat label="새이월착불금" value={data.carryOutCod} />
-        <Stat label="실청구" value={data.realClaim} accent />
-        <Stat label="최종청구" value={data.finalClaim} accent />
-      </div>
-      {c.issues_invoice && (
-        <div className="grid grid-cols-3 gap-2">
-          <Stat label="청구금액" value={data.finalClaim} />
-          <Stat label="부가세" value={data.vat} />
-          <Stat label="부가세포함" value={data.claimWithVat} accent />
+      <div className="flex flex-wrap items-stretch gap-3">
+        <div className="flex-1 min-w-[260px] rounded-md border">
+          <table className="w-full text-sm">
+            <tbody>
+              {lines.map((ln) => (
+                <tr key={ln.label} className={"border-b last:border-b-0 " + (ln.emphasize ? "bg-primary/5" : "")}>
+                  <td className="px-3 py-2 font-medium text-muted-foreground">{ln.label}</td>
+                  <td className={"px-3 py-2 text-right tabular-nums " + (ln.emphasize ? "text-base font-bold" : "font-semibold")}>
+                    {fmt(ln.value)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+        {c.account_number && (
+          <div className="flex min-w-[260px] flex-1 flex-col justify-center rounded-md border bg-muted/40 p-3 text-base font-bold">
+            <div>계좌: {c.account_number}</div>
+            <div className="mt-1 text-sm font-semibold text-muted-foreground">
+              정산 완료 후 입금자명을 전달 부탁드립니다.
+            </div>
+          </div>
+        )}
+      </div>
       <div className="overflow-x-auto rounded-md border">
         <table className="text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1080 }}>
           <colgroup>
-            {[70,140,110,110,130,180,180,110,80].map((w,i)=>(<col key={i} style={{ width: w }} />))}
+            {[80,150,110,110,140,200,220,120].map((w,i)=>(<col key={i} style={{ width: w }} />))}
           </colgroup>
           <thead className="bg-muted">
             <tr>
-              {["날짜","업체","팀장1","팀장2","고객명","품목","비고","배송비","결제"].map((h) => (
+              {["날짜","업체","팀장1","팀장2","고객명","품목","비고","배송비"].map((h) => (
                 <th key={h} className="px-2 py-1 text-center font-medium whitespace-nowrap border-b">{h}</th>
               ))}
             </tr>
@@ -727,25 +749,14 @@ function CompanyPreview({
                 <td className="px-2 py-1 text-center align-middle truncate">{r.item ?? ""}</td>
                 <td className="px-2 py-1 text-center align-middle truncate">{r.note ?? ""}</td>
                 <td className="px-2 py-1 text-center align-middle">{fmt(r.delivery_fee)}</td>
-                <td className="px-2 py-1 text-center align-middle">
-                  {r.paid ? <Badge variant="secondary" className="text-[10px]">완료</Badge> : "-"}
-                </td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={9} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
+              <tr><td colSpan={8} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
         </table>
       </div>
-      {c.account_number && (
-        <div className="rounded-md border bg-muted/40 p-3 text-sm font-semibold">
-          계좌: {c.account_number}
-          <div className="mt-1 text-xs font-normal text-muted-foreground">
-            정산 완료 후 입금자명을 전달 부탁드립니다.
-          </div>
-        </div>
-      )}
       {totalPages && totalPages > 1 && (
         <div className="text-right text-xs text-muted-foreground">{pageIndex} / {totalPages}</div>
       )}
