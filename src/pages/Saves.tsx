@@ -340,6 +340,7 @@ export default function Saves() {
                   )}
                   {companyStmts.map((s) => {
                     const active = s.company.id === selectedCompanyId;
+                    const ver = getEntry(keyFor("company", s.company.id, month, period));
                     return (
                       <button
                         key={s.company.id}
@@ -353,9 +354,12 @@ export default function Saves() {
                         }
                       >
                         <span className="truncate font-medium">{s.company.name}</span>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
-                          {s.rows.length}건
-                        </Badge>
+                        <span className="flex shrink-0 items-center gap-1">
+                          {ver && (
+                            <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px]">{s.rows.length}건</Badge>
+                        </span>
                       </button>
                     );
                   })}
@@ -389,6 +393,7 @@ export default function Saves() {
                   )}
                   {leaderStmts.map((s) => {
                     const active = s.leader.id === selectedLeaderId;
+                    const ver = getEntry(keyFor("leader", s.leader.id, month, period));
                     return (
                       <button
                         key={s.leader.id}
@@ -402,9 +407,12 @@ export default function Saves() {
                         }
                       >
                         <span className="truncate font-medium">{s.leader.name}</span>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
-                          {s.deliveryCount}건
-                        </Badge>
+                        <span className="flex shrink-0 items-center gap-1">
+                          {ver && (
+                            <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px]">{s.deliveryCount}건</Badge>
+                        </span>
                       </button>
                     );
                   })}
