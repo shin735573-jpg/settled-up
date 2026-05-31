@@ -37,6 +37,9 @@ import {
 } from "@/lib/statementValidation";
 import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { computeGate, setClosed as setGateClosed } from "@/lib/settlementGate";
 
 export default function Saves() {
   const { user } = useAuth();
@@ -51,6 +54,7 @@ export default function Saves() {
   const [companies, setCompanies] = useState<StmtCompany[]>([]);
   const [leaders, setLeaders] = useState<StmtLeader[]>([]);
   const [deliveries, setDeliveries] = useState<StmtDelivery[]>([]);
+  const [hqHolidays, setHqHolidays] = useState<Set<string>>(new Set());
   const [commonDeductions, setCommonDeductions] = useState<StmtCommonDeduction[]>([]);
   const [commonOverrides, setCommonOverrides] = useState<StmtCommonOverride[]>([]);
   const [periodDeductions, setPeriodDeductions] = useState<StmtPeriodDeduction[]>([]);
@@ -71,10 +75,11 @@ export default function Saves() {
       const commonKeys = period === "all"
         ? ["all"]
         : [`${month}-${period === "h1" ? "first" : "second"}`];
-      const [{ data: cs }, { data: ls }, { data: ds }, { data: cds }, { data: ovs }, { data: pds }] = await Promise.all([
+      const [{ data: cs }, { data: ls }, { data: ds }, { data: hs }, { data: cds }, { data: ovs }, { data: pds }] = await Promise.all([
         supabase.from("companies").select("*").eq("user_id", uid).order("name"),
         supabase.from("team_leaders").select("*").eq("user_id", uid).order("name"),
         supabase.from("deliveries").select("*").eq("user_id", uid).gte("date", from).lte("date", to),
+        supabase.from("holidays").select("date,scope").eq("user_id", uid).eq("scope", "hq"),
         supabase.from("common_deductions").select("id,label,amount,active").eq("user_id", uid).order("sort_order"),
         supabase.from("leader_common_overrides").select("leader_id,common_deduction_id,period_key,amount").eq("user_id", uid).in("period_key", commonKeys),
         supabase.from("leader_period_deductions").select("leader_id,period_key,label,amount").eq("user_id", uid).eq("period_key", periodKey),
@@ -82,6 +87,7 @@ export default function Saves() {
       setCompanies((cs ?? []) as unknown as StmtCompany[]);
       setLeaders((ls ?? []) as unknown as StmtLeader[]);
       setDeliveries((ds ?? []) as unknown as StmtDelivery[]);
+      setHqHolidays(new Set(((hs ?? []) as Array<{ date: string }>).map((h) => h.date)));
       setCommonDeductions((cds ?? []) as unknown as StmtCommonDeduction[]);
       setCommonOverrides((ovs ?? []) as unknown as StmtCommonOverride[]);
       setPeriodDeductions((pds ?? []) as unknown as StmtPeriodDeduction[]);
