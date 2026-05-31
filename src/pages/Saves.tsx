@@ -39,7 +39,6 @@ import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { computeGate, setClosed as setGateClosed } from "@/lib/settlementGate";
 import { Cloud, CloudOff } from "lucide-react";
 
 export default function Saves() {
@@ -463,21 +462,9 @@ export default function Saves() {
     setPendingSave(null);
   };
 
-  // ─── 정산마감 게이트 (입력마감일/자동생성일/저장차단 사유) ────────
-  const gate = useMemo(
-    () => computeGate(uid, month, period, hqHolidays),
-    [uid, month, period, hqHolidays],
-  );
-  const [gateTick, setGateTick] = useState(0);
-  const blockedReason = gate.blockedReason;
-  const saveBlocked = !!blockedReason;
-  const toggleClose = (next: boolean) => {
-    if (!uid) return;
-    setGateClosed(uid, month, period, next);
-    setGateTick((t) => t + 1);
-  };
-  // gateTick은 useMemo 의존성에는 없지만 setGateClosed 후 리렌더 트리거용
-  void gateTick;
+  // 정산마감 게이트 제거 — 언제든지 저장 가능
+  const blockedReason: string | undefined = undefined;
+  const saveBlocked = false;
 
   return (
     <div className="space-y-4">
@@ -514,41 +501,6 @@ export default function Saves() {
           </Button>
         </div>
       </div>
-
-      {/* 정산마감 게이트 패널 */}
-      <Card className={"p-4 " + (gate.closed ? "border-primary/40" : "border-yellow-400/60 bg-yellow-50/40 dark:bg-yellow-950/20") }>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-          <div className="flex items-center gap-2 font-semibold">
-            <span>정산상태</span>
-            {gate.closed
-              ? <Badge>정산마감 완료</Badge>
-              : gate.pastDeadline
-              ? <Badge variant="secondary" className="border-yellow-400">입력완료 대기</Badge>
-              : <Badge variant="outline" className="border-yellow-400 text-yellow-700 dark:text-yellow-300">입력중</Badge>}
-          </div>
-          <div className="text-muted-foreground">
-            입력마감일: <span className="font-mono text-foreground">{gate.deadline}</span>
-          </div>
-          <div className="text-muted-foreground">
-            자동생성일: <span className="font-mono text-foreground">{gate.generate}</span>
-            {gate.pastGenerate
-              ? <Badge className="ml-2 text-[10px]">생성 가능 시점</Badge>
-              : <Badge variant="outline" className="ml-2 text-[10px]">대기</Badge>}
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Label htmlFor="settle-close" className="text-xs">정산마감 처리</Label>
-            <Switch
-              id="settle-close"
-              checked={gate.closed}
-              onCheckedChange={toggleClose}
-              disabled={!uid || !gate.pastDeadline}
-            />
-          </div>
-        </div>
-        {blockedReason && (
-          <p className="mt-2 text-xs text-yellow-700 dark:text-yellow-300">{blockedReason}</p>
-        )}
-      </Card>
 
       {/* 기본 액션 버튼 */}
       <Card className="p-4">
