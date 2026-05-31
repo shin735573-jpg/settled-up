@@ -423,6 +423,38 @@ export default function LeaderSettlement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailRows, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides]);
 
+  // 상세화면 업체별 요약 (기준서: 업체명/건수/수도권/비고/지방/실지급배송비/착불/수수료/계산후 지급금액)
+  const detailByCompany = useMemo(() => {
+    if (!leaderId) return [] as Array<{
+      company: string; count: number; metro: number; noteAmt: number; regional: number;
+      total: number; cod: number; fees: number; afterFees: number;
+    }>;
+    const map = new Map<string, {
+      company: string; count: number; metro: number; noteAmt: number; regional: number;
+      cod: number; fees: number;
+    }>();
+    detailRows.forEach((r) => {
+      const share = shareForSettling(r, leaderId);
+      if (!share) return;
+      const key = r.company_name || "(미지정)";
+      const cur = map.get(key) || { company: key, count: 0, metro: 0, noteAmt: 0, regional: 0, cod: 0, fees: 0 };
+      cur.count += share.count;
+      cur.metro += share.metro;
+      cur.noteAmt += share.noteAmt;
+      cur.regional += share.regional;
+      cur.cod += share.cod;
+      cur.fees += feeForRowSettling(r, leaderId);
+      map.set(key, cur);
+    });
+    return Array.from(map.values())
+      .map((v) => {
+        const total = v.metro + v.noteAmt + v.regional;
+        return { ...v, total, afterFees: total - v.fees };
+      })
+      .sort((a, b) => b.total - a.total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailRows, leaderId, leaders]);
+
   // 상세 진입 시 개별공제 로드
   useEffect(() => {
     if (!leaderId) { setDetailDeductions([]); setDetailCommonEdits({}); return; }
