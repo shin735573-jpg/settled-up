@@ -729,16 +729,16 @@ export default function HQSettlement() {
                 )}
                 {filteredLeaders.map((l) => (
                   <TableRow key={l.id}>
-                    <TableCell className="text-center whitespace-nowrap">{l.name}</TableCell>
-                    <TableCell className="text-center">{l.count}</TableCell>
-                    <TableCell className="text-center">{fmt(l.fee)}</TableCell>
-                    <TableCell className="text-center">{fmt(l.cod)}</TableCell>
-                    <TableCell className="text-center">{fmt(l.commission)}</TableCell>
-                    <TableCell className="text-center">{fmt(l.deduct)}</TableCell>
-                    <TableCell className="text-center font-semibold">{fmt(l.payout)}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center truncate px-1">{l.name}</TableCell>
+                    <TableCell className="text-center px-1">{l.count}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(l.fee)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(l.cod)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(l.commission)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(l.deduct)}</TableCell>
+                    <TableCell className="text-center font-semibold px-1">{fmt(l.payout)}</TableCell>
+                    <TableCell className="text-center px-1">
                       <Select value={l.status} onValueChange={(v) => setLeaderStatus((p) => ({ ...p, [l.id]: v as "settled" | "pending" }))}>
-                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-7 px-1 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="settled">정산완료</SelectItem>
                           <SelectItem value="pending">미정산</SelectItem>
@@ -784,22 +784,22 @@ export default function HQSettlement() {
                 )}
                 {filteredCompanies.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="text-center whitespace-nowrap">
+                    <TableCell className="text-center truncate px-1">
                       {c.name}
                       {!c.issuesInvoice && <Badge variant="outline" className="ml-1 text-xs">계산서 미발행</Badge>}
                     </TableCell>
-                    <TableCell className="text-center">{c.count}</TableCell>
-                    <TableCell className="text-center">{fmt(c.fee)}</TableCell>
-                    <TableCell className="text-center">{fmt(c.unpaidAmt)}</TableCell>
-                    <TableCell className="text-center">{fmt(c.cod)}</TableCell>
-                    <TableCell className="text-center">
-                      <Input type="number" value={c.prevCarry || ""} className="h-7 text-center w-24 inline-block"
+                    <TableCell className="text-center px-1">{c.count}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(c.fee)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(c.unpaidAmt)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(c.cod)}</TableCell>
+                    <TableCell className="text-center px-1">
+                      <Input type="number" value={c.prevCarry || ""} className="h-7 text-center w-full px-1 text-xs"
                         onChange={(e) => setCodCarry((p) => ({ ...p, [c.id]: Number(e.target.value) }))} />
                     </TableCell>
-                    <TableCell className="text-center font-semibold">{fmt(c.netClaim)}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center font-semibold px-1">{fmt(c.netClaim)}</TableCell>
+                    <TableCell className="text-center px-1">
                       <Select value={c.status} onValueChange={(v) => setCompanyStatus((p) => ({ ...p, [c.id]: v as "paid" | "unpaid" }))}>
-                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-7 px-1 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="paid">결제완료</SelectItem>
                           <SelectItem value="unpaid">미결제</SelectItem>
