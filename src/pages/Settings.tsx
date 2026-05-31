@@ -485,7 +485,7 @@ function CompaniesTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedRows.map((r) => (
+          {filteredRows.map((r) => (
             <TableRow key={r.id}>
               <TableCell><Input defaultValue={r.name} onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} /></TableCell>
               <TableCell><Checkbox checked={r.issues_invoice} onCheckedChange={(v) => update(r.id, { issues_invoice: !!v })} /></TableCell>
