@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,8 @@ import {
   type CheckResult,
 } from "@/lib/statementValidation";
 import { toast } from "@/hooks/use-toast";
+import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
+import { getEntry, keyFor } from "@/lib/statementVersion";
 
 export default function Saves() {
   const { user } = useAuth();
@@ -126,6 +128,61 @@ export default function Saves() {
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
 
+  // ─── PNG 렌더 대상 노드 보관 (숨겨진 영역) ─────────────
+  const exportRoot = useRef<HTMLDivElement>(null);
+  const [exportingMsg, setExportingMsg] = useState<string>("");
+
+  function collectNodes(kind: "company" | "leader"): ExportTarget[] {
+    if (!exportRoot.current) return [];
+    const out: ExportTarget[] = [];
+    const items = kind === "company"
+      ? companyStmts.map((s) => ({ id: s.company.id, name: s.company.name }))
+      : leaderStmts.map((s) => ({ id: s.leader.id, name: s.leader.name }));
+    for (const it of items) {
+      const node = exportRoot.current.querySelector<HTMLElement>(
+        `[data-stmt="${kind}:${it.id}"]`,
+      );
+      if (node) out.push({ kind, id: it.id, name: it.name, node });
+    }
+    return out;
+  }
+
+  async function doExportSingle(kind: "company" | "leader", id: string, name: string, regenerate: boolean) {
+    const nodes = collectNodes(kind);
+    const target = nodes.find((n) => n.id === id);
+    if (!target) { toast({ title: "저장 실패", description: "렌더 대상 없음", variant: "destructive" }); return; }
+    setExportingMsg(`${name} 저장 중…`);
+    try {
+      const { filename } = await exportSingle(target, month, period, regenerate);
+      toast({ title: "저장 완료", description: filename });
+    } catch (e) {
+      toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setExportingMsg("");
+    }
+  }
+
+  async function doExportAll(kind: "company" | "leader" | "both", regenerate: boolean) {
+    const targets =
+      kind === "company" ? collectNodes("company")
+      : kind === "leader" ? collectNodes("leader")
+      : [...collectNodes("company"), ...collectNodes("leader")];
+    if (targets.length === 0) {
+      toast({ title: "저장 대상 없음", variant: "destructive" }); return;
+    }
+    try {
+      const { filename, count } = await exportZip(
+        targets, month, period, regenerate,
+        (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
+      );
+      toast({ title: "저장 완료", description: `${filename} (${count}건)` });
+    } catch (e) {
+      toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setExportingMsg("");
+    }
+  }
+
   // ─── 저장 전 오류 검사 + 후속 저장 액션 ────────────────────
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
@@ -186,28 +243,27 @@ export default function Saves() {
     setPendingSave(() => (result.ok ? save : null));
   }
 
-  const doSaveStub = (label: string) => () => {
-    toast({ title: "저장 단계 준비 중", description: `${label} — 오류 검사 통과. PNG 생성/업로드는 다음 단계에서 활성화됩니다.` });
-  };
-
-  const onSaveCompanyOne = () => withValidation(
-    `${selectedCompany?.company.name ?? "업체"} 정산서 저장`,
+  const onSaveCompanyOne = () => selectedCompany && withValidation(
+    `${selectedCompany.company.name} 정산서 저장`,
     "company-one",
-    doSaveStub(`${selectedCompany?.company.name} 업체 정산서`),
+    () => doExportSingle("company", selectedCompany.company.id, selectedCompany.company.name, false),
   );
   const onSaveCompanyAll = () => withValidation(
-    "업체 전체 정산서 저장", "company-all", doSaveStub("업체 전체"),
+    "업체 전체 정산서 저장", "company-all",
+    () => doExportAll("company", false),
   );
-  const onSaveLeaderOne = () => withValidation(
-    `${selectedLeader?.leader.name ?? "팀장"} 정산서 저장`,
+  const onSaveLeaderOne = () => selectedLeader && withValidation(
+    `${selectedLeader.leader.name} 정산서 저장`,
     "leader-one",
-    doSaveStub(`${selectedLeader?.leader.name} 팀장 정산서`),
+    () => doExportSingle("leader", selectedLeader.leader.id, selectedLeader.leader.name, false),
   );
   const onSaveLeaderAll = () => withValidation(
-    "팀장 전체 정산서 저장", "leader-all", doSaveStub("팀장 전체"),
+    "팀장 전체 정산서 저장", "leader-all",
+    () => doExportAll("leader", false),
   );
   const onRegenerate = () => withValidation(
-    "정산서 재생성", "both-all", doSaveStub("재생성"),
+    "정산서 재생성", "both-all",
+    () => doExportAll("both", true),
   );
   const onCheckOnly = () => {
     const result = runChecksFor("both-all");
@@ -284,6 +340,7 @@ export default function Saves() {
                   )}
                   {companyStmts.map((s) => {
                     const active = s.company.id === selectedCompanyId;
+                    const ver = getEntry(keyFor("company", s.company.id, month, period));
                     return (
                       <button
                         key={s.company.id}
@@ -297,9 +354,12 @@ export default function Saves() {
                         }
                       >
                         <span className="truncate font-medium">{s.company.name}</span>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
-                          {s.rows.length}건
-                        </Badge>
+                        <span className="flex shrink-0 items-center gap-1">
+                          {ver && (
+                            <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px]">{s.rows.length}건</Badge>
+                        </span>
                       </button>
                     );
                   })}
@@ -333,6 +393,7 @@ export default function Saves() {
                   )}
                   {leaderStmts.map((s) => {
                     const active = s.leader.id === selectedLeaderId;
+                    const ver = getEntry(keyFor("leader", s.leader.id, month, period));
                     return (
                       <button
                         key={s.leader.id}
@@ -346,9 +407,12 @@ export default function Saves() {
                         }
                       >
                         <span className="truncate font-medium">{s.leader.name}</span>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">
-                          {s.deliveryCount}건
-                        </Badge>
+                        <span className="flex shrink-0 items-center gap-1">
+                          {ver && (
+                            <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px]">{s.deliveryCount}건</Badge>
+                        </span>
                       </button>
                     );
                   })}
@@ -373,6 +437,38 @@ export default function Saves() {
         ※ 미리보기는 화면용입니다. 저장 시 동일 데이터로 카톡 공유용 PNG가 생성됩니다.
         파일명: 업체_업체명_기간_v1.png · 팀장_팀장명_기간_v1.png (재생성 시 v2, v3로 자동 증가).
       </p>
+
+      {exportingMsg && (
+        <div className="fixed bottom-4 right-4 z-50 rounded-md border bg-background px-4 py-2 text-sm shadow">
+          {exportingMsg}
+        </div>
+      )}
+
+      {/* 숨겨진 PNG 렌더 영역: 화면에는 안 보이지만 DOM에는 존재해야 html-to-image가 캡처 가능 */}
+      <div
+        ref={exportRoot}
+        aria-hidden
+        style={{
+          position: "fixed",
+          left: -10000,
+          top: 0,
+          width: 1200,
+          background: "#ffffff",
+          color: "#000000",
+          pointerEvents: "none",
+        }}
+      >
+        {companyStmts.map((s) => (
+          <div key={"c-" + s.company.id} data-stmt={`company:${s.company.id}`} className="p-6 bg-white text-black">
+            <CompanyPreview data={s} />
+          </div>
+        ))}
+        {leaderStmts.map((s) => (
+          <div key={"l-" + s.leader.id} data-stmt={`leader:${s.leader.id}`} className="p-6 bg-white text-black">
+            <LeaderPreview data={s} />
+          </div>
+        ))}
+      </div>
 
       <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
         <DialogContent className="max-w-xl">
