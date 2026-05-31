@@ -2469,5 +2469,14 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <Dialog open={ocrCheckOpen} onOpenChange={setOcrCheckOpen}>
+      <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>OCR 점검 · 분석 후 등록 (최대 10장)</DialogTitle>
+        </DialogHeader>
+        <OcrCheckPanel max={10} onRegister={appendExtractedRows} />
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
