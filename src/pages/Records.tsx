@@ -1266,10 +1266,21 @@ export default function Records() {
             </div>
             <div className="space-y-1 flex flex-col">
               <Label>결제유무</Label>
-              <label className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer">
-                <Checkbox checked={form.paid} onCheckedChange={(v) => setForm({ ...form, paid: !!v })} />
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setForm((f) => ({ ...f, paid: !f.paid }))}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    setForm((f) => ({ ...f, paid: !f.paid }));
+                  }
+                }}
+                className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer select-none"
+              >
+                <Checkbox checked={form.paid} tabIndex={-1} className="pointer-events-none" />
                 <span>{form.paid ? "결제완료" : "미결제"}</span>
-              </label>
+              </div>
             </div>
           </div>
 
