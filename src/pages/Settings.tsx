@@ -31,6 +31,14 @@ import {
   setAutoBackupEnabled,
   getLastBackupAt,
 } from "@/lib/excelBackup";
+import {
+  parseBackupFile,
+  restoreBackup,
+  RESTORABLE_TABLES,
+  type ParsedBackup,
+  type RestoreMode,
+  type RestoreResult,
+} from "@/lib/excelBackup";
 
 type Company = {
   id: string;
@@ -237,7 +245,229 @@ function BackupCard({ uid }: { uid: string }) {
       <p className="text-[11px] text-muted-foreground">
         마지막 백업: {lastAt ? new Date(lastAt).toLocaleString() : "없음"}
       </p>
+      <RestoreSection uid={uid} />
     </Card>
+  );
+}
+
+// 기본 복구 대상 — 사용자가 언급한 4개 테이블
+const DEFAULT_RESTORE = new Set(["companies", "team_leaders", "deliveries", "holidays"]);
+
+function RestoreSection({ uid }: { uid: string }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [parsed, setParsed] = useState<ParsedBackup | null>(null);
+  const [filename, setFilename] = useState<string>("");
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [mode, setMode] = useState<RestoreMode>("upsert");
+  const [confirmText, setConfirmText] = useState("");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState<RestoreResult[] | null>(null);
+
+  const onPick = async (f: File | null) => {
+    if (!f) return;
+    try {
+      const p = await parseBackupFile(f);
+      setParsed(p);
+      setFilename(f.name);
+      const init: Record<string, boolean> = {};
+      for (const t of p.tables) init[t.table] = DEFAULT_RESTORE.has(t.table);
+      setSelected(init);
+      setMode("upsert");
+      setConfirmText("");
+      setResults(null);
+      setOpen(true);
+    } catch (e) {
+      toast.error("백업 파일 오류", { description: (e as Error).message });
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const totalSelected = parsed
+    ? parsed.tables.filter((t) => selected[t.table]).reduce((s, t) => s + t.rows.length, 0)
+    : 0;
+
+  const canRun = (() => {
+    if (!parsed || busy) return false;
+    if (!Object.values(selected).some(Boolean)) return false;
+    if (mode === "replace" && confirmText.trim() !== "REPLACE") return false;
+    return true;
+  })();
+
+  const run = async () => {
+    if (!parsed || !uid || uid === "anon") {
+      toast.error("로그인이 필요합니다.");
+      return;
+    }
+    const tables = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
+    setBusy(true);
+    try {
+      const res = await restoreBackup(uid, parsed, tables, mode);
+      setResults(res);
+      const ok = res.filter((r) => !r.error);
+      const fail = res.filter((r) => r.error);
+      const inserted = ok.reduce((s, r) => s + r.inserted, 0);
+      if (fail.length === 0) {
+        toast.success(`복구 완료 · ${inserted}건 적용`, {
+          description: ok.map((r) => `${r.sheet} ${r.inserted}건`).join(", "),
+        });
+      } else {
+        toast.error(`일부 실패 · 성공 ${ok.length} / 실패 ${fail.length}`, {
+          description: fail.map((r) => `${r.sheet}: ${r.error}`).join(" | "),
+        });
+      }
+    } catch (e) {
+      toast.error("복구 실패", { description: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="pt-3 border-t space-y-2">
+      <h3 className="font-semibold text-sm">엑셀 백업 불러오기 (복구)</h3>
+      <p className="text-xs text-muted-foreground">
+        이전에 저장한 <span className="font-mono">.xlsx</span> 백업 파일을 선택하면 시트별 데이터를
+        검토 후 복구할 수 있습니다.
+      </p>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        className="hidden"
+        onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+      />
+      <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+        백업 파일 선택…
+      </Button>
+
+      <Dialog open={open} onOpenChange={(v) => { if (!busy) setOpen(v); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>백업 복구 — {filename}</DialogTitle>
+          </DialogHeader>
+
+          {parsed && (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {Object.keys(parsed.meta).length > 0 && (
+                <div className="text-xs text-muted-foreground bg-muted/40 p-2 rounded">
+                  {Object.entries(parsed.meta).slice(0, 6).map(([k, v]) => (
+                    <div key={k}><span className="font-mono">{k}</span>: {v}</div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label className="text-xs">복구할 시트 선택</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {parsed.tables.map((t) => {
+                    const known = RESTORABLE_TABLES.some((r) => r.table === t.table);
+                    return (
+                      <label
+                        key={t.table}
+                        className="flex items-center gap-2 text-sm border rounded px-2 py-1.5 cursor-pointer hover:bg-muted/40"
+                      >
+                        <Checkbox
+                          checked={!!selected[t.table]}
+                          onCheckedChange={(v) =>
+                            setSelected((s) => ({ ...s, [t.table]: !!v }))
+                          }
+                          disabled={!known || t.rows.length === 0}
+                        />
+                        <span className="flex-1">
+                          {t.sheet}
+                          {!known && <span className="text-destructive ml-1">(미지원)</span>}
+                        </span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {t.rows.length}건
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">복구 방식</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label className={`border rounded p-2 cursor-pointer text-sm ${mode === "upsert" ? "border-primary bg-primary/5" : ""}`}>
+                    <input
+                      type="radio"
+                      name="restore-mode"
+                      className="mr-2"
+                      checked={mode === "upsert"}
+                      onChange={() => setMode("upsert")}
+                    />
+                    <span className="font-medium">병합 (권장)</span>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      기존 데이터 유지, 동일 ID는 덮어씁니다.
+                    </div>
+                  </label>
+                  <label className={`border rounded p-2 cursor-pointer text-sm ${mode === "replace" ? "border-destructive bg-destructive/5" : ""}`}>
+                    <input
+                      type="radio"
+                      name="restore-mode"
+                      className="mr-2"
+                      checked={mode === "replace"}
+                      onChange={() => setMode("replace")}
+                    />
+                    <span className="font-medium text-destructive">전체 교체 (위험)</span>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      선택한 시트의 내 데이터를 모두 삭제 후 재삽입합니다.
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {mode === "replace" && (
+                <div className="space-y-1 p-2 border border-destructive/40 rounded bg-destructive/5">
+                  <Label className="text-xs text-destructive">
+                    확인을 위해 <span className="font-mono">REPLACE</span> 를 입력하세요
+                  </Label>
+                  <Input
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder="REPLACE"
+                  />
+                </div>
+              )}
+
+              {results && (
+                <div className="text-xs space-y-1 border-t pt-2">
+                  <div className="font-semibold">결과</div>
+                  {results.map((r) => (
+                    <div key={r.table} className={r.error ? "text-destructive" : ""}>
+                      {r.sheet}: 적용 {r.inserted}건
+                      {mode === "replace" && r.deleted > 0 && ` · 삭제 ${r.deleted}건`}
+                      {r.error && ` — ${r.error}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex-row justify-between items-center gap-2">
+            <div className="text-xs text-muted-foreground">
+              선택된 행: {totalSelected.toLocaleString()}건
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>
+                닫기
+              </Button>
+              <Button
+                onClick={run}
+                disabled={!canRun}
+                variant={mode === "replace" ? "destructive" : "default"}
+              >
+                {busy ? "복구 중…" : mode === "replace" ? "전체 교체 실행" : "병합 복구 실행"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
