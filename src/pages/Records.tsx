@@ -2257,7 +2257,19 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell>{r.split || "-"}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={r.split || "__none__"}
+                              onValueChange={(v) => setSplitOverrides((p) => ({ ...p, [i]: v === "__none__" ? "" : v }))}
+                            >
+                              <SelectTrigger className="h-7 text-xs min-w-[90px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">(빈칸)</SelectItem>
+                                <SelectItem value="3분할">3분할</SelectItem>
+                                <SelectItem value="형주동석">형주동석</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell>{r.paid ? "✓" : "-"}</TableCell>
                           <TableCell className="space-y-1 min-w-[220px]">
                             {r.errors.map((e, j) => <Badge key={j} variant="destructive" className="mr-1">{e.field}: {e.msg}</Badge>)}
