@@ -23,6 +23,10 @@ import {
   type StmtCompany,
   type StmtDelivery,
   type StmtLeader,
+  type StmtCommonDeduction,
+  type StmtCommonOverride,
+  type StmtPeriodDeduction,
+  type DeductionContext,
 } from "@/lib/statementData";
 import {
   validateCompanyStatement,
@@ -46,6 +50,9 @@ export default function Saves() {
   const [companies, setCompanies] = useState<StmtCompany[]>([]);
   const [leaders, setLeaders] = useState<StmtLeader[]>([]);
   const [deliveries, setDeliveries] = useState<StmtDelivery[]>([]);
+  const [commonDeductions, setCommonDeductions] = useState<StmtCommonDeduction[]>([]);
+  const [commonOverrides, setCommonOverrides] = useState<StmtCommonOverride[]>([]);
+  const [periodDeductions, setPeriodDeductions] = useState<StmtPeriodDeduction[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -59,31 +66,49 @@ export default function Saves() {
       const from = `${month}-01`;
       const last = new Date(y, m, 0).getDate();
       const to = `${month}-${String(last).padStart(2, "0")}`;
-      const [{ data: cs }, { data: ls }, { data: ds }] = await Promise.all([
+      const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
+      const commonKeys = period === "all"
+        ? ["all"]
+        : [`${month}-${period === "h1" ? "first" : "second"}`];
+      const [{ data: cs }, { data: ls }, { data: ds }, { data: cds }, { data: ovs }, { data: pds }] = await Promise.all([
         supabase.from("companies").select("*").eq("user_id", uid).order("name"),
         supabase.from("team_leaders").select("*").eq("user_id", uid).order("name"),
         supabase.from("deliveries").select("*").eq("user_id", uid).gte("date", from).lte("date", to),
+        supabase.from("common_deductions").select("id,label,amount,active").eq("user_id", uid).order("sort_order"),
+        supabase.from("leader_common_overrides").select("leader_id,common_deduction_id,period_key,amount").eq("user_id", uid).in("period_key", commonKeys),
+        supabase.from("leader_period_deductions").select("leader_id,period_key,label,amount").eq("user_id", uid).eq("period_key", periodKey),
       ]);
       setCompanies((cs ?? []) as unknown as StmtCompany[]);
       setLeaders((ls ?? []) as unknown as StmtLeader[]);
       setDeliveries((ds ?? []) as unknown as StmtDelivery[]);
+      setCommonDeductions((cds ?? []) as unknown as StmtCommonDeduction[]);
+      setCommonOverrides((ovs ?? []) as unknown as StmtCommonOverride[]);
+      setPeriodDeductions((pds ?? []) as unknown as StmtPeriodDeduction[]);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { reload(); /* eslint-disable-next-line */ }, [uid, month]);
+  useEffect(() => { reload(); /* eslint-disable-next-line */ }, [uid, month, period]);
 
   const special = useMemo(() => detectSpecialLeaderIds(leaders), [leaders]);
   const oeunkyuSpecial = settings?.oeunkyuSpecial ?? true;
+
+  const deductionCtx: DeductionContext = useMemo(() => {
+    const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
+    const commonPeriodKeys = period === "all"
+      ? ["all"]
+      : [`${month}-${period === "h1" ? "first" : "second"}`];
+    return { commonDeductions, commonOverrides, periodDeductions, periodKey, commonPeriodKeys };
+  }, [commonDeductions, commonOverrides, periodDeductions, period, month]);
 
   const companyStmts = useMemo(
     () => buildCompanyStatements(deliveries, companies, leaders, period),
     [deliveries, companies, leaders, period],
   );
   const leaderStmts = useMemo(
-    () => buildLeaderStatements(deliveries, leaders, period, { ...special, oeunkyuSpecial }),
-    [deliveries, leaders, period, special, oeunkyuSpecial],
+    () => buildLeaderStatements(deliveries, leaders, period, { ...special, oeunkyuSpecial }, deductionCtx),
+    [deliveries, leaders, period, special, oeunkyuSpecial, deductionCtx],
   );
 
   // 기본 선택 자동 동기화
@@ -345,7 +370,8 @@ export default function Saves() {
       </Tabs>
 
       <p className="text-xs text-muted-foreground">
-        ※ 1단계: 구조 + 기간/대상 선택 + 데이터 집계 완료. 다음 단계에서 정산서 렌더링(PNG 생성)·저장·오류검사가 추가됩니다.
+        ※ 미리보기는 화면용입니다. 저장 시 동일 데이터로 카톡 공유용 PNG가 생성됩니다.
+        파일명: 업체_업체명_기간_v1.png · 팀장_팀장명_기간_v1.png (재생성 시 v2, v3로 자동 증가).
       </p>
 
       <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
@@ -369,6 +395,28 @@ export default function Saves() {
                 : "이상 없습니다."}
             </DialogDescription>
           </DialogHeader>
+          {checkResult && (
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="rounded-md border p-2">
+                <div className="text-muted-foreground">전체 검사</div>
+                <div className="text-base font-bold">{checkResult.findings.length}</div>
+              </div>
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2">
+                <div className="text-muted-foreground">오류</div>
+                <div className="text-base font-bold text-destructive">{checkResult.errors.length}</div>
+              </div>
+              <div className="rounded-md border border-yellow-300 bg-yellow-50 p-2 dark:bg-yellow-950/30">
+                <div className="text-muted-foreground">경고</div>
+                <div className="text-base font-bold text-yellow-700 dark:text-yellow-300">{checkResult.warnings.length}</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-muted-foreground">정상</div>
+                <div className="text-base font-bold">
+                  {checkResult.findings.length === 0 ? "OK" : "-"}
+                </div>
+              </div>
+            </div>
+          )}
           <ScrollArea className="max-h-[360px] pr-3">
             <ul className="space-y-1 text-sm">
               {checkResult?.findings.map((f, i) => (
@@ -456,7 +504,8 @@ function CompanyPreview({
         <Stat label="결제완료" value={data.paidTotal} />
         <Stat label="미결제" value={data.unpaidTotal} />
         <Stat label="착불합계" value={data.codTotal} />
-        <Stat label="새이월착불" value={data.carryOutCod} />
+        <Stat label="이전이월착불금" value={data.carryInCod} />
+        <Stat label="새이월착불금" value={data.carryOutCod} />
         <Stat label="실청구" value={data.realClaim} accent />
         <Stat label="최종청구" value={data.finalClaim} accent />
       </div>
@@ -500,7 +549,10 @@ function CompanyPreview({
       </div>
       {c.account_number && (
         <div className="rounded-md border bg-muted/40 p-3 text-sm font-semibold">
-          계좌: {c.account_number} · 정산 완료 후 입금자명을 전달 부탁드립니다.
+          계좌: {c.account_number}
+          <div className="mt-1 text-xs font-normal text-muted-foreground">
+            정산 완료 후 입금자명을 전달 부탁드립니다.
+          </div>
         </div>
       )}
     </div>
@@ -527,13 +579,13 @@ function LeaderPreview({
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-6">
         <Stat label="배송건수" value={data.deliveryCount} />
-        <Stat label="수도권" value={data.metroSum} />
-        <Stat label="비고" value={data.noteSum} />
-        <Stat label="지방" value={data.regionalSum} />
+        <Stat label="수도권배송비" value={data.metroSum} />
+        <Stat label="비고금액" value={data.noteSum} />
+        <Stat label="지방배송비" value={data.regionalSum} />
         <Stat label="실지급배송비" value={data.realFee} />
         <Stat label="착불합계" value={data.codSum} />
-        <Stat label="수수료" value={data.feeTotal} />
-        <Stat label="계산후" value={data.afterFee} />
+        <Stat label="수수료합계" value={data.feeTotal} />
+        <Stat label="계산후 지급금액" value={data.afterFee} />
         <Stat label="공제총액" value={data.deductionTotal} />
         <Stat label="실지급액" value={data.payout} accent />
       </div>
@@ -544,11 +596,33 @@ function LeaderPreview({
           <Stat label="부가세포함" value={data.payoutWithVat} accent />
         </div>
       )}
+      {data.deductions && (data.deductions.commonLines.length > 0 || data.deductions.personalLines.length > 0) && (
+        <div className="rounded-md border bg-muted/30 p-3 text-xs">
+          <div className="mb-1 font-semibold">공제 내역</div>
+          <ul className="space-y-0.5">
+            {data.deductions.commonLines.map((d, i) => (
+              <li key={"c"+i} className="flex justify-between">
+                <span>공통 · {d.label}{data.deductions!.commonLines.length > 1 ? ` (${d.periodKey})` : ""}</span>
+                <span className="font-medium">{fmt(d.amount)}</span>
+              </li>
+            ))}
+            {data.deductions.personalLines.map((d, i) => (
+              <li key={"p"+i} className="flex justify-between">
+                <span>개별 · {d.label}</span>
+                <span className="font-medium">{fmt(d.amount)}</span>
+              </li>
+            ))}
+            <li className="mt-1 flex justify-between border-t pt-1 font-semibold">
+              <span>공제총액</span><span>{fmt(data.deductions.total)}</span>
+            </li>
+          </ul>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-xs">
           <thead className="bg-muted">
             <tr>
-              {["날짜","업체","실제기사1","실제기사2","정산기사","고객명","배송지","품목","비고","수도권","비고","지방","착불","실지급","분할","2인","수수료","계산후","실지급액","처리"].map((h, i) => (
+              {["날짜","업체","실제기사1","실제기사2","정산기사","고객명","배송지","품목","비고","수도권배송비","비고금액","지방배송비","착불","실지급배송비","분할","2인배송","건별 수수료","건별 계산후 지급액","건별 실지급액","정산처리"].map((h, i) => (
                 <th key={i} className="px-1 py-1 text-left font-medium whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -578,7 +652,9 @@ function LeaderPreview({
                 <td className="px-1 py-1 text-right">{fmt(r.unitFee)}</td>
                 <td className="px-1 py-1 text-right">{fmt(r.unitAfterFee)}</td>
                 <td className="px-1 py-1 text-right">{fmt(r.unitPayout)}</td>
-                <td className="px-1 py-1 text-[10px]">{r.share.reason ?? ""}</td>
+                <td className="px-1 py-1 text-[10px]">
+                  {r.isOeunkyuTransfer ? "오은규 → 오동선" : (r.share.reason ?? "")}
+                </td>
               </tr>
             ))}
             {data.rows.length === 0 && (

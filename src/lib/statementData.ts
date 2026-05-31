@@ -128,6 +128,7 @@ export type LeaderStmtData = {
   payout: number;      // 실지급액
   vat: number;
   payoutWithVat: number;
+  deductions?: LeaderDeductionDetail;
 };
 
 export type AggregateOptions = {
@@ -138,6 +139,82 @@ export type AggregateOptions = {
   /** 오은규 특수정산 적용 여부 (회사설정) — true면 오은규 건을 오동선에게 합산 */
   oeunkyuSpecial: boolean;
 };
+
+/** 공통공제 (쓰레기비용 등) — common_deductions 행 */
+export type StmtCommonDeduction = {
+  id: string;
+  label: string;
+  amount: number;
+  active: boolean;
+};
+/** 팀장별 공통공제 오버라이드 — leader_common_overrides 행 */
+export type StmtCommonOverride = {
+  leader_id: string;
+  common_deduction_id: string;
+  period_key: string;
+  amount: number;
+};
+/** 팀장별 개별공제 — leader_period_deductions 행 */
+export type StmtPeriodDeduction = {
+  leader_id: string;
+  period_key: string;
+  label: string;
+  amount: number;
+};
+
+export type DeductionContext = {
+  commonDeductions: StmtCommonDeduction[];
+  commonOverrides: StmtCommonOverride[];
+  periodDeductions: StmtPeriodDeduction[];
+  /** "all" 또는 "${month}-first|second" — 개별공제 단일 키 */
+  periodKey: string;
+  /** 공통공제 적용 키 목록 (보름×N) — 보름1번 규칙 보장 */
+  commonPeriodKeys: string[];
+};
+
+export type LeaderDeductionDetail = {
+  commonLines: { label: string; amount: number; periodKey: string }[];
+  personalLines: { label: string; amount: number }[];
+  commonTotal: number;
+  personalTotal: number;
+  total: number;
+};
+
+function computeLeaderDeductions(
+  leaderId: string,
+  ctx: DeductionContext | undefined,
+): LeaderDeductionDetail {
+  const out: LeaderDeductionDetail = {
+    commonLines: [], personalLines: [],
+    commonTotal: 0, personalTotal: 0, total: 0,
+  };
+  if (!ctx) return out;
+  // 공통공제: 활성 항목 × commonPeriodKeys (보름당 1회)
+  for (const cd of ctx.commonDeductions) {
+    if (!cd.active) continue;
+    for (const pk of ctx.commonPeriodKeys) {
+      const ov = ctx.commonOverrides.find(
+        (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id && o.period_key === pk,
+      );
+      const amount = ov ? Number(ov.amount) : Number(cd.amount);
+      if (amount > 0) {
+        out.commonLines.push({ label: cd.label, amount, periodKey: pk });
+        out.commonTotal += amount;
+      }
+    }
+  }
+  // 개별공제
+  for (const d of ctx.periodDeductions) {
+    if (d.leader_id !== leaderId || d.period_key !== ctx.periodKey) continue;
+    const amount = Number(d.amount);
+    if (amount > 0 && (d.label ?? "").trim() !== "") {
+      out.personalLines.push({ label: d.label, amount });
+      out.personalTotal += amount;
+    }
+  }
+  out.total = out.commonTotal + out.personalTotal;
+  return out;
+}
 
 /** 업체 정산서 모음 — 업체별로 1개씩 */
 export function buildCompanyStatements(
@@ -227,6 +304,7 @@ export function buildLeaderStatements(
   leaders: StmtLeader[],
   period: PeriodKey,
   opts: AggregateOptions,
+  deductionCtx?: DeductionContext,
 ): LeaderStmtData[] {
   const byId = new Map(leaders.map((l) => [l.id, l]));
   const { shindongseokId, ganghyungjuId, oeunkyuId } = opts;
@@ -299,7 +377,8 @@ export function buildLeaderStatements(
     const codSum = rows.reduce((s, r) => s + r.share.cod, 0);
     const feeTotal = rows.reduce((s, r) => s + r.unitFee, 0);
     const afterFee = realFee - feeTotal;
-    const deductionTotal = 0; // STEP 3에서 공통/개별 공제 합산 연결
+    const ded = computeLeaderDeductions(leader.id, deductionCtx);
+    const deductionTotal = ded.total;
     const payout = afterFee - codSum - deductionTotal;
     const vat = leader.issues_invoice ? Math.round(payout * 0.1) : 0;
     const payoutWithVat = leader.issues_invoice ? payout + vat : 0;
@@ -320,6 +399,7 @@ export function buildLeaderStatements(
       payout,
       vat,
       payoutWithVat,
+      deductions: ded,
     });
   }
   return out;
