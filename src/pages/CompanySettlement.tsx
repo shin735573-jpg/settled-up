@@ -33,6 +33,7 @@ const COMPANY_COLUMNS: Array<{
   { key: "net",      label: "실청구액",     width: 140, align: "center", amount: true },
   { key: "status",   label: "결제상태",     width: 120, align: "center" },
   { key: "detail",   label: "상세보기",     width: 100, align: "center" },
+  { key: "leaderTotal", label: "팀장 총배송비", width: 150, align: "center", amount: true },
 ];
 const COMPANY_TOTAL_WIDTH = COMPANY_COLUMNS.reduce((s, c) => s + c.width, 0);
 
