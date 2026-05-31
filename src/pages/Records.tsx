@@ -1994,7 +1994,39 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
           </div>
 
           <div className="space-y-1">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handlePhotos(e.target.files)}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={ocrLoading}
+                >
+                  {ocrLoading ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Camera className="h-3 w-3 mr-1" />
+                  )}
+                  계약서·송장 사진 (최대 20장)
+                </Button>
+                {ocrProgress && (
+                  <span className="text-[11px] text-muted-foreground">
+                    분석 중… {ocrProgress.done}/{ocrProgress.total}
+                  </span>
+                )}
+                <span className="text-[11px] text-muted-foreground">
+                  사진은 분석 후 즉시 폐기 (저장 안 함). 애매한 값은 “체크요망” 표시 → 수동 보정.
+                </span>
+              </div>
               <Button
                 size="sm"
                 variant="ghost"
