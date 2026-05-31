@@ -21,6 +21,11 @@ import { toast } from "sonner";
 import { ko } from "date-fns/locale";
 import { canonicalLeaderName, getDisplayName } from "@/lib/leaderResolver";
 import {
+  classifyRegion as classifyRegionBase,
+  loadMetroKeywords,
+  type RegionType as RegionTypeShared,
+} from "@/lib/regionClassifier";
+import {
   validateAll,
   comparePeriodTotals,
   summarize,
