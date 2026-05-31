@@ -787,7 +787,7 @@ function LeaderPreview({
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((r, i) => (
+            {rows.map((r, i) => (
               <tr
                 key={r.delivery.id + "-" + i}
                 className={"border-t " + (r.isOeunkyuTransfer ? "bg-yellow-100/60" : "")}
@@ -816,7 +816,7 @@ function LeaderPreview({
                 </td>
               </tr>
             ))}
-            {data.rows.length === 0 && (
+            {rows.length === 0 && (
               <tr><td colSpan={20} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
@@ -826,6 +826,9 @@ function LeaderPreview({
         <div className="rounded-md border bg-muted/40 p-3 text-sm font-semibold">
           계좌: {l.account_number}
         </div>
+      )}
+      {totalPages && totalPages > 1 && (
+        <div className="text-right text-xs text-muted-foreground">{pageIndex} / {totalPages}</div>
       )}
     </div>
   );
