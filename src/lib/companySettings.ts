@@ -10,7 +10,7 @@ export type CompanySettings = {
 };
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
-  companyName: "",
+  companyName: "삼호물류",
   defaultMonth: new Date().toISOString().slice(0, 7),
   defaultAccount: "",
   footerNote: "정산 완료 후 입금자명을 전달 부탁드립니다.",
