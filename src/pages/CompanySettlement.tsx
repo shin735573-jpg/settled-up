@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
+import { totalDeliveryFee } from "@/lib/totalFee";
 import { matchesCompany } from "@/lib/companyMatch";
 import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolver";
 import { auditDeliveries } from "@/lib/liveAudit";
