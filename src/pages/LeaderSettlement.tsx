@@ -137,7 +137,7 @@ export default function LeaderSettlement() {
         supabase.from("team_leaders").select("*").order("name"),
         supabase.from("common_deductions").select("id,label,amount,active").order("sort_order"),
       ]);
-      setLeaders((l as Leader[]) || []);
+      setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
       setCommonDeductions((cd as CommonDeduction[]) || []);
     })();
   }, []);
