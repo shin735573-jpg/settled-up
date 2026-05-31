@@ -15,6 +15,8 @@ import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocatio
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
+import { Switch } from "@/components/ui/switch";
+import { getCurrentHalf } from "@/lib/autoPeriod";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -100,8 +102,41 @@ function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null 
 
 export default function LeaderSettlement() {
   const { user } = useAuth();
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [period, setPeriod] = useState<Period>("month");
+  const initial = useMemo(() => getCurrentHalf(), []);
+  const [month, setMonth] = useState(() => initial.month);
+  const [period, setPeriod] = useState<Period>(initial.half === "h1" ? "first" : "second");
+  const [autoPeriod, setAutoPeriod] = useState<boolean>(() => {
+    try { return localStorage.getItem("leaderSettlement.autoPeriod") !== "0"; } catch { return true; }
+  });
+  const toggleAutoPeriod = (v: boolean) => {
+    setAutoPeriod(v);
+    try { localStorage.setItem("leaderSettlement.autoPeriod", v ? "1" : "0"); } catch { /* noop */ }
+    if (v) {
+      const cur = getCurrentHalf();
+      setMonth(cur.month);
+      setPeriod(cur.half === "h1" ? "first" : "second");
+    }
+  };
+  useEffect(() => {
+    if (!autoPeriod) return;
+    const sync = () => {
+      const cur = getCurrentHalf();
+      const wantP: Period = cur.half === "h1" ? "first" : "second";
+      setMonth((prev) => (prev === cur.month ? prev : cur.month));
+      setPeriod((prev) => (prev === wantP ? prev : wantP));
+    };
+    sync();
+    const onFocus = () => sync();
+    const onVis = () => { if (document.visibilityState === "visible") sync(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    const id = window.setInterval(sync, 60 * 60 * 1000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+      window.clearInterval(id);
+    };
+  }, [autoPeriod]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [rows, setRows] = useState<Delivery[]>([]);
   const [companies, setCompanies] = useState<Array<{
