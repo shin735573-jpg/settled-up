@@ -171,32 +171,13 @@ function buildLeaderIndex(leaders: Leader[]) {
 
 const LEADER_SPLIT_RE = /[\/,&+\s\n]+/g;
 
-// 수도권 키워드: 시/도, 서울 구, 경기/인천 시·구·동
-const METRO_KEYWORDS = [
-  "서울","경기","인천",
-  // 서울 25개 구
-  "강남구","강동구","강북구","강서구","관악구","광진구","구로구","금천구","노원구","도봉구",
-  "동대문구","동작구","마포구","서대문구","서초구","성동구","성북구","송파구","양천구",
-  "영등포구","용산구","은평구","종로구","중랑구",
-  // 경기/인천 시·구·동
-  "수원","성남","분당","판교","용인","고양","일산","부천","안양","안산","화성","동탄","평택",
-  "남양주","의정부","광명","시흥","김포","장기동","구래동","마산동","운양동","풍무동","사우동",
-  "양촌","통진","고촌","파주","운정","문산","하남","미사","구리","군포","의왕","오산","이천",
-  "안성","포천","양주","동두천","과천","여주","가평","양평","연천",
-  "검단","청라","송도","부평","계양","남동구","연수구","미추홀구","강화","영종",
-];
-// "중구"/"서구"는 다른 지방 도시에도 흔하므로 단독 매칭은 보류 (서울/인천 키워드와 함께일 때만 metro로 판정됨)
-
-export type RegionType = "metro" | "regional" | "unknown";
+// 지역 분류기 — 설정에서 키워드 편집 가능 (regionClassifier.ts)
+export type RegionType = RegionTypeShared;
+// 모듈 레벨 키워드 캐시. useAuth로 uid가 확정되면 RecordsPage에서 갱신.
+let __metroKeywords: string[] | null = null;
+export function setMetroKeywordsCache(list: string[]) { __metroKeywords = list; }
 function classifyRegion(text: string): RegionType {
-  const s = (text || "").trim();
-  if (!s) return "unknown";
-  // 인천/서울 시 표기와 함께 나오는 중구/서구는 수도권
-  if (/(서울|인천)/.test(s) && /(중구|서구)/.test(s)) return "metro";
-  for (const kw of METRO_KEYWORDS) {
-    if (s.includes(kw)) return "metro";
-  }
-  return "regional";
+  return classifyRegionBase(text, __metroKeywords || undefined);
 }
 
 // 텍스트에서 팀장 후보를 순서대로 추출
