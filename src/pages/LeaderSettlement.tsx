@@ -357,7 +357,7 @@ export default function LeaderSettlement() {
         total,
         fees, afterFees, common, indiv, deduction, net,
       };
-    }).filter((m) => m.count > 0 || m.indiv > 0);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settlingLeaders, rows, leaders, activeCommonDeductions, commonOverrides, periodDeductions]);
 
