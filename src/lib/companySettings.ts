@@ -2,7 +2,7 @@
 // — 모든 화면에서 공유되는 값. localStorage 사용자(uid) 스코프로 저장.
 
 export type CompanySettings = {
-  companyName: string;       // 예: 삼호물류
+  companyName: string;       // 회사명
   defaultMonth: string;      // yyyy-mm
   defaultAccount: string;    // 회사 기본 계좌번호
   footerNote: string;        // 정산서 하단 안내문
@@ -10,7 +10,7 @@ export type CompanySettings = {
 };
 
 export const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
-  companyName: "삼호물류",
+  companyName: "",
   defaultMonth: new Date().toISOString().slice(0, 7),
   defaultAccount: "",
   footerNote: "정산 완료 후 입금자명을 전달 부탁드립니다.",
