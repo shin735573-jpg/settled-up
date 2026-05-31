@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus, CheckCircle2, AlertCircle, XCircle, ChevronDown, ChevronUp, FileSpreadsheet } from "lucide-react";
+import { Trash2, Plus, CheckCircle2, AlertCircle, XCircle, ChevronDown, ChevronUp, FileSpreadsheet, Copy, Share2, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName, resolveLeaderName } from "@/lib/leaderResolver";
@@ -87,6 +87,7 @@ export default function Settings() {
             <TabsTrigger value="leaders">팀장관리</TabsTrigger>
             <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
             <TabsTrigger value="region">지역분류</TabsTrigger>
+            <TabsTrigger value="share">앱 공유</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="company"><CompanyTab /></TabsContent>
@@ -94,6 +95,7 @@ export default function Settings() {
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
         <TabsContent value="region"><RegionKeywordsTab /></TabsContent>
+        <TabsContent value="share"><ShareAppTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -1935,5 +1937,95 @@ function RegionKeywordsTab() {
         </div>
       </div>
     </Card>
+  );
+}
+function ShareAppTab() {
+  const [url, setUrl] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setUrl(window.location.origin);
+  }, []);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success("URL이 복사되었습니다");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("복사에 실패했습니다");
+    }
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "삼호정산표",
+          text: "삼호정산표 앱을 확인해보세요",
+          url,
+        });
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          toast.error("공유에 실패했습니다");
+        }
+      }
+    } else {
+      handleCopy();
+    }
+  };
+
+  const isPreview = url.includes("preview");
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <Card className="p-6 space-y-5">
+        <div>
+          <h2 className="font-semibold mb-1 flex items-center gap-2">
+            <Globe className="h-4 w-4" />
+            앱 URL 공유
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            이 주소를 복사해서 다른 사람과 공유할 수 있습니다.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Input
+            value={url}
+            readOnly
+            className="flex-1 font-mono text-sm"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleCopy}
+            className={copied ? "text-green-600 border-green-600" : ""}
+            title="URL 복사"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleShare}
+            className="gap-1.5"
+          >
+            <Share2 className="h-4 w-4" />
+            공유
+          </Button>
+        </div>
+
+        {isPreview && (
+          <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-sm text-amber-800 dark:text-amber-300">
+            <p className="font-medium mb-1">미리보기 URL입니다</p>
+            <p className="text-xs">
+              공식 공개 URL을 사용하려면 우측 상단의 <strong>Publish</strong> 버튼으로 게시 후,
+              생성된 <strong>lovable.app</strong> 주소로 접속해서 복사하세요.
+            </p>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
