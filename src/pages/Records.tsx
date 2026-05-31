@@ -41,12 +41,13 @@ type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: bool
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
-const COLS = ["날짜","업체","팀장1","팀장2","고객명","배송지","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","분할","결제유무"];
+const COLS = ["날짜","업체","팀장1","팀장2","고객명","배송지","지역구분","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","2인배송","분할","결제유무"];
 
 // 표준 필드 + 별칭 (헤더 자동 인식용)
 type FieldKey =
   | "date" | "company" | "leader1" | "leader2" | "customer" | "region"
-  | "item" | "note" | "metro" | "noteAmt" | "regional" | "cod" | "split" | "paid";
+  | "item" | "note" | "metro" | "noteAmt" | "regional" | "cod" | "split" | "paid"
+  | "twoPerson";
 
 const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: boolean }[] = [
   { key: "date",     label: "날짜",       required: true,  aliases: ["날짜","배송일","일자","출고일","date"] },
@@ -63,6 +64,7 @@ const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: 
   { key: "cod",      label: "착불",                         aliases: ["착불","착불금액","현장수령","선지급"] },
   { key: "split",    label: "분할",                         aliases: ["분할","분할구분","정산분할"] },
   { key: "paid",     label: "결제유무",                     aliases: ["결제유무","결제","결제확인","결제완료","미결제","paid"] },
+  { key: "twoPerson", label: "2인배송",                     aliases: ["2인배송","이인배송","2인","2인작업","two_person","twoperson"] },
 ];
 
 const normalizeHeader = (s: string) =>
@@ -1000,7 +1002,7 @@ type ParsedRow = {
   leaders: (string | null)[];
   customer: string; region: string; item: string; note: string;
   metro: number; noteAmt: number; regional: number; cod: number;
-  split: string; paid: boolean;
+  split: string; paid: boolean; twoPerson: boolean;
   companyId: string | null;
   leaderIds: (string | null)[];
   regionType: RegionType;
@@ -1023,6 +1025,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   const [regionOverrides, setRegionOverrides] = useState<Record<number, RegionType>>({});
   // 행별 날짜 수동 입력 (raw 텍스트). undefined = 자동, 그 외 = 사용자 입력
   const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
+  // 행별 2인배송 수동 토글
+  const [twoOverrides, setTwoOverrides] = useState<Record<number, boolean>>({});
   // 일괄 적용용 입력값
   const [bulkDate, setBulkDate] = useState("");
   // 미리보기에서 사용자가 제외한 행
@@ -1086,6 +1090,25 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     [grid]
   );
 
+  // 제목(헤더 윗부분) 행에서 팀장명 자동 인식 → 기본 팀장 입력란이 비어있으면 자동 채움
+  const titleLeaderHint = useMemo(() => {
+    if (grid.length === 0) return null;
+    const titleRows = headerInfo.hasHeader ? grid.slice(0, headerInfo.dataStart - 1) : grid.slice(0, Math.min(3, grid.length));
+    const titleText = titleRows.map((r) => r.join(" ")).join("\n").trim();
+    if (!titleText) return null;
+    const ex = extractLeaders(titleText, leaderIndex);
+    if (ex.ids.length === 0) return null;
+    const names = ex.ids.slice(0, 2).map((id) => leaderById.get(id)?.name || "").filter(Boolean);
+    return { ids: ex.ids.slice(0, 2), names, raw: titleText };
+  }, [grid, headerInfo, leaderIndex, leaderById]);
+
+  useEffect(() => {
+    if (titleLeaderHint && !defaultLeadersText.trim()) {
+      setDefaultLeadersText(titleLeaderHint.names.join("/"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titleLeaderHint]);
+
   // 컬럼 매핑 상태 (자동 + 사용자 수정)
   const [mapping, setMapping] = useState<(FieldKey | null)[]>([]);
 
@@ -1097,9 +1120,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     // 길이 맞추기
     const arr: (FieldKey | null)[] = new Array(colCount).fill(null);
     for (let i = 0; i < Math.min(auto.length, colCount); i++) arr[i] = auto[i];
-    // 헤더 없고 정확히 14개 컬럼이면 기존 순서로 기본 매핑
+    // 헤더 없을 때 기존 순서로 기본 매핑 (있는 만큼만)
     if (!headerInfo.hasHeader && colCount >= 14) {
-      const fallback: FieldKey[] = ["date","company","leader1","leader2","customer","region","item","note","metro","noteAmt","regional","cod","split","paid"];
+      const fallback: FieldKey[] = ["date","company","leader1","leader2","customer","region","item","note","metro","noteAmt","regional","cod","split","paid","twoPerson"];
       for (let i = 0; i < fallback.length; i++) if (!arr[i]) arr[i] = fallback[i];
     }
     setMapping(arr);
@@ -1227,6 +1250,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       const split = ["", "3분할", "형주동석"].includes(splitRaw) ? splitRaw : splitRaw;
       const paidRaw = cell(cols, "paid").toLowerCase();
       const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v", "결제완료"].includes(paidRaw) || paidRaw === "1";
+      const twoRaw = cell(cols, "twoPerson").toLowerCase();
+      const twoPerson = ["o","y","yes","true","✓","v","2인","2인배송","이인배송"].includes(twoRaw) || twoRaw === "1";
 
       // 실제 배송 행 판단: 신호 ≥ 2개
       let signals = 0;
@@ -1247,7 +1272,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
         leaders: leaderNames,
         customer, region, item, note,
         metro, noteAmt, regional, cod,
-        split, paid,
+        split, paid, twoPerson,
         companyId: companyRec?.id || null,
         leaderIds,
         regionType: classifyRegion(region),
@@ -1305,11 +1330,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       leaderIds: [a.id, b.id] as (string | null)[],
       leaders: [a.name, b.name] as (string | null)[],
       regionType,
+      twoPerson: twoOverrides[i] !== undefined ? twoOverrides[i] : r.twoPerson,
       errors,
       warnings,
     };
     });
-  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, defaultMonth]);
+  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, twoOverrides, defaultMonth]);
 
   const visible = useMemo(
     () => effective.map((r, i) => ({ row: r, i })).filter(({ i }) => !excludedRows[i]),
@@ -1424,6 +1450,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       note: r.note || null,
       metro_fee: r.metro, note_amount: r.noteAmt, regional_fee: r.regional, cod_amount: r.cod,
       split_type: r.split || null, paid: r.paid,
+      two_person: r.twoPerson,
     }));
     const { error } = await supabase.from("deliveries").insert(rows);
     setSaving(false);
@@ -1433,6 +1460,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     setLeaderOverrides({});
     setRegionOverrides({});
     setDateOverrides({});
+    setTwoOverrides({});
     setBulkDate("");
     setExcludedRows({});
     onSaved();
@@ -1462,6 +1490,11 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
               onChange={(e) => setDefaultLeadersText(e.target.value)}
               placeholder="예) 동석/형주  또는  오동선, 김용익"
             />
+            {titleLeaderHint && (
+              <div className="text-[11px] text-muted-foreground">
+                제목 행에서 팀장 인식: <b>{titleLeaderHint.names.join(" / ")}</b>
+              </div>
+            )}
             {defaultLeadersText.trim() && (
               <div className="flex items-center gap-2 flex-wrap text-xs">
                 {defaultLeaderInfo.ids.slice(0, 2).map((id, i) => {
@@ -1672,6 +1705,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                       <TableHead className="whitespace-nowrap min-w-[120px] text-right">지방배송비</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px] text-right">착불</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[130px] text-right">배송비총액</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[100px]">2인배송</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[100px]">분할</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[100px]">결제유무</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[220px]">오류/경고</TableHead>
@@ -1788,6 +1822,18 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                           <TableCell className="text-right">{fmt(r.regional)}</TableCell>
                           <TableCell className="text-right">{fmt(r.cod)}</TableCell>
                           <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={r.twoPerson ? "yes" : "no"}
+                              onValueChange={(v) => setTwoOverrides((p) => ({ ...p, [i]: v === "yes" }))}
+                            >
+                              <SelectTrigger className="h-7 text-xs min-w-[80px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="no">아니오</SelectItem>
+                                <SelectItem value="yes">예</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell>{r.split || "-"}</TableCell>
                           <TableCell>{r.paid ? "✓" : "-"}</TableCell>
                           <TableCell className="space-y-1 min-w-[220px]">
