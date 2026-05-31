@@ -2008,6 +2008,14 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                   className="hidden"
                   onChange={(e) => handlePhotos(e.target.files)}
                 />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => handlePhotos(e.target.files)}
+                />
                 <Button
                   size="sm"
                   variant="outline"
@@ -2021,6 +2029,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                     <Camera className="h-3 w-3 mr-1" />
                   )}
                   계약서·송장 사진 (최대 20장)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs md:hidden"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={ocrLoading}
+                >
+                  <Camera className="h-3 w-3 mr-1" />
+                  카메라 촬영
                 </Button>
                 {ocrProgress && (
                   <span className="text-[11px] text-muted-foreground">
