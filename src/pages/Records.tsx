@@ -705,6 +705,39 @@ export default function Records() {
   // 거부기사도 선택 가능 (저장 시 별칭 적용 — 경고만 표시)
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active), [leaders]);
 
+  // 검색 필터 (보기 전용 — 데이터 손상 없음)
+  const norm = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
+  const filteredRecords = useMemo(() => {
+    const qc = norm(searchCompany);
+    const qcu = norm(searchCustomer);
+    const ql = norm(searchLeader);
+    if (!qc && !qcu && !ql) return records;
+    // 팀장 검색은 별칭→정식 매핑 후 비교 (입력값 자체도 부분일치 허용)
+    const canonLeader = ql ? norm(canonicalLeaderName(searchLeader, leaders)) : "";
+    return records.filter((r: any) => {
+      if (qc && !norm(r.company_name).includes(qc)) return false;
+      if (qcu && !norm(r.customer_name).includes(qcu)) return false;
+      if (ql) {
+        const names: string[] = [];
+        for (const id of [r.leader1_id, r.leader2_id]) {
+          if (id) {
+            const l = leadersById.get(id);
+            if (l) {
+              names.push(l.name);
+              for (const a of (l.aliases ?? [])) names.push(a);
+            }
+          }
+        }
+        if (r.leader1_name) names.push(r.leader1_name);
+        if (r.leader2_name) names.push(r.leader2_name);
+        const hay = names.map(norm);
+        const match = hay.some((h) => h.includes(ql) || (canonLeader && h.includes(canonLeader)));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [records, searchCompany, searchCustomer, searchLeader, leaders, leadersById]);
+
   // 표시명: 가능하면 leader_id로 정식 팀장명을 찾아 표시(동명이인 구분 포함).
   // ID가 없거나 매칭 실패면 저장된 원본 이름 사용.
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
