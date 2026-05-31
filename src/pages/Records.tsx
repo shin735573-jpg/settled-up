@@ -709,6 +709,19 @@ export default function Records() {
     return fallback || "-";
   };
 
+  const displaySettlementStatus = (r: Delivery): string => {
+    const rowLeaderIds = [r.leader1_id, r.leader2_id].filter(Boolean) as string[];
+    const redirected = rowLeaderIds
+      .map((id) => leadersById.get(id))
+      .find((l) => l?.settle_to_id && leadersById.has(l.settle_to_id));
+    if (redirected?.settle_to_id) {
+      return `${redirected.name} → ${leadersById.get(redirected.settle_to_id)?.name ?? "-"}`;
+    }
+    if (r.split_type === "형주동석") return "강형주/신동석 반반";
+    if (r.split_type === "3분할") return "다른팀장 50%, 강형주 25%, 신동석 25%";
+    return "일반";
+  };
+
   const total =
     (parseNum(form.metro_fee) || 0) +
     (parseNum(form.note_amount) || 0) +
@@ -875,7 +888,10 @@ export default function Records() {
       classifyRegion,
     };
     const recs = records as ValRecord[];
-    const issues = validateAll(recs, ctx, (r) => `${r.date || "?"} ${r.company_name || ""} ${r.customer_name || ""}`);
+    const issues = [
+      ...validateAll(recs, ctx, (r) => `${r.date || "?"} ${r.company_name || ""} ${r.customer_name || ""}`),
+      ...validateRecordsTableColumnDefinition(),
+    ];
     const s = summarize(issues, recs.length);
     const periodChecks = comparePeriodTotals(recs, filterMonth);
     setValidation({
