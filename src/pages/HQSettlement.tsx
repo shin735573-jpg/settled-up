@@ -212,6 +212,30 @@ export default function HQSettlement() {
     [validRows],
   );
 
+  // ── 본사 직영 배송비 (신동석 + 삼호) — 본사 수익에 추가 가산
+  // 재분배 포함 share 기준으로 두 팀장에게 귀속된 금액만 합산한다.
+  const shindongseokFee = useMemo(() => {
+    if (!shindongseokId) return 0;
+    let sum = 0;
+    for (const a of allocations) {
+      for (const s of a.shares) {
+        if (s.target === shindongseokId) sum += s.metro + s.note_amount + s.regional;
+      }
+    }
+    return sum;
+  }, [allocations, shindongseokId]);
+  const samhoFee = useMemo(() => {
+    if (!samhoId) return 0;
+    let sum = 0;
+    for (const a of allocations) {
+      for (const s of a.shares) {
+        if (s.target === samhoId) sum += s.metro + s.note_amount + s.regional;
+      }
+    }
+    return sum;
+  }, [allocations, samhoId]);
+  const hqDirectFee = shindongseokFee + samhoFee;
+
   // ── 팀장 정산 상세
   type LeaderDetail = {
     id: string; name: string; count: number;
@@ -375,7 +399,7 @@ export default function HQSettlement() {
   // ── 매출 / 수익
   // companyDeliveryTotal 에는 자동등록된 적재비가 이미 포함되므로
   // 미등록 적재비만 추가해 중복 집계를 방지한다.
-  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal;
+  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal + hqDirectFee;
   const hqProfit = grossSales - expenseTotal;
 
   // 업체정산관리 요약
@@ -530,6 +554,14 @@ export default function HQSettlement() {
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">적재비</span>
               <span className="font-medium">{fmt(loadingTotal)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">신동석 배송비</span>
+              <span className="font-medium">{fmt(shindongseokFee)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">삼호 배송비</span>
+              <span className="font-medium">{fmt(samhoFee)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">전체 매출</span>
