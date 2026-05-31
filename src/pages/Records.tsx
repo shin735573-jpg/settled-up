@@ -38,7 +38,7 @@ type Company = {
   rejected_leader_id_2?: string | null;
   rejected_leader_id_3?: string | null;
 };
-type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean; aliases?: string[] | null };
+type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean; aliases?: string[] | null; settle_to_id?: string | null };
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
@@ -290,61 +290,89 @@ const emptyForm = (): FormState => ({
 type RecordsColumn = {
   key: string;
   label: string;
-  headerCls: string;
-  cellCls: string;
+  width: number;
+  headerCls?: string;
+  cellCls?: string;
   render: (r: any, ctx: {
     total: number;
     expanded: boolean;
     toggleExpand: () => void;
     displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
+    displaySettlementStatus: (r: any) => string;
     removeRow: (id: string) => void;
   }) => React.ReactNode;
 };
 
+const RECORDS_EXPECTED_SEQUENCE = [
+  ["kind", "구분", 70],
+  ["date", "날짜", 110],
+  ["company", "업체", 120],
+  ["leader1", "팀장1", 110],
+  ["leader2", "팀장2", 110],
+  ["customer", "고객명", 120],
+  ["region", "배송지", 150],
+  ["region_type", "지역구분", 90],
+  ["item", "품목", 200],
+  ["note", "비고", 160],
+  ["metro_fee", "수도권배송비", 130],
+  ["note_amount", "비고금액", 120],
+  ["regional_fee", "지방배송비", 130],
+  ["cod_amount", "착불", 110],
+  ["total", "배송비총액", 130],
+  ["two_person", "2인배송", 90],
+  ["split", "분할", 100],
+  ["paid", "결제유무", 110],
+  ["settle", "정산처리", 260],
+  ["delete", "삭제", 60],
+] as const;
+
+const RECORDS_AMOUNT_COLUMN_KEYS = new Set(["metro_fee", "note_amount", "regional_fee", "cod_amount", "total"]);
+const RECORDS_STATUS_COLUMN_KEYS = new Set(["two_person", "split", "paid", "settle"]);
+
 const RECORDS_COLUMNS: RecordsColumn[] = [
-  { key: "kind", label: "구분", headerCls: "w-[70px] min-w-[70px]", cellCls: "whitespace-nowrap w-[70px] min-w-[70px]",
+  { key: "kind", label: "구분", width: 70, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.is_missing
       ? <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>
       : <Badge variant="secondary">일반</Badge> },
-  { key: "date", label: "날짜", headerCls: "w-[110px] min-w-[110px]", cellCls: "whitespace-nowrap w-[110px] min-w-[110px]",
+  { key: "date", label: "날짜", width: 110, cellCls: "whitespace-nowrap",
     render: (r) => r.date },
-  { key: "company", label: "업체", headerCls: "w-[120px] min-w-[120px]", cellCls: "whitespace-nowrap w-[120px] min-w-[120px]",
+  { key: "company", label: "업체", width: 120, cellCls: "whitespace-nowrap",
     render: (r) => r.company_name },
-  { key: "leader1", label: "팀장1", headerCls: "w-[110px] min-w-[110px]", cellCls: "whitespace-nowrap w-[110px] min-w-[110px]",
+  { key: "leader1", label: "팀장1", width: 110, cellCls: "whitespace-nowrap",
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader1_id, r.leader1_name) },
-  { key: "leader2", label: "팀장2", headerCls: "w-[110px] min-w-[110px]", cellCls: "whitespace-nowrap w-[110px] min-w-[110px]",
+  { key: "leader2", label: "팀장2", width: 110, cellCls: "whitespace-nowrap",
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader2_id, r.leader2_name) },
-  { key: "customer", label: "고객명", headerCls: "w-[120px] min-w-[120px]", cellCls: "w-[120px] min-w-[120px]",
+  { key: "customer", label: "고객명", width: 120, cellCls: "whitespace-nowrap",
     render: (r) => r.customer_name || "-" },
-  { key: "region", label: "배송지", headerCls: "w-[150px] min-w-[150px]", cellCls: "w-[150px] min-w-[150px]",
+  { key: "region", label: "배송지", width: 150, cellCls: "whitespace-nowrap",
     render: (r) => r.region || "-" },
-  { key: "region_type", label: "지역구분", headerCls: "w-[90px] min-w-[90px]", cellCls: "whitespace-nowrap w-[90px] min-w-[90px]",
+  { key: "region_type", label: "지역구분", width: 90, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.region_type === "metro" ? "수도권" : r.region_type === "regional" ? "지방" : "-" },
-  { key: "item", label: "품목", headerCls: "w-[200px] min-w-[200px]", cellCls: "align-top w-[200px] min-w-[200px] max-w-[200px] cursor-pointer",
+  { key: "item", label: "품목", width: 200, cellCls: "align-top cursor-pointer",
     render: (r, { expanded }) => (
       <div className={`whitespace-pre-wrap break-words ${expanded ? "" : "line-clamp-3"}`}>{r.item || "-"}</div>
     ) },
-  { key: "note", label: "비고", headerCls: "w-[160px] min-w-[160px]", cellCls: "w-[160px] min-w-[160px] max-w-[160px] align-top",
+  { key: "note", label: "비고", width: 160, cellCls: "align-top",
     render: (r) => <div className="whitespace-pre-wrap break-words">{r.note || "-"}</div> },
-  { key: "metro_fee", label: "수도권배송비", headerCls: "w-[130px] min-w-[130px] text-right", cellCls: "text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums",
+  { key: "metro_fee", label: "수도권배송비", width: 130, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.metro_fee) },
-  { key: "note_amount", label: "비고금액", headerCls: "w-[120px] min-w-[120px] text-right", cellCls: "text-right whitespace-nowrap w-[120px] min-w-[120px] tabular-nums",
+  { key: "note_amount", label: "비고금액", width: 120, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.note_amount) },
-  { key: "regional_fee", label: "지방배송비", headerCls: "w-[130px] min-w-[130px] text-right", cellCls: "text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums",
+  { key: "regional_fee", label: "지방배송비", width: 130, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.regional_fee) },
-  { key: "cod_amount", label: "착불", headerCls: "w-[110px] min-w-[110px] text-right", cellCls: "text-right whitespace-nowrap w-[110px] min-w-[110px] tabular-nums",
+  { key: "cod_amount", label: "착불", width: 110, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.cod_amount) },
-  { key: "total", label: "배송비총액", headerCls: "w-[130px] min-w-[130px] text-right", cellCls: "text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums font-semibold",
+  { key: "total", label: "배송비총액", width: 130, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums font-semibold",
     render: (_r, { total }) => fmt(total) },
-  { key: "two_person", label: "2인배송", headerCls: "w-[90px] min-w-[90px]", cellCls: "whitespace-nowrap w-[90px] min-w-[90px]",
-    render: (r) => r.two_person ? <Badge className="bg-blue-500 hover:bg-blue-600">2인배송</Badge> : "-" },
-  { key: "split", label: "분할", headerCls: "w-[100px] min-w-[100px]", cellCls: "w-[100px] min-w-[100px]",
-    render: (r) => r.split_type || "-" },
-  { key: "paid", label: "결제유무", headerCls: "w-[110px] min-w-[110px]", cellCls: "w-[110px] min-w-[110px]",
-    render: (r) => r.paid ? "✓" : "-" },
-  { key: "settle", label: "정산처리", headerCls: "w-[220px] min-w-[220px]", cellCls: "w-[220px] min-w-[220px] text-muted-foreground",
-    render: () => "-" },
-  { key: "delete", label: "삭제", headerCls: "w-[60px] min-w-[60px]", cellCls: "w-[60px] min-w-[60px]",
+  { key: "two_person", label: "2인배송", width: 90, cellCls: "text-center whitespace-nowrap",
+    render: (r) => r.two_person ? "예" : "아니오" },
+  { key: "split", label: "분할", width: 100, cellCls: "text-center whitespace-nowrap",
+    render: (r) => r.split_type || "" },
+  { key: "paid", label: "결제유무", width: 110, cellCls: "text-center whitespace-nowrap",
+    render: (r) => r.paid ? "결제완료" : "미결제" },
+  { key: "settle", label: "정산처리", width: 260, cellCls: "text-center text-muted-foreground align-top",
+    render: (r, { displaySettlementStatus }) => <div className="whitespace-pre-wrap break-words">{displaySettlementStatus(r)}</div> },
+  { key: "delete", label: "삭제", width: 60, cellCls: "text-center whitespace-nowrap",
     render: (r, { removeRow }) => (
       <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); removeRow(r.id); }}>
         <Trash2 className="h-4 w-4" />
@@ -352,8 +380,32 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     ) },
 ];
 
+const RECORDS_TABLE_WIDTH = RECORDS_COLUMNS.reduce((sum, c) => sum + c.width, 0);
+
+function validateRecordsTableColumnDefinition(): ValidationIssue[] {
+  const mismatches: string[] = [];
+  RECORDS_EXPECTED_SEQUENCE.forEach(([key, label, width], i) => {
+    const col = RECORDS_COLUMNS[i];
+    if (!col) mismatches.push(`#${i + 1} ${label}: 데이터 셀 없음`);
+    else if (col.key !== key || col.label !== label || col.width !== width) {
+      mismatches.push(`#${i + 1} 예상 ${label}(${key}, ${width}px) / 실제 ${col.label}(${col.key}, ${col.width}px)`);
+    }
+  });
+  if (RECORDS_COLUMNS.length !== RECORDS_EXPECTED_SEQUENCE.length) {
+    mismatches.push(`컬럼 수: 헤더 ${RECORDS_EXPECTED_SEQUENCE.length} / 데이터 ${RECORDS_COLUMNS.length}`);
+  }
+  return mismatches.length === 0 ? [] : [{
+    rowId: "__records_table_columns__",
+    rowLabel: "테이블 컬럼 위치 검사",
+    code: "table.columns.mismatch",
+    field: "기록입력 목록",
+    severity: "error",
+    message: `기록입력 목록의 헤더와 데이터 컬럼 위치가 일치하지 않습니다. ${mismatches.join(" / ")}`,
+  }];
+}
+
 function RecordsTable({
-  records, issuesByRow, expandedItems, setExpandedItems, editRow, removeRow, displayLeaderById,
+  records, issuesByRow, expandedItems, setExpandedItems, editRow, removeRow, displayLeaderById, displaySettlementStatus,
 }: {
   records: any[];
   issuesByRow: Map<string, ValidationIssue[]>;
@@ -362,6 +414,7 @@ function RecordsTable({
   editRow: (r: any) => void;
   removeRow: (id: string) => void;
   displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
+  displaySettlementStatus: (r: any) => string;
 }) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
@@ -419,6 +472,7 @@ function RecordsTable({
         headCount, expected, mismatches,
         badColumns: [...badColSet].map((i) => `#${i + 1} ${RECORDS_COLUMNS[i]?.label ?? "(범위초과)"}`),
       });
+      if (badColSet.size === 0) RECORDS_COLUMNS.forEach((_c, i) => badColSet.add(i));
       setAlignmentError(msg);
       setBadCols(badColSet);
       setBadRowIds(badRowSet);
@@ -450,14 +504,19 @@ function RecordsTable({
           ⚠ {alignmentError}
         </div>
       )}
-      <Table ref={tableRef} className="text-xs num w-max min-w-full table-fixed">
-        <TableHeader className="sticky top-0 bg-background z-10">
+      <Table ref={tableRef} className="text-xs num table-fixed" style={{ width: RECORDS_TABLE_WIDTH, minWidth: RECORDS_TABLE_WIDTH }}>
+        <colgroup>
+          {RECORDS_COLUMNS.map((c) => <col key={c.key} style={{ width: c.width }} />)}
+        </colgroup>
+        <TableHeader className="sticky top-0 bg-muted/80 z-10">
           <TableRow>
             {RECORDS_COLUMNS.map((c, i) => (
               <TableHead
                 key={c.key}
                 className={cn(
-                  "whitespace-nowrap",
+                  "whitespace-nowrap px-2 bg-muted/80",
+                  RECORDS_AMOUNT_COLUMN_KEYS.has(c.key) && "bg-accent/30",
+                  RECORDS_STATUS_COLUMN_KEYS.has(c.key) && "text-center",
                   c.headerCls,
                   badCols.has(i) && "bg-destructive text-destructive-foreground ring-2 ring-destructive",
                 )}
@@ -485,6 +544,7 @@ function RecordsTable({
               toggleExpand: () => setExpandedItems((prev) => ({ ...prev, [r.id]: !prev[r.id] })),
               displayLeaderById,
               removeRow,
+              displaySettlementStatus,
             };
             return (
               <TableRow
@@ -513,7 +573,7 @@ function RecordsTable({
                   return (
                     <TableCell
                       key={c.key}
-                      className={cn(c.cellCls, highlight && "bg-destructive/20 ring-1 ring-destructive")}
+                      className={cn("px-2 overflow-hidden", c.cellCls, highlight && "bg-destructive/20 ring-1 ring-destructive")}
                       {...extraProps}
                     >
                       {c.render(r, ctx)}
@@ -647,6 +707,19 @@ export default function Records() {
       if (l) return getDisplayName(l, leaders);
     }
     return fallback || "-";
+  };
+
+  const displaySettlementStatus = (r: Delivery): string => {
+    const rowLeaderIds = [r.leader1_id, r.leader2_id].filter(Boolean) as string[];
+    const redirected = rowLeaderIds
+      .map((id) => leadersById.get(id))
+      .find((l) => l?.settle_to_id && leadersById.has(l.settle_to_id));
+    if (redirected?.settle_to_id) {
+      return `${redirected.name} → ${leadersById.get(redirected.settle_to_id)?.name ?? "-"}`;
+    }
+    if (r.split_type === "형주동석") return "강형주/신동석 반반";
+    if (r.split_type === "3분할") return "다른팀장 50%, 강형주 25%, 신동석 25%";
+    return "일반";
   };
 
   const total =
@@ -815,7 +888,10 @@ export default function Records() {
       classifyRegion,
     };
     const recs = records as ValRecord[];
-    const issues = validateAll(recs, ctx, (r) => `${r.date || "?"} ${r.company_name || ""} ${r.customer_name || ""}`);
+    const issues = [
+      ...validateAll(recs, ctx, (r) => `${r.date || "?"} ${r.company_name || ""} ${r.customer_name || ""}`),
+      ...validateRecordsTableColumnDefinition(),
+    ];
     const s = summarize(issues, recs.length);
     const periodChecks = comparePeriodTotals(recs, filterMonth);
     setValidation({
@@ -1063,6 +1139,7 @@ export default function Records() {
           editRow={editRow}
           removeRow={removeRow}
           displayLeaderById={displayLeaderById}
+          displaySettlementStatus={displaySettlementStatus}
         />
       </Card>
 
