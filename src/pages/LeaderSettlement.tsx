@@ -397,13 +397,15 @@ export default function LeaderSettlement() {
       totalCod += m.cod;
       totalFee += m.total;
     });
+    const companyTotalFee = rows.reduce((s, r) => s + sumFee(r), 0);
     return {
       totalLeaders: masterRows.length,
       totalCount,
       totalCod,
       totalFee,
+      companyTotalFee,
     };
-  }, [masterRows]);
+  }, [masterRows, rows]);
 
   // ===== 헤더-셀 컬럼 위치 검증 (개발용) =====
   useEffect(() => {
@@ -687,11 +689,12 @@ export default function LeaderSettlement() {
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
       {!leaderId && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
           <LeaderSummaryCard label="총배송건수" value={topSummary.totalCount.toLocaleString()} />
           <LeaderSummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
           <LeaderSummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
+          <LeaderSummaryCard label="업체총배송비" value={fmt(topSummary.companyTotalFee)} bold />
         </div>
       )}
 
