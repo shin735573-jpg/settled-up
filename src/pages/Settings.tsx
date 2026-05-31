@@ -934,6 +934,7 @@ function LeadersTab() {
         ‘팀장 이름 정리’: 기존 기록에서 별칭으로 저장된 팀장명을 정식 팀장명/ID로 통합합니다.
         별칭(예: 형주 → 강형주, 동석 → 신동석)이 등록되어 있어야 합니다.
       </div>
+      <div className="[&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
       <Table>
         <TableHeader>
           <TableRow>
@@ -1093,6 +1094,7 @@ function LeadersTab() {
           {filteredRows.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 팀장이 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
+      </div>
     </Card>
   );
 }
