@@ -383,6 +383,27 @@ export default function LeaderSettlement() {
     };
   }, [masterRows]);
 
+  // ===== 헤더-셀 컬럼 위치 검증 (개발용) =====
+  useEffect(() => {
+    if (leaderId) { setLeaderColAlignError(false); return; }
+    const t = window.setTimeout(() => {
+      const table = document.querySelector<HTMLTableElement>(
+        "[data-testid='leader-summary-table']",
+      );
+      if (!table) { setLeaderColAlignError(false); return; }
+      const headCount = table.querySelectorAll("thead tr th").length;
+      const rows = table.querySelectorAll("tbody tr");
+      let bad = headCount !== LEADER_COLUMNS.length;
+      rows.forEach((tr) => {
+        const tds = tr.querySelectorAll("td");
+        if (tds.length === 1) return; // colspan 빈상태 행
+        if (tds.length !== headCount) bad = true;
+      });
+      setLeaderColAlignError(bad);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [masterRows, leaderId]);
+
   // ===== 상세 모드 =====
   const detailLeader = leaderId ? leadersById.get(leaderId) : undefined;
   const detailRows = useMemo(
