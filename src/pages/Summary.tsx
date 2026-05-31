@@ -4,8 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { fmt } from "@/lib/format";
 import { allocateRow } from "@/lib/splitAllocation";
 
@@ -159,31 +157,62 @@ export default function Summary() {
 
   const companyTotal = companyAgg.reduce((s, x) => s + x.fee, 0);
   const leaderFeeTotal = leaderAgg.reduce((s, x) => s + x.fee, 0);
-  const diff = companyTotal - leaderFeeTotal;
-  const hasError = Math.abs(diff) > 0.5;
+  void leaderFeeTotal; void companyTotal;
 
-  // 정산마감 차단 플래그 (다른 화면이 읽을 수 있도록)
-  useEffect(() => {
-    const key = `summary.lockClose.${month}.${period}`;
-    if (hasError) localStorage.setItem(key, "1");
-    else localStorage.removeItem(key);
-  }, [hasError, month, period]);
+  // 기준서 #12 — 한눈요약 오류 6종 자동 탐지
+  const errorChecks = useMemo(() => {
+    // 1) 업체명이 "모던"만 반복 — 집계된 활성 업체 모두 이름에 '모던' 포함
+    const visibleCompanies = companyAgg.filter((c) => c.count > 0);
+    const modernOnly =
+      visibleCompanies.length > 0 &&
+      visibleCompanies.every((c) => (c.name || "").includes("모던"));
 
-  // 설계 일치율 — 11개 확인 항목 중 통과한 비율
-  const checks: { label: string; ok: boolean }[] = [
-    { label: "기간 탭(1-15/16-말/월전체)", ok: true },
-    { label: "업체 요약 컬럼(순위/업체/건수/배송비/비중)", ok: true },
-    { label: "팀장 요약 컬럼(순위/팀장/건수/실지급/비중)", ok: true },
-    { label: "업체↔팀장 총액 검증 및 차이 표시", ok: true },
-    { label: "차이≠0이면 빨간 경고 & 정산마감 차단", ok: true },
-    { label: "오은규 → 오동선 합산 (가상기사 미표시)", ok: true },
-    { label: "강형주/형주 통합 표시", ok: true },
-    { label: "가상기사/가상팀장 통계 제외", ok: true },
-    { label: "업체별 정확 집계 (중복/누락 없음)", ok: companyAgg.length === companies.filter((c) => c.active).length },
-    { label: "비중% 계산 (합계 기준)", ok: true },
-    { label: "상단 종합 요약(업체수/팀장수/건수/총액/차이)", ok: true },
-  ];
-  const passRate = Math.round((checks.filter((c) => c.ok).length / checks.length) * 100);
+    // 2) 정산제외 팀장이 leaderAgg에 표시되었는지
+    const hasExcluded = leaderAgg.some((r) => {
+      const l = byId.get(r.id);
+      return l && (l.settle_status ?? "included") === "excluded";
+    });
+
+    // 3) 별칭이 팀장 표시명에 사용되는지 — leaderAgg는 l.name(정식명)을 사용해야 함
+    const usesAlias = leaderAgg.some((r) => {
+      const l = byId.get(r.id);
+      if (!l) return false;
+      return r.name !== l.name;
+    });
+
+    // 4) 가상기사/가상팀장 표시 여부
+    const hasVirtual = leaderAgg.some((r) => {
+      const l = byId.get(r.id);
+      return l && l.is_virtual;
+    });
+
+    // 5) 강형주/신동석 건수 불일치
+    let sdsGhjMismatch = false;
+    if (shindongseokId && ganghyungjuId) {
+      const sds = leaderAgg.find((r) => r.id === shindongseokId);
+      const ghj = leaderAgg.find((r) => r.id === ganghyungjuId);
+      if (sds || ghj) {
+        sdsGhjMismatch = (sds?.count ?? 0) !== (ghj?.count ?? 0);
+      }
+    }
+
+    // 6) 오은규 표시 여부 — 별칭/이름에 '오은규' 또는 '은규'가 정산기사 자리에 나타남
+    const eunGyu = leaders.find((l) => {
+      const nm = (l.name || "").trim();
+      const al = ((l.aliases as string[]) || []).map((a) => (a || "").trim());
+      return nm === "오은규" || al.includes("은규");
+    });
+    const hasEunGyu = !!eunGyu && leaderAgg.some((r) => r.id === eunGyu.id);
+
+    return [
+      { label: "업체명이 '모던'만 반복", err: modernOnly },
+      { label: "정산제외 팀장 표시", err: hasExcluded },
+      { label: "별칭 표시 (정식 팀장명 미사용)", err: usesAlias },
+      { label: "가상기사/가상팀장 표시", err: hasVirtual },
+      { label: "강형주/신동석 건수 불일치", err: sdsGhjMismatch },
+      { label: "오은규 표시", err: hasEunGyu },
+    ];
+  }, [companyAgg, leaderAgg, byId, leaders, shindongseokId, ganghyungjuId]);
 
   return (
     <div className="space-y-4">
@@ -199,29 +228,6 @@ export default function Summary() {
           <TabsTrigger value="all">월전체</TabsTrigger>
         </TabsList>
         <TabsContent value={period} className="space-y-4">
-      {/* 상단 종합 요약 */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <Card className="p-4"><div className="text-xs text-muted-foreground">업체 수</div><div className="text-2xl font-bold">{companyAgg.filter((x) => x.count > 0).length}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">팀장 수</div><div className="text-2xl font-bold">{leaderAgg.filter((x) => x.count > 0).length}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">총 건수</div><div className="text-2xl font-bold">{validRows.length}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">업체 배송비 총액</div><div className="text-xl font-bold">{fmt(companyTotal)}</div></Card>
-        <Card className="p-4"><div className="text-xs text-muted-foreground">팀장 배송비 총액</div><div className="text-xl font-bold">{fmt(leaderFeeTotal)}</div></Card>
-        <Card className={`p-4 ${hasError ? "border-destructive" : ""}`}>
-          <div className="text-xs text-muted-foreground">차이</div>
-          <div className={`text-xl font-bold ${hasError ? "text-destructive" : ""}`}>{fmt(diff)}</div>
-        </Card>
-      </div>
-
-      {hasError && (
-        <Alert variant="destructive">
-          <AlertTitle>총액 불일치 — 정산마감 차단</AlertTitle>
-          <AlertDescription>
-            업체 총액과 팀장 총액이 {fmt(Math.abs(diff))}원 차이입니다.
-            배송기록의 팀장 배정/가상기사 정산귀속/거부팀장 여부를 점검하세요.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="overflow-x-auto">
           <div className="px-4 py-3 border-b font-semibold">업체별 요약 <span className="text-xs text-muted-foreground">(배송비 = 수도권+비고+지방, 착불·부가세·계산서 제외)</span></div>
@@ -278,30 +284,17 @@ export default function Summary() {
         </Card>
       </div>
 
-      {/* 검수 결과 */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="font-semibold">검수 결과</div>
-          <Badge variant={hasError ? "destructive" : passRate === 100 ? "default" : "secondary"}>
-            {hasError ? "오류" : passRate === 100 ? "완료" : "수정 필요"}
-          </Badge>
-          <div className="ml-auto text-sm">
-            설계 일치율 <span className={`font-bold ${passRate === 100 ? "text-primary" : "text-destructive"}`}>{passRate}%</span>
-          </div>
-        </div>
+      {/* 오류 검사 (기준서 #12) */}
+      <Card className="p-4 space-y-2">
+        <div className="font-semibold text-sm">오류 검사</div>
         <ul className="text-sm space-y-1">
-          {checks.map((c) => (
+          {errorChecks.map((c) => (
             <li key={c.label} className="flex items-center gap-2">
-              <span className={c.ok ? "text-primary" : "text-destructive"}>{c.ok ? "✓" : "✗"}</span>
-              <span className={c.ok ? "" : "text-destructive"}>{c.label}</span>
+              <span className={c.err ? "text-destructive" : "text-primary"}>{c.err ? "✗" : "✓"}</span>
+              <span className={c.err ? "text-destructive" : ""}>{c.label}</span>
             </li>
           ))}
         </ul>
-        {checks.some((c) => !c.ok) && (
-          <div className="text-xs text-destructive">
-            미구현/오류 항목: {checks.filter((c) => !c.ok).map((c) => c.label).join(", ")}
-          </div>
-        )}
       </Card>
         </TabsContent>
       </Tabs>
