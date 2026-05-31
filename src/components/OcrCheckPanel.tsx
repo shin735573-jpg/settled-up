@@ -328,6 +328,31 @@ export default function OcrCheckPanel({ max = 10, onRegister, clearOnRegister = 
         </Card>
       )}
 
+      {registerErrors.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>등록 검증 실패 ({registerErrors.length}건)</AlertTitle>
+          <AlertDescription>
+            <div className="mb-2 text-xs">
+              TSV 등록 규칙(4개 열·탭/개행 금지·길이 ≤ {MAX_FIELD_LEN}·필수값) 위반.
+              해당 샘플을 재분석하거나 삭제 후 다시 등록하세요.
+            </div>
+            <ul className="list-disc pl-5 space-y-1 text-xs">
+              {registerErrors.map((e) => (
+                <li key={e.index}>
+                  <span className="font-semibold">#{e.index} {e.fileName}</span> — {e.reasons.join(" · ")}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2">
+              <Button size="sm" variant="outline" onClick={() => setRegisterErrors([])}>
+                알림 닫기
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="space-y-3">
         {samples.map((s) => (
           <Card key={s.id} className="p-3">
