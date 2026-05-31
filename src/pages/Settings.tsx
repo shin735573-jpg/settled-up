@@ -13,6 +13,7 @@ import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName, resolveLeaderName } from "@/lib/leaderResolver";
+import { compareLeadersByFeeAsc } from "@/lib/leaderSort";
 import {
   loadCompanySettings, saveCompanySettings, type CompanySettings,
 } from "@/lib/companySettings";
