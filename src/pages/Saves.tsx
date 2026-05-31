@@ -602,6 +602,20 @@ export default function Saves() {
             <Label htmlFor="save-od" className="cursor-pointer">OneDrive에도 업로드</Label>
             <Switch id="save-od" checked={uploadOD} onCheckedChange={toggleUploadOD} />
           </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="save-auto" className="cursor-pointer">기간 변경 시 자동저장</Label>
+            <Switch id="save-auto" checked={autoSaveOnChange} onCheckedChange={toggleAutoSaveOnChange} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                try { localStorage.removeItem(autoSavedKey(month, period)); } catch { /* noop */ }
+                toast({ title: "자동저장 플래그 해제", description: `${month} ${PERIOD_LABEL[period]} — 다음 동기화에서 다시 저장됩니다.` });
+              }}
+            >
+              이 기간 다시 저장
+            </Button>
+          </div>
           <Button variant="outline" size="sm" onClick={verifyOneDrive} disabled={verifyingOD}>
             {verifyingOD ? "확인 중…" : "OneDrive 연결 확인"}
           </Button>
