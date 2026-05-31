@@ -660,27 +660,6 @@ export default function HQSettlement() {
         </Card>
       </div>
 
-      {/* 오류 검사 */}
-      <Card className="p-4">
-        <div className="font-semibold mb-3">오류 검사</div>
-        <ul className="text-sm space-y-1">
-          {checks.map((c) => (
-            <li key={c.label} className="flex items-center gap-2">
-              <span className={
-                c.status === "ok" ? "text-primary" :
-                c.status === "warn" ? "text-orange-500" : "text-destructive"
-              }>
-                {c.status === "ok" ? "✓" : c.status === "warn" ? "▲" : "✗"}
-              </span>
-              <span className={
-                c.status === "ok" ? "" :
-                c.status === "warn" ? "text-orange-600" : "text-destructive"
-              }>{c.label}</span>
-              {c.note && <span className="text-xs text-muted-foreground">— {c.note}</span>}
-            </li>
-          ))}
-        </ul>
-      </Card>
     </div>
   );
 }
