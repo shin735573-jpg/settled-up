@@ -139,10 +139,14 @@ export default function Saves() {
       ? companyStmts.map((s) => ({ id: s.company.id, name: s.company.name }))
       : leaderStmts.map((s) => ({ id: s.leader.id, name: s.leader.name }));
     for (const it of items) {
-      const node = exportRoot.current.querySelector<HTMLElement>(
-        `[data-stmt="${kind}:${it.id}"]`,
+      const pages = Array.from(
+        exportRoot.current.querySelectorAll<HTMLElement>(
+          `[data-stmt-id="${kind}:${it.id}"]`,
+        ),
+      ).sort((a, b) =>
+        Number(a.dataset.stmtPage ?? "0") - Number(b.dataset.stmtPage ?? "0"),
       );
-      if (node) out.push({ kind, id: it.id, name: it.name, node });
+      if (pages.length > 0) out.push({ kind, id: it.id, name: it.name, pages });
     }
     return out;
   }
