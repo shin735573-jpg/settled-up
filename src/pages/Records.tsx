@@ -372,6 +372,14 @@ function RecordsTable({
     expected: number;
     rowCounts: Map<string, number>;
   }>({ headCount: 0, expected: RECORDS_COLUMNS.length, rowCounts: new Map() });
+  const [alignLog, setAlignLog] = useState<Array<{
+    ts: string;
+    headCount: number;
+    expected: number;
+    entries: Array<{ index: number; expectedLabel: string; actual: string }>;
+  }>>([]);
+  const [logOpen, setLogOpen] = useState(true);
+  const lastLogKeyRef = useRef<string>("");
 
   useEffect(() => {
     const tbl = tableRef.current;
@@ -414,10 +422,24 @@ function RecordsTable({
       setAlignmentError(msg);
       setBadCols(badColSet);
       setBadRowIds(badRowSet);
+      const entries = [...badColSet].sort((a, b) => a - b).map((i) => ({
+        index: i + 1,
+        expectedLabel: RECORDS_COLUMNS[i]?.label ?? "(범위초과)",
+        actual: i < headCount ? `헤더 존재 / 데이터 셀 부족(헤더 ${headCount} vs 데이터 행별 상이)` : `헤더 없음(헤더 ${headCount} < #${i + 1})`,
+      }));
+      const key = `${headCount}|${expected}|${entries.map((e) => e.index).join(",")}|${badRowSet.size}`;
+      if (key !== lastLogKeyRef.current) {
+        lastLogKeyRef.current = key;
+        setAlignLog((prev) => [
+          { ts: new Date().toLocaleTimeString("ko-KR"), headCount, expected, entries },
+          ...prev,
+        ].slice(0, 50));
+      }
     } else {
       setAlignmentError(null);
       setBadCols(new Set());
       setBadRowIds(new Set());
+      lastLogKeyRef.current = "";
     }
   }, [records]);
 
@@ -510,6 +532,60 @@ function RecordsTable({
           )}
         </TableBody>
       </Table>
+      {alignLog.length > 0 && (
+        <div className="m-2 rounded border border-destructive/40 bg-destructive/5 text-xs">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-destructive/30">
+            <div className="font-semibold text-destructive">
+              정렬 불일치 로그 ({alignLog.length})
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="px-2 py-0.5 rounded border border-destructive/40 hover:bg-destructive/10"
+                onClick={() => setLogOpen((v) => !v)}
+              >
+                {logOpen ? "접기" : "펼치기"}
+              </button>
+              <button
+                type="button"
+                className="px-2 py-0.5 rounded border border-destructive/40 hover:bg-destructive/10"
+                onClick={() => { setAlignLog([]); lastLogKeyRef.current = ""; }}
+              >
+                지우기
+              </button>
+            </div>
+          </div>
+          {logOpen && (
+            <div className="max-h-64 overflow-auto divide-y divide-destructive/20">
+              {alignLog.map((log, idx) => (
+                <div key={idx} className="px-3 py-2">
+                  <div className="text-muted-foreground mb-1">
+                    [{log.ts}] 헤더 {log.headCount} / 정의 {log.expected}
+                  </div>
+                  <table className="w-full">
+                    <thead className="text-muted-foreground">
+                      <tr>
+                        <th className="text-left px-2 py-0.5 font-medium">#</th>
+                        <th className="text-left px-2 py-0.5 font-medium">예상 라벨(헤더)</th>
+                        <th className="text-left px-2 py-0.5 font-medium">실제(데이터)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="tabular-nums">
+                      {log.entries.map((e, j) => (
+                        <tr key={j}>
+                          <td className="px-2 py-0.5 text-destructive font-semibold">#{e.index}</td>
+                          <td className="px-2 py-0.5">{e.expectedLabel}</td>
+                          <td className="px-2 py-0.5 text-muted-foreground">{e.actual}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
