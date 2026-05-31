@@ -777,6 +777,7 @@ function LeadersTab() {
   const [rows, setRows] = useState<Leader[]>([]);
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
+  const [regionFilter, setRegionFilter] = useState<"all" | "metro" | "regional" | "none">("all");
 
   const load = async () => {
     // 입력순(생성일 오름차순)으로 정렬
@@ -807,13 +808,42 @@ function LeadersTab() {
 
   const dupCounts = detectDuplicates(rows);
 
-  const filteredRows = rows.filter((r) => {
+  const matchRegion = (r: Leader) => {
+    if (regionFilter === "all") return true;
+    const v = (r.region || "").trim();
+    if (regionFilter === "none") return v === "";
+    return v === regionFilter; // 'metro' | 'regional'
+  };
+  const matchSearch = (r: Leader) => {
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
     if ((r.name || "").toLowerCase().includes(q)) return true;
     const aliases = r.aliases || [];
     return aliases.some((a) => (a || "").toLowerCase().includes(q));
-  });
+  };
+  const filteredRows = rows.filter((r) => matchRegion(r) && matchSearch(r));
+
+  const regionCounts = {
+    all: rows.length,
+    metro: rows.filter((r) => (r.region || "").trim() === "metro").length,
+    regional: rows.filter((r) => (r.region || "").trim() === "regional").length,
+    none: rows.filter((r) => !(r.region || "").trim()).length,
+  };
+
+  // 위치 변경 시 수수료 자동 보정:
+  //  - 수도권으로 설정 → fee_rate_metro 가 0 이면 fee_rate_regional 값을 복사
+  //  - 지방으로 설정   → fee_rate_regional 가 0 이면 fee_rate_metro 값을 복사
+  const updateRegion = async (row: Leader, next: "metro" | "regional" | "") => {
+    const patch: Partial<Leader> = { region: next || null } as any;
+    const mr = Number(row.fee_rate_metro || 0);
+    const rr = Number(row.fee_rate_regional || 0);
+    if (next === "metro" && mr === 0 && rr > 0) (patch as any).fee_rate_metro = rr;
+    if (next === "regional" && rr === 0 && mr > 0) (patch as any).fee_rate_regional = mr;
+    await update(row.id, patch);
+    if ((patch as any).fee_rate_metro !== undefined || (patch as any).fee_rate_regional !== undefined) {
+      toast.success(`${row.name}: 위치 변경에 따라 수수료율을 자동 보정했습니다`);
+    }
+  };
 
   /** 별칭 1개만 허용 */
   const updateAlias = async (id: string, value: string) => {
