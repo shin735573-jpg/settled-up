@@ -481,7 +481,8 @@ function CompanyPreview({
         <Stat label="결제완료" value={data.paidTotal} />
         <Stat label="미결제" value={data.unpaidTotal} />
         <Stat label="착불합계" value={data.codTotal} />
-        <Stat label="새이월착불" value={data.carryOutCod} />
+        <Stat label="이전이월착불금" value={data.carryInCod} />
+        <Stat label="새이월착불금" value={data.carryOutCod} />
         <Stat label="실청구" value={data.realClaim} accent />
         <Stat label="최종청구" value={data.finalClaim} accent />
       </div>
@@ -525,7 +526,10 @@ function CompanyPreview({
       </div>
       {c.account_number && (
         <div className="rounded-md border bg-muted/40 p-3 text-sm font-semibold">
-          계좌: {c.account_number} · 정산 완료 후 입금자명을 전달 부탁드립니다.
+          계좌: {c.account_number}
+          <div className="mt-1 text-xs font-normal text-muted-foreground">
+            정산 완료 후 입금자명을 전달 부탁드립니다.
+          </div>
         </div>
       )}
     </div>
