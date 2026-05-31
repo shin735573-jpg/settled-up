@@ -13,10 +13,6 @@ import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName, resolveLeaderName } from "@/lib/leaderResolver";
 import {
-  CROSSCHECK_ITEM_LABELS, DEFAULT_CROSSCHECK, loadCrossCheckConfig, saveCrossCheckConfig,
-  type CrossCheckConfig, type CrossCheckItem,
-} from "@/lib/crossCheckConfig";
-import {
   loadCompanySettings, saveCompanySettings, type CompanySettings,
 } from "@/lib/companySettings";
 
@@ -24,26 +20,20 @@ type Company = {
   id: string;
   name: string;
   issues_invoice: boolean;
-  vat_included: boolean;
-  fee_rate_metro: number;
-  fee_rate_regional: number;
-  active: boolean;
   account_number: string | null;
   settlement_cycle: "biweekly" | "monthly";
   rejected_leader_id: string | null;
   rejected_leader_id_2: string | null;
   rejected_leader_id_3: string | null;
+  active: boolean;
 };
 type Leader = {
   id: string;
   name: string;
   region: string | null;
   is_rejected: boolean;
-  is_virtual: boolean;
   fee_rate_metro: number;
   fee_rate_regional: number;
-  deduction_amount: number;
-  trash_cost: number;
   settle_to_id: string | null;
   active: boolean;
   aliases: string[];
@@ -66,19 +56,11 @@ export default function Settings() {
           <TabsTrigger value="companies">업체관리</TabsTrigger>
           <TabsTrigger value="leaders">팀장관리</TabsTrigger>
           <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
-          <TabsTrigger value="advanced">고급</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><CompanyTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
-        <TabsContent value="advanced">
-          <div className="space-y-4">
-            <HolidaysTab />
-            <CrossCheckTab />
-            <OneDriveTab />
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );
@@ -161,135 +143,7 @@ function CompanyTab() {
   );
 }
 
-function CrossCheckTab() {
-  const [cfg, setCfg] = useState<CrossCheckConfig>(() => loadCrossCheckConfig());
 
-  const update = (patch: Partial<CrossCheckConfig>) => {
-    const next = { ...cfg, ...patch };
-    setCfg(next);
-    saveCrossCheckConfig(next);
-  };
-  const toggleItem = (k: CrossCheckItem, v: boolean) => {
-    const items = { ...cfg.items, [k]: v };
-    update({ items });
-  };
-  const reset = () => { setCfg(DEFAULT_CROSSCHECK); saveCrossCheckConfig(DEFAULT_CROSSCHECK); toast.success("기본값으로 복원했습니다"); };
-
-  return (
-    <Card className="p-4 space-y-5 max-w-2xl">
-      <div>
-        <h2 className="font-semibold mb-1">신동석 ↔ 강형주 교차검증 설정</h2>
-        <p className="text-xs text-muted-foreground">
-          팀장정산 화면 상단의 교차검증 카드에서 비교할 항목과 계산 기준을 확정합니다. 설정값은 즉시 반영됩니다.
-        </p>
-      </div>
-
-      <div>
-        <Label className="text-sm">비교 항목</Label>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {(Object.keys(CROSSCHECK_ITEM_LABELS) as CrossCheckItem[]).map((k) => (
-            <label key={k} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={cfg.items[k]}
-                onCheckedChange={(v) => toggleItem(k, !!v)}
-              />
-              {CROSSCHECK_ITEM_LABELS[k]}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <Label className="text-sm">계산 기준 (재분배 포함 여부)</Label>
-        <Select value={cfg.basis} onValueChange={(v) => update({ basis: v as CrossCheckConfig["basis"] })}>
-          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="redistributed">재분배 포함 (기본) — 마스터 집계 그대로</SelectItem>
-            <SelectItem value="raw">원본 배분만 — 50/25/25 등 재분배 전 값으로 비교</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground mt-1">
-          ※ 재분배 포함이면 신동석/강형주 값은 항상 동일해야 합니다(50/50). 원본 배분은 진단용입니다.
-        </p>
-      </div>
-
-      <div>
-        <Label className="text-sm">제외 로직</Label>
-        <Select value={cfg.exclude} onValueChange={(v) => update({ exclude: v as CrossCheckConfig["exclude"] })}>
-          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="exclude_excluded">정산제외 팀장 제외 (기본)</SelectItem>
-            <SelectItem value="include_all">모두 포함 — 정산제외 팀장도 합산</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label className="text-sm">허용 오차 (원)</Label>
-        <Input
-          type="number"
-          className="mt-1 w-32 num"
-          value={cfg.tolerance}
-          min={0}
-          onChange={(e) => update({ tolerance: Math.max(0, Number(e.target.value) || 0) })}
-        />
-        <p className="text-xs text-muted-foreground mt-1">차이가 이 값 미만이면 일치(✓)로 표시합니다.</p>
-      </div>
-
-      <div className="pt-2">
-        <Button variant="outline" size="sm" onClick={reset}>기본값으로 복원</Button>
-      </div>
-    </Card>
-  );
-}
-
-function OneDriveTab() {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string>("");
-
-  const verify = async () => {
-    setLoading(true); setResult("");
-    const { data, error } = await supabase.functions.invoke("onedrive-upload", { body: { action: "verify" } });
-    setLoading(false);
-    if (error) { toast.error("연결 실패: " + error.message); setResult("실패: " + error.message); return; }
-    if (!data?.ok) { toast.error("연결 실패"); setResult(JSON.stringify(data, null, 2)); return; }
-    toast.success("원드라이브 연결 정상");
-    setResult(`드라이브: ${data.drive?.name || "-"} (소유자: ${data.drive?.owner || "-"})`);
-  };
-
-  const testUpload = async () => {
-    setLoading(true);
-    const text = `삼호정산표 연결 테스트 - ${new Date().toISOString()}`;
-    const contentBase64 = btoa(unescape(encodeURIComponent(text)));
-    const { data, error } = await supabase.functions.invoke("onedrive-upload", {
-      body: {
-        action: "upload",
-        folder: "정산서_저장/_연결테스트",
-        filename: `test_${Date.now()}.txt`,
-        contentBase64,
-        contentType: "text/plain; charset=utf-8",
-      },
-    });
-    setLoading(false);
-    if (error || !data?.ok) { toast.error("업로드 실패"); setResult(JSON.stringify(data || error, null, 2)); return; }
-    toast.success("테스트 파일 업로드 완료");
-    setResult(`업로드 성공: ${data.name}\n${data.webUrl || ""}`);
-  };
-
-  return (
-    <Card className="p-4 space-y-3">
-      <div className="text-sm text-muted-foreground">
-        원드라이브 커넥터는 워크스페이스에서 이미 연결되어 있습니다. 아래 버튼으로 연결 상태와 업로드 권한을 확인하세요.
-        <br />정산서 PNG는 향후 <code>정산서_저장/YYYY-MM_월전체/업체|팀장/</code> 폴더에 자동 저장됩니다.
-      </div>
-      <div className="flex gap-2">
-        <Button onClick={verify} disabled={loading}>연결 확인</Button>
-        <Button onClick={testUpload} disabled={loading} variant="outline">테스트 파일 업로드</Button>
-      </div>
-      {result && <pre className="text-xs bg-muted p-3 rounded whitespace-pre-wrap break-all">{result}</pre>}
-    </Card>
-  );
-}
 
 function CompaniesTab() {
   const { user } = useAuth();
@@ -448,35 +302,13 @@ function LeadersTab() {
 
   const dupCounts = detectDuplicates(rows);
 
-  const updateAliases = async (id: string, raw: string) => {
-    const aliases = raw.split(",").map((s) => s.trim()).filter(Boolean);
-    const conflict = findAliasConflict(id, aliases, rows);
-    if (conflict) { toast.error(conflict); load(); return; }
-    await update(id, { aliases } as any);
-  };
-
-  /** 별칭 슬롯 (0/1/2) 한 칸만 변경. 빈 슬롯은 자동으로 끝에서 제거. */
-  const updateAliasSlot = async (id: string, slot: 0 | 1 | 2, value: string) => {
+  /** 별칭 1개만 허용 */
+  const updateAlias = async (id: string, value: string) => {
     const row = rows.find((r) => r.id === id);
     if (!row) return;
-    const current = [...(row.aliases || [])];
-    while (current.length < 3) current.push("");
-    current[slot] = value.trim();
-    // 끝의 빈 슬롯 제거 (DB에는 채워진 별칭만 저장)
-    const next = [...current];
-    while (next.length && !next[next.length - 1]) next.pop();
-    // 내부 빈 슬롯도 제거 (별칭1만 비고 별칭2 있으면 별칭2가 별칭1이 되지 않도록 슬롯 보존)
-    // → 사용자 의도 보존을 위해 빈 슬롯도 그대로 저장
-    const toSave = current.slice(0, Math.max(next.length, slot + 1));
-    // 중복 검사 (자기 안에서 + 다른 팀장과)
-    const filled = toSave.filter(Boolean);
-    const dupInSelf = new Set<string>();
-    for (const a of filled) {
-      const k = a.toLowerCase();
-      if (dupInSelf.has(k)) { toast.error(`별칭 "${a}"이(가) 같은 팀장 안에서 중복됩니다`); load(); return; }
-      dupInSelf.add(k);
-    }
-    const conflict = findAliasConflict(id, filled, rows);
+    const v = value.trim();
+    const toSave = v ? [v] : [];
+    const conflict = findAliasConflict(id, toSave, rows);
     if (conflict) { toast.error(conflict); load(); return; }
     await update(id, { aliases: toSave } as any);
   };
@@ -629,7 +461,7 @@ function LeadersTab() {
                   onBlur={(e) => {
                     const v = e.target.value;
                     if ((v.trim() || "") !== (al[0] || "")) {
-                      updateAliasSlot(r.id, 0, v);
+                      updateAlias(r.id, v);
                     }
                   }}
                 />
@@ -742,79 +574,6 @@ function LeadersTab() {
   );
 }
 
-function HolidaysTab() {
-  const { user } = useAuth();
-  const [rows, setRows] = useState<Holiday[]>([]);
-  const [leaders, setLeaders] = useState<Leader[]>([]);
-  const [date, setDate] = useState("");
-  const [scope, setScope] = useState("hq");
-  const [leaderId, setLeaderId] = useState<string>("");
-
-  const load = async () => {
-    const { data } = await supabase.from("holidays").select("*").order("date", { ascending: false });
-    setRows((data as Holiday[]) || []);
-    const { data: l } = await supabase.from("team_leaders").select("*").order("name");
-    setLeaders((l as Leader[]) || []);
-  };
-  useEffect(() => { load(); }, []);
-
-  const add = async () => {
-    if (!date || !user) return;
-    if (scope === "leader" && !leaderId) { toast.error("팀장을 선택하세요"); return; }
-    const { error } = await supabase.from("holidays").insert({
-      user_id: user.id, date, scope, team_leader_id: scope === "leader" ? leaderId : null,
-    });
-    if (error) toast.error(error.message); else { setDate(""); load(); }
-  };
-
-  const remove = async (id: string) => { await supabase.from("holidays").delete().eq("id", id); load(); };
-
-  return (
-    <Card className="p-4 space-y-4">
-      <div className="flex flex-wrap gap-2 items-end">
-        <div><Label>날짜</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        <div>
-          <Label>구분</Label>
-          <Select value={scope} onValueChange={setScope}>
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hq">본사</SelectItem>
-              <SelectItem value="leader">팀장</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {scope === "leader" && (
-          <div>
-            <Label>팀장</Label>
-            <Select value={leaderId} onValueChange={setLeaderId}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="선택" /></SelectTrigger>
-              <SelectContent>{leaders.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-        )}
-        <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
-      </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>날짜</TableHead><TableHead>구분</TableHead><TableHead>팀장</TableHead><TableHead></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r) => (
-            <TableRow key={r.id}>
-              <TableCell>{r.date}</TableCell>
-              <TableCell>{r.scope === "hq" ? "본사" : "팀장"}</TableCell>
-              <TableCell>{leaders.find((l) => l.id === r.team_leader_id)?.name || "-"}</TableCell>
-              <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
-            </TableRow>
-          ))}
-          {rows.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">등록된 휴무일이 없습니다</TableCell></TableRow>}
-        </TableBody>
-      </Table>
-    </Card>
-  );
-}
 
 type CommonDeduction = { id: string; label: string; amount: number; active: boolean; sort_order: number };
 

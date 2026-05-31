@@ -564,149 +564,7 @@ export default function Records() {
         <Button onClick={() => setPasteOpen(true)}><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <Button
-          size="lg"
-          variant="default"
-          className="h-14 text-base font-semibold"
-          onClick={runValidation}
-        >
-          <ShieldAlert className="h-5 w-5 mr-2" /> 오류 검사
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-14 text-base font-semibold"
-          onClick={startMissing}
-        >
-          <FileWarning className="h-5 w-5 mr-2" /> 누락분 추가
-        </Button>
-      </div>
 
-      {validation && (
-        <Card className="p-4 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="text-sm text-muted-foreground">검사 시각: {validation.ranAt}</div>
-            <Button size="sm" variant="ghost" onClick={() => setValidation(null)}>닫기</Button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              className={cn("rounded-md border p-3 text-left", showOnly === "all" && "ring-2 ring-primary")}
-              onClick={() => setShowOnly("all")}
-            >
-              <div className="text-xs text-muted-foreground">전체</div>
-              <div className="text-2xl font-bold">{validation.summary.totalRows}</div>
-            </button>
-            <button
-              className={cn("rounded-md border p-3 text-left bg-destructive/5", showOnly === "error" && "ring-2 ring-destructive")}
-              onClick={() => setShowOnly("error")}
-            >
-              <div className="text-xs text-destructive">오류</div>
-              <div className="text-2xl font-bold text-destructive">{validation.summary.errorCount}</div>
-            </button>
-            <button
-              className={cn("rounded-md border p-3 text-left bg-orange-500/5", showOnly === "warning" && "ring-2 ring-orange-500")}
-              onClick={() => setShowOnly("warning")}
-            >
-              <div className="text-xs text-orange-600">경고</div>
-              <div className="text-2xl font-bold text-orange-600">{validation.summary.warningCount}</div>
-            </button>
-            <div className="rounded-md border p-3 bg-green-500/5">
-              <div className="text-xs text-green-700">정상</div>
-              <div className="text-2xl font-bold text-green-700">{validation.summary.okCount}</div>
-            </div>
-          </div>
-
-          {/* #13 기간별 총액 비교 */}
-          <div className="border rounded p-3">
-            <div className="text-sm font-semibold mb-2">기간별 업체 vs 팀장 총액 ({filterMonth})</div>
-            <Table className="text-xs">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>기간</TableHead>
-                  <TableHead className="text-right">업체 배송비 총액</TableHead>
-                  <TableHead className="text-right">팀장 배송비 총액</TableHead>
-                  <TableHead className="text-right">차이</TableHead>
-                  <TableHead>상태</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {validation.periodChecks.map((p) => (
-                  <TableRow key={p.period}>
-                    <TableCell>{p.period === "1-15" ? "1~15일" : p.period === "16-end" ? "16~말일" : "월전체"}</TableCell>
-                    <TableCell className="text-right">{fmt(p.companyTotal)}</TableCell>
-                    <TableCell className="text-right">{fmt(p.leaderTotal)}</TableCell>
-                    <TableCell className={cn("text-right", p.diff !== 0 && "text-destructive font-semibold")}>{fmt(p.diff)}</TableCell>
-                    <TableCell>
-                      <Badge variant={p.status === "정상" ? "secondary" : "destructive"}>{p.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {hasPeriodMismatch && (
-              <div className="text-xs text-destructive mt-2">
-                ⚠ 업체 총액과 팀장 총액이 불일치합니다. 불일치 상태에서는 정산마감을 권장하지 않습니다.
-              </div>
-            )}
-          </div>
-
-          {visibleIssueRows.length > 0 ? (
-            <div className="border rounded max-h-96 overflow-y-auto">
-              <Table className="text-xs">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>행</TableHead>
-                    <TableHead>심각도</TableHead>
-                    <TableHead>오류 종류</TableHead>
-                    <TableHead>내용</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleIssueRows.flatMap((g) =>
-                    g.items.map((it, i) => {
-                      const rec = records.find((r) => r.id === g.rowId);
-                      return (
-                        <TableRow key={g.rowId + i}
-                          className={cn(
-                            it.severity === "error" ? "bg-destructive/5" : "bg-orange-500/5"
-                          )}>
-                          <TableCell className="whitespace-nowrap">{it.rowLabel || g.rowId.slice(0, 6)}</TableCell>
-                          <TableCell>
-                            {it.severity === "error"
-                              ? <Badge variant="destructive">오류</Badge>
-                              : <Badge className="bg-orange-500 hover:bg-orange-600">경고</Badge>}
-                          </TableCell>
-                          <TableCell className="font-mono text-[10px]">{it.code}</TableCell>
-                          <TableCell>{it.message}</TableCell>
-                          <TableCell>
-                            {rec && (
-                              <Button size="sm" variant="outline" onClick={() => editRow(rec)}>수정</Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-green-700 text-sm">
-              <CheckCircle2 className="h-4 w-4" />
-              {showOnly === "all" ? "이슈가 없습니다 — 모든 행 정상." : `해당 필터에 항목이 없습니다.`}
-            </div>
-          )}
-
-          {hasErrors && (
-            <div className="text-sm text-destructive flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              오류가 있는 상태에서는 저장/정산마감이 차단됩니다. 행 [수정] 버튼으로 보정 후 다시 검사하세요.
-            </div>
-          )}
-        </Card>
-      )}
 
       <Button
         size="lg"
@@ -875,23 +733,6 @@ export default function Records() {
                 <Checkbox checked={form.paid} onCheckedChange={(v) => setForm({ ...form, paid: !!v })} />
                 <span>{form.paid ? "결제완료" : "미결제"}</span>
               </label>
-            </div>
-            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={form.is_missing}
-                  onCheckedChange={(v) => setForm({ ...form, is_missing: !!v })}
-                />
-                <span className="font-medium">누락분 (정산일 이후 추가 등록)</span>
-              </label>
-              {form.is_missing && (
-                <Input
-                  className="mt-2"
-                  placeholder="누락 사유 (필수)"
-                  value={form.missing_reason}
-                  onChange={(e) => setForm({ ...form, missing_reason: e.target.value })}
-                />
-              )}
             </div>
           </div>
 
@@ -1375,7 +1216,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   };
 
   // 미등록 팀장 목록
-  const VIRTUAL_LEADER_KEYWORDS: string[] = [];
+  const VIRTUAL_LEADER_KEYWORDS: string[] = ["가상", "virtual", "가상기사", "가상팀장"];
   const unregisteredLeaders = useMemo(() => {
     const set = new Set<string>();
     const add = (raw: string) => {
