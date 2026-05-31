@@ -32,7 +32,7 @@ type LoadingCost = {
 type Expenses = {
   rent: number; electric: number; internet: number; caps: number;
   fire: number; repair: number; etc: number;
-  additional: { label: string; amount: number }[];
+  additional: { id?: string; date?: string; label: string; amount: number; note?: string }[];
 };
 
 const FIXED_LABELS: { key: keyof Omit<Expenses, "additional">; label: string }[] = [
@@ -79,7 +79,7 @@ const useLocalState = <T,>(key: string, initial: T): [T, (v: T | ((p: T) => T)) 
 
 const DEFAULT_EXPENSES: Expenses = {
   rent: 0, electric: 0, internet: 0, caps: 0, fire: 0, repair: 0, etc: 0,
-  additional: Array.from({ length: 50 }, () => ({ label: "", amount: 0 })),
+  additional: [],
 };
 
 export default function HQSettlement() {
@@ -353,10 +353,20 @@ export default function HQSettlement() {
   const removeLoading = (id: string) =>
     setLoadingCosts((p) => p.filter((x) => x.id !== id));
 
-  const setAdditional = (idx: number, patch: Partial<{ label: string; amount: number }>) =>
+  const setAdditional = (idx: number, patch: Partial<{ date: string; label: string; amount: number; note: string }>) =>
     setExpenses((p) => ({
       ...p,
       additional: p.additional.map((x, i) => i === idx ? { ...x, ...patch } : x),
+    }));
+  const addAdditional = () =>
+    setExpenses((p) => ({
+      ...p,
+      additional: [...p.additional, { id: crypto.randomUUID(), date: "", label: "", amount: 0, note: "" }],
+    }));
+  const removeAdditional = (idx: number) =>
+    setExpenses((p) => ({
+      ...p,
+      additional: p.additional.filter((_, i) => i !== idx),
     }));
 
   return (
@@ -518,31 +528,80 @@ export default function HQSettlement() {
         <Card className="overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold flex items-center justify-between">
             지출관리
-            <span className="text-xs text-muted-foreground">합계 {fmt(expenseTotal)}</span>
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-xs text-muted-foreground">합계 {fmt(expenseTotal)}</span>
+              <Button size="sm" variant="outline" onClick={addAdditional}>
+                <Plus className="w-4 h-4 mr-1" />추가
+              </Button>
+            </div>
           </div>
-          <div className="p-3 space-y-2 max-h-[600px] overflow-y-auto">
-            {FIXED_LABELS.map((f) => (
-              <div key={f.key} className="flex items-center gap-2">
-                <label className="text-sm w-24">{f.label}</label>
-                <Input type="number" value={expenses[f.key] || ""} className="h-8 text-right"
-                  onChange={(e) => setExpenses((p) => ({ ...p, [f.key]: Number(e.target.value) }))} />
-              </div>
-            ))}
-            <div className="flex items-center gap-2 bg-muted/40 p-2 rounded">
-              <label className="text-sm w-24">최저보장보전금</label>
-              <Input value={fmt(minGuaranteeTopUp)} readOnly className="h-8 text-right bg-background" />
-            </div>
-            <div className="pt-2 border-t mt-2">
-              <div className="text-xs text-muted-foreground mb-2">추가지출 (50칸)</div>
-              {expenses.additional.map((a, i) => (
-                <div key={i} className="flex items-center gap-2 mb-1">
-                  <Input placeholder={`항목 ${i + 1}`} value={a.label} className="h-8"
-                    onChange={(e) => setAdditional(i, { label: e.target.value })} />
-                  <Input type="number" value={a.amount || ""} className="h-8 w-32 text-right"
-                    onChange={(e) => setAdditional(i, { amount: Number(e.target.value) })} />
-                </div>
-              ))}
-            </div>
+          <div className="overflow-x-auto max-h-[600px]">
+            <Table className="text-sm">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-24">날짜</TableHead>
+                  <TableHead>지출내용</TableHead>
+                  <TableHead className="w-32 text-right">금액</TableHead>
+                  <TableHead>비고</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {FIXED_LABELS.map((f) => (
+                  <TableRow key={f.key}>
+                    <TableCell className="text-muted-foreground text-xs">고정</TableCell>
+                    <TableCell className="whitespace-nowrap">{f.label}</TableCell>
+                    <TableCell className="text-right">
+                      <Input type="number" value={expenses[f.key] || ""} className="h-8 text-right"
+                        onChange={(e) => setExpenses((p) => ({ ...p, [f.key]: Number(e.target.value) }))} />
+                    </TableCell>
+                    <TableCell></TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="bg-muted/40">
+                  <TableCell className="text-muted-foreground text-xs">자동</TableCell>
+                  <TableCell className="whitespace-nowrap">최저보장보전금</TableCell>
+                  <TableCell className="text-right">
+                    <Input value={fmt(minGuaranteeTopUp)} readOnly className="h-8 text-right bg-background" />
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">자동 계산</TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+                {expenses.additional.map((a, i) => (
+                  <TableRow key={a.id ?? i}>
+                    <TableCell>
+                      <Input type="date" value={a.date || ""} className="h-8"
+                        onChange={(e) => setAdditional(i, { date: e.target.value })} />
+                    </TableCell>
+                    <TableCell>
+                      <Input placeholder="지출내용" value={a.label} className="h-8"
+                        onChange={(e) => setAdditional(i, { label: e.target.value })} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input type="number" value={a.amount || ""} className="h-8 text-right"
+                        onChange={(e) => setAdditional(i, { amount: Number(e.target.value) })} />
+                    </TableCell>
+                    <TableCell>
+                      <Input placeholder="비고" value={a.note || ""} className="h-8"
+                        onChange={(e) => setAdditional(i, { note: e.target.value })} />
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeAdditional(i)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {expenses.additional.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-4 text-xs">
+                      추가 버튼으로 지출 항목을 입력하세요.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </Card>
 
