@@ -157,8 +157,8 @@ export default function Saves() {
       save();
       return;
     }
-    // 오류 or 경고 → 다이얼로그 표시
-    setPendingSave(result.ok ? () => save : null);
+    // 오류 or 경고 → 다이얼로그 표시. setState(fn) 은 updater 로 해석되므로 한 번 더 감싼다.
+    setPendingSave(() => (result.ok ? save : null));
   }
 
   const doSaveStub = (label: string) => () => {
