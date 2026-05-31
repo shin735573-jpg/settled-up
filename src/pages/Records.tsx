@@ -1798,6 +1798,18 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                           <TableCell className="text-right">{fmt(r.regional)}</TableCell>
                           <TableCell className="text-right">{fmt(r.cod)}</TableCell>
                           <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={r.twoPerson ? "yes" : "no"}
+                              onValueChange={(v) => setTwoOverrides((p) => ({ ...p, [i]: v === "yes" }))}
+                            >
+                              <SelectTrigger className="h-7 text-xs min-w-[80px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="no">아니오</SelectItem>
+                                <SelectItem value="yes">예</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell>{r.split || "-"}</TableCell>
                           <TableCell>{r.paid ? "✓" : "-"}</TableCell>
                           <TableCell className="space-y-1 min-w-[220px]">
