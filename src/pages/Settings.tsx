@@ -16,6 +16,13 @@ import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDispla
 import {
   loadCompanySettings, saveCompanySettings, type CompanySettings,
 } from "@/lib/companySettings";
+import {
+  DEFAULT_METRO_KEYWORDS,
+  loadMetroKeywords,
+  saveMetroKeywords,
+  classifyRegion,
+} from "@/lib/regionClassifier";
+import { Textarea } from "@/components/ui/textarea";
 
 type Company = {
   id: string;
@@ -58,11 +65,13 @@ export default function Settings() {
           <TabsTrigger value="companies">업체관리</TabsTrigger>
           <TabsTrigger value="leaders">팀장관리</TabsTrigger>
           <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
+          <TabsTrigger value="region">지역분류</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><CompanyTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
+        <TabsContent value="region"><RegionKeywordsTab /></TabsContent>
       </Tabs>
     </div>
   );
