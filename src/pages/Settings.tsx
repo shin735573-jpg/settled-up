@@ -534,7 +534,7 @@ function CompaniesTab() {
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
           ))}
-          {rows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">등록된 업체가 없습니다</TableCell></TableRow>}
+          {filteredRows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 업체가 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
       <Dialog open={dupOpen} onOpenChange={setDupOpen}>
