@@ -205,12 +205,13 @@ export default function HQSettlement() {
   }, [periodRows, byId, shindongseokId, ganghyungjuId]);
   const validRows = useMemo(() => allocations.filter((a) => a.hasValid), [allocations]);
 
-  // ── 업체 배송비 총액 (유효행 기준)
+  // ── 업체 배송비 총액 = 본사 총배송비(적재비 제외)와 동일
   const companyDeliveryTotal = useMemo(
-    () => validRows.reduce(
-      (s, { row: r }) => s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee), 0,
-    ),
-    [validRows],
+    () => periodRows.reduce((s, r) => {
+      if (((r.item as string) || "").trim() === "적재비") return s;
+      return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+    }, 0),
+    [periodRows],
   );
 
   // ── 본사 직영 배송비 (신동석 + 삼호) — 본사 수익에 추가 가산
