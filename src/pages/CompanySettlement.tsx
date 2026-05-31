@@ -605,11 +605,11 @@ export default function CompanySettlement() {
             {detailSummary.newCarry > 0 && (
               <Stat label="새이월착불금" value={detailSummary.newCarry} />
             )}
-            {company.issues_invoice && (
+            {company.issues_invoice && !company.vat_included && (
               <Stat label="부가세포함 청구금액" value={detailSummary.net + Math.round(detailSummary.net * 0.1)} />
             )}
           </div>
-          {company.issues_invoice && (
+          {company.issues_invoice && !company.vat_included && (
             <div className="text-xs text-muted-foreground mb-3">
               계산서 발행 업체 · 부가세 (10%) {fmt(Math.round(detailSummary.net * 0.1))}
             </div>
