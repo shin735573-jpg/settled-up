@@ -39,8 +39,15 @@ import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Cloud, CloudOff } from "lucide-react";
+import { Cloud, CloudOff, FolderOpen, FolderCheck } from "lucide-react";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
+import {
+  pickSaveDirectory,
+  getSavedDirectoryHandle,
+  clearSavedDirectoryHandle,
+  isFsAccessSupported,
+  ensureWritePermission,
+} from "@/lib/saveDirectory";
 
 function getCurrentSavingPeriod() {
   const { month, half } = getCurrentHalf();
@@ -225,7 +232,8 @@ export default function Saves() {
     }
     setExportingMsg(`${name} 저장 중…`);
     try {
-      const { filename } = await exportSingle(target, month, period, regenerate, { uploadOneDrive: uploadOD });
+      const dir = await getReadyDir();
+      const { filename } = await exportSingle(target, month, period, regenerate, { uploadOneDrive: uploadOD, saveDirectory: dir });
       toast({ title: "저장 완료", description: filename });
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
@@ -270,7 +278,7 @@ export default function Saves() {
       const { filename, count } = await exportZip(
         targets, month, period, regenerate,
         (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
-        { uploadOneDrive: uploadOD },
+        { uploadOneDrive: uploadOD, saveDirectory: await getReadyDir() },
       );
       const skipCount = skippedCompanies.length + skippedLeaders.length;
       setBulkResult({
@@ -304,6 +312,45 @@ export default function Saves() {
     setUploadOD(v);
     try { localStorage.setItem("saves.uploadOD", v ? "1" : "0"); } catch { /* noop */ }
   };
+
+  // ─── 저장 폴더 (바탕화면/삼호정산서) ─────────────────────
+  const [saveDir, setSaveDir] = useState<FileSystemDirectoryHandle | null>(null);
+  const [saveDirName, setSaveDirName] = useState<string>("");
+  useEffect(() => {
+    (async () => {
+      const h = await getSavedDirectoryHandle();
+      if (h) { setSaveDir(h); setSaveDirName(h.name); }
+    })();
+  }, []);
+  async function onPickSaveDir() {
+    try {
+      const h = await pickSaveDirectory();
+      setSaveDir(h);
+      setSaveDirName(h.name);
+      toast({ title: "저장 폴더 지정 완료", description: `${h.name} (이 폴더 안에 오늘날짜_정산서/업체|팀장 자동 생성)` });
+    } catch (e) {
+      const msg = String((e as Error)?.message ?? e);
+      if (!/abort/i.test(msg)) {
+        toast({ title: "폴더 지정 실패", description: msg, variant: "destructive" });
+      }
+    }
+  }
+  async function onClearSaveDir() {
+    await clearSavedDirectoryHandle();
+    setSaveDir(null);
+    setSaveDirName("");
+    toast({ title: "저장 폴더 해제", description: "이후 저장은 브라우저 기본 다운로드 폴더로 진행됩니다." });
+  }
+  // 저장 직전 권한 확인 (사용자 제스처 컨텍스트에서 호출)
+  async function getReadyDir(): Promise<FileSystemDirectoryHandle | null> {
+    if (!saveDir) return null;
+    const ok = await ensureWritePermission(saveDir);
+    if (!ok) {
+      toast({ title: "폴더 권한 거부", description: "저장 폴더를 다시 지정해 주세요.", variant: "destructive" });
+      return null;
+    }
+    return saveDir;
+  }
 
   // ─── 기간 변경 자동저장 옵션 ────────────────────────────
   const [autoSaveOnChange, setAutoSaveOnChange] = useState<boolean>(() => {
@@ -468,7 +515,7 @@ export default function Saves() {
       const { filename, count } = await exportZip(
         targets, month, period, regenerate,
         (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
-        { uploadOneDrive: uploadOD },
+        { uploadOneDrive: uploadOD, saveDirectory: await getReadyDir() },
       );
       toast({ title: "저장 완료", description: `${filename} (${count}건, 오류 ${all.length - count}건 제외)` });
     } catch (e) {
@@ -635,6 +682,34 @@ export default function Saves() {
           <span className="text-xs text-muted-foreground">
             업로드 폴더: <span className="font-mono">정산서_저장/{month}_{period === "h1" ? "1-15일" : period === "h2" ? "16-말일" : "월전체"}/업체|팀장/</span>
           </span>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3 text-sm">
+          {saveDir ? (
+            <>
+              <FolderCheck className="h-4 w-4 text-primary" />
+              <span className="text-xs">
+                저장 폴더: <span className="font-mono font-semibold">{saveDirName}</span>
+                <span className="ml-1 text-muted-foreground">/ {new Date().toISOString().slice(0,10)}_정산서 / 업체|팀장 / *.jpg</span>
+              </span>
+              <Button variant="outline" size="sm" onClick={onPickSaveDir}>
+                <FolderOpen className="mr-1 h-3.5 w-3.5" /> 폴더 변경
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onClearSaveDir}>해제</Button>
+            </>
+          ) : (
+            <>
+              <FolderOpen className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                저장 폴더 미지정 — 브라우저 기본 다운로드 폴더로 저장됩니다.
+              </span>
+              <Button variant="default" size="sm" onClick={onPickSaveDir} disabled={!isFsAccessSupported()}>
+                <FolderOpen className="mr-1 h-3.5 w-3.5" /> 저장 폴더 지정 (바탕화면/삼호정산서)
+              </Button>
+              {!isFsAccessSupported() && (
+                <span className="text-[11px] text-destructive">※ 이 브라우저는 폴더 직접 저장을 지원하지 않습니다(Chrome/Edge 권장).</span>
+              )}
+            </>
+          )}
         </div>
       </Card>
 
