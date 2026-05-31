@@ -574,9 +574,6 @@ export default function Saves() {
                           </span>
                         </span>
                         <span className="flex shrink-0 items-center gap-1">
-                          {ver && (
-                            <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
-                          )}
                           {empty
                             ? <Badge variant="outline" className="text-[10px] border-yellow-400 text-yellow-700 dark:text-yellow-300">정산내역 없음</Badge>
                             : <Badge className="text-[10px]">저장가능</Badge>}
