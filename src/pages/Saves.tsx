@@ -498,6 +498,7 @@ export default function Saves() {
                   {companyStmts.map((s) => {
                     const active = s.company.id === selectedCompanyId;
                     const ver = getEntry(keyFor("company", s.company.id, month, period));
+                    const noClaim = s.finalClaim <= 0;
                     return (
                       <button
                         key={s.company.id}
@@ -510,11 +511,19 @@ export default function Saves() {
                             : "border-transparent hover:bg-muted")
                         }
                       >
-                        <span className="truncate font-medium">{s.company.name}</span>
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate font-medium">{s.company.name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            청구 {fmt(s.finalClaim)}원
+                          </span>
+                        </span>
                         <span className="flex shrink-0 items-center gap-1">
                           {ver && (
                             <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
                           )}
+                          {noClaim
+                            ? <Badge variant="outline" className="text-[10px] border-yellow-400 text-yellow-700 dark:text-yellow-300">청구금액 없음</Badge>
+                            : <Badge className="text-[10px]">저장가능</Badge>}
                           <Badge variant="outline" className="text-[10px]">{s.rows.length}건</Badge>
                         </span>
                       </button>
@@ -551,6 +560,7 @@ export default function Saves() {
                   {leaderStmts.map((s) => {
                     const active = s.leader.id === selectedLeaderId;
                     const ver = getEntry(keyFor("leader", s.leader.id, month, period));
+                    const empty = s.deliveryCount === 0;
                     return (
                       <button
                         key={s.leader.id}
@@ -563,11 +573,19 @@ export default function Saves() {
                             : "border-transparent hover:bg-muted")
                         }
                       >
-                        <span className="truncate font-medium">{s.leader.name}</span>
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate font-medium">{s.leader.name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            총합 {fmt(s.metroSum + s.noteSum + s.regionalSum)}원
+                          </span>
+                        </span>
                         <span className="flex shrink-0 items-center gap-1">
                           {ver && (
                             <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
                           )}
+                          {empty
+                            ? <Badge variant="outline" className="text-[10px] border-yellow-400 text-yellow-700 dark:text-yellow-300">정산내역 없음</Badge>
+                            : <Badge className="text-[10px]">저장가능</Badge>}
                           <Badge variant="outline" className="text-[10px]">{s.deliveryCount}건</Badge>
                         </span>
                       </button>
