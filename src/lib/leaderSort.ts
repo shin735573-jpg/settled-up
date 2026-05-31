@@ -13,13 +13,15 @@ export type LeaderFeeShape = {
 
 export function effectiveLeaderFee(l: LeaderFeeShape): number {
   const reg = (l.region || "").trim();
-  const m = Number(l.fee_rate_metro || 0);
-  const g = Number(l.fee_rate_regional || 0);
+  const m = Number(l.fee_rate_metro ?? 0);
+  const g = Number(l.fee_rate_regional ?? 0);
   if (reg === "metro") return m;
   if (reg === "regional") return g;
-  const nonzero = [m, g].filter((v) => v > 0);
-  if (nonzero.length === 0) return Number.POSITIVE_INFINITY;
-  return Math.min(...nonzero);
+  // 지정된 값(0 포함) 중 사용 중인 값 선택, 둘 다 0이면 0 (최상위)
+  if (m > 0 && g > 0) return Math.min(m, g);
+  if (m > 0) return m;
+  if (g > 0) return g;
+  return 0; // 둘 다 0 → 수수료 0%로 최상위
 }
 
 export function compareLeadersByFeeAsc(a: LeaderFeeShape, b: LeaderFeeShape): number {
