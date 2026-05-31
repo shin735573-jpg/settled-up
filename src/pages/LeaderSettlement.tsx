@@ -177,10 +177,6 @@ export default function LeaderSettlement() {
   );
   const sdsOpts = { shindongseokId, ganghyungjuId };
 
-  // 교차검증 설정 (Settings > 교차검증) — 변경 시 즉시 반영
-  const [crossCfg, setCrossCfg] = useState<CrossCheckConfig>(() => loadCrossCheckConfig());
-  useEffect(() => subscribeCrossCheckConfig(() => setCrossCfg(loadCrossCheckConfig())), []);
-
   /** 원본 배분(재분배 전) 기준 한 팀장의 합계. basis="raw"일 때 사용. */
   const rawTotalsFor = (lid: string) => {
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0;
