@@ -527,7 +527,8 @@ export default function LeaderSettlement() {
               (o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id && o.period_key === pKey,
             )
           : undefined;
-        return periodSum + (ov ? num(ov.amount) : commonDefaultAmountFor(detailLeader.id, cd));
+        const fallback = detailLeader ? commonDefaultAmountFor(detailLeader.id, cd) : num(cd.amount);
+        return periodSum + (ov ? num(ov.amount) : fallback);
       }, 0);
       return s + cdTotal;
     }, 0);
