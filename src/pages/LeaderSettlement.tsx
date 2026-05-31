@@ -10,10 +10,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { fmt } from "@/lib/format";
 import { getDisplayName } from "@/lib/leaderResolver";
 import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
-import {
-  loadCrossCheckConfig, subscribeCrossCheckConfig, CROSSCHECK_ITEM_LABELS,
-  type CrossCheckConfig, type CrossCheckItem,
-} from "@/lib/crossCheckConfig";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -180,10 +176,6 @@ export default function LeaderSettlement() {
     [leaders],
   );
   const sdsOpts = { shindongseokId, ganghyungjuId };
-
-  // 교차검증 설정 (Settings > 교차검증) — 변경 시 즉시 반영
-  const [crossCfg, setCrossCfg] = useState<CrossCheckConfig>(() => loadCrossCheckConfig());
-  useEffect(() => subscribeCrossCheckConfig(() => setCrossCfg(loadCrossCheckConfig())), []);
 
   /** 원본 배분(재분배 전) 기준 한 팀장의 합계. basis="raw"일 때 사용. */
   const rawTotalsFor = (lid: string) => {
@@ -630,14 +622,6 @@ export default function LeaderSettlement() {
       {!leaderId && (
         <Card className="p-4">
           <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
-          <SdsGhjCrossCheck
-            masterRows={masterRows}
-            shindongseokId={shindongseokId}
-            ganghyungjuId={ganghyungjuId}
-            config={crossCfg}
-            rawTotalsFor={rawTotalsFor}
-            leadersById={leadersById}
-          />
           <Table className="text-sm num">
             <TableHeader>
               <TableRow>
@@ -992,94 +976,3 @@ function LeaderSummaryCard({
   );
 }
 
-/**
- * 신동석/강형주 교차검증 카드.
- * 두 사람은 한 팀(50/50 재분배)이므로 모든 케이스에서
- * 건수·배송비·착불·수수료가 정확히 동일해야 한다.
- * 차이가 발생하면 즉시 경고로 표시한다.
- */
-function SdsGhjCrossCheck({
-  masterRows, shindongseokId, ganghyungjuId, config, rawTotalsFor, leadersById,
-}: {
-  masterRows: Array<{ leader: { id: string; name: string }; count: number; total: number; cod: number; fees: number }>;
-  shindongseokId: string | null;
-  ganghyungjuId: string | null;
-  config: CrossCheckConfig;
-  rawTotalsFor: (lid: string) => { count: number; total: number; cod: number; fees: number };
-  leadersById: Map<string, Leader>;
-}) {
-  if (!shindongseokId || !ganghyungjuId) return null;
-
-  // 제외 로직: include_all이면 정산제외 팀장도 포함해야 하나, masterRows는 settlingLeaders만 담음.
-  // SDS/GHJ가 settle_status=excluded인 경우 raw 모드로만 의미가 있다 → 안내만 표시.
-  const sdsLeader = leadersById.get(shindongseokId);
-  const ghjLeader = leadersById.get(ganghyungjuId);
-  const sdsExcluded = (sdsLeader?.settle_status ?? "included") === "excluded";
-  const ghjExcluded = (ghjLeader?.settle_status ?? "included") === "excluded";
-  if (config.exclude === "exclude_excluded" && (sdsExcluded || ghjExcluded)) return null;
-
-  const sds = config.basis === "raw"
-    ? rawTotalsFor(shindongseokId)
-    : masterRows.find((m) => m.leader.id === shindongseokId);
-  const ghj = config.basis === "raw"
-    ? rawTotalsFor(ganghyungjuId)
-    : masterRows.find((m) => m.leader.id === ganghyungjuId);
-  if (!sds && !ghj) return null;
-
-  const allRows: Array<{ key: CrossCheckItem; label: string; a: number; b: number; isMoney: boolean }> = [
-    { key: "count", label: CROSSCHECK_ITEM_LABELS.count, a: sds?.count ?? 0, b: ghj?.count ?? 0, isMoney: false },
-    { key: "total", label: CROSSCHECK_ITEM_LABELS.total, a: sds?.total ?? 0, b: ghj?.total ?? 0, isMoney: true },
-    { key: "cod", label: CROSSCHECK_ITEM_LABELS.cod, a: sds?.cod ?? 0, b: ghj?.cod ?? 0, isMoney: true },
-    { key: "fees", label: CROSSCHECK_ITEM_LABELS.fees, a: sds?.fees ?? 0, b: ghj?.fees ?? 0, isMoney: true },
-  ];
-  const rows = allRows.filter((r) => config.items[r.key]);
-  if (rows.length === 0) return null;
-  const eps = Math.max(0, config.tolerance);
-  const allMatch = rows.every((r) => Math.abs(r.a - r.b) < eps);
-
-  return (
-    <div className={`mb-3 rounded border px-3 py-2 ${allMatch ? "border-emerald-300 bg-emerald-50" : "border-red-400 bg-red-50"}`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-semibold text-sm">
-          신동석 ↔ 강형주 교차검증
-          <span className={`ml-2 text-xs ${allMatch ? "text-emerald-700" : "text-red-700"}`}>
-            {allMatch ? "✓ 일치 (50/50 재분배 정상)" : "⚠ 불일치 — 분배 로직 또는 데이터 점검 필요"}
-          </span>
-          <span className="ml-2 text-xs text-muted-foreground">
-            기준: {config.basis === "raw" ? "원본 배분" : "재분배 포함"} · 오차 {eps}
-          </span>
-        </div>
-      </div>
-      <Table className="text-xs num">
-        <TableHeader>
-          <TableRow>
-            <TableHead>항목</TableHead>
-            <TableHead className="text-right">신동석</TableHead>
-            <TableHead className="text-right">강형주</TableHead>
-            <TableHead className="text-right">차이</TableHead>
-            <TableHead className="text-center w-16">결과</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r) => {
-            const diff = r.a - r.b;
-            const ok = Math.abs(diff) < eps;
-            return (
-              <TableRow key={r.label}>
-                <TableCell>{r.label}</TableCell>
-                <TableCell className="text-right">{r.isMoney ? fmt(r.a) : r.a.toLocaleString()}</TableCell>
-                <TableCell className="text-right">{r.isMoney ? fmt(r.b) : r.b.toLocaleString()}</TableCell>
-                <TableCell className={`text-right ${ok ? "" : "text-red-700 font-semibold"}`}>
-                  {r.isMoney ? fmt(diff) : diff.toLocaleString()}
-                </TableCell>
-                <TableCell className={`text-center ${ok ? "text-emerald-700" : "text-red-700 font-bold"}`}>
-                  {ok ? "✓" : "✗"}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
