@@ -754,8 +754,28 @@ export default function Records() {
         <Table className="text-xs num">
           <TableHeader>
             <TableRow>
-              {["구분","날짜","업체","팀장1","팀장2","고객","배송지","지역구분","품목","비고","수도권","비고금액","지방","착불","총액","2인배송","분할","결제",""].map((h) => (
-                <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
+              {[
+                { label: "구분",        cls: "min-w-[80px]" },
+                { label: "날짜",        cls: "min-w-[100px]" },
+                { label: "업체",        cls: "min-w-[120px]" },
+                { label: "팀장1",       cls: "min-w-[100px]" },
+                { label: "팀장2",       cls: "min-w-[100px]" },
+                { label: "고객명",      cls: "min-w-[120px]" },
+                { label: "배송지",      cls: "min-w-[140px]" },
+                { label: "지역구분",    cls: "min-w-[90px]" },
+                { label: "품목",        cls: "min-w-[180px]" },
+                { label: "비고",        cls: "min-w-[180px]" },
+                { label: "수도권배송비", cls: "min-w-[120px] text-right" },
+                { label: "비고금액",    cls: "min-w-[120px] text-right" },
+                { label: "지방배송비",  cls: "min-w-[120px] text-right" },
+                { label: "착불",        cls: "min-w-[120px] text-right" },
+                { label: "배송비총액",  cls: "min-w-[130px] text-right" },
+                { label: "2인배송",     cls: "min-w-[90px]" },
+                { label: "분할",        cls: "min-w-[100px]" },
+                { label: "결제유무",    cls: "min-w-[100px]" },
+                { label: "",            cls: "min-w-[48px]" },
+              ].map((h, i) => (
+                <TableHead key={i} className={cn("whitespace-nowrap", h.cls)}>{h.label}</TableHead>
               ))}
             </TableRow>
           </TableHeader>
@@ -771,22 +791,22 @@ export default function Records() {
                   rowSeverity === "error" && "bg-destructive/5",
                   rowSeverity === "warning" && "bg-orange-500/5",
                 )} onClick={() => editRow(r)}>
-                  <TableCell className="whitespace-nowrap">
+                  <TableCell className="whitespace-nowrap min-w-[80px]">
                     {r.is_missing
                       ? <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>
                       : <Badge variant="secondary">일반</Badge>}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">{r.date}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.company_name}</TableCell>
-                  <TableCell className="whitespace-nowrap">{displayLeaderById(r.leader1_id, r.leader1_name)}</TableCell>
-                  <TableCell className="whitespace-nowrap">{displayLeaderById(r.leader2_id, r.leader2_name)}</TableCell>
-                  <TableCell>{r.customer_name || "-"}</TableCell>
-                  <TableCell>{r.region || "-"}</TableCell>
-                  <TableCell className="whitespace-nowrap">
+                  <TableCell className="whitespace-nowrap min-w-[100px]">{r.date}</TableCell>
+                  <TableCell className="whitespace-nowrap min-w-[120px]">{r.company_name}</TableCell>
+                  <TableCell className="whitespace-nowrap min-w-[100px]">{displayLeaderById(r.leader1_id, r.leader1_name)}</TableCell>
+                  <TableCell className="whitespace-nowrap min-w-[100px]">{displayLeaderById(r.leader2_id, r.leader2_name)}</TableCell>
+                  <TableCell className="min-w-[120px]">{r.customer_name || "-"}</TableCell>
+                  <TableCell className="min-w-[140px]">{r.region || "-"}</TableCell>
+                  <TableCell className="whitespace-nowrap min-w-[90px]">
                     {r.region_type === "metro" ? "수도권" : r.region_type === "regional" ? "지방" : "-"}
                   </TableCell>
                   <TableCell
-                    className="align-top max-w-[240px] cursor-pointer"
+                    className="align-top min-w-[180px] max-w-[240px] cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
                       setExpandedItems((prev) => ({ ...prev, [r.id]: !prev[r.id] }));
@@ -799,18 +819,18 @@ export default function Records() {
                       {r.item || "-"}
                     </div>
                   </TableCell>
-                  <TableCell>{r.note || "-"}</TableCell>
-                  <TableCell className="text-right">{fmt(r.metro_fee)}</TableCell>
-                  <TableCell className="text-right">{fmt(r.note_amount)}</TableCell>
-                  <TableCell className="text-right">{fmt(r.regional_fee)}</TableCell>
-                  <TableCell className="text-right">{fmt(r.cod_amount)}</TableCell>
-                  <TableCell className="text-right font-semibold">{fmt(total)}</TableCell>
-                  <TableCell className="whitespace-nowrap">
+                  <TableCell className="min-w-[180px] max-w-[240px]">{r.note || "-"}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap min-w-[120px] tabular-nums">{fmt(r.metro_fee)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap min-w-[120px] tabular-nums">{fmt(r.note_amount)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap min-w-[120px] tabular-nums">{fmt(r.regional_fee)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap min-w-[120px] tabular-nums">{fmt(r.cod_amount)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap min-w-[130px] tabular-nums font-semibold">{fmt(total)}</TableCell>
+                  <TableCell className="whitespace-nowrap min-w-[90px]">
                     {r.two_person ? <Badge className="bg-blue-500 hover:bg-blue-600">2인배송</Badge> : "-"}
                   </TableCell>
-                  <TableCell>{r.split_type || "-"}</TableCell>
-                  <TableCell>{r.paid ? "✓" : "-"}</TableCell>
-                  <TableCell><Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); removeRow(r.id); }}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                  <TableCell className="min-w-[100px]">{r.split_type || "-"}</TableCell>
+                  <TableCell className="min-w-[100px]">{r.paid ? "✓" : "-"}</TableCell>
+                  <TableCell className="min-w-[48px]"><Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); removeRow(r.id); }}><Trash2 className="h-4 w-4" /></Button></TableCell>
                 </TableRow>
               );
             })}
