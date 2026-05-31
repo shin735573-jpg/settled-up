@@ -132,6 +132,30 @@ export default function Saves() {
   const exportRoot = useRef<HTMLDivElement>(null);
   const [exportingMsg, setExportingMsg] = useState<string>("");
 
+  // ─── 중복 실행 잠금 (기간·탭 단위) ───────────────────────
+  // 키 형태: "company:<month>:<period>" / "leader:<month>:<period>"
+  // 재생성/전체 저장은 해당 탭의 키를 잠그며, both-all 은 두 탭을 동시에 잠근다.
+  const [locks, setLocks] = useState<Set<string>>(new Set());
+  const lockKey = (kind: "company" | "leader") => `${kind}:${month}:${period}`;
+  const isLocked = (kind: "company" | "leader") => locks.has(lockKey(kind));
+  const acquireLocks = (keys: string[]): boolean => {
+    // 하나라도 이미 잠겨 있으면 실패
+    for (const k of keys) if (locks.has(k)) return false;
+    setLocks((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => next.add(k));
+      return next;
+    });
+    return true;
+  };
+  const releaseLocks = (keys: string[]) => {
+    setLocks((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => next.delete(k));
+      return next;
+    });
+  };
+
   function collectNodes(kind: "company" | "leader"): ExportTarget[] {
     if (!exportRoot.current) return [];
     const out: ExportTarget[] = [];
@@ -152,9 +176,18 @@ export default function Saves() {
   }
 
   async function doExportSingle(kind: "company" | "leader", id: string, name: string, regenerate: boolean) {
+    const keys = [lockKey(kind)];
+    if (!acquireLocks(keys)) {
+      toast({ title: "이미 저장 중", description: `${kind === "company" ? "업체" : "팀장"} ${month} ${periodLabelShort(period)} 작업이 진행 중입니다.`, variant: "destructive" });
+      return;
+    }
     const nodes = collectNodes(kind);
     const target = nodes.find((n) => n.id === id);
-    if (!target) { toast({ title: "저장 실패", description: "렌더 대상 없음", variant: "destructive" }); return; }
+    if (!target) {
+      toast({ title: "저장 실패", description: "렌더 대상 없음", variant: "destructive" });
+      releaseLocks(keys);
+      return;
+    }
     setExportingMsg(`${name} 저장 중…`);
     try {
       const { filename } = await exportSingle(target, month, period, regenerate);
@@ -163,16 +196,24 @@ export default function Saves() {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
       setExportingMsg("");
+      releaseLocks(keys);
     }
   }
 
   async function doExportAll(kind: "company" | "leader" | "both", regenerate: boolean) {
+    const keys = kind === "both" ? [lockKey("company"), lockKey("leader")] : [lockKey(kind)];
+    if (!acquireLocks(keys)) {
+      toast({ title: "이미 저장 중", description: `${month} ${periodLabelShort(period)} 작업이 진행 중입니다.`, variant: "destructive" });
+      return;
+    }
     const targets =
       kind === "company" ? collectNodes("company")
       : kind === "leader" ? collectNodes("leader")
       : [...collectNodes("company"), ...collectNodes("leader")];
     if (targets.length === 0) {
-      toast({ title: "저장 대상 없음", variant: "destructive" }); return;
+      toast({ title: "저장 대상 없음", variant: "destructive" });
+      releaseLocks(keys);
+      return;
     }
     try {
       const { filename, count } = await exportZip(
@@ -184,6 +225,7 @@ export default function Saves() {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
       setExportingMsg("");
+      releaseLocks(keys);
     }
   }
 
@@ -315,11 +357,11 @@ export default function Saves() {
       {/* 기본 액션 버튼 */}
       <Card className="p-4">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Button size="lg" className="h-14" onClick={onSaveCompanyOne} disabled={!selectedCompany}>업체 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={onSaveCompanyAll} disabled={companyStmts.length === 0}>업체 전체 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={onSaveLeaderOne} disabled={!selectedLeader}>팀장 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={onSaveLeaderAll} disabled={leaderStmts.length === 0}>팀장 전체 사진 저장</Button>
-          <Button size="lg" variant="secondary" className="h-14" onClick={onRegenerate}>정산서 재생성</Button>
+          <Button size="lg" className="h-14" onClick={onSaveCompanyOne} disabled={!selectedCompany || isLocked("company")}>업체 사진 저장</Button>
+          <Button size="lg" className="h-14" onClick={onSaveCompanyAll} disabled={companyStmts.length === 0 || isLocked("company")}>업체 전체 사진 저장</Button>
+          <Button size="lg" className="h-14" onClick={onSaveLeaderOne} disabled={!selectedLeader || isLocked("leader")}>팀장 사진 저장</Button>
+          <Button size="lg" className="h-14" onClick={onSaveLeaderAll} disabled={leaderStmts.length === 0 || isLocked("leader")}>팀장 전체 사진 저장</Button>
+          <Button size="lg" variant="secondary" className="h-14" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader")}>정산서 재생성</Button>
           <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
         </div>
       </Card>
