@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { allocateRow } from "@/lib/splitAllocation";
@@ -387,15 +388,15 @@ export default function HQSettlement() {
             </Button>
           </div>
           <div className="overflow-x-auto">
-            <Table className="text-sm">
+            <Table className="text-sm min-w-max">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-20">날짜</TableHead>
-                  <TableHead>업체</TableHead>
-                  <TableHead className="w-32 text-right">금액</TableHead>
-                  <TableHead className="w-28">청구여부</TableHead>
-                  <TableHead className="w-28">계산서</TableHead>
-                  <TableHead className="w-10"></TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 110, width: 110 }}>날짜</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>업체</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>금액</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 110, width: 110 }}>청구여부</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 110, width: 110 }}>계산서</TableHead>
+                  <TableHead className="text-center" style={{ width: 50 }}></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -404,11 +405,11 @@ export default function HQSettlement() {
                 )}
                 {loadingCosts.map((lc) => (
                   <TableRow key={lc.id}>
-                    <TableCell>
-                      <Input type="number" min={1} max={31} value={lc.day || ""} className="h-8 w-16"
+                    <TableCell className="text-center">
+                      <Input type="number" min={1} max={31} value={lc.day || ""} className="h-8 w-16 text-center mx-auto"
                         onChange={(e) => updateLoading(lc.id, { day: Number(e.target.value) })} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Select value={lc.company_id} onValueChange={(v) => updateLoading(lc.id, { company_id: v })}>
                         <SelectTrigger className="h-8"><SelectValue placeholder="업체 선택" /></SelectTrigger>
                         <SelectContent>
@@ -418,11 +419,11 @@ export default function HQSettlement() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Input type="number" value={lc.amount || ""} className="h-8 text-right"
+                    <TableCell className="text-center">
+                      <Input type="number" value={lc.amount || ""} className="h-8 text-center"
                         onChange={(e) => updateLoading(lc.id, { amount: Number(e.target.value) })} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Select value={lc.billed} onValueChange={(v) => updateLoading(lc.id, { billed: v as "billed" | "unbilled" })}>
                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -431,7 +432,7 @@ export default function HQSettlement() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Select value={lc.invoice} onValueChange={(v) => updateLoading(lc.id, { invoice: v as "issued" | "not_issued" })}>
                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -440,7 +441,7 @@ export default function HQSettlement() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLoading(lc.id)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -472,57 +473,55 @@ export default function HQSettlement() {
             </div>
           </div>
           <div className="overflow-x-auto max-h-[600px]">
-            <Table className="text-sm">
+            <Table className="text-sm min-w-max">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-24">날짜</TableHead>
-                  <TableHead>지출내용</TableHead>
-                  <TableHead className="w-32 text-right">금액</TableHead>
-                  <TableHead>비고</TableHead>
-                  <TableHead className="w-10"></TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 180, width: 180 }}>지출내용</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>금액</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 220, width: 220 }}>비고</TableHead>
+                  <TableHead className="text-center" style={{ width: 50 }}></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {FIXED_LABELS.map((f) => (
                   <TableRow key={f.key}>
-                    <TableCell className="text-muted-foreground text-xs">고정</TableCell>
-                    <TableCell className="whitespace-nowrap">{f.label}</TableCell>
-                    <TableCell className="text-right">
-                      <Input type="number" value={expenses[f.key] || ""} className="h-8 text-right"
+                    <TableCell className="text-center whitespace-nowrap">{f.label}</TableCell>
+                    <TableCell className="text-center">
+                      <Input type="number" value={expenses[f.key] || ""} className="h-8 text-center"
                         onChange={(e) => setExpenses((p) => ({ ...p, [f.key]: Number(e.target.value) }))} />
                     </TableCell>
-                    <TableCell></TableCell>
-                    <TableCell></TableCell>
+                    <TableCell className="text-center"></TableCell>
+                    <TableCell className="text-center"></TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="bg-muted/40">
-                  <TableCell className="text-muted-foreground text-xs">자동</TableCell>
-                  <TableCell className="whitespace-nowrap">최저보장보전금</TableCell>
-                  <TableCell className="text-right">
-                    <Input value={fmt(minGuaranteeTopUp)} readOnly className="h-8 text-right bg-background" />
+                  <TableCell className="text-center whitespace-nowrap">최저보장보전금</TableCell>
+                  <TableCell className="text-center">
+                    <Input value={fmt(minGuaranteeTopUp)} readOnly className="h-8 text-center bg-background" />
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">자동 계산</TableCell>
-                  <TableCell></TableCell>
+                  <TableCell className="text-center text-xs text-muted-foreground">자동 계산</TableCell>
+                  <TableCell className="text-center"></TableCell>
                 </TableRow>
                 {expenses.additional.map((a, i) => (
                   <TableRow key={a.id ?? i}>
-                    <TableCell>
-                      <Input type="date" value={a.date || ""} className="h-8"
-                        onChange={(e) => setAdditional(i, { date: e.target.value })} />
-                    </TableCell>
-                    <TableCell>
-                      <Input placeholder="지출내용" value={a.label} className="h-8"
+                    <TableCell className="text-center">
+                      <Input placeholder="지출내용" value={a.label} className="h-8 text-center"
                         onChange={(e) => setAdditional(i, { label: e.target.value })} />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Input type="number" value={a.amount || ""} className="h-8 text-right"
+                    <TableCell className="text-center">
+                      <Input type="number" value={a.amount || ""} className="h-8 text-center"
                         onChange={(e) => setAdditional(i, { amount: Number(e.target.value) })} />
                     </TableCell>
-                    <TableCell>
-                      <Input placeholder="비고" value={a.note || ""} className="h-8"
-                        onChange={(e) => setAdditional(i, { note: e.target.value })} />
+                    <TableCell className="text-center align-middle">
+                      <Textarea
+                        placeholder="비고"
+                        value={a.note || ""}
+                        rows={2}
+                        className="min-h-[40px] text-center resize-y break-words whitespace-pre-wrap"
+                        onChange={(e) => setAdditional(i, { note: e.target.value })}
+                      />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeAdditional(i)}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -531,7 +530,7 @@ export default function HQSettlement() {
                 ))}
                 {expenses.additional.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-4 text-xs">
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-4 text-xs">
                       추가 버튼으로 지출 항목을 입력하세요.
                     </TableCell>
                   </TableRow>
@@ -554,17 +553,17 @@ export default function HQSettlement() {
             </Tabs>
           </div>
           <div className="overflow-x-auto">
-            <Table className="text-sm num">
+            <Table className="text-sm num min-w-max">
               <TableHeader>
                 <TableRow>
-                  <TableHead>팀장명</TableHead>
-                  <TableHead className="text-right">건수</TableHead>
-                  <TableHead className="text-right">실지급배송비</TableHead>
-                  <TableHead className="text-right">착불</TableHead>
-                  <TableHead className="text-right">수수료</TableHead>
-                  <TableHead className="text-right">공제</TableHead>
-                  <TableHead className="text-right">실지급액</TableHead>
-                  <TableHead className="w-28">정산상태</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>팀장명</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 100, width: 100 }}>배송건수</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 150, width: 150 }}>실지급배송비</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>착불</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>수수료</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>공제</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>실지급액</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>정산상태</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -573,14 +572,14 @@ export default function HQSettlement() {
                 )}
                 {filteredLeaders.map((l) => (
                   <TableRow key={l.id}>
-                    <TableCell className="whitespace-nowrap">{l.name}</TableCell>
-                    <TableCell className="text-right">{l.count}</TableCell>
-                    <TableCell className="text-right">{fmt(l.fee)}</TableCell>
-                    <TableCell className="text-right">{fmt(l.cod)}</TableCell>
-                    <TableCell className="text-right">{fmt(l.commission)}</TableCell>
-                    <TableCell className="text-right">{fmt(l.deduct)}</TableCell>
-                    <TableCell className="text-right font-semibold">{fmt(l.payout)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-center whitespace-nowrap">{l.name}</TableCell>
+                    <TableCell className="text-center">{l.count}</TableCell>
+                    <TableCell className="text-center">{fmt(l.fee)}</TableCell>
+                    <TableCell className="text-center">{fmt(l.cod)}</TableCell>
+                    <TableCell className="text-center">{fmt(l.commission)}</TableCell>
+                    <TableCell className="text-center">{fmt(l.deduct)}</TableCell>
+                    <TableCell className="text-center font-semibold">{fmt(l.payout)}</TableCell>
+                    <TableCell className="text-center">
                       <Select value={l.status} onValueChange={(v) => setLeaderStatus((p) => ({ ...p, [l.id]: v as "settled" | "pending" }))}>
                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -609,41 +608,39 @@ export default function HQSettlement() {
             </Tabs>
           </div>
           <div className="overflow-x-auto">
-            <Table className="text-sm num">
+            <Table className="text-sm num min-w-max">
               <TableHeader>
                 <TableRow>
-                  <TableHead>업체명</TableHead>
-                  <TableHead className="text-right">건수</TableHead>
-                  <TableHead className="text-right">배송비합계</TableHead>
-                  <TableHead className="text-right">결제완료</TableHead>
-                  <TableHead className="text-right">미결제</TableHead>
-                  <TableHead className="text-right">착불</TableHead>
-                  <TableHead className="text-right">이월착불</TableHead>
-                  <TableHead className="text-right">실청구액</TableHead>
-                  <TableHead className="w-28">결제상태</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 150, width: 150 }}>업체명</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 80, width: 80 }}>건수</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>배송비합계</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>미결제</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>착불</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>이월착불</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>실청구액</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>결제상태</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCompanies.length === 0 && (
-                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">표시할 업체가 없습니다.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">표시할 업체가 없습니다.</TableCell></TableRow>
                 )}
                 {filteredCompanies.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="text-center whitespace-nowrap">
                       {c.name}
                       {!c.issuesInvoice && <Badge variant="outline" className="ml-1 text-xs">계산서 미발행</Badge>}
                     </TableCell>
-                    <TableCell className="text-right">{c.count}</TableCell>
-                    <TableCell className="text-right">{fmt(c.fee)}</TableCell>
-                    <TableCell className="text-right">{fmt(c.paidAmt)}</TableCell>
-                    <TableCell className="text-right">{fmt(c.unpaidAmt)}</TableCell>
-                    <TableCell className="text-right">{fmt(c.cod)}</TableCell>
-                    <TableCell className="text-right">
-                      <Input type="number" value={c.prevCarry || ""} className="h-7 text-right w-24 inline-block"
+                    <TableCell className="text-center">{c.count}</TableCell>
+                    <TableCell className="text-center">{fmt(c.fee)}</TableCell>
+                    <TableCell className="text-center">{fmt(c.unpaidAmt)}</TableCell>
+                    <TableCell className="text-center">{fmt(c.cod)}</TableCell>
+                    <TableCell className="text-center">
+                      <Input type="number" value={c.prevCarry || ""} className="h-7 text-center w-24 inline-block"
                         onChange={(e) => setCodCarry((p) => ({ ...p, [c.id]: Number(e.target.value) }))} />
                     </TableCell>
-                    <TableCell className="text-right font-semibold">{fmt(c.netClaim)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-center font-semibold">{fmt(c.netClaim)}</TableCell>
+                    <TableCell className="text-center">
                       <Select value={c.status} onValueChange={(v) => setCompanyStatus((p) => ({ ...p, [c.id]: v as "paid" | "unpaid" }))}>
                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                         <SelectContent>
