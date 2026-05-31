@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus } from "lucide-react";
 import { fmt } from "@/lib/format";
-import { allocateRow } from "@/lib/splitAllocation";
+import { allocateRow, feeForShare } from "@/lib/splitAllocation";
 
 type Period = "h1" | "h2" | "all";
 type Delivery = any;
@@ -184,10 +184,10 @@ export default function HQSettlement() {
   };
   const leaderDetails = useMemo<LeaderDetail[]>(() => {
     const visible = leaders.filter(isCountable);
-    const acc = new Map<string, { id: string; name: string; count: number; metro: number; note: number; regional: number; cod: number; deduct: number; minGuarantee: number; minEnabled: boolean }>();
+    const acc = new Map<string, { id: string; name: string; count: number; metro: number; note: number; regional: number; cod: number; commission: number; deduct: number; minGuarantee: number; minEnabled: boolean }>();
     for (const l of visible) {
       acc.set(l.id, {
-        id: l.id, name: l.name, count: 0, metro: 0, note: 0, regional: 0, cod: 0,
+        id: l.id, name: l.name, count: 0, metro: 0, note: 0, regional: 0, cod: 0, commission: 0,
         deduct: Number(l.deduction_amount || 0) + Number(l.trash_cost || 0),
         minGuarantee: Number(l.min_guarantee_amount || 0),
         minEnabled: !!l.min_guarantee_enabled,
@@ -200,13 +200,15 @@ export default function HQSettlement() {
         if (!b) continue;
         if (!counted.has(s.target)) { b.count += 1; counted.add(s.target); }
         b.metro += s.metro; b.note += s.note_amount; b.regional += s.regional; b.cod += s.cod;
+        const lead = byId.get(s.target);
+        const rateM = Number(lead?.fee_rate_metro || 0);
+        const rateR = Number(lead?.fee_rate_regional || 0);
+        // 행별 수수료 산출 후 합산 — 팀장정산 화면과 반올림 기준 일치
+        b.commission += feeForShare({ metro: s.metro, regional: s.regional }, { metro: rateM, regional: rateR });
       }
     }
     return Array.from(acc.values()).map((x) => {
-      const l = byId.get(x.id);
-      const rateM = Number(l?.fee_rate_metro || 0);
-      const rateR = Number(l?.fee_rate_regional || 0);
-      const commission = Math.round((x.metro * rateM + x.regional * rateR) / 100);
+      const commission = x.commission;
       const fee = x.metro + x.note + x.regional;
       const payout = Math.max(0, fee - x.cod - commission - x.deduct);
       const topUp = x.minEnabled && x.minGuarantee > 0

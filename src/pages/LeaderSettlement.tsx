@@ -78,7 +78,6 @@ function settlementLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string |
     if (!id) continue;
     const l = byId.get(id);
     if (!l) continue;
-    // settle_to_id 체인을 끝까지 따라감 (순환 방어)
     let cur: Leader | undefined = l;
     const seen = new Set<string>();
     while (cur?.settle_to_id && !seen.has(cur.id)) {
@@ -92,7 +91,6 @@ function settlementLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string |
   return null;
 }
 
-/** 행의 실제기사(원본 leader1) ID. */
 function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null {
   const id = r.leader1_id;
   if (!id) return null;
