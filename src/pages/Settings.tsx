@@ -31,6 +31,14 @@ import {
   setAutoBackupEnabled,
   getLastBackupAt,
 } from "@/lib/excelBackup";
+import {
+  parseBackupFile,
+  restoreBackup,
+  RESTORABLE_TABLES,
+  type ParsedBackup,
+  type RestoreMode,
+  type RestoreResult,
+} from "@/lib/excelBackup";
 
 type Company = {
   id: string;
