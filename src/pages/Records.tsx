@@ -1947,6 +1947,33 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     await onReload();
   };
 
+  // ─── 붙여넣기 자동 등록: 텍스트가 채워지면 미등록 업체/팀장을 자동으로 등록 ───
+  const autoRegisteredRef = useRef<{ c: Set<string>; l: Set<string> }>({ c: new Set(), l: new Set() });
+  useEffect(() => {
+    if (!text.trim()) {
+      autoRegisteredRef.current = { c: new Set(), l: new Set() };
+    }
+  }, [text]);
+  useEffect(() => {
+    if (!userId || registering) return;
+    if (!text.trim()) return;
+    const newC = unregisteredCompanies.filter((n) => !autoRegisteredRef.current.c.has(n));
+    const newL = unregisteredLeaders.filter((n) => !autoRegisteredRef.current.l.has(n));
+    if (newC.length === 0 && newL.length === 0) return;
+    const t = setTimeout(async () => {
+      if (newC.length > 0) {
+        newC.forEach((n) => autoRegisteredRef.current.c.add(n));
+        await registerCompanies();
+      }
+      if (newL.length > 0) {
+        newL.forEach((n) => autoRegisteredRef.current.l.add(n));
+        await registerLeaders();
+      }
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unregisteredCompanies, unregisteredLeaders, userId, text, registering]);
+
   const save = async () => {
     if (!userId) return;
     if (missingRequired.length > 0) {
