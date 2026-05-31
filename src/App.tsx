@@ -16,7 +16,6 @@ import HQSettlement from "./pages/HQSettlement";
 import Holidays from "./pages/Holidays";
 import Saves from "./pages/Saves";
 import Settings from "./pages/Settings";
-import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
