@@ -303,8 +303,8 @@ export default function Holidays() {
             <div className="flex gap-3 mb-3 text-xs">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-destructive inline-block" /> 본사휴무</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-400 inline-block" /> 팀장휴무</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-pink-300 inline-block" /> 공휴일</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded inline-block" style={{ background: "hsl(var(--destructive))" }} /> 일요일</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500 inline-block" /> 공휴일</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border-2 border-red-600 inline-block" /> 일요일</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border-2 border-primary inline-block" /> 오늘</span>
             </div>
             <CalendarMonth
@@ -362,7 +362,7 @@ function CalendarMonth({
         )}>{w}</div>
       ))}
       {cells.map((iso, idx) => {
-        if (!iso) return <div key={idx} className="min-h-[130px]" />;
+        if (!iso) return <div key={idx} className="min-h-[160px]" />;
         const day = Number(iso.slice(-2));
         const isHQ = hqDates.has(iso);
         const isLeader = leaderDates.has(iso);
@@ -374,31 +374,31 @@ function CalendarMonth({
           <div
             key={idx}
             className={cn(
-              "min-h-[130px] border rounded-md p-2 text-sm flex flex-col gap-1",
-              koreanHolidayName && !isHQ && !isLeader && "bg-pink-50 border-pink-300",
+              "min-h-[160px] border rounded-md p-2 text-sm flex flex-col gap-1",
+              koreanHolidayName && !isHQ && !isLeader && "bg-red-100 border-red-500",
               isHQ && "bg-destructive/20 border-destructive",
               !isHQ && isLeader && "bg-yellow-200 border-yellow-400",
               isToday && "ring-2 ring-primary",
             )}
           >
             <div className={cn(
-              "font-bold text-base leading-none",
+              "font-bold text-lg leading-none",
               dow === 0 && "text-destructive",
               dow === 6 && "text-blue-600",
-              koreanHolidayName && "text-pink-700",
+              koreanHolidayName && "text-red-700",
             )}>{day}</div>
             {koreanHolidayName && (
-              <div className="truncate text-[11px] font-semibold text-pink-700">
+              <div className="truncate text-xs font-bold text-red-700">
                 {koreanHolidayName}
               </div>
             )}
             <div className="flex-1 overflow-hidden space-y-0.5">
               {items.slice(0, 3).map((h) => (
-                <div key={h.id} className="truncate text-[11px]">
+                <div key={h.id} className="truncate text-xs">
                   {h.scope === "hq" ? "본사" : leaderNameById.get(h.team_leader_id || "") || "팀장"}
                 </div>
               ))}
-              {items.length > 3 && <div className="text-[11px] text-muted-foreground">+{items.length - 3}</div>}
+              {items.length > 3 && <div className="text-xs text-muted-foreground">+{items.length - 3}</div>}
             </div>
           </div>
         );
