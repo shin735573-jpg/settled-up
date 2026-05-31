@@ -706,7 +706,7 @@ function CompaniesTab() {
         </DialogContent>
       </Dialog>
       <Dialog open={manualOpen} onOpenChange={setManualOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="w-[95vw] max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>지정 통합</DialogTitle>
           </DialogHeader>
