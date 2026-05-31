@@ -112,43 +112,46 @@ All colors MUST be HSL.
   .num { font-variant-numeric: tabular-nums; }
 }
 
-/* 기록입력 폼: 깔끔한 테두리 + 통일된 배경 */
+/* 기록입력 폼: 깔끔한 테두리 — 상태는 상단 얇은 색띠로만 표시 */
+.form-cells {
+  position: relative;
+  padding-top: 0.25rem;
+}
+.form-cells::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background-color: transparent;
+}
+.form-cells.is-new::before {
+  background-color: hsl(210 70% 55%);
+}
+.form-cells.is-edit::before {
+  background-color: hsl(38 70% 50%);
+}
+
 .form-cells > div {
   padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   border: 1px solid hsl(var(--border));
   background-color: hsl(var(--card));
-  transition: background-color 150ms ease;
+  transition: border-color 150ms ease;
 }
 .form-cells > div:hover {
-  background-color: hsl(var(--muted));
+  border-color: hsl(215 20% 65%);
 }
 
-/* 새 배송 입력: 연한 파랑 톤 */
-.form-cells.is-new > div {
-  background-color: hsl(210 70% 96%);
-  border-color: hsl(210 60% 82%);
-}
-.form-cells.is-new > div:hover {
-  background-color: hsl(210 75% 92%);
-}
-
-/* 배송 수정: 연한 황갈색(앰버) 톤 */
-.form-cells.is-edit > div {
-  background-color: hsl(40 80% 95%);
-  border-color: hsl(38 70% 78%);
-}
-.form-cells.is-edit > div:hover {
-  background-color: hsl(40 85% 91%);
-}
-
-/* 엑셀 붙여넣기 영역: 연한 민트 톤 */
+/* 엑셀 붙여넣기 영역: 민트 테두리만 */
 .paste-area {
-  background-color: hsl(150 50% 96%) !important;
-  border-color: hsl(150 45% 78%) !important;
+  border-color: hsl(150 45% 45% / 0.45) !important;
 }
 .paste-area:focus-visible {
-  background-color: hsl(150 55% 93%) !important;
+  border-color: hsl(150 45% 45%) !important;
+  box-shadow: 0 0 0 2px hsl(150 45% 45% / 0.08) !important;
 }
 
 @media print {
