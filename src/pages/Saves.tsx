@@ -901,6 +901,37 @@ function Stat({ label, value, accent }: { label: string; value: number | string;
 }
 
 /** rowCount 를 pageSize 단위로 잘라 [start, end) 범위 배열을 반환. 0건이면 1페이지(빈) 반환 */
+function GateButton({
+  reason, disabled, onClick, children, variant,
+}: {
+  reason: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  variant?: "secondary";
+}) {
+  const btn = (
+    <Button
+      size="lg"
+      className="h-14 w-full"
+      variant={variant}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </Button>
+  );
+  if (!reason) return btn;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-block w-full">{btn}</span>
+      </TooltipTrigger>
+      <TooltipContent>{reason}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function paginate(rowCount: number, pageSize: number): Array<{ start: number; end: number }> {
   if (rowCount <= 0) return [{ start: 0, end: 0 }];
   const out: Array<{ start: number; end: number }> = [];
