@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { fmt, parseNum, parseDate } from "@/lib/format";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { canonicalLeaderName, getDisplayName } from "@/lib/leaderResolver";
 import {
@@ -1117,7 +1118,27 @@ export default function Records() {
           <div className={`form-cells ${form.id ? "is-edit" : "is-new"} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3`}>
             <div className="space-y-1">
               <Label>날짜</Label>
-              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !form.date && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.date ? format(new Date(form.date + "T00:00:00"), "yyyy-MM-dd") : "날짜 선택"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.date ? new Date(form.date + "T00:00:00") : undefined}
+                    onSelect={(d) => d && setForm({ ...form, date: format(d, "yyyy-MM-dd") })}
+                    locale={ko}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-1">
