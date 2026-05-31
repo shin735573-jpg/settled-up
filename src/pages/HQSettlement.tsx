@@ -629,14 +629,14 @@ export default function HQSettlement() {
               </Button>
             </div>
           </div>
-          <div className="overflow-x-auto max-h-[600px]">
-            <Table className="text-sm min-w-max">
+          <div className="max-h-[600px] overflow-y-auto">
+            <Table className="text-xs w-full table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center" style={{ minWidth: 180, width: 180 }}>지출내용</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>금액</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 220, width: 220 }}>비고</TableHead>
-                  <TableHead className="text-center" style={{ width: 50 }}></TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "38%" }}>지출내용</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "22%" }}>금액</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "32%" }}>비고</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "8%" }}></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -709,18 +709,18 @@ export default function HQSettlement() {
               </TabsList>
             </Tabs>
           </div>
-          <div className="overflow-x-auto">
-            <Table className="text-sm num min-w-max">
+          <div className="max-h-[600px] overflow-y-auto">
+            <Table className="text-xs num w-full table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>팀장명</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 100, width: 100 }}>배송건수</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 150, width: 150 }}>실지급배송비</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>착불</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>수수료</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>공제</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>실지급액</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>정산상태</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "13%" }}>팀장명</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "9%" }}>건수</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "14%" }}>배송비</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "12%" }}>착불</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "12%" }}>수수료</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "11%" }}>공제</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "14%" }}>실지급</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "15%" }}>상태</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -729,16 +729,16 @@ export default function HQSettlement() {
                 )}
                 {filteredLeaders.map((l) => (
                   <TableRow key={l.id}>
-                    <TableCell className="text-center whitespace-nowrap">{l.name}</TableCell>
-                    <TableCell className="text-center">{l.count}</TableCell>
-                    <TableCell className="text-center">{fmt(l.fee)}</TableCell>
-                    <TableCell className="text-center">{fmt(l.cod)}</TableCell>
-                    <TableCell className="text-center">{fmt(l.commission)}</TableCell>
-                    <TableCell className="text-center">{fmt(l.deduct)}</TableCell>
-                    <TableCell className="text-center font-semibold">{fmt(l.payout)}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center truncate px-1">{l.name}</TableCell>
+                    <TableCell className="text-center px-1">{l.count}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(l.fee)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(l.cod)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(l.commission)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(l.deduct)}</TableCell>
+                    <TableCell className="text-center font-semibold px-1">{fmt(l.payout)}</TableCell>
+                    <TableCell className="text-center px-1">
                       <Select value={l.status} onValueChange={(v) => setLeaderStatus((p) => ({ ...p, [l.id]: v as "settled" | "pending" }))}>
-                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-7 px-1 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="settled">정산완료</SelectItem>
                           <SelectItem value="pending">미정산</SelectItem>
@@ -764,18 +764,18 @@ export default function HQSettlement() {
               </TabsList>
             </Tabs>
           </div>
-          <div className="overflow-x-auto">
-            <Table className="text-sm num min-w-max">
+          <div className="max-h-[600px] overflow-y-auto">
+            <Table className="text-xs num w-full table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center" style={{ minWidth: 150, width: 150 }}>업체명</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 80, width: 80 }}>건수</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>배송비합계</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>미결제</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>착불</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>이월착불</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>실청구액</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>결제상태</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "16%" }}>업체명</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "8%" }}>건수</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "13%" }}>배송비</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "12%" }}>미결제</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "11%" }}>착불</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "12%" }}>이월</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "13%" }}>실청구</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "15%" }}>상태</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -784,22 +784,22 @@ export default function HQSettlement() {
                 )}
                 {filteredCompanies.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="text-center whitespace-nowrap">
+                    <TableCell className="text-center truncate px-1">
                       {c.name}
                       {!c.issuesInvoice && <Badge variant="outline" className="ml-1 text-xs">계산서 미발행</Badge>}
                     </TableCell>
-                    <TableCell className="text-center">{c.count}</TableCell>
-                    <TableCell className="text-center">{fmt(c.fee)}</TableCell>
-                    <TableCell className="text-center">{fmt(c.unpaidAmt)}</TableCell>
-                    <TableCell className="text-center">{fmt(c.cod)}</TableCell>
-                    <TableCell className="text-center">
-                      <Input type="number" value={c.prevCarry || ""} className="h-7 text-center w-24 inline-block"
+                    <TableCell className="text-center px-1">{c.count}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(c.fee)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(c.unpaidAmt)}</TableCell>
+                    <TableCell className="text-center px-1">{fmt(c.cod)}</TableCell>
+                    <TableCell className="text-center px-1">
+                      <Input type="number" value={c.prevCarry || ""} className="h-7 text-center w-full px-1 text-xs"
                         onChange={(e) => setCodCarry((p) => ({ ...p, [c.id]: Number(e.target.value) }))} />
                     </TableCell>
-                    <TableCell className="text-center font-semibold">{fmt(c.netClaim)}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="text-center font-semibold px-1">{fmt(c.netClaim)}</TableCell>
+                    <TableCell className="text-center px-1">
                       <Select value={c.status} onValueChange={(v) => setCompanyStatus((p) => ({ ...p, [c.id]: v as "paid" | "unpaid" }))}>
-                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-7 px-1 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="paid">결제완료</SelectItem>
                           <SelectItem value="unpaid">미결제</SelectItem>
