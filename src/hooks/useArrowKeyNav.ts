@@ -150,7 +150,7 @@ export function useArrowKeyNav(
       } else if (target.tagName === "TEXTAREA") {
         try { (target as HTMLTextAreaElement).select(); } catch { /* noop */ }
       }
-      target.scrollIntoView({ block: "nearest", inline: "nearest" });
+      try { target.scrollIntoView?.({ block: "nearest", inline: "nearest" }); } catch { /* noop */ }
     };
 
     root.addEventListener("keydown", handler);
