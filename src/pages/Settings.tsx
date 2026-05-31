@@ -483,8 +483,8 @@ function CompaniesTab() {
           전체 {rows.length}개 업체{search.trim() ? ` · 검색 결과 ${filteredRows.length}개` : ""}
         </div>
       </div>
-      <div className="[&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
-      <Table>
+      <div className="overflow-x-auto [&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
+      <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-12">연번</TableHead>
