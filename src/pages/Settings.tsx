@@ -796,6 +796,14 @@ function LeadersTab() {
 
   const dupCounts = detectDuplicates(rows);
 
+  const filteredRows = rows.filter((r) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    if ((r.name || "").toLowerCase().includes(q)) return true;
+    const aliases = r.aliases || [];
+    return aliases.some((a) => (a || "").toLowerCase().includes(q));
+  });
+
   /** 별칭 1개만 허용 */
   const updateAlias = async (id: string, value: string) => {
     const row = rows.find((r) => r.id === id);
