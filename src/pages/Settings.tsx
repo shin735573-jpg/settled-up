@@ -13,10 +13,6 @@ import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName, resolveLeaderName } from "@/lib/leaderResolver";
 import {
-  CROSSCHECK_ITEM_LABELS, DEFAULT_CROSSCHECK, loadCrossCheckConfig, saveCrossCheckConfig,
-  type CrossCheckConfig, type CrossCheckItem,
-} from "@/lib/crossCheckConfig";
-import {
   loadCompanySettings, saveCompanySettings, type CompanySettings,
 } from "@/lib/companySettings";
 
@@ -24,26 +20,20 @@ type Company = {
   id: string;
   name: string;
   issues_invoice: boolean;
-  vat_included: boolean;
-  fee_rate_metro: number;
-  fee_rate_regional: number;
-  active: boolean;
   account_number: string | null;
   settlement_cycle: "biweekly" | "monthly";
   rejected_leader_id: string | null;
   rejected_leader_id_2: string | null;
   rejected_leader_id_3: string | null;
+  active: boolean;
 };
 type Leader = {
   id: string;
   name: string;
   region: string | null;
   is_rejected: boolean;
-  is_virtual: boolean;
   fee_rate_metro: number;
   fee_rate_regional: number;
-  deduction_amount: number;
-  trash_cost: number;
   settle_to_id: string | null;
   active: boolean;
   aliases: string[];
@@ -66,19 +56,11 @@ export default function Settings() {
           <TabsTrigger value="companies">업체관리</TabsTrigger>
           <TabsTrigger value="leaders">팀장관리</TabsTrigger>
           <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
-          <TabsTrigger value="advanced">고급</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><CompanyTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
-        <TabsContent value="advanced">
-          <div className="space-y-4">
-            <HolidaysTab />
-            <CrossCheckTab />
-            <OneDriveTab />
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );
