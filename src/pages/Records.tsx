@@ -2105,7 +2105,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
               placeholder="엑셀에서 헤더 포함 여러 행/열을 복사해 붙여넣으세요 (Ctrl+V)"
               rows={8}
               wrap="off"
-              className="font-mono text-xs whitespace-pre overflow-x-auto"
+              className="paste-area font-mono text-xs whitespace-pre overflow-x-auto"
             />
           </div>
 
