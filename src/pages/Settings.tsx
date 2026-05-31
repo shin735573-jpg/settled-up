@@ -821,7 +821,27 @@ function LeadersTab() {
     const aliases = r.aliases || [];
     return aliases.some((a) => (a || "").toLowerCase().includes(q));
   };
-  const filteredRows = rows.filter((r) => matchRegion(r) && matchSearch(r));
+  const filteredRows = rows
+    .filter((r) => matchRegion(r) && matchSearch(r))
+    .sort((a, b) => {
+      const getRegionOrder = (r: Leader) => {
+        const v = (r.region || "").trim();
+        if (v === "metro") return 0;
+        if (v === "regional") return 1;
+        return 2;
+      };
+      const ao = getRegionOrder(a);
+      const bo = getRegionOrder(b);
+      if (ao !== bo) return ao - bo;
+      const region = (a.region || "").trim();
+      if (region === "metro") {
+        return (a.fee_rate_metro || 0) - (b.fee_rate_metro || 0);
+      }
+      if (region === "regional") {
+        return (a.fee_rate_regional || 0) - (b.fee_rate_regional || 0);
+      }
+      return 0;
+    });
 
   const regionCounts = {
     all: rows.length,
