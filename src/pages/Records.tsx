@@ -1171,7 +1171,20 @@ export default function Records() {
                   const v = e.target.value;
                   setForm({ ...form, region: v, region_type: classifyRegion(v) });
                 }}
+                onBlur={(e) => {
+                  const v = (e.target.value || "").trim();
+                  if (!v) return;
+                  // "동" 단독 입력이며 키워드에 미등록 → 사용자 선택 요청
+                  if (isDongOnly(v) && classifyRegion(v) !== "metro") {
+                    setDongPrompt(v);
+                  }
+                }}
               />
+              {form.region && isDongOnly(form.region.trim()) && classifyRegion(form.region.trim()) !== "metro" && (
+                <div className="text-[11px] text-amber-700">
+                  '{form.region.trim()}'은(는) 동 이름만 입력되어 자동 분류가 어렵습니다. 수도권/지방을 선택하세요.
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <Label>지역구분</Label>
