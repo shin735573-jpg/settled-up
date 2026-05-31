@@ -723,6 +723,7 @@ export default function Records() {
   const [searchCompany, setSearchCompany] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchLeader, setSearchLeader] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
@@ -745,6 +746,19 @@ export default function Records() {
     if (!confirm("삭제하시겠습니까?")) return;
     await supabase.from("deliveries").delete().eq("id", id);
     if (form.id === id) setForm(emptyForm());
+    setSelectedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    load();
+  };
+
+  const bulkDeleteSelected = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) { toast.error("선택된 항목이 없습니다."); return; }
+    if (!confirm(`선택한 ${ids.length}건을 삭제하시겠습니까?`)) return;
+    const { error } = await supabase.from("deliveries").delete().in("id", ids);
+    if (error) { toast.error(`삭제 실패: ${error.message}`); return; }
+    if (form.id && ids.includes(form.id)) setForm(emptyForm());
+    setSelectedIds(new Set());
+    toast.success(`${ids.length}건 삭제 완료`);
     load();
   };
 
