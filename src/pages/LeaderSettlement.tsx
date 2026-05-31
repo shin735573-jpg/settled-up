@@ -403,7 +403,8 @@ export default function LeaderSettlement() {
       const afterFees = total - fees;
       const indiv = individualTotalFor(l.id);
       // 배송건이 없는 팀장에게는 공통공제(쓰레기비용 등)를 적용하지 않음
-      const common = count > 0 ? commonTotalFor(l.id) : 0;
+      // 쓰레기비용은 팀장별 trash_cost 를 보름 단위로 자동 차감 (한달=2번)
+      const common = count > 0 ? commonTotalFor(l.id) + trashCostAutoFor(l.id) : 0;
       const deduction = common + indiv;
       // 정산금은 음수 불가 — HQ 화면과 동일하게 0으로 클램프
       const net = Math.max(0, afterFees - cod - deduction);
