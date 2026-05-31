@@ -704,7 +704,8 @@ export default function LeaderSettlement() {
         <h1 className="text-2xl font-bold flex-1">팀장정산</h1>
         <PrintButton documentTitle={`팀장정산_${month}`} />
         <input
-          type="month" value={month} onChange={(e) => setMonth(e.target.value)}
+          type="month" value={month}
+          onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }}
           disabled={period === "all"} className="border rounded px-3 py-2"
         />
         <div className="flex gap-1">
@@ -714,10 +715,15 @@ export default function LeaderSettlement() {
             ["second", "16~말일"],
             ["month", "월전체"],
           ] as [Period, string][]).map(([p, label]) => (
-            <Button key={p} size="sm" variant={period === p ? "default" : "outline"} onClick={() => setPeriod(p)}>
+            <Button key={p} size="sm" variant={period === p ? "default" : "outline"}
+              onClick={() => { setPeriod(p); if (autoPeriod) toggleAutoPeriod(false); }}>
               {label}
             </Button>
           ))}
+        </div>
+        <div className="flex items-center gap-2 border rounded px-3 py-2">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">날짜 자동</span>
+          <Switch checked={autoPeriod} onCheckedChange={toggleAutoPeriod} />
         </div>
       </div>
 
