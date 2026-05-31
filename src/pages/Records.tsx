@@ -380,8 +380,10 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     ) },
 ];
 
+const RECORDS_TABLE_WIDTH = RECORDS_COLUMNS.reduce((sum, c) => sum + c.width, 0);
+
 function RecordsTable({
-  records, issuesByRow, expandedItems, setExpandedItems, editRow, removeRow, displayLeaderById,
+  records, issuesByRow, expandedItems, setExpandedItems, editRow, removeRow, displayLeaderById, displaySettlementStatus,
 }: {
   records: any[];
   issuesByRow: Map<string, ValidationIssue[]>;
@@ -390,6 +392,7 @@ function RecordsTable({
   editRow: (r: any) => void;
   removeRow: (id: string) => void;
   displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
+  displaySettlementStatus: (r: any) => string;
 }) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
