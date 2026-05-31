@@ -33,17 +33,20 @@ type Leader = {
 
 type Period = "h1" | "h2" | "all";
 
-const SUMMARY_COLUMNS = [
-  { key: "rank", label: "순위", width: 70 },
-  { key: "company", label: "업체", width: 150 },
-  { key: "company_count", label: "업체 건수", width: 100 },
-  { key: "company_amount", label: "업체 금액", width: 150 },
-  { key: "company_share", label: "업체 비중%", width: 100 },
-  { key: "gap", label: "", width: 40 },
-  { key: "leader", label: "팀장", width: 150 },
-  { key: "leader_count", label: "팀장 건수", width: 100 },
-  { key: "leader_amount", label: "팀장 금액", width: 150 },
-  { key: "leader_share", label: "팀장 비중%", width: 100 },
+const COMPANY_COLUMNS = [
+  { key: "rank", label: "순위", width: 60 },
+  { key: "company", label: "업체", width: 1 },
+  { key: "company_count", label: "건수", width: 70 },
+  { key: "company_amount", label: "금액", width: 1 },
+  { key: "company_share", label: "비중%", width: 70 },
+] as const;
+
+const LEADER_COLUMNS = [
+  { key: "rank", label: "순위", width: 60 },
+  { key: "leader", label: "팀장", width: 1 },
+  { key: "leader_count", label: "건수", width: 70 },
+  { key: "leader_amount", label: "실수령액", width: 1 },
+  { key: "leader_share", label: "비중%", width: 70 },
 ] as const;
 
 const inPeriod = (dateStr: string, period: Period): boolean => {
@@ -221,27 +224,9 @@ export default function Summary() {
   }, [companyAgg, leaderAgg]);
 
   const [diagMsg, setDiagMsg] = useState<string | null>(null);
-  const runDiagnostic = () => {
-    const headers = document.querySelectorAll('[data-summary-header-cell]');
-    const firstRow = document.querySelector('[data-summary-row="0"]');
-    const cells = firstRow ? firstRow.querySelectorAll('[data-summary-cell]') : null;
-    if (!cells || headers.length !== cells.length) {
-      setDiagMsg("한눈요약 목록의 업체/팀장 컬럼 위치가 일치하지 않습니다.");
-      return;
-    }
-    for (let i = 0; i < headers.length; i++) {
-      const hk = (headers[i] as HTMLElement).dataset.colKey;
-      const ck = (cells[i] as HTMLElement).dataset.colKey;
-      if (hk !== ck) {
-        setDiagMsg("한눈요약 목록의 업체/팀장 컬럼 위치가 일치하지 않습니다.");
-        return;
-      }
-    }
-    setDiagMsg(`정상: ${headers.length}개 컬럼 위치 일치`);
-  };
 
-  const gridTemplate = SUMMARY_COLUMNS.map((c) => `${c.width}px`).join(" ");
-  const minWidth = SUMMARY_COLUMNS.reduce((s, c) => s + c.width, 0);
+  const companyGridTemplate = COMPANY_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
+  const leaderGridTemplate = LEADER_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
   const cellBase = "flex items-center justify-center text-center px-2 py-2 text-sm border-b";
 
   // 기준서 #12 — 한눈요약 오류 6종 자동 탐지
@@ -349,64 +334,72 @@ export default function Summary() {
                 {diagMsg}
               </span>
             )}
-            <Button size="sm" variant="outline" onClick={runDiagnostic}>컬럼 위치 진단</Button>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <div style={{ minWidth }}>
-            <div
-              className="grid bg-muted/50 font-medium text-muted-foreground"
-              style={{ gridTemplateColumns: gridTemplate }}
-            >
-              {SUMMARY_COLUMNS.map((c) => (
-                <div
-                  key={c.key}
-                  data-summary-header-cell
-                  data-col-key={c.key}
-                  className={cellBase + " border-r last:border-r-0"}
-                >
-                  {c.label}
-                </div>
-              ))}
-            </div>
-            {mergedRows.map((row, idx) => {
-              const c = row.company;
-              const l = row.leader;
-              const cells: Record<string, React.ReactNode> = {
-                rank: row.rank,
-                company: c ? c.name : "-",
-                company_count: c ? c.count : "-",
-                company_amount: c ? fmt(c.fee) : "-",
-                company_share: c ? `${c.share.toFixed(1)}%` : "-",
-                gap: "",
-                leader: l ? l.name : "-",
-                leader_count: l ? l.count : "-",
-                leader_amount: l ? fmt(l.payout) : "-",
-                leader_share: l ? `${l.share.toFixed(1)}%` : "-",
-              };
-              return (
-                <div
-                  key={idx}
-                  data-summary-row={idx}
-                  className="grid hover:bg-muted/30"
-                  style={{ gridTemplateColumns: gridTemplate }}
-                >
-                  {SUMMARY_COLUMNS.map((col) => (
-                    <div
-                      key={col.key}
-                      data-summary-cell
-                      data-col-key={col.key}
-                      className={cellBase + " border-r last:border-r-0"}
-                    >
-                      {cells[col.key]}
-                    </div>
+        <div className="flex gap-4 p-4">
+          {/* 왼쪽: 업체 테이블 */}
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm mb-2 text-center">업체</div>
+            <div className="overflow-x-auto">
+              <div>
+                <div className="grid bg-muted/50 font-medium text-muted-foreground" style={{ gridTemplateColumns: companyGridTemplate }}>
+                  {COMPANY_COLUMNS.map((c) => (
+                    <div key={c.key} className={cellBase + " border-r last:border-r-0"}>{c.label}</div>
                   ))}
                 </div>
-              );
-            })}
-            {mergedRows.length === 0 && (
-              <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
-            )}
+                {companyAgg.map((c, idx) => {
+                  const cells: Record<string, React.ReactNode> = {
+                    rank: idx + 1,
+                    company: c.name,
+                    company_count: c.count,
+                    company_amount: fmt(c.fee),
+                    company_share: `${c.share.toFixed(1)}%`,
+                  };
+                  return (
+                    <div key={c.id} className="grid hover:bg-muted/30" style={{ gridTemplateColumns: companyGridTemplate }}>
+                      {COMPANY_COLUMNS.map((col) => (
+                        <div key={col.key} className={cellBase + " border-r last:border-r-0"}>{cells[col.key]}</div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {companyAgg.length === 0 && (
+                  <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* 오른쪽: 팀장 테이블 */}
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm mb-2 text-center">팀장</div>
+            <div className="overflow-x-auto">
+              <div>
+                <div className="grid bg-muted/50 font-medium text-muted-foreground" style={{ gridTemplateColumns: leaderGridTemplate }}>
+                  {LEADER_COLUMNS.map((c) => (
+                    <div key={c.key} className={cellBase + " border-r last:border-r-0"}>{c.label}</div>
+                  ))}
+                </div>
+                {leaderAgg.map((l, idx) => {
+                  const cells: Record<string, React.ReactNode> = {
+                    rank: idx + 1,
+                    leader: l.name,
+                    leader_count: l.count,
+                    leader_amount: fmt(l.payout),
+                    leader_share: `${l.share.toFixed(1)}%`,
+                  };
+                  return (
+                    <div key={l.id} className="grid hover:bg-muted/30" style={{ gridTemplateColumns: leaderGridTemplate }}>
+                      {LEADER_COLUMNS.map((col) => (
+                        <div key={col.key} className={cellBase + " border-r last:border-r-0"}>{cells[col.key]}</div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {leaderAgg.length === 0 && (
+                  <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </Card>
