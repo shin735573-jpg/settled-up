@@ -174,6 +174,8 @@ export default function Summary() {
   }, [companies, validRows]);
 
   // 팀장 요약: 집계 가능한 팀장만 + 실지급액
+  const trashCostMultiplier = period === "all" ? 2 : 1;
+
   const leaderAgg = useMemo(() => {
     const visible = leaders.filter(isCountable);
     const acc = new Map(
@@ -181,8 +183,8 @@ export default function Summary() {
         l.id,
         {
           id: l.id, name: l.name, count: 0, fee: 0, cod: 0, commission: 0,
-          // 자동공제는 쓰레기비용만 고정. 그 외 공제는 팀장정산에서 수동 입력해야 한다.
-          deduct: Number(l.trash_cost || 0),
+          // 자동공제는 쓰레기비용만 고정. 월전체는 보름 2회 차감한다.
+          deduct: Number(l.trash_cost || 0) * trashCostMultiplier,
         },
       ]),
     );
@@ -214,7 +216,7 @@ export default function Summary() {
         if (la && lb) return compareLeadersByFeeAsc(la, lb);
         return (a.name || "").localeCompare(b.name || "");
       });
-  }, [leaders, validRows]);
+  }, [leaders, validRows, trashCostMultiplier]);
 
   const companyTotal = companyAgg.reduce((s, x) => s + x.fee, 0);
   const leaderFeeTotal = leaderAgg.reduce((s, x) => s + x.fee, 0);

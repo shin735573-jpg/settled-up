@@ -110,7 +110,7 @@ export default function Saves() {
       const to = `${month}-${String(last).padStart(2, "0")}`;
       const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
       const commonKeys = period === "all"
-        ? ["all"]
+        ? [`${month}-first`, `${month}-second`]
         : [`${month}-${period === "h1" ? "first" : "second"}`];
       const [{ data: cs }, { data: ls }, { data: ds }, { data: hs }, { data: cds }, { data: ovs }, { data: pds }] = await Promise.all([
         supabase.from("companies").select("*").eq("user_id", uid).order("name"),
@@ -141,7 +141,7 @@ export default function Saves() {
   const deductionCtx: DeductionContext = useMemo(() => {
     const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
     const commonPeriodKeys = period === "all"
-      ? ["all"]
+      ? [`${month}-first`, `${month}-second`]
       : [`${month}-${period === "h1" ? "first" : "second"}`];
     return { commonDeductions, commonOverrides, periodDeductions, periodKey, commonPeriodKeys };
   }, [commonDeductions, commonOverrides, periodDeductions, period, month]);

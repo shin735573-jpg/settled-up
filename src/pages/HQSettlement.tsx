@@ -218,14 +218,16 @@ export default function HQSettlement() {
     fee: number; cod: number; commission: number; deduct: number; payout: number;
     minGuarantee: number; topUp: number;
   };
+  const trashCostMultiplier = period === "all" ? 2 : 1;
+
   const leaderDetails = useMemo<LeaderDetail[]>(() => {
     const visible = leaders.filter(isCountable);
     const acc = new Map<string, { id: string; name: string; count: number; metro: number; note: number; regional: number; cod: number; commission: number; deduct: number; minGuarantee: number; minEnabled: boolean }>();
     for (const l of visible) {
       acc.set(l.id, {
         id: l.id, name: l.name, count: 0, metro: 0, note: 0, regional: 0, cod: 0, commission: 0,
-        // 자동공제는 쓰레기비용만 고정. 그 외 공제는 팀장정산에서 수동 입력해야 한다.
-        deduct: Number(l.trash_cost || 0),
+        // 자동공제는 쓰레기비용만 고정. 월전체는 보름 2회 차감한다.
+        deduct: Number(l.trash_cost || 0) * trashCostMultiplier,
         minGuarantee: Number(l.min_guarantee_amount || 0),
         minEnabled: !!l.min_guarantee_enabled,
       });
@@ -264,7 +266,7 @@ export default function HQSettlement() {
       if (la && lb) return compareLeadersByFeeAsc(la, lb);
       return (a.name || "").localeCompare(b.name || "");
     });
-  }, [leaders, validRows, byId]);
+  }, [leaders, validRows, byId, trashCostMultiplier]);
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
 
