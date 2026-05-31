@@ -683,6 +683,34 @@ export default function Saves() {
             업로드 폴더: <span className="font-mono">정산서_저장/{month}_{period === "h1" ? "1-15일" : period === "h2" ? "16-말일" : "월전체"}/업체|팀장/</span>
           </span>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3 text-sm">
+          {saveDir ? (
+            <>
+              <FolderCheck className="h-4 w-4 text-primary" />
+              <span className="text-xs">
+                저장 폴더: <span className="font-mono font-semibold">{saveDirName}</span>
+                <span className="ml-1 text-muted-foreground">/ {new Date().toISOString().slice(0,10)}_정산서 / 업체|팀장 / *.jpg</span>
+              </span>
+              <Button variant="outline" size="sm" onClick={onPickSaveDir}>
+                <FolderOpen className="mr-1 h-3.5 w-3.5" /> 폴더 변경
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onClearSaveDir}>해제</Button>
+            </>
+          ) : (
+            <>
+              <FolderOpen className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                저장 폴더 미지정 — 브라우저 기본 다운로드 폴더로 저장됩니다.
+              </span>
+              <Button variant="default" size="sm" onClick={onPickSaveDir} disabled={!isFsAccessSupported()}>
+                <FolderOpen className="mr-1 h-3.5 w-3.5" /> 저장 폴더 지정 (바탕화면/삼호정산서)
+              </Button>
+              {!isFsAccessSupported() && (
+                <span className="text-[11px] text-destructive">※ 이 브라우저는 폴더 직접 저장을 지원하지 않습니다(Chrome/Edge 권장).</span>
+              )}
+            </>
+          )}
+        </div>
       </Card>
 
       <Tabs defaultValue="company" className="space-y-3">
