@@ -302,13 +302,6 @@ function LeadersTab() {
 
   const dupCounts = detectDuplicates(rows);
 
-  const updateAliases = async (id: string, raw: string) => {
-    const aliases = raw.split(",").map((s) => s.trim()).filter(Boolean);
-    const conflict = findAliasConflict(id, aliases, rows);
-    if (conflict) { toast.error(conflict); load(); return; }
-    await update(id, { aliases } as any);
-  };
-
   /** 별칭 1개만 허용 */
   const updateAlias = async (id: string, value: string) => {
     const row = rows.find((r) => r.id === id);
