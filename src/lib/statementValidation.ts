@@ -8,6 +8,7 @@ import type {
   StmtDelivery,
   StmtLeader,
 } from "./statementData";
+import { matchesCompany } from "./companyMatch";
 
 export type Finding = { severity: "error" | "warning"; message: string };
 export type CheckResult = {
@@ -38,10 +39,8 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
 
   // 1) 해당 업체 데이터만 포함되었는지
   for (const row of data.rows) {
-    const matchById = row.company_id && row.company_id === c.id;
-    const matchByName = !row.company_id && row.company_name === c.name;
-    if (!matchById && !matchByName) {
-      push(r, "error", `${prefix} 다른 업체 데이터 혼입: ${row.date} ${row.company_name ?? "?"}`);
+    if (!matchesCompany({ company_id: row.company_id, company_name: row.company_name ?? null }, { id: c.id, name: c.name })) {
+      push(r, "error", `${prefix} 다른 업체 데이터가 포함되었습니다: ${row.date} ${row.company_name ?? "?"}`);
     }
   }
 

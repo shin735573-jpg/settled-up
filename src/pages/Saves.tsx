@@ -232,6 +232,7 @@ export default function Saves() {
   // ─── 저장 전 오류 검사 + 후속 저장 액션 ────────────────────
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
+  const [pendingPartial, setPendingPartial] = useState<null | { fn: () => void; count: number; label: string }>(null);
   const [checkTitle, setCheckTitle] = useState<string>("");
 
   /**
@@ -275,6 +276,24 @@ export default function Saves() {
     return mergeResults(...results);
   }
 
+  /** scope 내에서 개별 대상별로 오류가 있는 id 집합을 구한다. */
+  function findErroredIds(scope: Scope): { companyIds: Set<string>; leaderIds: Set<string> } {
+    const companyIds = new Set<string>();
+    const leaderIds = new Set<string>();
+    if (scope === "company-all" || scope === "both-all") {
+      for (const data of companyStmts) {
+        if (!validateCompanyStatement(data).ok) companyIds.add(data.company.id);
+      }
+    }
+    if (scope === "leader-all" || scope === "both-all") {
+      for (const data of leaderStmts) {
+        if (!validateLeaderStatement(data, { leaders, ...special, oeunkyuSpecial }).ok)
+          leaderIds.add(data.leader.id);
+      }
+    }
+    return { companyIds, leaderIds };
+  }
+
   function withValidation(title: string, scope: Scope, save: () => void) {
     const result = runChecksFor(scope);
     setCheckTitle(title);
@@ -287,6 +306,62 @@ export default function Saves() {
     }
     // 오류 or 경고 → 다이얼로그 표시. setState(fn) 은 updater 로 해석되므로 한 번 더 감싼다.
     setPendingSave(() => (result.ok ? save : null));
+    // 전체 저장에서 오류가 있으면 "오류 없는 항목만 저장" 옵션 제공
+    if (!result.ok && (scope === "company-all" || scope === "leader-all" || scope === "both-all")) {
+      const { companyIds, leaderIds } = findErroredIds(scope);
+      const okCompanies = scope !== "leader-all" ? companyStmts.filter((s) => !companyIds.has(s.company.id)).length : 0;
+      const okLeaders = scope !== "company-all" ? leaderStmts.filter((s) => !leaderIds.has(s.leader.id)).length : 0;
+      const total = okCompanies + okLeaders;
+      if (total > 0) {
+        const kind = scope === "company-all" ? "company" : scope === "leader-all" ? "leader" : "both";
+        setPendingPartial({
+          fn: () => doExportAllFiltered(kind, false, companyIds, leaderIds),
+          count: total,
+          label: `오류 없는 ${scope === "leader-all" ? "팀장" : scope === "company-all" ? "업체" : "항목"}만 저장 (${total}건)`,
+        });
+      } else {
+        setPendingPartial(null);
+      }
+    } else {
+      setPendingPartial(null);
+    }
+  }
+
+  async function doExportAllFiltered(
+    kind: "company" | "leader" | "both",
+    regenerate: boolean,
+    skipCompanyIds: Set<string>,
+    skipLeaderIds: Set<string>,
+  ) {
+    const keys = kind === "both" ? [lockKey("company"), lockKey("leader")] : [lockKey(kind)];
+    if (!acquireLocks(keys)) {
+      toast({ title: "이미 저장 중", variant: "destructive" });
+      return;
+    }
+    const all =
+      kind === "company" ? collectNodes("company")
+      : kind === "leader" ? collectNodes("leader")
+      : [...collectNodes("company"), ...collectNodes("leader")];
+    const targets = all.filter((t) =>
+      t.kind === "company" ? !skipCompanyIds.has(t.id) : !skipLeaderIds.has(t.id),
+    );
+    if (targets.length === 0) {
+      toast({ title: "저장 대상 없음", variant: "destructive" });
+      releaseLocks(keys);
+      return;
+    }
+    try {
+      const { filename, count } = await exportZip(
+        targets, month, period, regenerate,
+        (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
+      );
+      toast({ title: "저장 완료", description: `${filename} (${count}건, 오류 ${all.length - count}건 제외)` });
+    } catch (e) {
+      toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setExportingMsg("");
+      releaseLocks(keys);
+    }
   }
 
   const onSaveCompanyOne = () => selectedCompany && withValidation(
@@ -542,7 +617,7 @@ export default function Saves() {
         })}
       </div>
 
-      <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
+      <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); setPendingPartial(null); } }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>
@@ -607,15 +682,30 @@ export default function Saves() {
             </ul>
           </ScrollArea>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setCheckResult(null); setPendingSave(null); }}>
+            <Button variant="outline" onClick={() => { setCheckResult(null); setPendingSave(null); setPendingPartial(null); }}>
               닫기
             </Button>
+            {pendingPartial && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const fn = pendingPartial.fn;
+                  setCheckResult(null);
+                  setPendingSave(null);
+                  setPendingPartial(null);
+                  fn();
+                }}
+              >
+                {pendingPartial.label}
+              </Button>
+            )}
             {pendingSave && (
               <Button
                 onClick={() => {
                   const fn = pendingSave;
                   setCheckResult(null);
                   setPendingSave(null);
+                  setPendingPartial(null);
                   fn();
                 }}
               >
