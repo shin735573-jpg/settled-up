@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fmt } from "@/lib/format";
 import { allocateRow } from "@/lib/splitAllocation";
@@ -16,6 +16,19 @@ type Leader = {
 };
 
 type Period = "h1" | "h2" | "all";
+
+const SUMMARY_COLUMNS = [
+  { key: "rank", label: "순위", width: 70 },
+  { key: "company", label: "업체", width: 150 },
+  { key: "company_count", label: "업체 건수", width: 100 },
+  { key: "company_amount", label: "업체 금액", width: 150 },
+  { key: "company_share", label: "업체 비중%", width: 100 },
+  { key: "gap", label: "", width: 40 },
+  { key: "leader", label: "팀장", width: 150 },
+  { key: "leader_count", label: "팀장 건수", width: 100 },
+  { key: "leader_amount", label: "팀장 금액", width: 150 },
+  { key: "leader_share", label: "팀장 비중%", width: 100 },
+] as const;
 
 const inPeriod = (dateStr: string, period: Period): boolean => {
   const d = Number((dateStr || "").slice(8, 10));
@@ -159,6 +172,39 @@ export default function Summary() {
   const leaderFeeTotal = leaderAgg.reduce((s, x) => s + x.fee, 0);
   void leaderFeeTotal; void companyTotal;
 
+  const mergedRows = useMemo(() => {
+    const len = Math.max(companyAgg.length, leaderAgg.length);
+    return Array.from({ length: len }, (_, i) => ({
+      rank: i + 1,
+      company: companyAgg[i] ?? null,
+      leader: leaderAgg[i] ?? null,
+    }));
+  }, [companyAgg, leaderAgg]);
+
+  const [diagMsg, setDiagMsg] = useState<string | null>(null);
+  const runDiagnostic = () => {
+    const headers = document.querySelectorAll('[data-summary-header-cell]');
+    const firstRow = document.querySelector('[data-summary-row="0"]');
+    const cells = firstRow ? firstRow.querySelectorAll('[data-summary-cell]') : null;
+    if (!cells || headers.length !== cells.length) {
+      setDiagMsg("한눈요약 목록의 업체/팀장 컬럼 위치가 일치하지 않습니다.");
+      return;
+    }
+    for (let i = 0; i < headers.length; i++) {
+      const hk = (headers[i] as HTMLElement).dataset.colKey;
+      const ck = (cells[i] as HTMLElement).dataset.colKey;
+      if (hk !== ck) {
+        setDiagMsg("한눈요약 목록의 업체/팀장 컬럼 위치가 일치하지 않습니다.");
+        return;
+      }
+    }
+    setDiagMsg(`정상: ${headers.length}개 컬럼 위치 일치`);
+  };
+
+  const gridTemplate = SUMMARY_COLUMNS.map((c) => `${c.width}px`).join(" ");
+  const minWidth = SUMMARY_COLUMNS.reduce((s, c) => s + c.width, 0);
+  const cellBase = "flex items-center justify-center text-center px-2 py-2 text-sm border-b";
+
   // 기준서 #12 — 한눈요약 오류 6종 자동 탐지
   const errorChecks = useMemo(() => {
     // 1) 업체명이 "모던"만 반복 — 집계된 활성 업체 모두 이름에 '모던' 포함
@@ -228,61 +274,78 @@ export default function Summary() {
           <TabsTrigger value="all">월전체</TabsTrigger>
         </TabsList>
         <TabsContent value={period} className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="overflow-x-auto">
-          <div className="px-4 py-3 border-b font-semibold">업체별 요약 <span className="text-xs text-muted-foreground">(배송비 = 수도권+비고+지방, 착불·부가세·계산서 제외)</span></div>
-          <Table className="text-sm num">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">순위</TableHead>
-                <TableHead>업체</TableHead>
-                <TableHead className="text-right">건수</TableHead>
-                <TableHead className="text-right">금액</TableHead>
-                <TableHead className="text-right">비중%</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {companyAgg.map((r, idx) => (
-                <TableRow key={r.id}>
-                  <TableCell>{idx + 1}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.name}</TableCell>
-                  <TableCell className="text-right">{r.count}</TableCell>
-                  <TableCell className="text-right">{fmt(r.fee)}</TableCell>
-                  <TableCell className="text-right">{r.share.toFixed(1)}%</TableCell>
-                </TableRow>
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div className="font-semibold">
+            업체/팀장 요약 <span className="text-xs text-muted-foreground">(업체 금액=수도권+비고+지방, 팀장 금액=실수령액)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {diagMsg && (
+              <span className={diagMsg.startsWith("정상") ? "text-xs text-primary" : "text-xs text-destructive"}>
+                {diagMsg}
+              </span>
+            )}
+            <Button size="sm" variant="outline" onClick={runDiagnostic}>컬럼 위치 진단</Button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <div style={{ minWidth }}>
+            <div
+              className="grid bg-muted/50 font-medium text-muted-foreground"
+              style={{ gridTemplateColumns: gridTemplate }}
+            >
+              {SUMMARY_COLUMNS.map((c) => (
+                <div
+                  key={c.key}
+                  data-summary-header-cell
+                  data-col-key={c.key}
+                  className={cellBase + " border-r last:border-r-0"}
+                >
+                  {c.label}
+                </div>
               ))}
-              {companyAgg.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">등록된 활성 업체가 없습니다.</TableCell></TableRow>}
-            </TableBody>
-          </Table>
-        </Card>
-
-        <Card className="overflow-x-auto">
-          <div className="px-4 py-3 border-b font-semibold">팀장별 요약 <span className="text-xs text-muted-foreground">(실지급액 = 배송비 − 착불 − 공제, 가상·정산제외 미표시)</span></div>
-          <Table className="text-sm num">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">순위</TableHead>
-                <TableHead>팀장</TableHead>
-                <TableHead className="text-right">건수</TableHead>
-                <TableHead className="text-right">실수령액</TableHead>
-                <TableHead className="text-right">비중%</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {leaderAgg.map((r, idx) => (
-                <TableRow key={r.id}>
-                  <TableCell>{idx + 1}</TableCell>
-                  <TableCell className="whitespace-nowrap">{r.name}</TableCell>
-                  <TableCell className="text-right">{r.count}</TableCell>
-                  <TableCell className="text-right">{fmt(r.payout)}</TableCell>
-                  <TableCell className="text-right">{r.share.toFixed(1)}%</TableCell>
-                </TableRow>
-              ))}
-              {leaderAgg.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">표시할 팀장이 없습니다.</TableCell></TableRow>}
-            </TableBody>
-          </Table>
-        </Card>
-      </div>
+            </div>
+            {mergedRows.map((row, idx) => {
+              const c = row.company;
+              const l = row.leader;
+              const cells: Record<string, React.ReactNode> = {
+                rank: row.rank,
+                company: c ? c.name : "-",
+                company_count: c ? c.count : "-",
+                company_amount: c ? fmt(c.fee) : "-",
+                company_share: c ? `${c.share.toFixed(1)}%` : "-",
+                gap: "",
+                leader: l ? l.name : "-",
+                leader_count: l ? l.count : "-",
+                leader_amount: l ? fmt(l.payout) : "-",
+                leader_share: l ? `${l.share.toFixed(1)}%` : "-",
+              };
+              return (
+                <div
+                  key={idx}
+                  data-summary-row={idx}
+                  className="grid hover:bg-muted/30"
+                  style={{ gridTemplateColumns: gridTemplate }}
+                >
+                  {SUMMARY_COLUMNS.map((col) => (
+                    <div
+                      key={col.key}
+                      data-summary-cell
+                      data-col-key={col.key}
+                      className={cellBase + " border-r last:border-r-0"}
+                    >
+                      {cells[col.key]}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            {mergedRows.length === 0 && (
+              <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* 오류 검사 (기준서 #12) */}
       <Card className="p-4 space-y-2">
