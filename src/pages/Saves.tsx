@@ -23,6 +23,10 @@ import {
   type StmtCompany,
   type StmtDelivery,
   type StmtLeader,
+  type StmtCommonDeduction,
+  type StmtCommonOverride,
+  type StmtPeriodDeduction,
+  type DeductionContext,
 } from "@/lib/statementData";
 import {
   validateCompanyStatement,
@@ -46,6 +50,9 @@ export default function Saves() {
   const [companies, setCompanies] = useState<StmtCompany[]>([]);
   const [leaders, setLeaders] = useState<StmtLeader[]>([]);
   const [deliveries, setDeliveries] = useState<StmtDelivery[]>([]);
+  const [commonDeductions, setCommonDeductions] = useState<StmtCommonDeduction[]>([]);
+  const [commonOverrides, setCommonOverrides] = useState<StmtCommonOverride[]>([]);
+  const [periodDeductions, setPeriodDeductions] = useState<StmtPeriodDeduction[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -59,31 +66,49 @@ export default function Saves() {
       const from = `${month}-01`;
       const last = new Date(y, m, 0).getDate();
       const to = `${month}-${String(last).padStart(2, "0")}`;
-      const [{ data: cs }, { data: ls }, { data: ds }] = await Promise.all([
+      const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
+      const commonKeys = period === "all"
+        ? ["all"]
+        : [`${month}-${period === "h1" ? "first" : "second"}`];
+      const [{ data: cs }, { data: ls }, { data: ds }, { data: cds }, { data: ovs }, { data: pds }] = await Promise.all([
         supabase.from("companies").select("*").eq("user_id", uid).order("name"),
         supabase.from("team_leaders").select("*").eq("user_id", uid).order("name"),
         supabase.from("deliveries").select("*").eq("user_id", uid).gte("date", from).lte("date", to),
+        supabase.from("common_deductions").select("id,label,amount,active").eq("user_id", uid).order("sort_order"),
+        supabase.from("leader_common_overrides").select("leader_id,common_deduction_id,period_key,amount").eq("user_id", uid).in("period_key", commonKeys),
+        supabase.from("leader_period_deductions").select("leader_id,period_key,label,amount").eq("user_id", uid).eq("period_key", periodKey),
       ]);
       setCompanies((cs ?? []) as unknown as StmtCompany[]);
       setLeaders((ls ?? []) as unknown as StmtLeader[]);
       setDeliveries((ds ?? []) as unknown as StmtDelivery[]);
+      setCommonDeductions((cds ?? []) as unknown as StmtCommonDeduction[]);
+      setCommonOverrides((ovs ?? []) as unknown as StmtCommonOverride[]);
+      setPeriodDeductions((pds ?? []) as unknown as StmtPeriodDeduction[]);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { reload(); /* eslint-disable-next-line */ }, [uid, month]);
+  useEffect(() => { reload(); /* eslint-disable-next-line */ }, [uid, month, period]);
 
   const special = useMemo(() => detectSpecialLeaderIds(leaders), [leaders]);
   const oeunkyuSpecial = settings?.oeunkyuSpecial ?? true;
+
+  const deductionCtx: DeductionContext = useMemo(() => {
+    const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
+    const commonPeriodKeys = period === "all"
+      ? ["all"]
+      : [`${month}-${period === "h1" ? "first" : "second"}`];
+    return { commonDeductions, commonOverrides, periodDeductions, periodKey, commonPeriodKeys };
+  }, [commonDeductions, commonOverrides, periodDeductions, period, month]);
 
   const companyStmts = useMemo(
     () => buildCompanyStatements(deliveries, companies, leaders, period),
     [deliveries, companies, leaders, period],
   );
   const leaderStmts = useMemo(
-    () => buildLeaderStatements(deliveries, leaders, period, { ...special, oeunkyuSpecial }),
-    [deliveries, leaders, period, special, oeunkyuSpecial],
+    () => buildLeaderStatements(deliveries, leaders, period, { ...special, oeunkyuSpecial }, deductionCtx),
+    [deliveries, leaders, period, special, oeunkyuSpecial, deductionCtx],
   );
 
   // 기본 선택 자동 동기화
