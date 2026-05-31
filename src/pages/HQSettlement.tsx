@@ -404,8 +404,8 @@ export default function HQSettlement() {
   );
 
   // ── 매출 / 수익
-  // 본사 수익 = 신동석 + 삼호 + 적재비 + 수수료
-  const grossSales = hqDirectFee + loadingTotal + leaderCommissionTotal;
+  // 본사 수익 = 신동석 + 삼호 + 적재비(청구분만) + 수수료
+  const grossSales = hqDirectFee + loadingBilled + leaderCommissionTotal;
   const hqProfit = grossSales - expenseTotal;
 
   // 업체정산관리 요약
@@ -554,8 +554,8 @@ export default function HQSettlement() {
               <span className="font-medium">{fmt(totalDeliveryFee)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">적재비</span>
-              <span className="font-medium">{fmt(loadingTotal)}</span>
+              <span className="text-muted-foreground">적재비 (청구분)</span>
+              <span className="font-medium">{fmt(loadingBilled)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">신동석 배송비</span>
@@ -578,7 +578,7 @@ export default function HQSettlement() {
               <span className={`font-bold ${hqProfit < 0 ? "text-destructive" : "text-primary"}`}>{fmt(hqProfit)}</span>
             </div>
             <div className="px-4 py-2 bg-muted/20 text-xs text-muted-foreground text-center">
-              (신동석 {fmt(shindongseokFee)} + 삼호 {fmt(samhoFee)} + 적재비 {fmt(loadingTotal)} + 수수료 {fmt(leaderCommissionTotal)}) - 총지출 {fmt(expenseTotal)} = {fmt(hqProfit)}
+              (신동석 {fmt(shindongseokFee)} + 삼호 {fmt(samhoFee)} + 적재비(청구) {fmt(loadingBilled)} + 수수료 {fmt(leaderCommissionTotal)}) - 총지출 {fmt(expenseTotal)} = {fmt(hqProfit)}
             </div>
           </div>
         </Card>
