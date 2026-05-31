@@ -535,13 +535,13 @@ export default function Saves() {
             <Input
               type="month"
               value={month}
-              onChange={(e) => setMonth(e.target.value)}
+              onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }}
               className="w-[160px]"
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">기간</Label>
-            <Select value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
+            <Select value={period} onValueChange={(v) => { setPeriod(v as PeriodKey); if (autoPeriod) toggleAutoPeriod(false); }}>
               <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="h1">1~15일</SelectItem>
@@ -549,6 +549,15 @@ export default function Saves() {
                 <SelectItem value="all">월전체</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">날짜 자동</Label>
+            <div className="flex h-10 items-center gap-2 rounded-md border px-3">
+              <Switch checked={autoPeriod} onCheckedChange={toggleAutoPeriod} />
+              <span className="text-xs text-muted-foreground">
+                {autoPeriod ? "자동" : "수동"}
+              </span>
+            </div>
           </div>
           <Button variant="outline" onClick={reload} disabled={loading}>
             새로고침
