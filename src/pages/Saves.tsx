@@ -304,6 +304,24 @@ export default function Saves() {
     setUploadOD(v);
     try { localStorage.setItem("saves.uploadOD", v ? "1" : "0"); } catch { /* noop */ }
   };
+
+  // ─── 기간 변경 자동저장 옵션 ────────────────────────────
+  const [autoSaveOnChange, setAutoSaveOnChange] = useState<boolean>(() => {
+    try { return localStorage.getItem("saves.autoSaveOnChange") !== "0"; } catch { return true; }
+  });
+  const toggleAutoSaveOnChange = (v: boolean) => {
+    setAutoSaveOnChange(v);
+    try { localStorage.setItem("saves.autoSaveOnChange", v ? "1" : "0"); } catch { /* noop */ }
+  };
+  const autoSavedKey = (m: string, p: PeriodKey) =>
+    `saves.autoSaved.${uid ?? "anon"}.${m}.${p}`;
+  const isAutoSavedFor = (m: string, p: PeriodKey) => {
+    try { return localStorage.getItem(autoSavedKey(m, p)) === "1"; } catch { return false; }
+  };
+  const markAutoSavedFor = (m: string, p: PeriodKey) => {
+    try { localStorage.setItem(autoSavedKey(m, p), "1"); } catch { /* noop */ }
+  };
+  const autoSavingRef = useRef<string | null>(null);
   const [verifyingOD, setVerifyingOD] = useState(false);
   async function verifyOneDrive() {
     setVerifyingOD(true);
@@ -496,6 +514,33 @@ export default function Saves() {
   const blockedReason: string | undefined = undefined;
   const saveBlocked = false;
 
+  // ─── 기간 변경 시 자동저장 (업체+팀장 전체, 1회) ──────────
+  useEffect(() => {
+    if (!autoSaveOnChange) return;
+    if (!uid) return;
+    if (loading) return;
+    const key = `${month}:${period}`;
+    if (autoSavingRef.current === key) return;
+    if (isAutoSavedFor(month, period)) return;
+    if (locks.has(lockKey("company")) || locks.has(lockKey("leader"))) return;
+    // 저장 대상이 하나도 없으면 스킵 (플래그도 세우지 않음 → 데이터 들어오면 재시도)
+    const hasCompany = companyStmts.some((s) => s.finalClaim > 0);
+    const hasLeader = leaderStmts.some((s) => s.deliveryCount > 0);
+    if (!hasCompany && !hasLeader) return;
+    autoSavingRef.current = key;
+    // DOM(숨겨진 export 노드)이 그려질 시간을 확보
+    const t = setTimeout(async () => {
+      try {
+        await doExportAll("both", false);
+        markAutoSavedFor(month, period);
+      } finally {
+        autoSavingRef.current = null;
+      }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, month, period, loading, companyStmts, leaderStmts, autoSaveOnChange]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -556,6 +601,20 @@ export default function Saves() {
             {uploadOD ? <Cloud className="h-4 w-4 text-primary" /> : <CloudOff className="h-4 w-4 text-muted-foreground" />}
             <Label htmlFor="save-od" className="cursor-pointer">OneDrive에도 업로드</Label>
             <Switch id="save-od" checked={uploadOD} onCheckedChange={toggleUploadOD} />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="save-auto" className="cursor-pointer">기간 변경 시 자동저장</Label>
+            <Switch id="save-auto" checked={autoSaveOnChange} onCheckedChange={toggleAutoSaveOnChange} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                try { localStorage.removeItem(autoSavedKey(month, period)); } catch { /* noop */ }
+                toast({ title: "자동저장 플래그 해제", description: `${month} ${PERIOD_LABEL[period]} — 다음 동기화에서 다시 저장됩니다.` });
+              }}
+            >
+              이 기간 다시 저장
+            </Button>
           </div>
           <Button variant="outline" size="sm" onClick={verifyOneDrive} disabled={verifyingOD}>
             {verifyingOD ? "확인 중…" : "OneDrive 연결 확인"}
