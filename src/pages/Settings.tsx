@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { detectDuplicates, findAliasConflict, findDisplayNameConflict, getDisplayName, resolveLeaderName } from "@/lib/leaderResolver";
 import {
   loadCompanySettings, saveCompanySettings, type CompanySettings,
@@ -151,6 +152,9 @@ function CompaniesTab() {
   const [rows, setRows] = useState<Company[]>([]);
   const [name, setName] = useState("");
   const [leaders, setLeadersList] = useState<{ id: string; name: string }[]>([]);
+  const [dupOpen, setDupOpen] = useState(false);
+  const [dupGroups, setDupGroups] = useState<Company[][]>([]);
+  const [merging, setMerging] = useState(false);
 
   const load = async () => {
     const [{ data }, { data: ls }] = await Promise.all([
@@ -199,11 +203,83 @@ function CompaniesTab() {
     load();
   };
 
+  // 업체명 정규화: 공백/괄호/특수문자 제거, 소문자
+  const normalize = (s: string) =>
+    (s || "").toLowerCase().replace(/[\s\(\)\[\]\-_.,/\\·•:;'"`]+/g, "");
+
+  const detectDups = () => {
+    const map = new Map<string, Company[]>();
+    for (const r of rows) {
+      const k = normalize(r.name);
+      if (!k) continue;
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(r);
+    }
+    const groups = Array.from(map.values()).filter((g) => g.length > 1);
+    setDupGroups(groups);
+    setDupOpen(true);
+    if (groups.length === 0) toast.success("중복된 업체가 없습니다.");
+  };
+
+  // 한 그룹을 canonical로 통합
+  const mergeGroup = async (group: Company[], canonicalId: string) => {
+    if (!user) return;
+    const canonical = group.find((g) => g.id === canonicalId);
+    if (!canonical) return;
+    const others = group.filter((g) => g.id !== canonicalId);
+    const otherIds = others.map((o) => o.id);
+    if (otherIds.length === 0) return;
+    setMerging(true);
+    try {
+      // 1) deliveries 재할당
+      const { error: e1 } = await supabase
+        .from("deliveries")
+        .update({ company_id: canonical.id, company_name: canonical.name })
+        .in("company_id", otherIds);
+      if (e1) throw e1;
+      // 2) 이름 기반 deliveries (company_id null 인 경우 대비)
+      const otherNames = others.map((o) => o.name);
+      if (otherNames.length > 0) {
+        await supabase
+          .from("deliveries")
+          .update({ company_id: canonical.id, company_name: canonical.name })
+          .is("company_id", null)
+          .in("company_name", otherNames);
+      }
+      // 3) price_list 재할당
+      await supabase
+        .from("price_list")
+        .update({ company_id: canonical.id, company_name: canonical.name })
+        .in("company_id", otherIds);
+      // 4) 중복 업체 삭제
+      const { error: e3 } = await supabase.from("companies").delete().in("id", otherIds);
+      if (e3) throw e3;
+      toast.success(`${others.length}건을 "${canonical.name}"(으)로 통합했습니다.`);
+      await load();
+      // 그룹 갱신
+      setDupGroups((prev) => prev.filter((g) => g !== group));
+    } catch (err: any) {
+      toast.error("통합 실패: " + (err?.message || String(err)));
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const mergeAll = async () => {
+    if (!confirm(`총 ${dupGroups.length}개 그룹을 자동 통합합니다. 진행할까요?\n(각 그룹에서 가장 먼저 등록된 업체를 기준으로 합칩니다)`)) return;
+    for (const g of [...dupGroups]) {
+      // canonical = 가장 먼저 등록된(이름 알파벳 우선) → 여기선 단순히 첫 번째
+      const canonical = g[0];
+      await mergeGroup(g, canonical.id);
+    }
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <div className="flex gap-2">
         <Input placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
         <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
+        <Button variant="outline" onClick={detectDups}>중복 검사</Button>
       </div>
       <Table>
         <TableHeader>
@@ -273,6 +349,53 @@ function CompaniesTab() {
           {rows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">등록된 업체가 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
+      <Dialog open={dupOpen} onOpenChange={setDupOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>업체 중복 검사 결과</DialogTitle>
+          </DialogHeader>
+          {dupGroups.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">중복된 업체가 없습니다.</div>
+          ) : (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              <div className="text-xs text-muted-foreground">
+                같은 이름(공백/특수문자 무시)으로 묶인 그룹입니다. 기준 업체를 선택하면 나머지가 그 업체로 통합되며, 모든 배송/단가 데이터가 옮겨집니다.
+              </div>
+              {dupGroups.map((g, gi) => (
+                <Card key={gi} className="p-3 space-y-2">
+                  <div className="text-sm font-medium">그룹 {gi + 1} · {g.length}개</div>
+                  <div className="space-y-1">
+                    {g.map((c) => (
+                      <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
+                        <div className="flex-1 truncate">
+                          <span className="font-medium">{c.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {c.active ? "사용중" : "미사용"} · {c.issues_invoice ? "계산서" : "노계산서"}
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={merging}
+                          onClick={() => mergeGroup(g, c.id)}
+                        >
+                          이 업체로 통합
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            {dupGroups.length > 0 && (
+              <Button onClick={mergeAll} disabled={merging}>전체 자동 통합</Button>
+            )}
+            <Button variant="outline" onClick={() => setDupOpen(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
