@@ -406,12 +406,12 @@ export default function Summary() {
       </Card>
 
       {/* 오류 검사 (기준서 #12) */}
-      <Card className="p-4 space-y-2">
-        <div className="font-semibold text-sm">오류 검사</div>
-        <ul className="text-sm space-y-1">
+      <Card className="p-6 space-y-3">
+        <div className="font-semibold text-base">오류 검사</div>
+        <ul className="text-base space-y-2">
           {errorChecks.map((c) => (
-            <li key={c.label} className="flex items-center gap-2">
-              <span className={c.err ? "text-destructive" : "text-primary"}>{c.err ? "✗" : "✓"}</span>
+            <li key={c.label} className="flex items-center gap-3">
+              <span className={c.err ? "text-destructive text-lg" : "text-primary text-lg"}>{c.err ? "✗" : "✓"}</span>
               <span className={c.err ? "text-destructive" : ""}>{c.label}</span>
             </li>
           ))}
