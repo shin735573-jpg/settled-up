@@ -395,7 +395,7 @@ export default function HQSettlement() {
       )}
 
       {/* 상단: 본사 수익 요약 + 적재비 입력 */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <Card className={`p-0 overflow-hidden ${totalsMismatch ? "border-destructive" : ""}`}>
           <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 수익 요약</div>
           <div className="divide-y text-sm">
@@ -515,7 +515,7 @@ export default function HQSettlement() {
       </div>
 
       {/* 3분할: 지출 / 팀장 / 업체 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         {/* 지출관리 */}
         <Card className="overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold flex items-center justify-between">
