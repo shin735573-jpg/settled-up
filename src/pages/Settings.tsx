@@ -159,6 +159,7 @@ function CompaniesTab() {
   const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
   const [manualCanonical, setManualCanonical] = useState<string | null>(null);
   const [manualFilter, setManualFilter] = useState("");
+  const [search, setSearch] = useState("");
   const [preview, setPreview] = useState<{
     group: Company[];
     canonical: Company;
