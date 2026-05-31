@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
+import { totalDeliveryFee } from "@/lib/totalFee";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -417,8 +418,8 @@ export default function LeaderSettlement() {
       totalCount += m.count;
       totalCod += m.cod;
     });
-    // 총배송비 = 기간 내 모든 배송 행의 (수도권+비고+지방) 합 — 업체정산 화면과 동일 기준
-    const companyTotalFee = rows.reduce((s, r) => s + sumFee(r), 0);
+    // 총배송비 = 공통 헬퍼 사용 — 업체정산 화면과 항상 동일
+    const companyTotalFee = totalDeliveryFee(rows);
     const totalFee = companyTotalFee;
     return {
       totalLeaders: masterRows.length,

@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
+import { totalDeliveryFee } from "@/lib/totalFee";
 import { matchesCompany } from "@/lib/companyMatch";
 import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolver";
 import { auditDeliveries } from "@/lib/liveAudit";
@@ -245,12 +246,8 @@ export default function CompanySettlement() {
       totalCod += Number(r.cod_amount) || 0;
       deliveringCompanyIds.add(matched.id);
     });
-    // 총배송비는 기간 내 전체 배송 행의 (수도권+비고+지방) 합 — 팀장정산 화면과 동일 기준
-    const totalFee = allRows.reduce(
-      (s: number, r: any) =>
-        s + (Number(r.metro_fee) || 0) + (Number(r.note_amount) || 0) + (Number(r.regional_fee) || 0),
-      0,
-    );
+    // 총배송비는 공통 헬퍼 사용 — 팀장정산 화면과 항상 동일
+    const totalFee = totalDeliveryFee(allRows);
     return {
       totalCompanies,
       deliveringCompanies: deliveringCompanyIds.size,
