@@ -41,12 +41,13 @@ type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: bool
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
-const COLS = ["날짜","업체","팀장1","팀장2","고객명","배송지","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","분할","결제유무"];
+const COLS = ["날짜","업체","팀장1","팀장2","고객명","배송지","지역구분","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","2인배송","분할","결제유무"];
 
 // 표준 필드 + 별칭 (헤더 자동 인식용)
 type FieldKey =
   | "date" | "company" | "leader1" | "leader2" | "customer" | "region"
-  | "item" | "note" | "metro" | "noteAmt" | "regional" | "cod" | "split" | "paid";
+  | "item" | "note" | "metro" | "noteAmt" | "regional" | "cod" | "split" | "paid"
+  | "twoPerson";
 
 const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: boolean }[] = [
   { key: "date",     label: "날짜",       required: true,  aliases: ["날짜","배송일","일자","출고일","date"] },
@@ -63,6 +64,7 @@ const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: 
   { key: "cod",      label: "착불",                         aliases: ["착불","착불금액","현장수령","선지급"] },
   { key: "split",    label: "분할",                         aliases: ["분할","분할구분","정산분할"] },
   { key: "paid",     label: "결제유무",                     aliases: ["결제유무","결제","결제확인","결제완료","미결제","paid"] },
+  { key: "twoPerson", label: "2인배송",                     aliases: ["2인배송","이인배송","2인","2인작업","two_person","twoperson"] },
 ];
 
 const normalizeHeader = (s: string) =>
