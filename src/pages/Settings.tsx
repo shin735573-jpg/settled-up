@@ -155,6 +155,10 @@ function CompaniesTab() {
   const [dupOpen, setDupOpen] = useState(false);
   const [dupGroups, setDupGroups] = useState<Company[][]>([]);
   const [merging, setMerging] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
+  const [manualCanonical, setManualCanonical] = useState<string | null>(null);
+  const [manualFilter, setManualFilter] = useState("");
   const [preview, setPreview] = useState<{
     group: Company[];
     canonical: Company;
@@ -287,12 +291,13 @@ function CompaniesTab() {
 
   // 한 그룹을 canonical로 통합
   const mergeGroup = async (group: Company[], canonicalId: string) => {
-    if (!user) return;
+    if (!user) { toast.error("로그인이 필요합니다."); return; }
     const canonical = group.find((g) => g.id === canonicalId);
-    if (!canonical) return;
+    if (!canonical) { toast.error("기준 업체를 찾을 수 없습니다."); return; }
     const others = group.filter((g) => g.id !== canonicalId);
     const otherIds = others.map((o) => o.id);
-    if (otherIds.length === 0) return;
+    if (otherIds.length === 0) { toast.error("통합할 대상이 없습니다."); return; }
+    if (otherIds.includes(canonical.id)) { toast.error("기준 업체가 대상에 포함되어 있습니다."); return; }
     setMerging(true);
     try {
       // 1) deliveries 재할당
@@ -304,17 +309,27 @@ function CompaniesTab() {
       // 2) 이름 기반 deliveries (company_id null 인 경우 대비)
       const otherNames = others.map((o) => o.name);
       if (otherNames.length > 0) {
-        await supabase
+        const { error: e2 } = await supabase
           .from("deliveries")
           .update({ company_id: canonical.id, company_name: canonical.name })
           .is("company_id", null)
           .in("company_name", otherNames);
+        if (e2) throw e2;
       }
       // 3) price_list 재할당
-      await supabase
+      const { error: ep } = await supabase
         .from("price_list")
         .update({ company_id: canonical.id, company_name: canonical.name })
         .in("company_id", otherIds);
+      if (ep) throw ep;
+      // 3.5) 검증: 옮겨지지 않은 잔여 행이 있으면 중단(데이터 손실 방지)
+      const [{ count: remDel }, { count: remPrice }] = await Promise.all([
+        supabase.from("deliveries").select("id", { count: "exact", head: true }).in("company_id", otherIds),
+        supabase.from("price_list").select("id", { count: "exact", head: true }).in("company_id", otherIds),
+      ]);
+      if ((remDel || 0) > 0 || (remPrice || 0) > 0) {
+        throw new Error(`잔여 데이터(배송 ${remDel || 0}건 / 단가 ${remPrice || 0}건)가 남아 통합을 중단했습니다.`);
+      }
       // 4) 중복 업체 삭제
       const { error: e3 } = await supabase.from("companies").delete().in("id", otherIds);
       if (e3) throw e3;
@@ -398,6 +413,35 @@ function CompaniesTab() {
     }
   };
 
+  // 지정 통합: 사용자가 직접 통합할 업체를 선택
+  const openManual = () => {
+    setManualChecked(new Set());
+    setManualCanonical(null);
+    setManualFilter("");
+    setManualOpen(true);
+  };
+  const toggleManual = (id: string) => {
+    setManualChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        if (manualCanonical === id) setManualCanonical(null);
+      } else next.add(id);
+      return next;
+    });
+  };
+  const proceedManual = async () => {
+    const ids = Array.from(manualChecked);
+    if (ids.length < 2) { toast.error("2개 이상 선택해 주세요."); return; }
+    if (!manualCanonical || !manualChecked.has(manualCanonical)) {
+      toast.error("기준 업체를 선택해 주세요.");
+      return;
+    }
+    const group = rows.filter((r) => manualChecked.has(r.id));
+    setManualOpen(false);
+    await openPreview(group, manualCanonical);
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <div className="flex gap-2">
@@ -405,6 +449,7 @@ function CompaniesTab() {
         <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
         <Button variant="outline" onClick={detectDups}>중복 검사</Button>
         <Button variant="outline" onClick={() => detectSimilar(0.7)}>유사 이름 검사</Button>
+        <Button variant="outline" onClick={openManual}>지정 통합</Button>
       </div>
       <Table>
         <TableHeader>
@@ -620,6 +665,71 @@ function CompaniesTab() {
             <Button variant="outline" onClick={() => setPreview(null)} disabled={merging}>취소</Button>
             <Button onClick={confirmMerge} disabled={merging || !preview || preview.loading}>
               {merging ? "통합 중…" : "통합 실행"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>지정 통합</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground">
+              합칠 업체를 2개 이상 체크하고, 그중 <b>기준 업체</b>를 라디오로 선택하세요. 다음 화면에서 옮겨질 배송/단가를 미리 확인할 수 있습니다.
+            </div>
+            <Input
+              placeholder="업체명 검색"
+              value={manualFilter}
+              onChange={(e) => setManualFilter(e.target.value)}
+            />
+            <div className="max-h-[50vh] overflow-y-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60 text-xs">
+                  <tr>
+                    <th className="px-2 py-1 w-10">선택</th>
+                    <th className="px-2 py-1 w-16">기준</th>
+                    <th className="px-2 py-1 text-left">업체명</th>
+                    <th className="px-2 py-1">사용</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows
+                    .filter((r) => !manualFilter || r.name.toLowerCase().includes(manualFilter.toLowerCase()))
+                    .map((r) => {
+                      const checked = manualChecked.has(r.id);
+                      return (
+                        <tr key={r.id} className="border-t">
+                          <td className="px-2 py-1 text-center">
+                            <Checkbox checked={checked} onCheckedChange={() => toggleManual(r.id)} />
+                          </td>
+                          <td className="px-2 py-1 text-center">
+                            <input
+                              type="radio"
+                              name="manual-canonical"
+                              disabled={!checked}
+                              checked={manualCanonical === r.id}
+                              onChange={() => setManualCanonical(r.id)}
+                            />
+                          </td>
+                          <td className="px-2 py-1">{r.name}</td>
+                          <td className="px-2 py-1 text-center text-xs text-muted-foreground">
+                            {r.active ? "사용중" : "미사용"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              선택됨: {manualChecked.size}개 · 기준: {manualCanonical ? rows.find((r) => r.id === manualCanonical)?.name : "(미선택)"}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>취소</Button>
+            <Button onClick={proceedManual} disabled={manualChecked.size < 2 || !manualCanonical}>
+              미리보기로 진행
             </Button>
           </DialogFooter>
         </DialogContent>
