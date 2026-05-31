@@ -1940,18 +1940,14 @@ function RegionKeywordsTab() {
   );
 }
 function ShareAppTab() {
-  const [url, setUrl] = useState<string>("");
+  const PUBLISHED_URL = "https://settled-up.lovable.app";
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    setUrl(window.location.origin);
-  }, []);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(PUBLISHED_URL);
       setCopied(true);
-      toast.success("URL이 복사되었습니다");
+      toast.success("공개 링크가 복사되었습니다");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("복사에 실패했습니다");
@@ -1964,7 +1960,7 @@ function ShareAppTab() {
         await navigator.share({
           title: "삼호정산표",
           text: "삼호정산표 앱을 확인해보세요",
-          url,
+          url: PUBLISHED_URL,
         });
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
@@ -1976,55 +1972,57 @@ function ShareAppTab() {
     }
   };
 
-  const isPreview = url.includes("preview");
-
   return (
     <div className="space-y-4 max-w-2xl">
       <Card className="p-6 space-y-5">
         <div>
           <h2 className="font-semibold mb-1 flex items-center gap-2">
             <Globe className="h-4 w-4" />
-            앱 URL 공유
+            공개 앱 링크
           </h2>
           <p className="text-xs text-muted-foreground">
-            이 주소를 복사해서 다른 사람과 공유할 수 있습니다.
+            아래 주소를 복사해서 크롬·핸드폰 등 다른 기기에서 바로 접속할 수 있습니다.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Input
-            value={url}
-            readOnly
-            className="flex-1 font-mono text-sm"
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleCopy}
-            className={copied ? "text-green-600 border-green-600" : ""}
-            title="URL 복사"
-          >
-            <Copy className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleShare}
-            className="gap-1.5"
-          >
-            <Share2 className="h-4 w-4" />
-            공유
-          </Button>
+        <div className="rounded-lg bg-muted border p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Input
+              value={PUBLISHED_URL}
+              readOnly
+              className="flex-1 font-mono text-sm bg-background"
+            />
+            <Button
+              variant={copied ? "default" : "outline"}
+              size="icon"
+              onClick={handleCopy}
+              className={copied ? "text-green-600 border-green-600" : ""}
+              title="링크 복사"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleShare}
+              className="gap-1.5"
+            >
+              <Share2 className="h-4 w-4" />
+              공유
+            </Button>
+          </div>
+          {copied && (
+            <p className="text-sm text-green-600 text-center font-medium">
+              복사 완료! 원하는 곳에 붙여넣기(Ctrl+V) 하세요.
+            </p>
+          )}
         </div>
 
-        {isPreview && (
-          <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 text-sm text-amber-800 dark:text-amber-300">
-            <p className="font-medium mb-1">미리보기 URL입니다</p>
-            <p className="text-xs">
-              공식 공개 URL을 사용하려면 우측 상단의 <strong>Publish</strong> 버튼으로 게시 후,
-              생성된 <strong>lovable.app</strong> 주소로 접속해서 복사하세요.
-            </p>
-          </div>
-        )}
+        <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 p-3 text-sm text-blue-800 dark:text-blue-300">
+          <p className="font-medium mb-1">이 주소로 로그인하면 모든 데이터가 동일하게 보입니다</p>
+          <p className="text-xs">
+            Google 계정(<strong>shin735573@gmail.com</strong>)으로 로그인하면 저장한 배송기록·정산 내역을 어떤 기기에서도 확인할 수 있습니다.
+          </p>
+        </div>
       </Card>
     </div>
   );
