@@ -220,6 +220,7 @@ export default function HQSettlement() {
     if (!shindongseokId) return 0;
     let sum = 0;
     for (const a of allocations) {
+      if (((a.row.item as string) || "").trim() === "적재비") continue;
       for (const s of a.shares) {
         if (s.target === shindongseokId) sum += s.metro + s.note_amount + s.regional;
       }
@@ -230,6 +231,7 @@ export default function HQSettlement() {
     if (!samhoId) return 0;
     let sum = 0;
     for (const a of allocations) {
+      if (((a.row.item as string) || "").trim() === "적재비") continue;
       for (const s of a.shares) {
         if (s.target === samhoId) sum += s.metro + s.note_amount + s.regional;
       }
@@ -258,7 +260,10 @@ export default function HQSettlement() {
         minEnabled: !!l.min_guarantee_enabled,
       });
     }
-    for (const { shares } of validRows) {
+    for (const { row, shares } of validRows) {
+      // 적재비 행은 본사 적재비 수익(loadingBilled)에서 별도로 합산되므로
+      // 팀장 정산(특히 삼호)에서는 중복 집계를 피하기 위해 제외한다.
+      if (((row.item as string) || "").trim() === "적재비") continue;
       const counted = new Set<string>();
       for (const s of shares) {
         const b = acc.get(s.target);
