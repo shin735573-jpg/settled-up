@@ -267,15 +267,15 @@ export default function HQSettlement() {
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
 
-  // 자동검증 (내부 관점)
+  // 자동검증 (내부 관점) — 현재 기간 탭에 표시되는 행만 검사
   const audit = useMemo(
     () => auditDeliveries({
-      deliveries: rows as any,
+      deliveries: periodRows as any,
       companies,
       leaders: leaders as any,
       mode: "internal",
     }),
-    [rows, companies, leaders],
+    [periodRows, companies, leaders],
   );
 
   const rootRef = useRef<HTMLDivElement>(null);
