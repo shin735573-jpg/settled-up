@@ -673,6 +673,9 @@ export default function Records() {
     ranAt: string;
   } | null>(null);
   const [showOnly, setShowOnly] = useState<"all" | "error" | "warning">("all");
+  const [searchCompany, setSearchCompany] = useState("");
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchLeader, setSearchLeader] = useState("");
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
