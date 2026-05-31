@@ -23,17 +23,12 @@ const COMPANY_COLUMNS: Array<{
   align: "left" | "right" | "center";
   amount?: boolean;
 }> = [
-  { key: "name",     label: "업체명",       width: 160, align: "center" },
-  { key: "count",    label: "건수",         width: 80,  align: "center" },
-  { key: "total",    label: "배송비합계",   width: 140, align: "center", amount: true },
-  { key: "paid",     label: "결제완료금액", width: 150, align: "center", amount: true },
-  { key: "unpaid",   label: "미결제금액",   width: 150, align: "center", amount: true },
-  { key: "cod",      label: "착불합계",     width: 130, align: "center", amount: true },
-  { key: "carry",    label: "이월착불금",   width: 140, align: "center", amount: true },
-  { key: "net",      label: "실청구액",     width: 140, align: "center", amount: true },
-  { key: "status",   label: "결제상태",     width: 120, align: "center" },
-  { key: "detail",   label: "상세보기",     width: 100, align: "center" },
-  { key: "leaderTotal", label: "팀장 총배송비", width: 150, align: "center", amount: true },
+  { key: "name",        label: "업체명",        width: 200, align: "center" },
+  { key: "count",       label: "건수",          width: 110, align: "center" },
+  { key: "total",       label: "총배송비",      width: 180, align: "center", amount: true },
+  { key: "leaderTotal", label: "팀장 총배송비", width: 180, align: "center", amount: true },
+  { key: "cod",         label: "착불합계",      width: 160, align: "center", amount: true },
+  { key: "detail",      label: "상세보기",      width: 120, align: "center" },
 ];
 const COMPANY_TOTAL_WIDTH = COMPANY_COLUMNS.reduce((s, c) => s + c.width, 0);
 
@@ -58,13 +53,6 @@ const alignClass = (a: "left" | "right" | "center") =>
   a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left";
 
 const fmtAmount = (n: number) => (n && n !== 0 ? fmt(n) : "-");
-
-const paymentStatus = (paid: number, unpaid: number): string => {
-  if (paid > 0 && unpaid > 0) return "혼합";
-  if (unpaid > 0) return "미결제";
-  if (paid > 0) return "결제완료";
-  return "-";
-};
 
 export default function CompanySettlement() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -521,7 +509,6 @@ export default function CompanySettlement() {
               </TableHeader>
               <TableBody>
                 {companySummaries.map((s) => {
-                  const status = paymentStatus(s.paid, s.unpaid);
                   const cells: Record<string, React.ReactNode> = {
                     name: (
                       <button
@@ -533,26 +520,7 @@ export default function CompanySettlement() {
                     ),
                     count: s.count || "-",
                     total: fmtAmount(s.total),
-                    paid: fmtAmount(s.paid),
-                    unpaid: fmtAmount(s.unpaid),
                     cod: fmtAmount(s.cod),
-                    carry: fmtAmount(s.carry),
-                    net: <span className="font-semibold">{fmtAmount(s.net)}</span>,
-                    status: (
-                      <span
-                        className={
-                          status === "결제완료"
-                            ? "text-emerald-600 font-medium"
-                            : status === "미결제"
-                            ? "text-destructive font-medium"
-                            : status === "혼합"
-                            ? "text-amber-600 font-medium"
-                            : ""
-                        }
-                      >
-                        {status}
-                      </span>
-                    ),
                     detail: (
                       <Button size="sm" variant="outline" onClick={() => setCompanyId(s.company.id)}>
                         상세
