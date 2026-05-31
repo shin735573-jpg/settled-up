@@ -53,6 +53,7 @@ export default function Saves() {
   const settings = useMemo(() => (uid ? loadCompanySettings(uid) : null), [uid]);
 
   // 날짜에 맞춰 자동으로 월/기간 초기화
+  const initial = useMemo(() => getCurrentSavingPeriod(), []);
   const autoPeriodInitial = (() => {
     try { return localStorage.getItem("saves.autoPeriod") !== "0"; } catch { return true; }
   })();
