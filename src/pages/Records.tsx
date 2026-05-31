@@ -365,6 +365,8 @@ function RecordsTable({
 }) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [alignmentError, setAlignmentError] = useState<string | null>(null);
+  const [badCols, setBadCols] = useState<Set<number>>(new Set());
+  const [badRowIds, setBadRowIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const tbl = tableRef.current;
@@ -375,8 +377,12 @@ function RecordsTable({
     const headCount = headRow.querySelectorAll("th").length;
     const expected = RECORDS_COLUMNS.length;
     const mismatches: string[] = [];
+    const badColSet = new Set<number>();
+    const badRowSet = new Set<string>();
     if (headCount !== expected) {
       mismatches.push(`헤더 셀 수(${headCount}) ≠ 정의된 컬럼 수(${expected})`);
+      // mark every column from divergence point
+      for (let i = Math.min(headCount, expected); i < Math.max(headCount, expected); i++) badColSet.add(i);
     }
     bodyRows.forEach((tr, i) => {
       const tdCount = tr.querySelectorAll("td").length;
@@ -385,15 +391,25 @@ function RecordsTable({
       if (isPlaceholder) return;
       if (tdCount !== headCount) {
         mismatches.push(`${i + 1}행 셀 수(${tdCount}) ≠ 헤더(${headCount})`);
+        const rid = (tr as HTMLElement).dataset.rowId;
+        if (rid) badRowSet.add(rid);
+        for (let c = Math.min(tdCount, headCount); c < Math.max(tdCount, headCount); c++) badColSet.add(c);
       }
     });
     if (mismatches.length > 0) {
       const msg = `금액 컬럼 표시 위치가 맞지 않습니다. 헤더와 데이터 셀 순서를 확인하세요. [${mismatches.slice(0, 3).join(" / ")}]`;
       // eslint-disable-next-line no-console
-      console.warn("[Records 컬럼 정렬 오류]", msg, { headCount, expected, mismatches });
+      console.warn("[Records 컬럼 정렬 오류]", msg, {
+        headCount, expected, mismatches,
+        badColumns: [...badColSet].map((i) => `#${i + 1} ${RECORDS_COLUMNS[i]?.label ?? "(범위초과)"}`),
+      });
       setAlignmentError(msg);
+      setBadCols(badColSet);
+      setBadRowIds(badRowSet);
     } else {
       setAlignmentError(null);
+      setBadCols(new Set());
+      setBadRowIds(new Set());
     }
   }, [records]);
 
@@ -407,8 +423,17 @@ function RecordsTable({
       <Table ref={tableRef} className="text-xs num w-max min-w-full table-fixed">
         <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
-            {RECORDS_COLUMNS.map((c) => (
-              <TableHead key={c.key} className={cn("whitespace-nowrap", c.headerCls)}>{c.label}</TableHead>
+            {RECORDS_COLUMNS.map((c, i) => (
+              <TableHead
+                key={c.key}
+                className={cn(
+                  "whitespace-nowrap",
+                  c.headerCls,
+                  badCols.has(i) && "bg-destructive text-destructive-foreground ring-2 ring-destructive",
+                )}
+              >
+                {badCols.has(i) ? `⚠ ${c.label}` : c.label}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -418,6 +443,7 @@ function RecordsTable({
             const rowIssues = issuesByRow.get(r.id);
             const rowSeverity = rowIssues?.some((i) => i.severity === "error")
               ? "error" : rowIssues?.length ? "warning" : null;
+            const isBadRow = badRowIds.has(r.id);
             const ctx = {
               total,
               expanded: !!expandedItems[r.id],
@@ -426,19 +452,30 @@ function RecordsTable({
               removeRow,
             };
             return (
-              <TableRow key={r.id} className={cn(
-                "cursor-pointer",
-                rowSeverity === "error" && "bg-destructive/5",
-                rowSeverity === "warning" && "bg-orange-500/5",
-              )} onClick={() => editRow(r)}>
-                {RECORDS_COLUMNS.map((c) => {
+              <TableRow
+                key={r.id}
+                data-row-id={r.id}
+                className={cn(
+                  "cursor-pointer",
+                  rowSeverity === "error" && "bg-destructive/5",
+                  rowSeverity === "warning" && "bg-orange-500/5",
+                  isBadRow && "outline outline-2 outline-destructive",
+                )}
+                onClick={() => editRow(r)}
+              >
+                {RECORDS_COLUMNS.map((c, ci) => {
                   const extraProps: React.HTMLAttributes<HTMLTableCellElement> = {};
                   if (c.key === "item") {
                     extraProps.onClick = (e) => { e.stopPropagation(); ctx.toggleExpand(); };
                     (extraProps as any).title = r.item || "";
                   }
+                  const highlight = isBadRow && badCols.has(ci);
                   return (
-                    <TableCell key={c.key} className={c.cellCls} {...extraProps}>
+                    <TableCell
+                      key={c.key}
+                      className={cn(c.cellCls, highlight && "bg-destructive/20 ring-1 ring-destructive")}
+                      {...extraProps}
+                    >
                       {c.render(r, ctx)}
                     </TableCell>
                   );
