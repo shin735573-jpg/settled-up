@@ -777,122 +777,98 @@ function LeaderPreview({
 }) {
   const l = data.leader;
   const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
+
+  // 총합배송비 = 수도권 + 비고 + 지방 (착불/수수료/공제 차감 없음 — 배송 기준)
+  const totalDelivery = data.metroSum + data.noteSum + data.regionalSum;
+  const issuesInvoice = !!l.issues_invoice;
+  const vat = issuesInvoice ? Math.round(totalDelivery * 0.1) : 0;
+  const totalWithVat = issuesInvoice ? totalDelivery + vat : 0;
+
+  // 기간 라벨: "기간: 2026년 05월 1~15일"
+  const firstDate = data.rows[0]?.delivery.date ?? "";
+  const ymMatch = firstDate.match(/^(\d{4})-(\d{2})/);
+  const periodKR = data.period === "h1" ? "1~15일" : data.period === "h2" ? "16~말일" : "월전체";
+  const periodLabel = ymMatch ? `기간: ${ymMatch[1]}년 ${ymMatch[2]}월 ${periodKR}` : `기간: ${periodKR}`;
+
+  // 상단바 라인 (분기별)
+  const lines: Array<{ label: string; value: number; emphasize?: boolean }> = [
+    { label: "수도권배송비", value: data.metroSum },
+    { label: "비고금액", value: data.noteSum },
+    { label: "지방배송비", value: data.regionalSum },
+    { label: "착불", value: data.codSum },
+    { label: "공제", value: data.deductionTotal },
+    { label: "총합배송비", value: totalDelivery, emphasize: !issuesInvoice },
+  ];
+  if (issuesInvoice) {
+    lines.push({ label: "부가세", value: vat });
+    lines.push({ label: "부가세포함총배송비", value: totalWithVat, emphasize: true });
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="text-xs text-muted-foreground">
-            {PERIOD_LABEL[data.period]}
-            {totalPages && totalPages > 1 ? ` · ${pageIndex} / ${totalPages}` : " · 미리보기"}
-          </div>
-          <h2 className="text-xl font-bold">{l.name} 정산서</h2>
-        </div>
-        <div className="flex gap-1">
-          {l.issues_invoice && <Badge>계산서 발행</Badge>}
-          {l.min_guarantee_enabled && <Badge variant="outline">최저보장 {fmt(l.min_guarantee_amount)}</Badge>}
+      <div>
+        <h2 className="text-xl font-bold">{l.name} 정산서</h2>
+        <div className="text-xs text-muted-foreground">
+          {periodLabel}
+          {totalPages && totalPages > 1 ? ` · ${pageIndex} / ${totalPages}` : ""}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-6">
-        <Stat label="배송건수" value={data.deliveryCount} />
-        <Stat label="수도권배송비" value={data.metroSum} />
-        <Stat label="비고금액" value={data.noteSum} />
-        <Stat label="지방배송비" value={data.regionalSum} />
-        <Stat label="실지급배송비" value={data.realFee} />
-        <Stat label="착불합계" value={data.codSum} />
-        <Stat label="수수료합계" value={data.feeTotal} />
-        <Stat label="계산후 지급금액" value={data.afterFee} />
-        <Stat label="공제총액" value={data.deductionTotal} />
-        <Stat label="실지급액" value={data.payout} accent />
-      </div>
-      {l.issues_invoice && (
-        <div className="grid grid-cols-3 gap-2">
-          <Stat label="실지급액" value={data.payout} />
-          <Stat label="부가세" value={data.vat} />
-          <Stat label="부가세포함" value={data.payoutWithVat} accent />
-        </div>
-      )}
-      {data.deductions && (data.deductions.commonLines.length > 0 || data.deductions.personalLines.length > 0) && (
-        <div className="rounded-md border bg-muted/30 p-3 text-xs">
-          <div className="mb-1 font-semibold">공제 내역</div>
-          <ul className="space-y-0.5">
-            {data.deductions.commonLines.map((d, i) => (
-              <li key={"c"+i} className="flex justify-between">
-                <span>공통 · {d.label}{data.deductions!.commonLines.length > 1 ? ` (${d.periodKey})` : ""}</span>
-                <span className="font-medium">{fmt(d.amount)}</span>
-              </li>
-            ))}
-            {data.deductions.personalLines.map((d, i) => (
-              <li key={"p"+i} className="flex justify-between">
-                <span>개별 · {d.label}</span>
-                <span className="font-medium">{fmt(d.amount)}</span>
-              </li>
-            ))}
-            <li className="mt-1 flex justify-between border-t pt-1 font-semibold">
-              <span>공제총액</span><span>{fmt(data.deductions.total)}</span>
-            </li>
-          </ul>
-        </div>
-      )}
-      <div className="overflow-x-auto rounded-md border">
-        {(() => {
-          const widths = [60,120,100,100,100,110,110,140,140,110,100,110,90,120,70,70,90,120,110,110];
-          const headers = ["날짜","업체","실제기사1","실제기사2","정산기사","고객명","배송지","품목","비고","수도권배송비","비고금액","지방배송비","착불","실지급배송비","분할","2인배송","건별 수수료","건별 계산후 지급액","건별 실지급액","정산처리"];
-          const minWidth = widths.reduce((a,b)=>a+b,0);
-          return (
-            <table className="text-xs border-collapse" style={{ tableLayout: "fixed", minWidth }}>
-              <colgroup>
-                {widths.map((w,i)=>(<col key={i} style={{ width: w }} />))}
-              </colgroup>
-              <thead className="bg-muted">
-                <tr>
-                  {headers.map((h, i) => (
-                    <th key={i} className="px-1 py-1 text-center font-medium whitespace-nowrap border-b">{h}</th>
-                  ))}
+      <div className="flex flex-wrap items-stretch gap-3">
+        <div className="flex-1 min-w-[260px] rounded-md border">
+          <table className="w-full text-sm">
+            <tbody>
+              {lines.map((ln) => (
+                <tr key={ln.label} className={"border-b last:border-b-0 " + (ln.emphasize ? "bg-primary/5" : "")}>
+                  <td className="px-3 py-2 font-medium text-muted-foreground">{ln.label}</td>
+                  <td className={"px-3 py-2 text-right tabular-nums " + (ln.emphasize ? "text-base font-bold" : "font-semibold")}>
+                    {fmt(ln.value)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr
-                    key={r.delivery.id + "-" + i}
-                    className={"border-t " + (r.isOeunkyuTransfer ? "bg-yellow-100/60" : "")}
-                  >
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.date.slice(5)}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.company_name}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.leader1_name ?? ""}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.leader2_name ?? ""}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{l.name}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.customer_name ?? ""}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.region ?? ""}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.item ?? ""}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.note ?? ""}</td>
-                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.metro)}</td>
-                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.note_amount)}</td>
-                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.regional)}</td>
-                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.cod)}</td>
-                    <td className="px-1 py-1 text-center align-middle">{fmt(r.share.metro + r.share.note_amount + r.share.regional)}</td>
-                    <td className="px-1 py-1 text-center align-middle truncate">{r.delivery.split_type ?? ""}</td>
-                    <td className="px-1 py-1 text-center align-middle">{r.delivery.two_person ? "✓" : ""}</td>
-                    <td className="px-1 py-1 text-center align-middle">{fmt(r.unitFee)}</td>
-                    <td className="px-1 py-1 text-center align-middle">{fmt(r.unitAfterFee)}</td>
-                    <td className="px-1 py-1 text-center align-middle">{fmt(r.unitPayout)}</td>
-                    <td className="px-1 py-1 text-center align-middle text-[10px] truncate">
-                      {r.isOeunkyuTransfer ? "오은규 → 오동선" : (r.share.reason ?? "")}
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr><td colSpan={20} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
-                )}
-              </tbody>
-            </table>
-          );
-        })()}
-      </div>
-      {l.account_number && (
-        <div className="rounded-md border bg-muted/40 p-3 text-sm font-semibold">
-          계좌: {l.account_number}
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+        {l.account_number && (
+          <div className="flex min-w-[260px] flex-1 flex-col justify-center rounded-md border bg-muted/40 p-3 text-base font-bold">
+            <div>계좌: {l.account_number}</div>
+            <div className="mt-1 text-sm font-semibold text-muted-foreground">
+              정산 완료 후 입금자명을 전달 부탁드립니다.
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="overflow-x-auto rounded-md border">
+        <table className="text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1000 }}>
+          <colgroup>
+            {[80, 180, 240, 120, 120, 120, 120].map((w, i) => (
+              <col key={i} style={{ width: w }} />
+            ))}
+          </colgroup>
+          <thead className="bg-muted">
+            <tr>
+              {["날짜", "업체", "품목", "수도권배송비", "비고금액", "지방배송비", "착불"].map((h) => (
+                <th key={h} className="px-2 py-1 text-center font-medium whitespace-nowrap border-b">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.delivery.id + "-" + i} className="border-t">
+                <td className="px-2 py-1 text-center align-middle truncate">{r.delivery.date.slice(5)}</td>
+                <td className="px-2 py-1 text-center align-middle truncate">{r.delivery.company_name ?? ""}</td>
+                <td className="px-2 py-1 text-center align-middle break-words whitespace-normal">{r.delivery.item ?? ""}</td>
+                <td className="px-2 py-1 text-center align-middle tabular-nums">{fmt(r.share.metro)}</td>
+                <td className="px-2 py-1 text-center align-middle tabular-nums">{fmt(r.share.note_amount)}</td>
+                <td className="px-2 py-1 text-center align-middle tabular-nums">{fmt(r.share.regional)}</td>
+                <td className="px-2 py-1 text-center align-middle tabular-nums">{fmt(r.share.cod)}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr><td colSpan={7} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       {totalPages && totalPages > 1 && (
         <div className="text-right text-xs text-muted-foreground">{pageIndex} / {totalPages}</div>
       )}
