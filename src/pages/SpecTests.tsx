@@ -228,6 +228,26 @@ export default function SpecTests() {
     setRunning(false);
   }
 
+  function exportCSV() {
+    if (!results) return;
+    const header = "\uFEFF번호,제목,결과,상세\n";
+    const rows = results
+      .map(
+        (r) =>
+          `"${r.id}","${r.title.replace(/"/g, '""')}","${r.pass ? "PASS" : "FAIL"}","${r.detail.replace(/"/g, '""')}"`,
+      )
+      .join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `\uC0AC\uC59115_\uD14C\uC2A4\uD2B8\uACB0\uACFC_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   const passCount = results?.filter((r) => r.pass).length ?? 0;
   const total = CASES.length;
 
@@ -242,9 +262,14 @@ export default function SpecTests() {
         </div>
         <div className="flex items-center gap-3">
           {results && (
-            <Badge variant={passCount === total ? "default" : "destructive"} className="text-base">
-              {passCount} / {total} PASS
-            </Badge>
+            <>
+              <Badge variant={passCount === total ? "default" : "destructive"} className="text-base">
+                {passCount} / {total} PASS
+              </Badge>
+              <Button variant="outline" onClick={exportCSV}>
+                CSV 다운로드
+              </Button>
+            </>
           )}
           <Button onClick={runAll} disabled={running}>
             {running ? "실행 중..." : "전체 테스트 실행"}
