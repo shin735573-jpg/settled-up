@@ -752,96 +752,15 @@ export default function Records() {
       )}
 
       <Card className="overflow-x-auto">
-        <Table className="text-xs num w-max min-w-full table-fixed">
-          <TableHeader className="sticky top-0 bg-background z-10">
-            <TableRow>
-              {[
-                { label: "구분",         cls: "w-[70px] min-w-[70px]" },
-                { label: "날짜",         cls: "w-[110px] min-w-[110px]" },
-                { label: "업체",         cls: "w-[120px] min-w-[120px]" },
-                { label: "팀장1",        cls: "w-[110px] min-w-[110px]" },
-                { label: "팀장2",        cls: "w-[110px] min-w-[110px]" },
-                { label: "고객명",       cls: "w-[120px] min-w-[120px]" },
-                { label: "배송지",       cls: "w-[150px] min-w-[150px]" },
-                { label: "지역구분",     cls: "w-[90px] min-w-[90px]" },
-                { label: "품목",         cls: "w-[200px] min-w-[200px]" },
-                { label: "비고",         cls: "w-[160px] min-w-[160px]" },
-                { label: "수도권배송비", cls: "w-[130px] min-w-[130px] text-right" },
-                { label: "비고금액",     cls: "w-[120px] min-w-[120px] text-right" },
-                { label: "지방배송비",   cls: "w-[130px] min-w-[130px] text-right" },
-                { label: "착불",         cls: "w-[110px] min-w-[110px] text-right" },
-                { label: "배송비총액",   cls: "w-[130px] min-w-[130px] text-right" },
-                { label: "2인배송",      cls: "w-[90px] min-w-[90px]" },
-                { label: "분할",         cls: "w-[100px] min-w-[100px]" },
-                { label: "결제유무",     cls: "w-[110px] min-w-[110px]" },
-                { label: "정산처리",     cls: "w-[220px] min-w-[220px]" },
-                { label: "삭제",         cls: "w-[60px] min-w-[60px]" },
-              ].map((h, i) => (
-                <TableHead key={i} className={cn("whitespace-nowrap", h.cls)}>{h.label}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {records.map((r) => {
-              const total = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
-              const rowIssues = issuesByRow.get(r.id);
-              const rowSeverity = rowIssues?.some((i) => i.severity === "error")
-                ? "error" : rowIssues?.length ? "warning" : null;
-              return (
-                <TableRow key={r.id} className={cn(
-                  "cursor-pointer",
-                  rowSeverity === "error" && "bg-destructive/5",
-                  rowSeverity === "warning" && "bg-orange-500/5",
-                )} onClick={() => editRow(r)}>
-                  <TableCell className="whitespace-nowrap w-[70px] min-w-[70px]">
-                    {r.is_missing
-                      ? <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>
-                      : <Badge variant="secondary">일반</Badge>}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap w-[110px] min-w-[110px]">{r.date}</TableCell>
-                  <TableCell className="whitespace-nowrap w-[120px] min-w-[120px]">{r.company_name}</TableCell>
-                  <TableCell className="whitespace-nowrap w-[110px] min-w-[110px]">{displayLeaderById(r.leader1_id, r.leader1_name)}</TableCell>
-                  <TableCell className="whitespace-nowrap w-[110px] min-w-[110px]">{displayLeaderById(r.leader2_id, r.leader2_name)}</TableCell>
-                  <TableCell className="w-[120px] min-w-[120px]">{r.customer_name || "-"}</TableCell>
-                  <TableCell className="w-[150px] min-w-[150px]">{r.region || "-"}</TableCell>
-                  <TableCell className="whitespace-nowrap w-[90px] min-w-[90px]">
-                    {r.region_type === "metro" ? "수도권" : r.region_type === "regional" ? "지방" : "-"}
-                  </TableCell>
-                  <TableCell
-                    className="align-top w-[200px] min-w-[200px] max-w-[200px] cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedItems((prev) => ({ ...prev, [r.id]: !prev[r.id] }));
-                    }}
-                    title={r.item || ""}
-                  >
-                    <div
-                      className={`whitespace-pre-wrap break-words ${expandedItems[r.id] ? "" : "line-clamp-3"}`}
-                    >
-                      {r.item || "-"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="w-[160px] min-w-[160px] max-w-[160px] align-top">
-                    <div className="whitespace-pre-wrap break-words">{r.note || "-"}</div>
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums">{fmt(r.metro_fee)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap w-[120px] min-w-[120px] tabular-nums">{fmt(r.note_amount)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums">{fmt(r.regional_fee)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap w-[110px] min-w-[110px] tabular-nums">{fmt(r.cod_amount)}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums font-semibold">{fmt(total)}</TableCell>
-                  <TableCell className="whitespace-nowrap w-[90px] min-w-[90px]">
-                    {r.two_person ? <Badge className="bg-blue-500 hover:bg-blue-600">2인배송</Badge> : "-"}
-                  </TableCell>
-                  <TableCell className="w-[100px] min-w-[100px]">{r.split_type || "-"}</TableCell>
-                  <TableCell className="w-[110px] min-w-[110px]">{r.paid ? "✓" : "-"}</TableCell>
-                  <TableCell className="w-[220px] min-w-[220px] text-muted-foreground">-</TableCell>
-                  <TableCell className="w-[60px] min-w-[60px]"><Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); removeRow(r.id); }}><Trash2 className="h-4 w-4" /></Button></TableCell>
-                </TableRow>
-              );
-            })}
-            {records.length === 0 && <TableRow><TableCell colSpan={20} className="text-center py-8 text-muted-foreground">기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.</TableCell></TableRow>}
-          </TableBody>
-        </Table>
+        <RecordsTable
+          records={records}
+          issuesByRow={issuesByRow}
+          expandedItems={expandedItems}
+          setExpandedItems={setExpandedItems}
+          editRow={editRow}
+          removeRow={removeRow}
+          displayLeaderById={displayLeaderById}
+        />
       </Card>
 
       <PasteDialog
