@@ -402,9 +402,9 @@ export default function LeaderSettlement() {
       const total = metro + noteAmt + regional;
       const afterFees = total - fees;
       const indiv = individualTotalFor(l.id);
-      // 배송건이 없는 팀장에게는 공통공제(쓰레기비용 등)를 적용하지 않음
-      // 쓰레기비용은 팀장별 trash_cost 를 보름 단위로 자동 차감 (한달=2번)
-      const common = count > 0 ? commonTotalFor(l.id) + trashCostAutoFor(l.id) : 0;
+      // 쓰레기비용/공통공제는 배송건수와 무관하게 팀장 × 보름 단위로 자동 차감
+      // (1~15일/16~말일=1회, 월전체=2회). 배송이 없어도 해당 팀장 공제란에 표시되어야 한다.
+      const common = commonTotalFor(l.id) + trashCostAutoFor(l.id);
       const deduction = common + indiv;
       // 정산금은 음수 불가 — HQ 화면과 동일하게 0으로 클램프
       const net = Math.max(0, afterFees - cod - deduction);
@@ -506,8 +506,8 @@ export default function LeaderSettlement() {
       0,
     );
     // 상세 공통공제: 팀장 × 표시기간당 1번만 합산. 월전체만 보름 2개 합산.
-    // 배송건이 없는 팀장은 공통공제(쓰레기비용 등)를 적용하지 않음
-    const commonBase = count === 0 ? 0 : activeCommonDeductions.reduce((s, cd) => {
+    // 배송건수와 무관하게 해당 팀장 공제란에 표시한다.
+    const commonBase = activeCommonDeductions.reduce((s, cd) => {
       const cdTotal = commonPeriodKeys.reduce((periodSum, pKey) => {
         const editKey = `${cd.id}__${pKey}`;
         const edited = detailCommonEdits[editKey];
@@ -521,8 +521,8 @@ export default function LeaderSettlement() {
       }, 0);
       return s + cdTotal;
     }, 0);
-    // 팀장별 쓰레기비용 자동 차감 (보름 단위 × 보름수). 배송건 0이면 0.
-    const trashAuto = count === 0 || !detailLeader ? 0 : trashCostAutoFor(detailLeader.id);
+    // 팀장별 쓰레기비용 자동 차감 (보름 단위 × 보름수). 배송건수와 무관하게 적용.
+    const trashAuto = !detailLeader ? 0 : trashCostAutoFor(detailLeader.id);
     const commonTotal = commonBase + trashAuto;
     const deduction = commonTotal + indivTotal;
     const net = afterFees - cod - deduction;
