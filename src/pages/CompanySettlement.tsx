@@ -558,6 +558,9 @@ export default function CompanySettlement() {
                         상세
                       </Button>
                     ),
+                    leaderTotal: (
+                      <span className="font-semibold text-red-600">{fmtAmount(s.total)}</span>
+                    ),
                   };
                   return (
                     <TableRow key={s.company.id} className="hover:bg-muted/50">
