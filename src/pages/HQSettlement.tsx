@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Trash2, Plus } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { allocateRow } from "@/lib/splitAllocation";
@@ -220,7 +219,6 @@ export default function HQSettlement() {
   }, [leaders, validRows, byId]);
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
-  const totalsMismatch = Math.abs(companyDeliveryTotal - leaderDeliveryTotal) > 0.5;
 
   // ── 업체 정산 상세
   type CompanyDetail = {
@@ -299,13 +297,6 @@ export default function HQSettlement() {
     }).filter((c) => companyFilter === "all" ? true : c.status === companyFilter);
   }, [companyDetails, companyStatus, companyFilter]);
 
-  const settledCompanyAmt = companyDetails.reduce(
-    (s, c) => s + ((companyStatus[c.id] ?? "unpaid") === "paid" ? c.netClaim : 0), 0,
-  );
-  const unsettledCompanyAmt = companyDetails.reduce(
-    (s, c) => s + ((companyStatus[c.id] ?? "unpaid") === "unpaid" ? c.netClaim : 0), 0,
-  );
-
   // 팀장정산관리 필터링
   const filteredLeaders = useMemo(() => {
     return leaderDetails.map((l) => {
@@ -313,35 +304,6 @@ export default function HQSettlement() {
       return { ...l, status };
     }).filter((l) => leaderFilter === "all" ? true : l.status === leaderFilter);
   }, [leaderDetails, leaderStatus, leaderFilter]);
-
-  // ── 오류 검사
-  const odSeokId = findId(["오은규"]);
-  const odSunId = findId(["오동선"]);
-  const oeIncluded = odSeokId
-    ? leaderDetails.some((l) => l.id === odSeokId) : false;
-  const oeRolledIntoOdSun = odSeokId && odSunId
-    ? validRows.some(({ shares }) => shares.some((s) => s.target === odSunId && s.leader_id === odSeokId))
-    : true;
-  const excludedLeaderShown = leaderDetails.some((l) => {
-    const src = byId.get(l.id);
-    return src && ((src.settle_status ?? "included") === "excluded");
-  });
-
-  const checks: { label: string; status: "ok" | "warn" | "err"; note?: string }[] = [
-    { label: "업체 배송비 총액 = 팀장 배송비 총액", status: totalsMismatch ? "err" : "ok",
-      note: totalsMismatch ? `차이 ${fmt(companyDeliveryTotal - leaderDeliveryTotal)}` : undefined },
-    { label: "적재비가 배송건수에 포함되지 않음", status: "ok" },
-    { label: "정산제외 팀장 미표시", status: excludedLeaderShown ? "err" : "ok" },
-    { label: "오은규 금액 → 오동선 합산", status: oeIncluded ? "err" : (oeRolledIntoOdSun ? "ok" : "ok") },
-    { label: "계산서 미발행 업체에 부가세 문구 미표시", status: "ok" },
-    { label: "착불 이월금 업체별 반영", status: "ok" },
-    { label: "최저보장보전금 자동 계산", status: "ok",
-      note: minGuaranteeTopUp > 0 ? `${fmt(minGuaranteeTopUp)}원 자동반영` : "0원" },
-    { label: "지출합계 = 고정 + 추가 + 최저보장보전금", status: "ok" },
-    { label: "적재비 업체별 월 1회 청구", status: dupLoadingCompanies.length > 0 ? "warn" : "ok",
-      note: dupLoadingCompanies.length > 0 ? `중복: ${dupLoadingCompanies.join(", ")}` : undefined },
-    { label: "팀장정산관리/업체정산관리 명칭 사용", status: "ok" },
-  ];
 
   // 적재비 추가
   const addLoading = () => setLoadingCosts((p) => [...p, {
