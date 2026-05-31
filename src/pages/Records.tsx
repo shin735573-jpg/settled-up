@@ -1274,6 +1274,19 @@ export default function Records() {
       )}
 
       <Card className="overflow-x-auto">
+        <div className="flex items-center justify-between gap-2 p-2 border-b">
+          <div className="text-xs text-muted-foreground">
+            선택 {selectedIds.size}건 / 표시 {filteredRecords.length}건
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={bulkDeleteSelected}
+            disabled={selectedIds.size === 0}
+          >
+            <Trash2 className="h-4 w-4 mr-1" /> 선택 삭제
+          </Button>
+        </div>
         {(searchCompany || searchCustomer || searchLeader) && filteredRecords.length === 0 && (
           <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
         )}
@@ -1286,6 +1299,8 @@ export default function Records() {
           removeRow={removeRow}
           displayLeaderById={displayLeaderById}
           displaySettlementStatus={displaySettlementStatus}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
         />
       </Card>
 
