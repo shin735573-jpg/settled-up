@@ -34,19 +34,19 @@ type Leader = {
 type Period = "h1" | "h2" | "all";
 
 const COMPANY_COLUMNS = [
-  { key: "rank", label: "순위", width: 60 },
-  { key: "company", label: "업체", width: 1 },
-  { key: "company_count", label: "건수", width: 70 },
-  { key: "company_amount", label: "금액", width: 1 },
-  { key: "company_share", label: "비중%", width: 70 },
+  { key: "rank", label: "순위", size: "70px" },
+  { key: "company", label: "업체", size: "1fr" },
+  { key: "company_count", label: "건수", size: "90px" },
+  { key: "company_amount", label: "금액", size: "1fr" },
+  { key: "company_share", label: "비중%", size: "90px" },
 ] as const;
 
 const LEADER_COLUMNS = [
-  { key: "rank", label: "순위", width: 60 },
-  { key: "leader", label: "팀장", width: 1 },
-  { key: "leader_count", label: "건수", width: 70 },
-  { key: "leader_amount", label: "실수령액", width: 1 },
-  { key: "leader_share", label: "비중%", width: 70 },
+  { key: "rank", label: "순위", size: "70px" },
+  { key: "leader", label: "팀장", size: "1fr" },
+  { key: "leader_count", label: "건수", size: "90px" },
+  { key: "leader_amount", label: "실수령액", size: "1fr" },
+  { key: "leader_share", label: "비중%", size: "90px" },
 ] as const;
 
 const inPeriod = (dateStr: string, period: Period): boolean => {
@@ -230,8 +230,8 @@ export default function Summary() {
 
   const [diagMsg, setDiagMsg] = useState<string | null>(null);
 
-  const companyGridTemplate = COMPANY_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
-  const leaderGridTemplate = LEADER_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
+  const companyGridTemplate = COMPANY_COLUMNS.map((c) => c.size).join(" ");
+  const leaderGridTemplate = LEADER_COLUMNS.map((c) => c.size).join(" ");
   const cellBase = "flex items-center justify-center text-center px-4 py-3 text-base border-b";
 
   // 기준서 #12 — 한눈요약 오류 6종 자동 탐지
