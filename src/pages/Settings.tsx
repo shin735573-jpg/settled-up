@@ -155,6 +155,10 @@ function CompaniesTab() {
   const [dupOpen, setDupOpen] = useState(false);
   const [dupGroups, setDupGroups] = useState<Company[][]>([]);
   const [merging, setMerging] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
+  const [manualCanonical, setManualCanonical] = useState<string | null>(null);
+  const [manualFilter, setManualFilter] = useState("");
   const [preview, setPreview] = useState<{
     group: Company[];
     canonical: Company;
@@ -398,6 +402,35 @@ function CompaniesTab() {
     }
   };
 
+  // 지정 통합: 사용자가 직접 통합할 업체를 선택
+  const openManual = () => {
+    setManualChecked(new Set());
+    setManualCanonical(null);
+    setManualFilter("");
+    setManualOpen(true);
+  };
+  const toggleManual = (id: string) => {
+    setManualChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        if (manualCanonical === id) setManualCanonical(null);
+      } else next.add(id);
+      return next;
+    });
+  };
+  const proceedManual = async () => {
+    const ids = Array.from(manualChecked);
+    if (ids.length < 2) { toast.error("2개 이상 선택해 주세요."); return; }
+    if (!manualCanonical || !manualChecked.has(manualCanonical)) {
+      toast.error("기준 업체를 선택해 주세요.");
+      return;
+    }
+    const group = rows.filter((r) => manualChecked.has(r.id));
+    setManualOpen(false);
+    await openPreview(group, manualCanonical);
+  };
+
   return (
     <Card className="p-4 space-y-4">
       <div className="flex gap-2">
@@ -405,6 +438,7 @@ function CompaniesTab() {
         <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
         <Button variant="outline" onClick={detectDups}>중복 검사</Button>
         <Button variant="outline" onClick={() => detectSimilar(0.7)}>유사 이름 검사</Button>
+        <Button variant="outline" onClick={openManual}>지정 통합</Button>
       </div>
       <Table>
         <TableHeader>
