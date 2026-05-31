@@ -1119,12 +1119,12 @@ export default function Records() {
 
             <div className="space-y-1">
               <Label>업체</Label>
-              <Select value={form.company_id} onValueChange={(v) => setForm({ ...form, company_id: v })}>
-                <SelectTrigger><SelectValue placeholder="업체 선택" /></SelectTrigger>
-                <SelectContent>
-                  {activeCompanies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <CompanyCombobox
+                companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
+                value={form.company_id}
+                onChange={(v) => setForm({ ...form, company_id: v })}
+                placeholder="업체명 입력 (부분검색·↑↓ 선택)"
+              />
             </div>
 
             {[0, 1].map((i) => {
