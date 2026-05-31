@@ -1114,7 +1114,7 @@ export default function Records() {
             </Button>
           </div>
 
-          <div className="form-cells grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={`form-cells ${form.id ? "is-edit" : "is-new"} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3`}>
             <div className="space-y-1">
               <Label>날짜</Label>
               <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
@@ -2105,7 +2105,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
               placeholder="엑셀에서 헤더 포함 여러 행/열을 복사해 붙여넣으세요 (Ctrl+V)"
               rows={8}
               wrap="off"
-              className="font-mono text-xs whitespace-pre overflow-x-auto"
+              className="paste-area font-mono text-xs whitespace-pre overflow-x-auto"
             />
           </div>
 
