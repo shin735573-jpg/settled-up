@@ -394,7 +394,7 @@ export default function CompanySettlement() {
             <ArrowLeft className="h-4 w-4 mr-1" /> 전체 업체 목록
           </Button>
         )}
-        <h1 className="text-2xl font-bold flex-1">업체정산</h1>
+        <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">업체정산</h1>
         <PrintButton documentTitle={`업체정산_${month}`} />
         <input
           type="month"
