@@ -241,6 +241,17 @@ export default function HQSettlement() {
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
 
+  // 자동검증 (내부 관점)
+  const audit = useMemo(
+    () => auditDeliveries({
+      deliveries: rows as any,
+      companies,
+      leaders: leaders as any,
+      mode: "internal",
+    }),
+    [rows, companies, leaders],
+  );
+
   // ── 업체 정산 상세
   type CompanyDetail = {
     id: string; name: string; count: number; fee: number;
@@ -366,6 +377,8 @@ export default function HQSettlement() {
           </TabsList>
         </Tabs>
       </div>
+
+      <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
       {/* 상단: 본사 수익 요약 + 적재비 입력 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
