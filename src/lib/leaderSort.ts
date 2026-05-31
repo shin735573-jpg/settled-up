@@ -25,10 +25,20 @@ export function effectiveLeaderFee(l: LeaderFeeShape): number {
 }
 
 export function compareLeadersByFeeAsc(a: LeaderFeeShape, b: LeaderFeeShape): number {
+  const an = (a.name || "").trim();
+  const bn = (b.name || "").trim();
+  // 삼호 항상 최상위, 김용익 항상 최하위 — 변경 불가 고정 규칙
+  const rank = (n: string): number => {
+    if (n === "삼호") return -1;
+    if (n === "김용익") return 1;
+    return 0;
+  };
+  const ra = rank(an), rb = rank(bn);
+  if (ra !== rb) return ra - rb;
   const af = effectiveLeaderFee(a);
   const bf = effectiveLeaderFee(b);
   if (af !== bf) return af - bf;
-  return (a.name || "").localeCompare(b.name || "");
+  return an.localeCompare(bn);
 }
 
 export function sortLeadersByFeeAsc<T extends LeaderFeeShape>(arr: T[]): T[] {
