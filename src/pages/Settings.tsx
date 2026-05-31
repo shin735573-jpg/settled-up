@@ -60,13 +60,15 @@ export default function Settings() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">설정</h1>
       <Tabs defaultValue="company">
-        <TabsList>
-          <TabsTrigger value="company">회사 설정</TabsTrigger>
-          <TabsTrigger value="companies">업체관리</TabsTrigger>
-          <TabsTrigger value="leaders">팀장관리</TabsTrigger>
-          <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
-          <TabsTrigger value="region">지역분류</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-max md:w-auto">
+            <TabsTrigger value="company">회사 설정</TabsTrigger>
+            <TabsTrigger value="companies">업체관리</TabsTrigger>
+            <TabsTrigger value="leaders">팀장관리</TabsTrigger>
+            <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
+            <TabsTrigger value="region">지역분류</TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="company"><CompanyTab /></TabsContent>
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
