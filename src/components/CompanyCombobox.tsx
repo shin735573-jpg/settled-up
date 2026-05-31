@@ -21,6 +21,8 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   // 외부에서 value가 바뀌면 query 동기화 (다른 곳에서 폼이 채워질 때)
   useEffect(() => {
@@ -55,6 +57,13 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
     if (hi >= filtered.length) setHi(0);
   }, [filtered.length, hi]);
 
+  // 하이라이트 항목 자동 스크롤
+  useEffect(() => {
+    if (!open) return;
+    const el = itemRefs.current[hi];
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [hi, open]);
+
   const pick = (c: ComboCompany) => {
     onChange(c.id);
     setQuery(c.name);
@@ -64,12 +73,20 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setOpen(true);
-      setHi((h) => Math.min(filtered.length - 1, h + 1));
+      if (!open) {
+        setOpen(true);
+        setHi(0);
+      } else {
+        setHi((h) => Math.min(filtered.length - 1, h + 1));
+      }
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setOpen(true);
-      setHi((h) => Math.max(0, h - 1));
+      if (!open) {
+        setOpen(true);
+        setHi(Math.max(0, filtered.length - 1));
+      } else {
+        setHi((h) => Math.max(0, h - 1));
+      }
     } else if (e.key === "Enter") {
       if (open && filtered[hi]) {
         e.preventDefault();
@@ -101,10 +118,11 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
         autoComplete="off"
       />
       {open && filtered.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg">
+        <div ref={listRef} className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg">
           {filtered.map((c, i) => (
             <div
               key={c.id}
+              ref={(el) => { itemRefs.current[i] = el; }}
               role="option"
               aria-selected={i === hi}
               onMouseDown={(e) => { e.preventDefault(); pick(c); }}
