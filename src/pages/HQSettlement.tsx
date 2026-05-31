@@ -293,6 +293,8 @@ export default function HQSettlement() {
   }, [leaders, validRows, byId, trashCostMultiplier]);
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
+  // 팀장 수수료 합계 — 본사 수입으로 가산
+  const leaderCommissionTotal = leaderDetails.reduce((s, x) => s + x.commission, 0);
 
   // 자동검증 (내부 관점) — 현재 기간 탭에 표시되는 행만 검사
   const audit = useMemo(
@@ -399,7 +401,7 @@ export default function HQSettlement() {
   // ── 매출 / 수익
   // companyDeliveryTotal 에는 자동등록된 적재비가 이미 포함되므로
   // 미등록 적재비만 추가해 중복 집계를 방지한다.
-  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal + hqDirectFee;
+  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal + hqDirectFee + leaderCommissionTotal;
   const hqProfit = grossSales - expenseTotal;
 
   // 업체정산관리 요약
@@ -562,6 +564,10 @@ export default function HQSettlement() {
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">삼호 배송비</span>
               <span className="font-medium">{fmt(samhoFee)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">팀장 수수료 합계</span>
+              <span className="font-medium">{fmt(leaderCommissionTotal)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">전체 매출</span>
