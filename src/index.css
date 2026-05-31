@@ -124,6 +124,33 @@ All colors MUST be HSL.
   background-color: hsl(var(--muted));
 }
 
+/* 새 배송 입력: 연한 파랑 톤 */
+.form-cells.is-new > div {
+  background-color: hsl(210 70% 96%);
+  border-color: hsl(210 60% 82%);
+}
+.form-cells.is-new > div:hover {
+  background-color: hsl(210 75% 92%);
+}
+
+/* 배송 수정: 연한 황갈색(앰버) 톤 */
+.form-cells.is-edit > div {
+  background-color: hsl(40 80% 95%);
+  border-color: hsl(38 70% 78%);
+}
+.form-cells.is-edit > div:hover {
+  background-color: hsl(40 85% 91%);
+}
+
+/* 엑셀 붙여넣기 영역: 연한 민트 톤 */
+.paste-area {
+  background-color: hsl(150 50% 96%) !important;
+  border-color: hsl(150 45% 78%) !important;
+}
+.paste-area:focus-visible {
+  background-color: hsl(150 55% 93%) !important;
+}
+
 @media print {
   @page { size: A4; margin: 12mm; }
   html, body { background: #fff !important; }
