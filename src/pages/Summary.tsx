@@ -232,7 +232,7 @@ export default function Summary() {
 
   const companyGridTemplate = COMPANY_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
   const leaderGridTemplate = LEADER_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
-  const cellBase = "flex items-center justify-center text-center px-2 py-2 text-sm border-b";
+  const cellBase = "flex items-center justify-center text-center px-4 py-3 text-base border-b";
 
   // 기준서 #12 — 한눈요약 오류 6종 자동 탐지
   const errorChecks = useMemo(() => {
