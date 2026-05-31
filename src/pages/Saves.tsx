@@ -37,6 +37,9 @@ import {
 } from "@/lib/statementValidation";
 import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { computeGate, setClosed as setGateClosed } from "@/lib/settlementGate";
 
 export default function Saves() {
   const { user } = useAuth();
@@ -51,6 +54,7 @@ export default function Saves() {
   const [companies, setCompanies] = useState<StmtCompany[]>([]);
   const [leaders, setLeaders] = useState<StmtLeader[]>([]);
   const [deliveries, setDeliveries] = useState<StmtDelivery[]>([]);
+  const [hqHolidays, setHqHolidays] = useState<Set<string>>(new Set());
   const [commonDeductions, setCommonDeductions] = useState<StmtCommonDeduction[]>([]);
   const [commonOverrides, setCommonOverrides] = useState<StmtCommonOverride[]>([]);
   const [periodDeductions, setPeriodDeductions] = useState<StmtPeriodDeduction[]>([]);
@@ -71,10 +75,11 @@ export default function Saves() {
       const commonKeys = period === "all"
         ? ["all"]
         : [`${month}-${period === "h1" ? "first" : "second"}`];
-      const [{ data: cs }, { data: ls }, { data: ds }, { data: cds }, { data: ovs }, { data: pds }] = await Promise.all([
+      const [{ data: cs }, { data: ls }, { data: ds }, { data: hs }, { data: cds }, { data: ovs }, { data: pds }] = await Promise.all([
         supabase.from("companies").select("*").eq("user_id", uid).order("name"),
         supabase.from("team_leaders").select("*").eq("user_id", uid).order("name"),
         supabase.from("deliveries").select("*").eq("user_id", uid).gte("date", from).lte("date", to),
+        supabase.from("holidays").select("date,scope").eq("user_id", uid).eq("scope", "hq"),
         supabase.from("common_deductions").select("id,label,amount,active").eq("user_id", uid).order("sort_order"),
         supabase.from("leader_common_overrides").select("leader_id,common_deduction_id,period_key,amount").eq("user_id", uid).in("period_key", commonKeys),
         supabase.from("leader_period_deductions").select("leader_id,period_key,label,amount").eq("user_id", uid).eq("period_key", periodKey),
@@ -82,6 +87,7 @@ export default function Saves() {
       setCompanies((cs ?? []) as unknown as StmtCompany[]);
       setLeaders((ls ?? []) as unknown as StmtLeader[]);
       setDeliveries((ds ?? []) as unknown as StmtDelivery[]);
+      setHqHolidays(new Set(((hs ?? []) as Array<{ date: string }>).map((h) => h.date)));
       setCommonDeductions((cds ?? []) as unknown as StmtCommonDeduction[]);
       setCommonOverrides((ovs ?? []) as unknown as StmtCommonOverride[]);
       setPeriodDeductions((pds ?? []) as unknown as StmtPeriodDeduction[]);
@@ -428,6 +434,22 @@ export default function Saves() {
     setPendingSave(null);
   };
 
+  // ─── 정산마감 게이트 (입력마감일/자동생성일/저장차단 사유) ────────
+  const gate = useMemo(
+    () => computeGate(uid, month, period, hqHolidays),
+    [uid, month, period, hqHolidays],
+  );
+  const [gateTick, setGateTick] = useState(0);
+  const blockedReason = gate.blockedReason;
+  const saveBlocked = !!blockedReason;
+  const toggleClose = (next: boolean) => {
+    if (!uid) return;
+    setGateClosed(uid, month, period, next);
+    setGateTick((t) => t + 1);
+  };
+  // gateTick은 useMemo 의존성에는 없지만 setGateClosed 후 리렌더 트리거용
+  void gateTick;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -464,14 +486,49 @@ export default function Saves() {
         </div>
       </div>
 
+      {/* 정산마감 게이트 패널 */}
+      <Card className={"p-4 " + (gate.closed ? "border-primary/40" : "border-yellow-400/60 bg-yellow-50/40 dark:bg-yellow-950/20") }>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <div className="flex items-center gap-2 font-semibold">
+            <span>정산상태</span>
+            {gate.closed
+              ? <Badge>정산마감 완료</Badge>
+              : gate.pastDeadline
+              ? <Badge variant="secondary" className="border-yellow-400">입력완료 대기</Badge>
+              : <Badge variant="outline" className="border-yellow-400 text-yellow-700 dark:text-yellow-300">입력중</Badge>}
+          </div>
+          <div className="text-muted-foreground">
+            입력마감일: <span className="font-mono text-foreground">{gate.deadline}</span>
+          </div>
+          <div className="text-muted-foreground">
+            자동생성일: <span className="font-mono text-foreground">{gate.generate}</span>
+            {gate.pastGenerate
+              ? <Badge className="ml-2 text-[10px]">생성 가능 시점</Badge>
+              : <Badge variant="outline" className="ml-2 text-[10px]">대기</Badge>}
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Label htmlFor="settle-close" className="text-xs">정산마감 처리</Label>
+            <Switch
+              id="settle-close"
+              checked={gate.closed}
+              onCheckedChange={toggleClose}
+              disabled={!uid || !gate.pastDeadline}
+            />
+          </div>
+        </div>
+        {blockedReason && (
+          <p className="mt-2 text-xs text-yellow-700 dark:text-yellow-300">{blockedReason}</p>
+        )}
+      </Card>
+
       {/* 기본 액션 버튼 */}
       <Card className="p-4">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Button size="lg" className="h-14" onClick={onSaveCompanyOne} disabled={!selectedCompany || isLocked("company")}>업체 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={onSaveCompanyAll} disabled={companyStmts.length === 0 || isLocked("company")}>업체 전체 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={onSaveLeaderOne} disabled={!selectedLeader || isLocked("leader")}>팀장 사진 저장</Button>
-          <Button size="lg" className="h-14" onClick={onSaveLeaderAll} disabled={leaderStmts.length === 0 || isLocked("leader")}>팀장 전체 사진 저장</Button>
-          <Button size="lg" variant="secondary" className="h-14" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader")}>정산서 재생성</Button>
+          <GateButton reason={blockedReason} onClick={onSaveCompanyOne} disabled={!selectedCompany || isLocked("company") || saveBlocked}>업체 사진 저장</GateButton>
+          <GateButton reason={blockedReason} onClick={onSaveCompanyAll} disabled={companyStmts.length === 0 || isLocked("company") || saveBlocked}>업체 전체 사진 저장</GateButton>
+          <GateButton reason={blockedReason} onClick={onSaveLeaderOne} disabled={!selectedLeader || isLocked("leader") || saveBlocked}>팀장 사진 저장</GateButton>
+          <GateButton reason={blockedReason} onClick={onSaveLeaderAll} disabled={leaderStmts.length === 0 || isLocked("leader") || saveBlocked}>팀장 전체 사진 저장</GateButton>
+          <GateButton reason={blockedReason} variant="secondary" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader") || saveBlocked}>정산서 재생성</GateButton>
           <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
         </div>
       </Card>
@@ -844,6 +901,37 @@ function Stat({ label, value, accent }: { label: string; value: number | string;
 }
 
 /** rowCount 를 pageSize 단위로 잘라 [start, end) 범위 배열을 반환. 0건이면 1페이지(빈) 반환 */
+function GateButton({
+  reason, disabled, onClick, children, variant,
+}: {
+  reason: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  variant?: "secondary";
+}) {
+  const btn = (
+    <Button
+      size="lg"
+      className="h-14 w-full"
+      variant={variant}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </Button>
+  );
+  if (!reason) return btn;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-block w-full">{btn}</span>
+      </TooltipTrigger>
+      <TooltipContent>{reason}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function paginate(rowCount: number, pageSize: number): Array<{ start: number; end: number }> {
   if (rowCount <= 0) return [{ start: 0, end: 0 }];
   const out: Array<{ start: number; end: number }> = [];
