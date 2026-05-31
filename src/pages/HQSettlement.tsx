@@ -293,6 +293,8 @@ export default function HQSettlement() {
   }, [leaders, validRows, byId, trashCostMultiplier]);
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
+  // 팀장 수수료 합계 — 본사 수입으로 가산
+  const leaderCommissionTotal = leaderDetails.reduce((s, x) => s + x.commission, 0);
 
   // 자동검증 (내부 관점) — 현재 기간 탭에 표시되는 행만 검사
   const audit = useMemo(
