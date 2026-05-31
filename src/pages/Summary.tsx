@@ -33,17 +33,20 @@ type Leader = {
 
 type Period = "h1" | "h2" | "all";
 
-const SUMMARY_COLUMNS = [
-  { key: "rank", label: "순위", width: 70 },
-  { key: "company", label: "업체", width: 150 },
-  { key: "company_count", label: "업체 건수", width: 100 },
-  { key: "company_amount", label: "업체 금액", width: 150 },
-  { key: "company_share", label: "업체 비중%", width: 100 },
-  { key: "gap", label: "", width: 40 },
-  { key: "leader", label: "팀장", width: 150 },
-  { key: "leader_count", label: "팀장 건수", width: 100 },
-  { key: "leader_amount", label: "팀장 금액", width: 150 },
-  { key: "leader_share", label: "팀장 비중%", width: 100 },
+const COMPANY_COLUMNS = [
+  { key: "rank", label: "순위", width: 60 },
+  { key: "company", label: "업체", width: 1 },
+  { key: "company_count", label: "건수", width: 70 },
+  { key: "company_amount", label: "금액", width: 1 },
+  { key: "company_share", label: "비중%", width: 70 },
+] as const;
+
+const LEADER_COLUMNS = [
+  { key: "rank", label: "순위", width: 60 },
+  { key: "leader", label: "팀장", width: 1 },
+  { key: "leader_count", label: "건수", width: 70 },
+  { key: "leader_amount", label: "실수령액", width: 1 },
+  { key: "leader_share", label: "비중%", width: 70 },
 ] as const;
 
 const inPeriod = (dateStr: string, period: Period): boolean => {
