@@ -603,7 +603,7 @@ function CompaniesTab() {
         </DialogContent>
       </Dialog>
       <Dialog open={!!preview} onOpenChange={(v) => !v && setPreview(null)}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>통합 미리보기</DialogTitle>
           </DialogHeader>
