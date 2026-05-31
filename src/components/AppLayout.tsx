@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save, Tag } from "lucide-react";
+import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save } from "lucide-react";
 
 const nav = [
   { to: "/records", label: "기록입력", icon: FileSpreadsheet },
@@ -12,8 +12,6 @@ const nav = [
   { to: "/holidays", label: "휴무일관리", icon: CalendarOff },
   { to: "/settings", label: "설정", icon: SettingsIcon },
   { to: "/saves", label: "정산서저장", icon: Save },
-  { to: "/pricing", label: "삼호물류 단가표", icon: Tag },
-  { to: "/pricing", label: "삼호물류 단가표", icon: Tag },
 ];
 
 export default function AppLayout() {
