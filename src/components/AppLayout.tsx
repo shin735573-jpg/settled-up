@@ -29,10 +29,10 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-muted/30">
       <aside className="md:w-56 md:min-h-screen bg-card border-r flex flex-col w-full print:hidden">
-        <div className="px-4 py-3 border-b w-full flex items-center justify-between gap-2 md:block">
+        <div className="px-3 py-2 md:px-4 md:py-3 border-b w-full flex items-center justify-between gap-2 md:block">
           <div className="min-w-0">
-            <div className="font-bold text-lg leading-tight">삼호정산표</div>
-            <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+            <div className="font-bold text-base md:text-lg leading-tight">삼호정산표</div>
+            <div className="hidden md:block text-xs text-muted-foreground truncate">{user?.email}</div>
           </div>
           {/* 모바일: 헤더 우측 로그아웃 버튼 */}
           <Button
@@ -45,14 +45,14 @@ export default function AppLayout() {
             <LogOut className="h-5 w-5" />
           </Button>
         </div>
-        <nav className="flex flex-wrap md:flex-nowrap md:flex-col flex-1 md:overflow-visible">
+        <nav className="hidden md:flex md:flex-col flex-1 md:overflow-visible">
           {nav.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
               className={({ isActive }) =>
-                `flex-1 md:flex-none basis-1/4 md:basis-auto flex items-center justify-center md:justify-start gap-1.5 md:gap-2 px-2 md:px-4 py-2.5 md:py-3 text-xs md:text-sm whitespace-nowrap hover:bg-accent min-h-[44px] ${
+                `flex items-center gap-2 px-4 py-3 text-sm whitespace-nowrap hover:bg-accent min-h-[44px] ${
                   isActive ? "bg-accent font-semibold border-b-2 md:border-b-0 md:border-l-2 border-primary" : ""
                 }`
               }
