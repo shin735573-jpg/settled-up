@@ -54,11 +54,16 @@ export default function Saves() {
 
   // 날짜에 맞춰 자동으로 월/기간 초기화
   const initial = useMemo(() => getCurrentSavingPeriod(), []);
-  const [month, setMonth] = useState<string>(() => settings?.defaultMonth || initial.month);
-  const [period, setPeriod] = useState<PeriodKey>(initial.period);
-  const [autoPeriod, setAutoPeriod] = useState<boolean>(() => {
+  const autoPeriodInitial = (() => {
     try { return localStorage.getItem("saves.autoPeriod") !== "0"; } catch { return true; }
-  });
+  })();
+  const [month, setMonth] = useState<string>(() =>
+    autoPeriodInitial ? initial.month : (settings?.defaultMonth || initial.month)
+  );
+  const [period, setPeriod] = useState<PeriodKey>(() =>
+    autoPeriodInitial ? initial.period : initial.period
+  );
+  const [autoPeriod, setAutoPeriod] = useState<boolean>(autoPeriodInitial);
   const toggleAutoPeriod = (v: boolean) => {
     setAutoPeriod(v);
     try { localStorage.setItem("saves.autoPeriod", v ? "1" : "0"); } catch { /* noop */ }
