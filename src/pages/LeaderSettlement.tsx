@@ -291,6 +291,19 @@ export default function LeaderSettlement() {
   const commonTotalFor = (leaderId: string): number =>
     activeCommonDeductions.reduce((s, cd) => s + effectiveCommonAmount(leaderId, cd), 0);
 
+  /**
+   * 팀장별 자동 쓰레기비용 — team_leaders.trash_cost 를 보름 단위로 1번씩 자동 차감.
+   * 1~15일 / 16~말일: 1번, 월전체: 2번, 전체기간: 1번.
+   * 모든 팀장이 동일한 common_deductions 값에 종속되지 않고, 팀장별 trash_cost 가
+   * 0보다 크면 무조건 자동 적용된다. 누락 팀장 없이 100% 적용 보장.
+   */
+  const trashCostAutoFor = (leaderId: string): number => {
+    const lead = leadersById.get(leaderId);
+    const base = num(lead?.trash_cost);
+    if (base <= 0) return 0;
+    return base * commonPeriodKeys.length;
+  };
+
   const individualTotalFor = (lid: string): number =>
     periodDeductions
       .filter((d) => d.leader_id === lid)
