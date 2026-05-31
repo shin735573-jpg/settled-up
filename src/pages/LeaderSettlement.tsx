@@ -1075,9 +1075,9 @@ export default function LeaderSettlement() {
 
 function Stat({ label, value, highlight, raw }: { label: string; value: number; highlight?: boolean; raw?: boolean }) {
   return (
-    <div className={`p-3 rounded border ${highlight ? "bg-primary/10 border-primary" : ""}`}>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-bold">{raw ? value : fmt(value)}</div>
+    <div className={`p-3 rounded border ${highlight ? "bg-red-50 border-red-200" : ""}`}>
+      <div className={`text-xs ${highlight ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>{label}</div>
+      <div className={`text-xl font-bold ${highlight ? "text-red-600" : ""}`}>{raw ? value : fmt(value)}</div>
     </div>
   );
 }
