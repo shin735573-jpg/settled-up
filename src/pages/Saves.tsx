@@ -206,10 +206,26 @@ export default function Saves() {
       toast({ title: "이미 저장 중", description: `${month} ${period} 작업이 진행 중입니다.`, variant: "destructive" });
       return;
     }
-    const targets =
+    // 청구금액 0 업체 / 정산내역 없는 팀장 자동 제외
+    const skipCompany = new Set(
+      companyStmts.filter((s) => s.finalClaim <= 0).map((s) => s.company.id),
+    );
+    const skipLeader = new Set(
+      leaderStmts.filter((s) => s.deliveryCount === 0).map((s) => s.leader.id),
+    );
+    const allNodes =
       kind === "company" ? collectNodes("company")
       : kind === "leader" ? collectNodes("leader")
       : [...collectNodes("company"), ...collectNodes("leader")];
+    const targets = allNodes.filter((t) =>
+      t.kind === "company" ? !skipCompany.has(t.id) : !skipLeader.has(t.id),
+    );
+    const skippedCompanies = (kind === "company" || kind === "both")
+      ? companyStmts.filter((s) => skipCompany.has(s.company.id))
+      : [];
+    const skippedLeaders = (kind === "leader" || kind === "both")
+      ? leaderStmts.filter((s) => skipLeader.has(s.leader.id))
+      : [];
     if (targets.length === 0) {
       toast({ title: "저장 대상 없음", variant: "destructive" });
       releaseLocks(keys);
@@ -220,7 +236,13 @@ export default function Saves() {
         targets, month, period, regenerate,
         (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
       );
-      toast({ title: "저장 완료", description: `${filename} (${count}건)` });
+      const skipCount = skippedCompanies.length + skippedLeaders.length;
+      setBulkResult({
+        kind, filename, savedCount: count,
+        skippedCompanies: skippedCompanies.map((s) => ({ name: s.company.name, reason: "청구금액 없음" })),
+        skippedLeaders: skippedLeaders.map((s) => ({ name: s.leader.name, reason: "정산내역 없음" })),
+      });
+      toast({ title: "저장 완료", description: `${filename} (${count}건 저장, ${skipCount}건 제외)` });
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
@@ -228,6 +250,15 @@ export default function Saves() {
       releaseLocks(keys);
     }
   }
+
+  // 전체저장 결과 패널
+  const [bulkResult, setBulkResult] = useState<null | {
+    kind: "company" | "leader" | "both";
+    filename: string;
+    savedCount: number;
+    skippedCompanies: { name: string; reason: string }[];
+    skippedLeaders: { name: string; reason: string }[];
+  }>(null);
 
   // ─── 저장 전 오류 검사 + 후속 저장 액션 ────────────────────
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
@@ -367,7 +398,12 @@ export default function Saves() {
   const onSaveCompanyOne = () => selectedCompany && withValidation(
     `${selectedCompany.company.name} 정산서 저장`,
     "company-one",
-    () => doExportSingle("company", selectedCompany.company.id, selectedCompany.company.name, false),
+    () => {
+      if (selectedCompany.finalClaim <= 0) {
+        if (!window.confirm("해당 업체는 선택 기간 청구금액이 없습니다. 그래도 정산서를 저장하시겠습니까?")) return;
+      }
+      doExportSingle("company", selectedCompany.company.id, selectedCompany.company.name, false);
+    },
   );
   const onSaveCompanyAll = () => withValidation(
     "업체 전체 정산서 저장", "company-all",
