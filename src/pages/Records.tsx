@@ -1490,6 +1490,11 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
               onChange={(e) => setDefaultLeadersText(e.target.value)}
               placeholder="예) 동석/형주  또는  오동선, 김용익"
             />
+            {titleLeaderHint && (
+              <div className="text-[11px] text-muted-foreground">
+                제목 행에서 팀장 인식: <b>{titleLeaderHint.names.join(" / ")}</b>
+              </div>
+            )}
             {defaultLeadersText.trim() && (
               <div className="flex items-center gap-2 flex-wrap text-xs">
                 {defaultLeaderInfo.ids.slice(0, 2).map((id, i) => {
