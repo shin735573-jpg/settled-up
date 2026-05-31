@@ -468,10 +468,14 @@ function CompaniesTab() {
         <div>
           <Input placeholder="업체 검색 (업체명 일부 입력)" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full" />
         </div>
+        <div className="text-xs text-muted-foreground">
+          전체 {rows.length}개 업체{search.trim() ? ` · 검색 결과 ${filteredRows.length}개` : ""}
+        </div>
       </div>
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-12">연번</TableHead>
             <TableHead>업체명</TableHead>
             <TableHead>계산서</TableHead>
             <TableHead>계좌번호</TableHead>
@@ -485,8 +489,9 @@ function CompaniesTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredRows.map((r) => (
+          {filteredRows.map((r, idx) => (
             <TableRow key={r.id}>
+              <TableCell className="text-muted-foreground text-sm">{idx + 1}</TableCell>
               <TableCell><Input defaultValue={r.name} onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} /></TableCell>
               <TableCell><Checkbox checked={r.issues_invoice} onCheckedChange={(v) => update(r.id, { issues_invoice: !!v })} /></TableCell>
               <TableCell>
@@ -534,7 +539,7 @@ function CompaniesTab() {
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
           ))}
-          {filteredRows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 업체가 없습니다"}</TableCell></TableRow>}
+          {filteredRows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 업체가 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
       <Dialog open={dupOpen} onOpenChange={setDupOpen}>
