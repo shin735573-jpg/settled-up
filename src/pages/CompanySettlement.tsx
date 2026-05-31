@@ -509,7 +509,6 @@ export default function CompanySettlement() {
               </TableHeader>
               <TableBody>
                 {companySummaries.map((s) => {
-                  const status = paymentStatus(s.paid, s.unpaid);
                   const cells: Record<string, React.ReactNode> = {
                     name: (
                       <button
@@ -521,26 +520,7 @@ export default function CompanySettlement() {
                     ),
                     count: s.count || "-",
                     total: fmtAmount(s.total),
-                    paid: fmtAmount(s.paid),
-                    unpaid: fmtAmount(s.unpaid),
                     cod: fmtAmount(s.cod),
-                    carry: fmtAmount(s.carry),
-                    net: <span className="font-semibold">{fmtAmount(s.net)}</span>,
-                    status: (
-                      <span
-                        className={
-                          status === "결제완료"
-                            ? "text-emerald-600 font-medium"
-                            : status === "미결제"
-                            ? "text-destructive font-medium"
-                            : status === "혼합"
-                            ? "text-amber-600 font-medium"
-                            : ""
-                        }
-                      >
-                        {status}
-                      </span>
-                    ),
                     detail: (
                       <Button size="sm" variant="outline" onClick={() => setCompanyId(s.company.id)}>
                         상세
