@@ -159,6 +159,7 @@ function CompaniesTab() {
   const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
   const [manualCanonical, setManualCanonical] = useState<string | null>(null);
   const [manualFilter, setManualFilter] = useState("");
+  const [search, setSearch] = useState("");
   const [preview, setPreview] = useState<{
     group: Company[];
     canonical: Company;
@@ -449,15 +450,24 @@ function CompaniesTab() {
     if (ra !== rb) return ra - rb;
     return (a.name || "").localeCompare(b.name || "", "ko");
   });
+  const filteredRows = sortedRows.filter((r) => {
+    if (!search.trim()) return true;
+    return (r.name || "").toLowerCase().includes(search.trim().toLowerCase());
+  });
 
   return (
     <Card className="p-4 space-y-4">
-      <div className="flex gap-2">
-        <Input placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
-        <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
-        <Button variant="outline" onClick={detectDups}>중복 검사</Button>
-        <Button variant="outline" onClick={() => detectSimilar(0.7)}>유사 이름 검사</Button>
-        <Button variant="outline" onClick={openManual}>지정 통합</Button>
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <Input placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
+          <Button variant="outline" onClick={detectDups}>중복 검사</Button>
+          <Button variant="outline" onClick={() => detectSimilar(0.7)}>유사 이름 검사</Button>
+          <Button variant="outline" onClick={openManual}>지정 통합</Button>
+        </div>
+        <div>
+          <Input placeholder="업체 검색 (업체명 일부 입력)" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full" />
+        </div>
       </div>
       <Table>
         <TableHeader>
@@ -475,7 +485,7 @@ function CompaniesTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedRows.map((r) => (
+          {filteredRows.map((r) => (
             <TableRow key={r.id}>
               <TableCell><Input defaultValue={r.name} onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })} /></TableCell>
               <TableCell><Checkbox checked={r.issues_invoice} onCheckedChange={(v) => update(r.id, { issues_invoice: !!v })} /></TableCell>
@@ -524,7 +534,7 @@ function CompaniesTab() {
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
           ))}
-          {rows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">등록된 업체가 없습니다</TableCell></TableRow>}
+          {filteredRows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 업체가 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
       <Dialog open={dupOpen} onOpenChange={setDupOpen}>
