@@ -694,7 +694,7 @@ export default function LeaderSettlement() {
           <LeaderSummaryCard label="총배송건수" value={topSummary.totalCount.toLocaleString()} />
           <LeaderSummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
           <LeaderSummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
-          <LeaderSummaryCard label="업체총배송비" value={fmt(topSummary.companyTotalFee)} bold />
+          <LeaderSummaryCard label="업체총배송비" value={fmt(topSummary.companyTotalFee)} bold red />
         </div>
       )}
 
@@ -706,15 +706,14 @@ export default function LeaderSettlement() {
               팀장정산 목록의 헤더와 데이터 컬럼 위치가 일치하지 않습니다.
             </div>
           )}
-          <div className="w-full overflow-x-auto">
+          <div className="w-full">
             <table
               data-testid="leader-summary-table"
-              className="text-sm num table-fixed border-collapse"
-              style={{ minWidth: `${LEADER_TABLE_MIN_WIDTH}px`, width: `${LEADER_TABLE_MIN_WIDTH}px` }}
+              className="w-full text-sm num table-fixed border-collapse"
             >
               <colgroup>
                 {LEADER_COLUMNS.map((c) => (
-                  <col key={c.key} style={{ width: `${c.width}px` }} />
+                  <col key={c.key} style={{ width: `${(c.width / LEADER_TABLE_MIN_WIDTH) * 100}%` }} />
                 ))}
               </colgroup>
               <thead className="[&_tr]:border-b">
@@ -723,7 +722,6 @@ export default function LeaderSettlement() {
                     <th
                       key={c.key}
                       className="h-12 px-2 text-center align-middle font-medium text-muted-foreground whitespace-nowrap"
-                      style={{ width: `${c.width}px` }}
                     >
                       {c.label}
                     </th>
@@ -744,7 +742,7 @@ export default function LeaderSettlement() {
                     regional: fmt(m.regional),
                     cod: fmt(m.cod),
                     deduction: fmt(m.deduction),
-                    total: <span className="font-bold text-red-600">{fmt(m.total)}</span>,
+                    total: <span className="font-bold">{fmt(m.total)}</span>,
                     detail: (
                       <span className="text-primary text-xs hover:underline">상세보기</span>
                     ),
@@ -759,7 +757,6 @@ export default function LeaderSettlement() {
                         <td
                           key={c.key}
                           className="p-2 align-middle text-center whitespace-nowrap"
-                          style={{ width: `${c.width}px` }}
                         >
                           {cells[c.key]}
                         </td>
@@ -1072,14 +1069,14 @@ function Stat({ label, value, highlight, raw }: { label: string; value: number; 
 }
 
 function LeaderSummaryCard({
-  label, value, accent, bold,
-}: { label: string; value: string; accent?: boolean; bold?: boolean }) {
+  label, value, accent, bold, red,
+}: { label: string; value: string; accent?: boolean; bold?: boolean; red?: boolean }) {
   return (
     <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50">
       <div className="text-xs text-emerald-900/70">{label}</div>
       <div
         className={`mt-1 num ${bold ? "text-2xl font-extrabold" : "text-2xl font-bold"} ${
-          accent ? "text-orange-600" : "text-emerald-900"
+          red ? "text-red-600" : accent ? "text-orange-600" : "text-emerald-900"
         }`}
       >
         {value}
