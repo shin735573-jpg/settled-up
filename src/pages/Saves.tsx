@@ -502,41 +502,6 @@ export default function Saves() {
         </div>
       </div>
 
-      {/* 정산마감 게이트 패널 */}
-      <Card className={"p-4 " + (gate.closed ? "border-primary/40" : "border-yellow-400/60 bg-yellow-50/40 dark:bg-yellow-950/20") }>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-          <div className="flex items-center gap-2 font-semibold">
-            <span>정산상태</span>
-            {gate.closed
-              ? <Badge>정산마감 완료</Badge>
-              : gate.pastDeadline
-              ? <Badge variant="secondary" className="border-yellow-400">입력완료 대기</Badge>
-              : <Badge variant="outline" className="border-yellow-400 text-yellow-700 dark:text-yellow-300">입력중</Badge>}
-          </div>
-          <div className="text-muted-foreground">
-            입력마감일: <span className="font-mono text-foreground">{gate.deadline}</span>
-          </div>
-          <div className="text-muted-foreground">
-            자동생성일: <span className="font-mono text-foreground">{gate.generate}</span>
-            {gate.pastGenerate
-              ? <Badge className="ml-2 text-[10px]">생성 가능 시점</Badge>
-              : <Badge variant="outline" className="ml-2 text-[10px]">대기</Badge>}
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Label htmlFor="settle-close" className="text-xs">정산마감 처리</Label>
-            <Switch
-              id="settle-close"
-              checked={gate.closed}
-              onCheckedChange={toggleClose}
-              disabled={!uid || !gate.pastDeadline}
-            />
-          </div>
-        </div>
-        {blockedReason && (
-          <p className="mt-2 text-xs text-yellow-700 dark:text-yellow-300">{blockedReason}</p>
-        )}
-      </Card>
-
       {/* 기본 액션 버튼 */}
       <Card className="p-4">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
