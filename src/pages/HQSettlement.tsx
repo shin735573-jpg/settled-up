@@ -572,10 +572,6 @@ export default function HQSettlement() {
               <span className="font-medium text-destructive">{fmt(totalDeliveryFee)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">월전체 배송비</span>
-              <span className="font-medium text-destructive">{fmt(monthlyDeliveryFee)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">적재비 (청구분)</span>
               <span className="font-medium">{fmt(loadingBilled)}</span>
             </div>
