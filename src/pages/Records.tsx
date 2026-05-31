@@ -985,6 +985,47 @@ export default function Records() {
         <Button onClick={() => setPasteOpen(true)}><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
 
+      <Card className="p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
+          <div className="space-y-1">
+            <Label className="text-xs">업체 검색</Label>
+            <Input
+              value={searchCompany}
+              onChange={(e) => setSearchCompany(e.target.value)}
+              placeholder="업체명 부분검색 (예: 모던)"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">고객명 검색</Label>
+            <Input
+              value={searchCustomer}
+              onChange={(e) => setSearchCustomer(e.target.value)}
+              placeholder="고객명 부분검색 (예: 김)"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">팀장 검색 (별칭 가능)</Label>
+            <Input
+              value={searchLeader}
+              onChange={(e) => setSearchLeader(e.target.value)}
+              placeholder="예: 형주 / 동석 / 동선"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setSearchCompany(""); setSearchCustomer(""); setSearchLeader(""); }}
+            >
+              초기화
+            </Button>
+            <div className="text-xs text-muted-foreground">
+              {(searchCompany || searchCustomer || searchLeader)
+                ? `검색 결과 ${filteredRecords.length}건`
+                : `전체 ${records.length}건`}
+            </div>
+          </div>
+        </div>
+      </Card>
 
 
       <Button
