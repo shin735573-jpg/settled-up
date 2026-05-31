@@ -184,11 +184,13 @@ export default function CompanySettlement() {
   }, [companies, period]);
 
   const companySummaries = useMemo(() => {
-    return visibleCompanies.map((c) => {
-      const rs = allRows.filter((r) => matchesCompany(r, c));
-      const cr = carryRows.filter((r) => matchesCompany(r, c));
-      return { company: c, ...summarize(rs, cr) };
-    });
+    return visibleCompanies
+      .map((c) => {
+        const rs = allRows.filter((r) => matchesCompany(r, c));
+        const cr = carryRows.filter((r) => matchesCompany(r, c));
+        return { company: c, ...summarize(rs, cr) };
+      })
+      .sort((a, b) => b.count - a.count);
   }, [visibleCompanies, allRows, carryRows]);
 
   // 자동검증 (업체 제출 관점)
