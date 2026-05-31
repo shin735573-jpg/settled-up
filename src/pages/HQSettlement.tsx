@@ -549,7 +549,7 @@ export default function HQSettlement() {
         <Input type="month" value={month} onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }} className="w-40" />
         <Tabs value={period} onValueChange={(v) => { setPeriod(v as Period); if (autoPeriod) toggleAutoPeriod(false); }}>
           <TabsList>
-            <TabsTrigger value="all">전체</TabsTrigger>
+            <TabsTrigger value="all">월전체</TabsTrigger>
             <TabsTrigger value="h1">1~15일</TabsTrigger>
             <TabsTrigger value="h2">16~말일</TabsTrigger>
           </TabsList>
