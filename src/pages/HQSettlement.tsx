@@ -13,10 +13,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { allocateRow, feeForShare } from "@/lib/splitAllocation";
+import { auditDeliveries } from "@/lib/liveAudit";
+import { AuditBanner } from "@/components/AuditBanner";
 
 type Period = "h1" | "h2" | "all";
 type Delivery = any;
-type Company = { id: string; name: string; active: boolean; issues_invoice: boolean; fee_rate_metro: number; fee_rate_regional: number };
+type Company = {
+  id: string; name: string; active: boolean; issues_invoice: boolean;
+  fee_rate_metro: number; fee_rate_regional: number;
+  rejected_leader_id?: string | null;
+  rejected_leader_id_2?: string | null;
+  rejected_leader_id_3?: string | null;
+};
 type Leader = {
   id: string; name: string; active: boolean; is_rejected: boolean; is_virtual: boolean;
   settle_to_id: string | null; settle_status?: "included" | "excluded" | null;
@@ -115,7 +123,7 @@ export default function HQSettlement() {
       const end = next.toISOString().slice(0, 10);
       const [{ data: d }, { data: c }, { data: l }] = await Promise.all([
         supabase.from("deliveries").select("*").gte("date", start).lt("date", end),
-        supabase.from("companies").select("id,name,active,issues_invoice,fee_rate_metro,fee_rate_regional").order("name"),
+        supabase.from("companies").select("id,name,active,issues_invoice,fee_rate_metro,fee_rate_regional,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
         supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases,settle_status,deduction_amount,trash_cost,region,fee_rate_metro,fee_rate_regional,min_guarantee_enabled,min_guarantee_amount").order("name"),
       ]);
       setRows(d || []);
@@ -232,6 +240,17 @@ export default function HQSettlement() {
   }, [leaders, validRows, byId]);
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
+
+  // 자동검증 (내부 관점)
+  const audit = useMemo(
+    () => auditDeliveries({
+      deliveries: rows as any,
+      companies,
+      leaders: leaders as any,
+      mode: "internal",
+    }),
+    [rows, companies, leaders],
+  );
 
   // ── 업체 정산 상세
   type CompanyDetail = {
@@ -358,6 +377,8 @@ export default function HQSettlement() {
           </TabsList>
         </Tabs>
       </div>
+
+      <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
       {/* 상단: 본사 수익 요약 + 적재비 입력 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

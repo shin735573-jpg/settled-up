@@ -8,6 +8,8 @@ import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { matchesCompany } from "@/lib/companyMatch";
 import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolver";
+import { auditDeliveries } from "@/lib/liveAudit";
+import { AuditBanner } from "@/components/AuditBanner";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -186,6 +188,18 @@ export default function CompanySettlement() {
       return { company: c, ...summarize(rs, cr) };
     });
   }, [visibleCompanies, allRows, carryRows]);
+
+  // 자동검증 (업체 제출 관점)
+  const audit = useMemo(
+    () => auditDeliveries({
+      deliveries: allRows,
+      companies,
+      leaders,
+      mode: "submission",
+      scopedCompanyId: companyId || null,
+    }),
+    [allRows, companies, leaders, companyId],
+  );
 
   const detailRows = useMemo(
     () => (company ? allRows.filter((r) => matchesCompany(r, company)) : []),
@@ -388,6 +402,12 @@ export default function CompanySettlement() {
           ))}
         </div>
       </div>
+
+      <AuditBanner
+        title={companyId ? "이 업체 자동검증" : "전체 업체 자동검증"}
+        result={audit}
+        defaultOpen={!audit.ok}
+      />
 
       {!companyId && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
