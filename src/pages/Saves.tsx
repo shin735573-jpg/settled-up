@@ -177,25 +177,22 @@ export default function Saves() {
   // ─── 중복 실행 잠금 (기간·탭 단위) ───────────────────────
   // 키 형태: "company:<month>:<period>" / "leader:<month>:<period>"
   // 재생성/전체 저장은 해당 탭의 키를 잠그며, both-all 은 두 탭을 동시에 잠근다.
+  // ref + state 동시 관리: ref 는 즉시 반영되어 동일 tick 내 중복 클릭/타이머 경쟁을 차단,
+  // state 는 disabled UI 갱신용으로 사용한다.
+  const locksRef = useRef<Set<string>>(new Set());
   const [locks, setLocks] = useState<Set<string>>(new Set());
   const lockKey = (kind: "company" | "leader") => `${kind}:${month}:${period}`;
   const isLocked = (kind: "company" | "leader") => locks.has(lockKey(kind));
   const acquireLocks = (keys: string[]): boolean => {
-    // 하나라도 이미 잠겨 있으면 실패
-    for (const k of keys) if (locks.has(k)) return false;
-    setLocks((prev) => {
-      const next = new Set(prev);
-      keys.forEach((k) => next.add(k));
-      return next;
-    });
+    // ref 기준으로 즉시 검사 — 동일 tick 내 중복 진입 차단
+    for (const k of keys) if (locksRef.current.has(k)) return false;
+    keys.forEach((k) => locksRef.current.add(k));
+    setLocks(new Set(locksRef.current));
     return true;
   };
   const releaseLocks = (keys: string[]) => {
-    setLocks((prev) => {
-      const next = new Set(prev);
-      keys.forEach((k) => next.delete(k));
-      return next;
-    });
+    keys.forEach((k) => locksRef.current.delete(k));
+    setLocks(new Set(locksRef.current));
   };
 
   function collectNodes(kind: "company" | "leader"): ExportTarget[] {
@@ -607,7 +604,7 @@ export default function Saves() {
         <div>
           <h1 className="text-2xl font-bold">정산서저장</h1>
           <p className="text-sm text-muted-foreground">
-            업체·팀장 정산서를 기간별로 PNG 이미지로 저장합니다.
+            업체·팀장 정산서를 기간별로 JPG 이미지로 저장합니다.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
