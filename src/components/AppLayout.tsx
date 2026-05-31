@@ -45,14 +45,14 @@ export default function AppLayout() {
             <LogOut className="h-5 w-5" />
           </Button>
         </div>
-        <nav className="flex md:flex-col flex-1 overflow-x-auto md:overflow-visible">
+        <nav className="flex flex-wrap md:flex-nowrap md:flex-col flex-1 md:overflow-visible">
           {nav.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
               className={({ isActive }) =>
-                `flex items-center gap-2 px-3 md:px-4 py-3 text-sm whitespace-nowrap shrink-0 hover:bg-accent min-h-[44px] ${
+                `flex-1 md:flex-none basis-1/4 md:basis-auto flex items-center justify-center md:justify-start gap-1.5 md:gap-2 px-2 md:px-4 py-2.5 md:py-3 text-xs md:text-sm whitespace-nowrap hover:bg-accent min-h-[44px] ${
                   isActive ? "bg-accent font-semibold border-b-2 md:border-b-0 md:border-l-2 border-primary" : ""
                 }`
               }
