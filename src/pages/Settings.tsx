@@ -1938,6 +1938,7 @@ function RegionKeywordsTab() {
       </div>
     </Card>
   );
+}
 function ShareAppTab() {
   const [url, setUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
