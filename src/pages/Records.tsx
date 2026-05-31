@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { CompanyCombobox } from "@/components/CompanyCombobox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -1118,12 +1119,12 @@ export default function Records() {
 
             <div className="space-y-1">
               <Label>업체</Label>
-              <Select value={form.company_id} onValueChange={(v) => setForm({ ...form, company_id: v })}>
-                <SelectTrigger><SelectValue placeholder="업체 선택" /></SelectTrigger>
-                <SelectContent>
-                  {activeCompanies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <CompanyCombobox
+                companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
+                value={form.company_id}
+                onChange={(v) => setForm({ ...form, company_id: v })}
+                placeholder="업체명 입력 (부분검색·↑↓ 선택)"
+              />
             </div>
 
             {[0, 1].map((i) => {
@@ -1430,6 +1431,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const readFileAsDataURL = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -1460,6 +1462,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       // 메모리에서 즉시 제거
       images.length = 0;
       if (photoInputRef.current) photoInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
       if (error) throw error;
       const rows: Array<{ customer: string; region: string; item: string; note: string; uncertain: string[]; source: number }> =
         (data?.rows as any[]) ?? [];
@@ -1494,6 +1497,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       setOcrLoading(false);
       setOcrProgress(null);
       if (photoInputRef.current) photoInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   };
 
@@ -2004,6 +2008,14 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                   className="hidden"
                   onChange={(e) => handlePhotos(e.target.files)}
                 />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => handlePhotos(e.target.files)}
+                />
                 <Button
                   size="sm"
                   variant="outline"
@@ -2017,6 +2029,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                     <Camera className="h-3 w-3 mr-1" />
                   )}
                   계약서·송장 사진 (최대 20장)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs md:hidden"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={ocrLoading}
+                >
+                  <Camera className="h-3 w-3 mr-1" />
+                  카메라 촬영
                 </Button>
                 {ocrProgress && (
                   <span className="text-[11px] text-muted-foreground">
