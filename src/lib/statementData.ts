@@ -191,8 +191,12 @@ function computeLeaderDeductions(
   };
   if (!ctx) return out;
   // 공통공제: 활성 항목 × commonPeriodKeys (보름당 1회)
+  const uniqueCommon = new Map<string, StmtCommonDeduction>();
   for (const cd of ctx.commonDeductions) {
-    if (!cd.active) continue;
+    const key = (cd.label || "").trim().replace(/\s+/g, "").toLowerCase();
+    if (cd.active && key && !uniqueCommon.has(key)) uniqueCommon.set(key, cd);
+  }
+  for (const cd of uniqueCommon.values()) {
     for (const pk of ctx.commonPeriodKeys) {
       const ov = ctx.commonOverrides.find(
         (o) => o.leader_id === leaderId && o.common_deduction_id === cd.id && o.period_key === pk,
