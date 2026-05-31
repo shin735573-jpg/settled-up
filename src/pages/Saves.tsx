@@ -966,7 +966,7 @@ function CompanyPreview({
     lines.push({ label: "배송비", value: data.feeTotal });
     lines.push({ label: "이월착불", value: data.carryInCod });
   }
-  lines.push({ label: "청구총합", value: claimTotal, emphasize: !issuesInvoice });
+  lines.push({ label: "총합배송비", value: claimTotal, emphasize: !issuesInvoice });
   if (issuesInvoice) {
     lines.push({ label: "부가세", value: data.vat });
     lines.push({ label: "부가세포함총합", value: data.claimWithVat, emphasize: true });
@@ -991,14 +991,14 @@ function CompanyPreview({
           {data.errors.map((e, i) => (<div key={i}>• {e}</div>))}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
         <div className="rounded-xl border border-border/60 bg-gradient-to-br from-muted/30 to-transparent">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <tbody>
               {lines.map((ln) => (
                 <tr key={ln.label} className={"border-b border-border/40 last:border-b-0 " + (ln.emphasize ? "bg-primary/5" : "")}>
-                  <td className="px-4 py-2.5 font-medium text-muted-foreground">{ln.label}</td>
-                  <td className={"px-4 py-2.5 text-right tabular-nums " + (ln.emphasize ? "text-lg font-bold text-primary" : "font-semibold")}>
+                  <td className="px-4 py-3 font-medium text-muted-foreground">{ln.label}</td>
+                  <td className={"px-4 py-3 text-right tabular-nums " + (ln.label === "총합배송비" || ln.label === "부가세포함총합" ? "text-xl font-bold text-red-600" : ln.emphasize ? "text-lg font-bold text-primary" : "font-semibold")}>
                     {fmt(ln.value)}
                   </td>
                 </tr>
@@ -1007,7 +1007,7 @@ function CompanyPreview({
           </table>
         </div>
         {c.account_number && (
-          <div className="flex flex-col justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/5 to-transparent p-4">
+          <div className="rounded-xl border border-border/60 bg-gradient-to-br from-primary/5 to-transparent p-4">
             <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Account</div>
             <div className="mt-1 text-lg font-bold tracking-tight">{c.account_number}</div>
             <div className="mt-2 text-xs text-muted-foreground">정산 완료 후 입금자명을 전달 부탁드립니다.</div>
@@ -1104,14 +1104,14 @@ function LeaderPreview({
           </div>
         )}
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
         <div className="rounded-xl border border-border/60 bg-gradient-to-br from-muted/30 to-transparent">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <tbody>
               {lines.map((ln) => (
                 <tr key={ln.label} className={"border-b border-border/40 last:border-b-0 " + (ln.emphasize ? "bg-primary/5" : "")}>
-                  <td className="px-4 py-2.5 font-medium text-muted-foreground">{ln.label}</td>
-                  <td className={"px-4 py-2.5 text-right tabular-nums " + (ln.emphasize ? "text-lg font-bold text-primary" : "font-semibold")}>
+                  <td className="px-4 py-3 font-medium text-muted-foreground">{ln.label}</td>
+                  <td className={"px-4 py-3 text-right tabular-nums " + (ln.label === "총합배송비" || ln.label === "부가세포함총배송비" ? "text-xl font-bold text-red-600" : ln.emphasize ? "text-lg font-bold text-primary" : "font-semibold")}>
                     {fmt(ln.value)}
                   </td>
                 </tr>
@@ -1120,7 +1120,7 @@ function LeaderPreview({
           </table>
         </div>
         {l.account_number && (
-          <div className="flex flex-col justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/5 to-transparent p-4">
+          <div className="rounded-xl border border-border/60 bg-gradient-to-br from-primary/5 to-transparent p-4">
             <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Account</div>
             <div className="mt-1 text-lg font-bold tracking-tight">{l.account_number}</div>
             <div className="mt-2 text-xs text-muted-foreground">정산 완료 후 입금자명을 전달 부탁드립니다.</div>
