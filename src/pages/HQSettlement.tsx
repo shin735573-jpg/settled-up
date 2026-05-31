@@ -346,19 +346,9 @@ export default function HQSettlement() {
         </Tabs>
       </div>
 
-      {totalsMismatch && (
-        <Alert variant="destructive">
-          <AlertTitle>업체/팀장 배송비 총액 불일치</AlertTitle>
-          <AlertDescription>
-            업체 {fmt(companyDeliveryTotal)} vs 팀장 {fmt(leaderDeliveryTotal)} — 차이 {fmt(companyDeliveryTotal - leaderDeliveryTotal)}원.
-            배송기록의 팀장 배정/가상기사 정산귀속/정산제외 여부를 점검하세요.
-          </AlertDescription>
-        </Alert>
-      )}
-
       {/* 상단: 본사 수익 요약 + 적재비 입력 */}
       <div className="grid grid-cols-4 gap-4">
-        <Card className={`p-0 overflow-hidden ${totalsMismatch ? "border-destructive" : ""}`}>
+        <Card className="p-0 overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 수익 요약</div>
           <div className="divide-y text-sm">
             <div className="flex justify-between px-4 py-2">
@@ -384,14 +374,6 @@ export default function HQSettlement() {
             <div className="flex justify-between px-4 py-3 bg-muted/30">
               <span className="font-semibold">최종 본사 수익</span>
               <span className={`font-bold ${hqProfit < 0 ? "text-destructive" : "text-primary"}`}>{fmt(hqProfit)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2 text-xs">
-              <span className="text-muted-foreground">정산완료금액</span>
-              <span className="text-primary font-medium">{fmt(settledCompanyAmt)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2 text-xs">
-              <span className="text-muted-foreground">미정산금액</span>
-              <span className="text-destructive font-medium">{fmt(unsettledCompanyAmt)}</span>
             </div>
           </div>
         </Card>
