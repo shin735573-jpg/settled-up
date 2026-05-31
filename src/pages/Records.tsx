@@ -23,6 +23,8 @@ import { canonicalLeaderName, getDisplayName } from "@/lib/leaderResolver";
 import {
   classifyRegion as classifyRegionBase,
   loadMetroKeywords,
+  saveMetroKeywords,
+  isDongOnly,
   type RegionType as RegionTypeShared,
 } from "@/lib/regionClassifier";
 import {
@@ -721,6 +723,8 @@ export default function Records() {
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchLeader, setSearchLeader] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // 동(洞) 단독 입력 시 수도권/지방 선택 다이얼로그
+  const [dongPrompt, setDongPrompt] = useState<string | null>(null);
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
@@ -1167,7 +1171,20 @@ export default function Records() {
                   const v = e.target.value;
                   setForm({ ...form, region: v, region_type: classifyRegion(v) });
                 }}
+                onBlur={(e) => {
+                  const v = (e.target.value || "").trim();
+                  if (!v) return;
+                  // "동" 단독 입력이며 키워드에 미등록 → 사용자 선택 요청
+                  if (isDongOnly(v) && classifyRegion(v) !== "metro") {
+                    setDongPrompt(v);
+                  }
+                }}
               />
+              {form.region && isDongOnly(form.region.trim()) && classifyRegion(form.region.trim()) !== "metro" && (
+                <div className="text-[11px] text-amber-700">
+                  '{form.region.trim()}'은(는) 동 이름만 입력되어 자동 분류가 어렵습니다. 수도권/지방을 선택하세요.
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <Label>지역구분</Label>
@@ -1312,6 +1329,47 @@ export default function Records() {
         onSaved={() => { setPasteOpen(false); load(); }}
         onReload={load}
       />
+      <Dialog open={!!dongPrompt} onOpenChange={(v) => !v && setDongPrompt(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>지역구분 선택</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm">
+              배송지가 <b>'{dongPrompt}'</b> 한 단어로만 입력되어 자동 분류가 어렵습니다.
+              <br />수도권/지방을 선택해 주세요. (수도권 선택 시 다음부터 자동 분류됩니다)
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!dongPrompt) return;
+                  setForm((f) => ({ ...f, region_type: "regional" }));
+                  setDongPrompt(null);
+                }}
+              >
+                지방
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!dongPrompt) return;
+                  const uid = user?.id || "anon";
+                  const list = loadMetroKeywords(uid);
+                  if (!list.includes(dongPrompt)) {
+                    saveMetroKeywords(uid, [...list, dongPrompt]);
+                    setMetroKeywordsCache(loadMetroKeywords(uid));
+                  }
+                  setForm((f) => ({ ...f, region_type: "metro" }));
+                  toast.success(`'${dongPrompt}' → 수도권으로 저장되었습니다`);
+                  setDongPrompt(null);
+                }}
+              >
+                수도권
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

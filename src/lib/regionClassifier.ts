@@ -45,6 +45,21 @@ export function saveMetroKeywords(uid: string, list: string[]): void {
   }
 }
 
+/**
+ * 입력이 "동 이름만" 있는지 검사.
+ * - 토큰 1개이고 한글로 끝이 '동'인 경우만 true.
+ * - 시/구/도로명 등이 함께 있으면 false.
+ * 예: "장기동" → true, "김포 장기동" → false
+ */
+export function isDongOnly(text: string): boolean {
+  const s = (text || "").trim();
+  if (!s) return false;
+  // 공백/쉼표/슬래시 등으로 토큰 분리
+  const tokens = s.split(/[\s,\/]+/).filter(Boolean);
+  if (tokens.length !== 1) return false;
+  return /^[가-힣]{1,8}동$/.test(tokens[0]);
+}
+
 export function classifyRegion(
   text: string,
   keywords?: string[]
