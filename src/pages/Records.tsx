@@ -1229,6 +1229,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       const split = ["", "3분할", "형주동석"].includes(splitRaw) ? splitRaw : splitRaw;
       const paidRaw = cell(cols, "paid").toLowerCase();
       const paid = ["o", "y", "yes", "true", "완료", "결제", "✓", "v", "결제완료"].includes(paidRaw) || paidRaw === "1";
+      const twoRaw = cell(cols, "twoPerson").toLowerCase();
+      const twoPerson = ["o","y","yes","true","✓","v","2인","2인배송","이인배송"].includes(twoRaw) || twoRaw === "1";
 
       // 실제 배송 행 판단: 신호 ≥ 2개
       let signals = 0;
@@ -1249,7 +1251,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
         leaders: leaderNames,
         customer, region, item, note,
         metro, noteAmt, regional, cod,
-        split, paid,
+        split, paid, twoPerson,
         companyId: companyRec?.id || null,
         leaderIds,
         regionType: classifyRegion(region),
