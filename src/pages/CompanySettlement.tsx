@@ -237,15 +237,20 @@ export default function CompanySettlement() {
   const topSummary = useMemo(() => {
     const totalCompanies = visibleCompanies.length;
     const deliveringCompanyIds = new Set<string>();
-    let totalDeliveries = 0, totalCod = 0, totalFee = 0;
+    let totalDeliveries = 0, totalCod = 0;
     allRows.forEach((r: any) => {
       const matched = visibleCompanies.find((c) => matchesCompany(r, c));
       if (!matched) return;
       totalDeliveries += 1;
       totalCod += Number(r.cod_amount) || 0;
-      totalFee += (Number(r.metro_fee) || 0) + (Number(r.note_amount) || 0) + (Number(r.regional_fee) || 0);
       deliveringCompanyIds.add(matched.id);
     });
+    // 총배송비는 기간 내 전체 배송 행의 (수도권+비고+지방) 합 — 팀장정산 화면과 동일 기준
+    const totalFee = allRows.reduce(
+      (s: number, r: any) =>
+        s + (Number(r.metro_fee) || 0) + (Number(r.note_amount) || 0) + (Number(r.regional_fee) || 0),
+      0,
+    );
     return {
       totalCompanies,
       deliveringCompanies: deliveringCompanyIds.size,
