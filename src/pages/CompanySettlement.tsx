@@ -18,14 +18,14 @@ const COMPANY_COLUMNS: Array<{
   align: "left" | "right" | "center";
   amount?: boolean;
 }> = [
-  { key: "name",     label: "업체명",       width: 160, align: "left" },
+  { key: "name",     label: "업체명",       width: 160, align: "center" },
   { key: "count",    label: "건수",         width: 80,  align: "center" },
-  { key: "total",    label: "배송비합계",   width: 140, align: "right", amount: true },
-  { key: "paid",     label: "결제완료금액", width: 150, align: "right", amount: true },
-  { key: "unpaid",   label: "미결제금액",   width: 150, align: "right", amount: true },
-  { key: "cod",      label: "착불합계",     width: 130, align: "right", amount: true },
-  { key: "carry",    label: "이월착불금",   width: 140, align: "right", amount: true },
-  { key: "net",      label: "실청구액",     width: 140, align: "right", amount: true },
+  { key: "total",    label: "배송비합계",   width: 140, align: "center", amount: true },
+  { key: "paid",     label: "결제완료금액", width: 150, align: "center", amount: true },
+  { key: "unpaid",   label: "미결제금액",   width: 150, align: "center", amount: true },
+  { key: "cod",      label: "착불합계",     width: 130, align: "center", amount: true },
+  { key: "carry",    label: "이월착불금",   width: 140, align: "center", amount: true },
+  { key: "net",      label: "실청구액",     width: 140, align: "center", amount: true },
   { key: "status",   label: "결제상태",     width: 120, align: "center" },
   { key: "detail",   label: "상세보기",     width: 100, align: "center" },
 ];
