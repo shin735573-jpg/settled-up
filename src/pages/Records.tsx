@@ -1025,6 +1025,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   const [regionOverrides, setRegionOverrides] = useState<Record<number, RegionType>>({});
   // 행별 날짜 수동 입력 (raw 텍스트). undefined = 자동, 그 외 = 사용자 입력
   const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
+  // 행별 2인배송 수동 토글
+  const [twoOverrides, setTwoOverrides] = useState<Record<number, boolean>>({});
   // 일괄 적용용 입력값
   const [bulkDate, setBulkDate] = useState("");
   // 미리보기에서 사용자가 제외한 행
