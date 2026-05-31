@@ -1224,6 +1224,19 @@ export default function Records() {
               <Input value={fmt(total)} readOnly className="bg-muted font-semibold" />
             </div>
             <div className="space-y-1">
+              <Label>2인배송</Label>
+              <Select
+                value={form.two_person ? "yes" : "no"}
+                onValueChange={(v) => setForm({ ...form, two_person: v === "yes" })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no">아니오</SelectItem>
+                  <SelectItem value="yes">예</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
               <Label>분할</Label>
               <Select
                 value={form.split_type || "__none__"}
@@ -1234,19 +1247,6 @@ export default function Records() {
                   <SelectItem value="__none__">(빈칸)</SelectItem>
                   <SelectItem value="3분할">3분할</SelectItem>
                   <SelectItem value="형주동석">형주동석</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>2인배송</Label>
-              <Select
-                value={form.two_person ? "yes" : "no"}
-                onValueChange={(v) => setForm({ ...form, two_person: v === "yes" })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no">아니오</SelectItem>
-                  <SelectItem value="yes">예</SelectItem>
                 </SelectContent>
               </Select>
             </div>

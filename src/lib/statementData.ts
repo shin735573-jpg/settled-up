@@ -50,6 +50,7 @@ export type StmtCompany = {
   fee_rate_regional: number;
   settlement_cycle: string; // 'biweekly' | 'monthly'
   account_number: string | null;
+  has_cod: boolean;
   rejected_leader_id: string | null;
   rejected_leader_id_2: string | null;
   rejected_leader_id_3: string | null;
