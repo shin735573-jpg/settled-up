@@ -777,6 +777,7 @@ function LeadersTab() {
   const [rows, setRows] = useState<Leader[]>([]);
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
+  const [regionFilter, setRegionFilter] = useState<"all" | "metro" | "regional" | "none">("all");
 
   const load = async () => {
     // 입력순(생성일 오름차순)으로 정렬
@@ -807,13 +808,42 @@ function LeadersTab() {
 
   const dupCounts = detectDuplicates(rows);
 
-  const filteredRows = rows.filter((r) => {
+  const matchRegion = (r: Leader) => {
+    if (regionFilter === "all") return true;
+    const v = (r.region || "").trim();
+    if (regionFilter === "none") return v === "";
+    return v === regionFilter; // 'metro' | 'regional'
+  };
+  const matchSearch = (r: Leader) => {
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
     if ((r.name || "").toLowerCase().includes(q)) return true;
     const aliases = r.aliases || [];
     return aliases.some((a) => (a || "").toLowerCase().includes(q));
-  });
+  };
+  const filteredRows = rows.filter((r) => matchRegion(r) && matchSearch(r));
+
+  const regionCounts = {
+    all: rows.length,
+    metro: rows.filter((r) => (r.region || "").trim() === "metro").length,
+    regional: rows.filter((r) => (r.region || "").trim() === "regional").length,
+    none: rows.filter((r) => !(r.region || "").trim()).length,
+  };
+
+  // 위치 변경 시 수수료 자동 보정:
+  //  - 수도권으로 설정 → fee_rate_metro 가 0 이면 fee_rate_regional 값을 복사
+  //  - 지방으로 설정   → fee_rate_regional 가 0 이면 fee_rate_metro 값을 복사
+  const updateRegion = async (row: Leader, next: "metro" | "regional" | "") => {
+    const patch: Partial<Leader> = { region: next || null } as any;
+    const mr = Number(row.fee_rate_metro || 0);
+    const rr = Number(row.fee_rate_regional || 0);
+    if (next === "metro" && mr === 0 && rr > 0) (patch as any).fee_rate_metro = rr;
+    if (next === "regional" && rr === 0 && mr > 0) (patch as any).fee_rate_regional = mr;
+    await update(row.id, patch);
+    if ((patch as any).fee_rate_metro !== undefined || (patch as any).fee_rate_regional !== undefined) {
+      toast.success(`${row.name}: 위치 변경에 따라 수수료율을 자동 보정했습니다`);
+    }
+  };
 
   /** 별칭 1개만 허용 */
   const updateAlias = async (id: string, value: string) => {
@@ -926,8 +956,26 @@ function LeadersTab() {
         <div>
           <Input placeholder="팀장 검색 (이름 또는 별칭 일부 입력)" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full" />
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground mr-1">위치 필터:</span>
+          {([
+            ["all", `전체(${regionCounts.all})`],
+            ["metro", `수도권(${regionCounts.metro})`],
+            ["regional", `지방(${regionCounts.regional})`],
+            ["none", `미지정(${regionCounts.none})`],
+          ] as const).map(([v, label]) => (
+            <Button
+              key={v}
+              size="sm"
+              variant={regionFilter === v ? "default" : "outline"}
+              onClick={() => setRegionFilter(v as any)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
         <div className="text-xs text-muted-foreground">
-          전체 {rows.length}명 팀장{search.trim() ? ` · 검색 결과 ${filteredRows.length}명` : ""}
+          전체 {rows.length}명 팀장{(search.trim() || regionFilter !== "all") ? ` · 필터 결과 ${filteredRows.length}명` : ""}
         </div>
       </div>
       <div className="text-xs text-muted-foreground">
@@ -940,6 +988,7 @@ function LeadersTab() {
           <TableRow>
             <TableHead className="w-12">연번</TableHead>
             <TableHead>정식 팀장명</TableHead>
+            <TableHead className="w-28">위치</TableHead>
             <TableHead className="min-w-[110px]">
               별칭(1개)
               <div className="text-[10px] text-amber-700 font-normal">거부기사 업체표시용</div>
@@ -976,6 +1025,19 @@ function LeadersTab() {
                   {isDup && <span className="text-xs text-amber-600 whitespace-nowrap">동명이인</span>}
                 </div>
                 {isDup && <div className="text-xs text-muted-foreground mt-1">표시: {getDisplayName(r, rows)}</div>}
+              </TableCell>
+              <TableCell>
+                <Select
+                  value={(r.region || "") === "metro" ? "metro" : (r.region || "") === "regional" ? "regional" : "__none__"}
+                  onValueChange={(v) => updateRegion(r, v === "__none__" ? "" : (v as "metro" | "regional"))}
+                >
+                  <SelectTrigger className="w-24"><SelectValue placeholder="미지정" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">미지정</SelectItem>
+                    <SelectItem value="metro">수도권</SelectItem>
+                    <SelectItem value="regional">지방</SelectItem>
+                  </SelectContent>
+                </Select>
               </TableCell>
               <TableCell>
                 <Input
@@ -1091,7 +1153,7 @@ function LeadersTab() {
             </TableRow>
             );
           })}
-          {filteredRows.length === 0 && <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 팀장이 없습니다"}</TableCell></TableRow>}
+          {filteredRows.length === 0 && <TableRow><TableCell colSpan={13} className="text-center text-muted-foreground py-8">{(search.trim() || regionFilter !== "all") ? "검색 결과가 없습니다" : "등록된 팀장이 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
       </div>
