@@ -26,7 +26,7 @@ const ctx: ValidationContext = {
 
 const base = (over: Partial<DeliveryRecord> = {}): DeliveryRecord => ({
   id: "r1",
-  date: "2026-05-10",
+  date: "2026-05-11",
   company_id: "c1",
   company_name: "모던",
   leader1_id: "l1",
