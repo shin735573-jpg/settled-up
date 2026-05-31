@@ -1445,7 +1445,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     if (!files || files.length === 0) return;
     const arr = Array.from(files).slice(0, 20);
     if (files.length > 20) {
-      toast({ title: "최대 20장까지만 처리됩니다", description: `${files.length}장 중 앞 20장만 사용`, variant: "destructive" });
+      toast.warning(`최대 20장까지만 처리됩니다 (${files.length}장 중 앞 20장만 사용)`);
     }
     setOcrLoading(true);
     setOcrProgress({ done: 0, total: arr.length });
@@ -1465,7 +1465,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
         (data?.rows as any[]) ?? [];
       const errors: Array<{ index: number; message: string }> = (data?.errors as any[]) ?? [];
       if (rows.length === 0) {
-        toast({ title: "추출 결과 없음", description: errors[0]?.message || "사진에서 정보를 찾지 못했습니다", variant: "destructive" });
+        toast.error(errors[0]?.message || "사진에서 정보를 찾지 못했습니다");
         return;
       }
       // 기존 텍스트가 TSV 헤더로 시작하는지 확인, 없으면 헤더 추가
@@ -1487,14 +1487,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       }
       const next = (prev ? prev + "\n" : "") + newLines.join("\n");
       setText(next);
-      toast({
-        title: `${rows.length}건 추출 완료`,
-        description: errors.length
-          ? `${errors.length}장 실패. 체크요망 표시는 수동 확인하세요.`
-          : `체크요망 표시된 셀은 수동으로 확인하세요.`,
-      });
+      toast.success(`${rows.length}건 추출 완료${errors.length ? ` (${errors.length}장 실패)` : ""}`);
     } catch (e: any) {
-      toast({ title: "사진 분석 실패", description: e?.message || String(e), variant: "destructive" });
+      toast.error(`사진 분석 실패: ${e?.message || String(e)}`);
     } finally {
       setOcrLoading(false);
       setOcrProgress(null);
