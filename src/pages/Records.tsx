@@ -564,24 +564,6 @@ export default function Records() {
         <Button onClick={() => setPasteOpen(true)}><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <Button
-          size="lg"
-          variant="default"
-          className="h-14 text-base font-semibold"
-          onClick={runValidation}
-        >
-          <ShieldAlert className="h-5 w-5 mr-2" /> 오류 검사
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="h-14 text-base font-semibold"
-          onClick={startMissing}
-        >
-          <FileWarning className="h-5 w-5 mr-2" /> 누락분 추가
-        </Button>
-      </div>
 
       {validation && (
         <Card className="p-4 space-y-3">
