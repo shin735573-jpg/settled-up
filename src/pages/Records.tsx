@@ -1311,11 +1311,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       leaderIds: [a.id, b.id] as (string | null)[],
       leaders: [a.name, b.name] as (string | null)[],
       regionType,
+      twoPerson: twoOverrides[i] !== undefined ? twoOverrides[i] : r.twoPerson,
       errors,
       warnings,
     };
     });
-  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, defaultMonth]);
+  }, [parsed, leaderOverrides, leaderById, regionOverrides, dateOverrides, twoOverrides, defaultMonth]);
 
   const visible = useMemo(
     () => effective.map((r, i) => ({ row: r, i })).filter(({ i }) => !excludedRows[i]),
