@@ -384,34 +384,6 @@ export default function HQSettlement() {
         </Tabs>
       </div>
 
-      {/* 상단 요약바 */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <Card className={`p-4 ${totalsMismatch ? "border-destructive" : ""}`}>
-          <div className="text-xs text-muted-foreground">업체 배송비 총액</div>
-          <div className="text-xl font-bold">{fmt(companyDeliveryTotal)}</div>
-        </Card>
-        <Card className={`p-4 ${totalsMismatch ? "border-destructive" : ""}`}>
-          <div className="text-xs text-muted-foreground">팀장 배송비 총액</div>
-          <div className="text-xl font-bold">{fmt(leaderDeliveryTotal)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">적재비</div>
-          <div className="text-xl font-bold">{fmt(loadingTotal)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">전체 매출</div>
-          <div className="text-xl font-bold">{fmt(grossSales)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">지출합계</div>
-          <div className="text-xl font-bold">{fmt(expenseTotal)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">최종 본사 수익</div>
-          <div className={`text-xl font-bold ${hqProfit < 0 ? "text-destructive" : "text-primary"}`}>{fmt(hqProfit)}</div>
-        </Card>
-      </div>
-
       {totalsMismatch && (
         <Alert variant="destructive">
           <AlertTitle>업체/팀장 배송비 총액 불일치</AlertTitle>
@@ -422,9 +394,47 @@ export default function HQSettlement() {
         </Alert>
       )}
 
-      {/* 적재비 + 업체정산요약 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2 overflow-hidden">
+      {/* 상단: 본사 수익 요약 + 적재비 입력 */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <Card className={`p-0 overflow-hidden ${totalsMismatch ? "border-destructive" : ""}`}>
+          <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 수익 요약</div>
+          <div className="divide-y text-sm">
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">업체 배송비 총액</span>
+              <span className="font-medium">{fmt(companyDeliveryTotal)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">팀장 배송비 총액</span>
+              <span className="font-medium">{fmt(leaderDeliveryTotal)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">적재비</span>
+              <span className="font-medium">{fmt(loadingTotal)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">전체 매출</span>
+              <span className="font-medium">{fmt(grossSales)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">지출합계</span>
+              <span className="font-medium">{fmt(expenseTotal)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3 bg-muted/30">
+              <span className="font-semibold">최종 본사 수익</span>
+              <span className={`font-bold ${hqProfit < 0 ? "text-destructive" : "text-primary"}`}>{fmt(hqProfit)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 text-xs">
+              <span className="text-muted-foreground">정산완료금액</span>
+              <span className="text-primary font-medium">{fmt(settledCompanyAmt)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 text-xs">
+              <span className="text-muted-foreground">미정산금액</span>
+              <span className="text-destructive font-medium">{fmt(unsettledCompanyAmt)}</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-3 overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold flex items-center gap-2">
             적재비 입력
             <span className="text-xs text-muted-foreground">청구 {fmt(loadingBilled)} · 미청구 {fmt(loadingUnbilled)} · 합계 {fmt(loadingTotal)}</span>
@@ -501,24 +511,6 @@ export default function HQSettlement() {
               ⚠ 같은 달 적재비가 중복 청구된 업체: {dupLoadingCompanies.join(", ")}
             </div>
           )}
-        </Card>
-
-        <Card className="p-4 space-y-3">
-          <div className="font-semibold">업체정산관리 요약</div>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">정산완료금액</span>
-              <span className="font-bold text-primary">{fmt(settledCompanyAmt)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">미정산금액</span>
-              <span className="font-bold text-destructive">{fmt(unsettledCompanyAmt)}</span>
-            </div>
-            <div className="flex justify-between pt-2 border-t">
-              <span className="text-sm">합계</span>
-              <span className="font-bold">{fmt(settledCompanyAmt + unsettledCompanyAmt)}</span>
-            </div>
-          </div>
         </Card>
       </div>
 
