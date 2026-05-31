@@ -21,7 +21,7 @@ type Period = "all" | "first" | "second" | "month";
 // ===== 팀장정산 전체 목록 컬럼 정의 (헤더/바디 단일 소스) =====
 type LeaderColKey =
   | "name" | "count" | "metro" | "note" | "regional" | "total"
-  | "cod" | "fees" | "afterFees" | "deduction" | "net" | "status" | "detail";
+  | "cod" | "fees" | "afterFees" | "deduction" | "net" | "status" | "detail" | "companyTotal";
 
 type LeaderCol = {
   key: LeaderColKey;
@@ -44,6 +44,7 @@ const LEADER_COLUMNS: LeaderCol[] = [
   { key: "net",        label: "실지급액",       width: 140, align: "center" },
   { key: "status",     label: "정산상태",       width: 120, align: "center" },
   { key: "detail",     label: "상세보기",       width: 100, align: "center" },
+  { key: "companyTotal", label: "업체총배송비",  width: 150, align: "center" },
 ];
 const LEADER_TABLE_MIN_WIDTH = LEADER_COLUMNS.reduce((s, c) => s + c.width, 0);
 
@@ -758,6 +759,9 @@ export default function LeaderSettlement() {
                     ),
                     detail: (
                       <span className="text-primary text-xs hover:underline">상세보기</span>
+                    ),
+                    companyTotal: (
+                      <span className="font-semibold text-red-600">{fmt(m.total)}</span>
                     ),
                   };
                   return (
