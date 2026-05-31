@@ -669,6 +669,71 @@ function CompaniesTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>지정 통합</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground">
+              합칠 업체를 2개 이상 체크하고, 그중 <b>기준 업체</b>를 라디오로 선택하세요. 다음 화면에서 옮겨질 배송/단가를 미리 확인할 수 있습니다.
+            </div>
+            <Input
+              placeholder="업체명 검색"
+              value={manualFilter}
+              onChange={(e) => setManualFilter(e.target.value)}
+            />
+            <div className="max-h-[50vh] overflow-y-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60 text-xs">
+                  <tr>
+                    <th className="px-2 py-1 w-10">선택</th>
+                    <th className="px-2 py-1 w-16">기준</th>
+                    <th className="px-2 py-1 text-left">업체명</th>
+                    <th className="px-2 py-1">사용</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows
+                    .filter((r) => !manualFilter || r.name.toLowerCase().includes(manualFilter.toLowerCase()))
+                    .map((r) => {
+                      const checked = manualChecked.has(r.id);
+                      return (
+                        <tr key={r.id} className="border-t">
+                          <td className="px-2 py-1 text-center">
+                            <Checkbox checked={checked} onCheckedChange={() => toggleManual(r.id)} />
+                          </td>
+                          <td className="px-2 py-1 text-center">
+                            <input
+                              type="radio"
+                              name="manual-canonical"
+                              disabled={!checked}
+                              checked={manualCanonical === r.id}
+                              onChange={() => setManualCanonical(r.id)}
+                            />
+                          </td>
+                          <td className="px-2 py-1">{r.name}</td>
+                          <td className="px-2 py-1 text-center text-xs text-muted-foreground">
+                            {r.active ? "사용중" : "미사용"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              선택됨: {manualChecked.size}개 · 기준: {manualCanonical ? rows.find((r) => r.id === manualCanonical)?.name : "(미선택)"}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManualOpen(false)}>취소</Button>
+            <Button onClick={proceedManual} disabled={manualChecked.size < 2 || !manualCanonical}>
+              미리보기로 진행
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
