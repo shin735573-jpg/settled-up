@@ -638,18 +638,6 @@ function LeadersTab() {
                 )}
               </TableCell>
               <TableCell>
-                <Input
-                  className="w-20"
-                  defaultValue={r.display_suffix || ""}
-                  placeholder={isDup ? "예: 2" : ""}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim() || null;
-                    if (v !== (r.display_suffix || null)) updateSuffix(r.id, v);
-                  }}
-                />
-              </TableCell>
-              <TableCell><Input className="w-24" defaultValue={r.region || ""} onBlur={(e) => update(r.id, { region: e.target.value })} /></TableCell>
-              <TableCell>
                 <Select
                   value={r.issues_invoice ? "yes" : "no"}
                   onValueChange={(v) => {
@@ -665,28 +653,8 @@ function LeadersTab() {
                   </SelectContent>
                 </Select>
               </TableCell>
-              <TableCell>
-                <Input
-                  className={`w-36 ${acctMissing ? "border-destructive" : ""}`}
-                  defaultValue={r.account_number || ""}
-                  placeholder="은행 000-000"
-                  onBlur={(e) => {
-                    const v = e.target.value.trim() || null;
-                    if (v !== (r.account_number || null)) {
-                      update(r.id, { account_number: v } as any);
-                      if (r.issues_invoice && !v) toast.warning(`${r.name}: 계산서 발행 팀장은 계좌번호 입력이 필요합니다`);
-                      else if (v && v.replace(/\s/g, "").length < 8) toast.warning(`${r.name}: 계좌번호 형식을 확인하세요`);
-                    }
-                  }}
-                />
-                {acctMissing && <div className="text-[10px] text-destructive mt-1">계좌번호 필요</div>}
-                {!acctMissing && acctTooShort && <div className="text-[10px] text-amber-600 mt-1">형식 확인</div>}
-              </TableCell>
-              <TableCell><Checkbox checked={r.is_rejected} onCheckedChange={(v) => update(r.id, { is_rejected: !!v })} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_metro ?? 0} onBlur={(e) => update(r.id, { fee_rate_metro: Number(e.target.value) } as any)} /></TableCell>
               <TableCell><Input type="number" className="w-24" defaultValue={r.fee_rate_regional ?? 0} onBlur={(e) => update(r.id, { fee_rate_regional: Number(e.target.value) } as any)} /></TableCell>
-              <TableCell><Input type="number" className="w-24" defaultValue={r.deduction_amount} onBlur={(e) => update(r.id, { deduction_amount: Number(e.target.value) })} /></TableCell>
-              <TableCell><Input type="number" className="w-24" defaultValue={r.trash_cost} onBlur={(e) => update(r.id, { trash_cost: Number(e.target.value) })} /></TableCell>
               <TableCell>
                 <Select
                   value={r.settle_status || "included"}
@@ -715,20 +683,21 @@ function LeadersTab() {
                 </Select>
               </TableCell>
               <TableCell>
-                {isSpecial ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-amber-100 text-amber-900 whitespace-nowrap">
-                    적용 → {getDisplayName(settleTarget!, rows)}
-                  </span>
-                ) : r.is_rejected ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-destructive/10 text-destructive whitespace-nowrap">
-                    거부·귀속없음
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-muted text-muted-foreground whitespace-nowrap">
-                    독립정산
-                  </span>
-                )}
+                <Input
+                  className={`w-36 ${acctMissing ? "border-destructive" : ""}`}
+                  defaultValue={r.account_number || ""}
+                  placeholder="은행 000-000"
+                  onBlur={(e) => {
+                    const v = e.target.value.trim() || null;
+                    if (v !== (r.account_number || null)) {
+                      update(r.id, { account_number: v } as any);
+                    }
+                  }}
+                />
+                {acctMissing && <div className="text-[10px] text-destructive mt-1">계좌번호 필요</div>}
+                {!acctMissing && acctTooShort && <div className="text-[10px] text-amber-600 mt-1">형식 확인</div>}
               </TableCell>
+              <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
                   <Checkbox
@@ -762,12 +731,11 @@ function LeadersTab() {
                 </div>
                 {minGuaranteeInvalid && <div className="text-[10px] text-destructive mt-1">금액 입력 필요</div>}
               </TableCell>
-              <TableCell><Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} /></TableCell>
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
             );
           })}
-          {rows.length === 0 && <TableRow><TableCell colSpan={17} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">등록된 팀장이 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
