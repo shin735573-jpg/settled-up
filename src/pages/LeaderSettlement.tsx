@@ -833,20 +833,20 @@ export default function LeaderSettlement() {
             <div>
               <h3 className="font-semibold text-sm mb-2">배송한 업체 상위 7개</h3>
               <div className="rounded border overflow-hidden">
-                <table className="w-full text-xs num">
+                <table className="w-full text-sm num">
                   <thead className="bg-muted/40">
                     <tr className="border-b">
-                      <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">업체명</th>
-                      <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-16">건수</th>
-                      <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-28">배송비합</th>
+                      <th className="text-left px-2 py-2 font-medium text-muted-foreground">업체명</th>
+                      <th className="text-center px-2 py-2 font-medium text-muted-foreground w-20">건수</th>
+                      <th className="text-right px-2 py-2 font-medium text-muted-foreground w-32">배송비합</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detailByCompany.slice(0, 7).map((c) => (
                       <tr key={c.company} className="border-b last:border-0">
-                        <td className="px-2 py-1.5 truncate max-w-[160px]">{c.company}</td>
-                        <td className="px-2 py-1.5 text-right">{c.count.toLocaleString()}</td>
-                        <td className="px-2 py-1.5 text-right font-semibold">{fmt(c.total)}</td>
+                        <td className="px-2 py-2 truncate max-w-[180px]">{c.company}</td>
+                        <td className="px-2 py-2 text-center">{c.count.toLocaleString()}</td>
+                        <td className="px-2 py-2 text-right font-semibold">{fmt(c.total)}</td>
                       </tr>
                     ))}
                     {detailByCompany.length === 0 && (
