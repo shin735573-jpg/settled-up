@@ -760,6 +760,9 @@ export default function LeaderSettlement() {
                     detail: (
                       <span className="text-primary text-xs hover:underline">상세보기</span>
                     ),
+                    companyTotal: (
+                      <span className="font-semibold text-red-600">{fmt(m.total)}</span>
+                    ),
                   };
                   return (
                     <tr
