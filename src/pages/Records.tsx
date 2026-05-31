@@ -1002,7 +1002,7 @@ type ParsedRow = {
   leaders: (string | null)[];
   customer: string; region: string; item: string; note: string;
   metro: number; noteAmt: number; regional: number; cod: number;
-  split: string; paid: boolean;
+  split: string; paid: boolean; twoPerson: boolean;
   companyId: string | null;
   leaderIds: (string | null)[];
   regionType: RegionType;
