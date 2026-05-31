@@ -507,7 +507,7 @@ export default function LeaderSettlement() {
     );
     // 상세 공통공제: 팀장 × 표시기간당 1번만 합산. 월전체만 보름 2개 합산.
     // 배송건이 없는 팀장은 공통공제(쓰레기비용 등)를 적용하지 않음
-    const commonTotal = count === 0 ? 0 : activeCommonDeductions.reduce((s, cd) => {
+    const commonBase = count === 0 ? 0 : activeCommonDeductions.reduce((s, cd) => {
       const cdTotal = commonPeriodKeys.reduce((periodSum, pKey) => {
         const editKey = `${cd.id}__${pKey}`;
         const edited = detailCommonEdits[editKey];
@@ -521,6 +521,9 @@ export default function LeaderSettlement() {
       }, 0);
       return s + cdTotal;
     }, 0);
+    // 팀장별 쓰레기비용 자동 차감 (보름 단위 × 보름수). 배송건 0이면 0.
+    const trashAuto = count === 0 || !detailLeader ? 0 : trashCostAutoFor(detailLeader.id);
+    const commonTotal = commonBase + trashAuto;
     const deduction = commonTotal + indivTotal;
     const net = afterFees - cod - deduction;
     return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal, count };
