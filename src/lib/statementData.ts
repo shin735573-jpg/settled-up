@@ -297,6 +297,8 @@ export function buildCompanyStatements(
       errors,
     });
   }
+  // 배송건수(rows.length)가 많은 순서대로 내림차순 정렬
+  out.sort((a, b) => b.rows.length - a.rows.length);
   return out;
 }
 
@@ -403,6 +405,8 @@ export function buildLeaderStatements(
       deductions: ded,
     });
   }
+  // 배송건수(deliveryCount)가 많은 순서대로 내림차순 정렬
+  out.sort((a, b) => b.deliveryCount - a.deliveryCount);
   return out;
 }
 
