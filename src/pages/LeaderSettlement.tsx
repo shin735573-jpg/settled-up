@@ -417,7 +417,7 @@ export default function LeaderSettlement() {
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settlingLeaders, rows, leaders, activeCommonDeductions, commonOverrides, periodDeductions]);
+  }, [settlingLeaders, rows, leaders, activeCommonDeductions, commonOverrides, periodDeductions, commonKeysJoined]);
 
   const periodLabel =
     period === "all" ? "전체 기간" :
@@ -528,7 +528,7 @@ export default function LeaderSettlement() {
     const net = afterFees - cod - deduction;
     return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal, count };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailRows, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides]);
+  }, [detailRows, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides, commonKeysJoined]);
 
   // 상세화면 업체별 요약 (기준서: 업체명/건수/수도권/비고/지방/실지급배송비/착불/수수료/계산후 지급금액)
   const detailByCompany = useMemo(() => {
