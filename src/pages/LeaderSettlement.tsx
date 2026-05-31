@@ -920,7 +920,7 @@ export default function LeaderSettlement() {
               <div className="space-y-1">
                 {activeCommonDeductions.flatMap((cd) =>
                   commonPeriodKeys.map((pKey) => {
-                    const base = num(cd.amount);
+                    const base = detailLeader ? commonDefaultAmountFor(detailLeader.id, cd) : num(cd.amount);
                     const ov = detailLeader
                       ? commonOverrides.find(
                           (o) => o.leader_id === detailLeader.id && o.common_deduction_id === cd.id && o.period_key === pKey,
