@@ -629,14 +629,14 @@ export default function HQSettlement() {
               </Button>
             </div>
           </div>
-          <div className="overflow-x-auto max-h-[600px]">
-            <Table className="text-sm min-w-max">
+          <div className="max-h-[600px] overflow-y-auto">
+            <Table className="text-xs w-full table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center" style={{ minWidth: 180, width: 180 }}>지출내용</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>금액</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 220, width: 220 }}>비고</TableHead>
-                  <TableHead className="text-center" style={{ width: 50 }}></TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "38%" }}>지출내용</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "22%" }}>금액</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "32%" }}>비고</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "8%" }}></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -709,18 +709,18 @@ export default function HQSettlement() {
               </TabsList>
             </Tabs>
           </div>
-          <div className="overflow-x-auto">
-            <Table className="text-sm num min-w-max">
+          <div className="max-h-[600px] overflow-y-auto">
+            <Table className="text-xs num w-full table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>팀장명</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 100, width: 100 }}>배송건수</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 150, width: 150 }}>실지급배송비</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>착불</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>수수료</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>공제</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>실지급액</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>정산상태</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "13%" }}>팀장명</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "9%" }}>건수</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "14%" }}>배송비</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "12%" }}>착불</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "12%" }}>수수료</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "11%" }}>공제</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "14%" }}>실지급</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "15%" }}>상태</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -764,18 +764,18 @@ export default function HQSettlement() {
               </TabsList>
             </Tabs>
           </div>
-          <div className="overflow-x-auto">
-            <Table className="text-sm num min-w-max">
+          <div className="max-h-[600px] overflow-y-auto">
+            <Table className="text-xs num w-full table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-center" style={{ minWidth: 150, width: 150 }}>업체명</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 80, width: 80 }}>건수</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>배송비합계</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>미결제</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>착불</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>이월착불</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 140, width: 140 }}>실청구액</TableHead>
-                  <TableHead className="text-center" style={{ minWidth: 120, width: 120 }}>결제상태</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "16%" }}>업체명</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "8%" }}>건수</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "13%" }}>배송비</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "12%" }}>미결제</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "11%" }}>착불</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "12%" }}>이월</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "13%" }}>실청구</TableHead>
+                  <TableHead className="text-center px-1" style={{ width: "15%" }}>상태</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
