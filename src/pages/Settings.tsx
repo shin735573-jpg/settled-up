@@ -25,6 +25,12 @@ import {
   classifyRegion,
 } from "@/lib/regionClassifier";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  runBackup,
+  getAutoBackupEnabled,
+  setAutoBackupEnabled,
+  getLastBackupAt,
+} from "@/lib/excelBackup";
 
 type Company = {
   id: string;
@@ -96,6 +102,7 @@ function CompanyTab() {
   };
 
   return (
+    <div className="space-y-4 max-w-2xl">
     <Card className="p-6 space-y-5 max-w-2xl">
       <div>
         <h2 className="font-semibold mb-1">회사 설정</h2>
@@ -157,6 +164,8 @@ function CompanyTab() {
         </Label>
       </div>
     </Card>
+    <BackupCard uid={uid} />
+    </div>
   );
 }
 
