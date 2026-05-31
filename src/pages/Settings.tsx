@@ -469,8 +469,8 @@ function CompaniesTab() {
   return (
     <Card className="p-4 space-y-4">
       <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Input placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+        <div className="flex flex-wrap gap-2">
+          <Input className="min-w-0 flex-1 basis-[160px]" placeholder="업체명" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
           <Button onClick={add}><Plus className="h-4 w-4 mr-1" />추가</Button>
           <Button variant="outline" onClick={detectDups}>중복 검사</Button>
           <Button variant="outline" onClick={() => detectSimilar(0.7)}>유사 이름 검사</Button>
