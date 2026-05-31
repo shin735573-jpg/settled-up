@@ -1435,6 +1435,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  // OCR 점검 (정확도 확인 + 분석결과 등록) 다이얼로그
+  const [ocrCheckOpen, setOcrCheckOpen] = useState(false);
 
   const readFileAsDataURL = (file: File) =>
     new Promise<string>((resolve, reject) => {
