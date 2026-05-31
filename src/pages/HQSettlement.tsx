@@ -580,16 +580,8 @@ export default function HQSettlement() {
               <span className="font-medium">{fmt(samhoFee)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">신동석 수수료</span>
-              <span className="font-medium">{fmt(shindongseokCommission)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">삼호 수수료</span>
-              <span className="font-medium">{fmt(samhoCommission)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">기타 팀장 수수료</span>
-              <span className="font-medium">{fmt(otherCommissionTotal)}</span>
+              <span className="text-muted-foreground">수수료</span>
+              <span className="font-medium">{fmt(leaderCommissionTotal)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">지출합계</span>
