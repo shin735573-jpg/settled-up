@@ -763,7 +763,7 @@ export default function Saves() {
 
       <p className="text-xs text-muted-foreground">
         ※ 미리보기는 화면용입니다. 저장 시 동일 데이터로 카톡 공유용 PNG가 생성됩니다.
-        파일명: 업체_업체명_기간_v1.png · 팀장_팀장명_기간_v1.png (재생성 시 v2, v3로 자동 증가).
+        파일명: 업체_업체명_기간_v1.jpg · 팀장_팀장명_기간_v1.jpg (재생성 시 v2, v3로 자동 증가).
       </p>
 
       {exportingMsg && (
