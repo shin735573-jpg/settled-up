@@ -311,23 +311,27 @@ const RECORDS_EXPECTED_SEQUENCE = [
   ["leader2", "팀장2", 110],
   ["customer", "고객명", 120],
   ["region", "배송지", 150],
-  ["region_type", "지역구분", 90],
-  ["item", "품목", 200],
-  ["note", "비고", 160],
-  ["metro_fee", "수도권배송비", 130],
-  ["note_amount", "비고금액", 120],
-  ["regional_fee", "지방배송비", 130],
-  ["cod_amount", "착불", 110],
-  ["total", "배송비총액", 130],
-  ["two_person", "2인배송", 90],
-  ["split", "분할", 100],
-  ["paid", "결제유무", 110],
+  ["region_type", "지역구분", 100],
+  ["item", "품목", 220],
+  ["note", "비고", 180],
+  ["metro_fee", "수도권배송비", 140],
+  ["note_amount", "비고금액", 130],
+  ["regional_fee", "지방배송비", 140],
+  ["cod_amount", "착불", 120],
+  ["total", "배송비총액", 140],
+  ["two_person", "2인배송", 100],
+  ["split", "분할", 110],
+  ["paid", "결제유무", 120],
   ["settle", "정산처리", 260],
   ["delete", "삭제", 60],
 ] as const;
 
 const RECORDS_AMOUNT_COLUMN_KEYS = new Set(["metro_fee", "note_amount", "regional_fee", "cod_amount", "total"]);
-const RECORDS_STATUS_COLUMN_KEYS = new Set(["two_person", "split", "paid", "settle"]);
+const RECORDS_STATUS_COLUMN_KEYS = new Set(["region_type", "two_person", "split", "paid", "settle"]);
+const RECORDS_CENTER_COLUMN_KEYS = new Set([
+  "region_type", "metro_fee", "note_amount", "regional_fee", "cod_amount", "total",
+  "two_person", "split", "paid",
+]);
 
 const RECORDS_COLUMNS: RecordsColumn[] = [
   { key: "kind", label: "구분", width: 70, cellCls: "text-center whitespace-nowrap",
@@ -346,29 +350,29 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r) => r.customer_name || "-" },
   { key: "region", label: "배송지", width: 150, cellCls: "whitespace-nowrap",
     render: (r) => r.region || "-" },
-  { key: "region_type", label: "지역구분", width: 90, cellCls: "text-center whitespace-nowrap",
+  { key: "region_type", label: "지역구분", width: 100, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.region_type === "metro" ? "수도권" : r.region_type === "regional" ? "지방" : "-" },
-  { key: "item", label: "품목", width: 200, cellCls: "align-top cursor-pointer",
+  { key: "item", label: "품목", width: 220, cellCls: "align-top cursor-pointer",
     render: (r, { expanded }) => (
       <div className={`whitespace-pre-wrap break-words ${expanded ? "" : "line-clamp-3"}`}>{r.item || "-"}</div>
     ) },
-  { key: "note", label: "비고", width: 160, cellCls: "align-top",
+  { key: "note", label: "비고", width: 180, cellCls: "align-top",
     render: (r) => <div className="whitespace-pre-wrap break-words">{r.note || "-"}</div> },
-  { key: "metro_fee", label: "수도권배송비", width: 130, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums",
+  { key: "metro_fee", label: "수도권배송비", width: 140, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.metro_fee) },
-  { key: "note_amount", label: "비고금액", width: 120, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums",
+  { key: "note_amount", label: "비고금액", width: 130, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.note_amount) },
-  { key: "regional_fee", label: "지방배송비", width: 130, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums",
+  { key: "regional_fee", label: "지방배송비", width: 140, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.regional_fee) },
-  { key: "cod_amount", label: "착불", width: 110, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums",
+  { key: "cod_amount", label: "착불", width: 120, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums",
     render: (r) => fmt(r.cod_amount) },
-  { key: "total", label: "배송비총액", width: 130, headerCls: "text-right", cellCls: "text-right whitespace-nowrap tabular-nums font-semibold",
+  { key: "total", label: "배송비총액", width: 140, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums font-semibold",
     render: (_r, { total }) => fmt(total) },
-  { key: "two_person", label: "2인배송", width: 90, cellCls: "text-center whitespace-nowrap",
+  { key: "two_person", label: "2인배송", width: 100, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.two_person ? "예" : "아니오" },
-  { key: "split", label: "분할", width: 100, cellCls: "text-center whitespace-nowrap",
+  { key: "split", label: "분할", width: 110, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.split_type || "" },
-  { key: "paid", label: "결제유무", width: 110, cellCls: "text-center whitespace-nowrap",
+  { key: "paid", label: "결제유무", width: 120, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.paid ? "결제완료" : "미결제" },
   { key: "settle", label: "정산처리", width: 260, cellCls: "text-center text-muted-foreground align-top",
     render: (r, { displaySettlementStatus }) => <div className="whitespace-pre-wrap break-words">{displaySettlementStatus(r)}</div> },
@@ -669,6 +673,9 @@ export default function Records() {
     ranAt: string;
   } | null>(null);
   const [showOnly, setShowOnly] = useState<"all" | "error" | "warning">("all");
+  const [searchCompany, setSearchCompany] = useState("");
+  const [searchCustomer, setSearchCustomer] = useState("");
+  const [searchLeader, setSearchLeader] = useState("");
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
@@ -701,6 +708,40 @@ export default function Records() {
   // 표시명: 가능하면 leader_id로 정식 팀장명을 찾아 표시(동명이인 구분 포함).
   // ID가 없거나 매칭 실패면 저장된 원본 이름 사용.
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+
+  // 검색 필터 (보기 전용 — 데이터 손상 없음)
+  const norm = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
+  const filteredRecords = useMemo(() => {
+    const qc = norm(searchCompany);
+    const qcu = norm(searchCustomer);
+    const ql = norm(searchLeader);
+    if (!qc && !qcu && !ql) return records;
+    // 팀장 검색은 별칭→정식 매핑 후 비교 (입력값 자체도 부분일치 허용)
+    const canonLeader = ql ? norm(canonicalLeaderName(searchLeader, leaders)) : "";
+    return records.filter((r: any) => {
+      if (qc && !norm(r.company_name).includes(qc)) return false;
+      if (qcu && !norm(r.customer_name).includes(qcu)) return false;
+      if (ql) {
+        const names: string[] = [];
+        for (const id of [r.leader1_id, r.leader2_id]) {
+          if (id) {
+            const l = leadersById.get(id);
+            if (l) {
+              names.push(l.name);
+              for (const a of (l.aliases ?? [])) names.push(a);
+            }
+          }
+        }
+        if (r.leader1_name) names.push(r.leader1_name);
+        if (r.leader2_name) names.push(r.leader2_name);
+        const hay = names.map(norm);
+        const match = hay.some((h) => h.includes(ql) || (canonLeader && h.includes(canonLeader)));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [records, searchCompany, searchCustomer, searchLeader, leaders, leadersById]);
+
   const displayLeaderById = (id: string | null, fallback: string | null): string => {
     if (id) {
       const l = leadersById.get(id);
@@ -944,6 +985,47 @@ export default function Records() {
         <Button onClick={() => setPasteOpen(true)}><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
 
+      <Card className="p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
+          <div className="space-y-1">
+            <Label className="text-xs">업체 검색</Label>
+            <Input
+              value={searchCompany}
+              onChange={(e) => setSearchCompany(e.target.value)}
+              placeholder="업체명 부분검색 (예: 모던)"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">고객명 검색</Label>
+            <Input
+              value={searchCustomer}
+              onChange={(e) => setSearchCustomer(e.target.value)}
+              placeholder="고객명 부분검색 (예: 김)"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">팀장 검색 (별칭 가능)</Label>
+            <Input
+              value={searchLeader}
+              onChange={(e) => setSearchLeader(e.target.value)}
+              placeholder="예: 형주 / 동석 / 동선"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setSearchCompany(""); setSearchCustomer(""); setSearchLeader(""); }}
+            >
+              초기화
+            </Button>
+            <div className="text-xs text-muted-foreground">
+              {(searchCompany || searchCustomer || searchLeader)
+                ? `검색 결과 ${filteredRecords.length}건`
+                : `전체 ${records.length}건`}
+            </div>
+          </div>
+        </div>
+      </Card>
 
 
       <Button
@@ -1131,8 +1213,11 @@ export default function Records() {
       )}
 
       <Card className="overflow-x-auto">
+        {(searchCompany || searchCustomer || searchLeader) && filteredRecords.length === 0 && (
+          <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
+        )}
         <RecordsTable
-          records={records}
+          records={filteredRecords}
           issuesByRow={issuesByRow}
           expandedItems={expandedItems}
           setExpandedItems={setExpandedItems}
