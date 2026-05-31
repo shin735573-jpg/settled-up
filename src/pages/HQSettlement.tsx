@@ -556,7 +556,7 @@ export default function HQSettlement() {
           <div className="divide-y text-sm">
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">본사 총배송비</span>
-              <span className="font-medium">{fmt(totalDeliveryFee)}</span>
+              <span className="font-medium text-destructive">{fmt(totalDeliveryFee)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">적재비 (청구분)</span>
@@ -580,7 +580,7 @@ export default function HQSettlement() {
             </div>
             <div className="flex justify-between px-4 py-3 bg-muted/30">
               <span className="font-semibold">최종 본사 수익</span>
-              <span className={`font-bold ${hqProfit < 0 ? "text-destructive" : "text-primary"}`}>{fmt(hqProfit)}</span>
+              <span className="font-bold text-destructive">{fmt(hqProfit)}</span>
             </div>
             <div className="px-4 py-2 bg-muted/20 text-xs text-muted-foreground text-center">
               (신동석 {fmt(shindongseokFee)} + 삼호 {fmt(samhoFee)} + 적재비(청구) {fmt(loadingBilled)} + 수수료 {fmt(leaderCommissionTotal)}) - 총지출 {fmt(expenseTotal)} = {fmt(hqProfit)}
