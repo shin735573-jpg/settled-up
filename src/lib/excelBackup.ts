@@ -325,14 +325,21 @@ export async function parseBackupFile(file: File): Promise<ParsedBackup> {
   return { meta, tables };
 }
 
-export type RestoreMode = "upsert" | "replace";
+export type BatchError = {
+  batchIndex: number;
+  count: number;
+  message: string;
+};
 
 export type RestoreResult = {
   table: string;
   sheet: string;
-  inserted: number;
-  deleted: number;
-  error?: string;
+  total: number;          // 전체 행 수
+  inserted: number;       // 성공적으로 적용된 행 수
+  deleted: number;        // 삭제된 행 수 (replace 모드)
+  skipped: number;        // 오류로 인해 건너뛴 행 수
+  error?: string;          // 전체 실패 시 오류 메시지
+  batchErrors?: BatchError[];
 };
 
 /**
