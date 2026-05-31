@@ -210,9 +210,12 @@ export default function HQSettlement() {
     return Array.from(acc.values()).map((x) => {
       const commission = x.commission;
       const fee = x.metro + x.note + x.regional;
-      const payout = Math.max(0, fee - x.cod - commission - x.deduct);
+      const rawPayout = fee - x.cod - commission - x.deduct;
+      const payout = Math.max(0, rawPayout);
+      // 최소보장 보전금은 클램프 전 실제 정산금을 기준으로 계산해야
+      // 깊은 마이너스 정산에서도 정확한 보전이 이루어짐
       const topUp = x.minEnabled && x.minGuarantee > 0
-        ? Math.max(0, x.minGuarantee - payout) : 0;
+        ? Math.max(0, x.minGuarantee - rawPayout) : 0;
       return {
         id: x.id, name: x.name, count: x.count,
         fee, cod: x.cod, commission, deduct: x.deduct, payout,
