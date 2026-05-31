@@ -1441,6 +1441,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     setLeaderOverrides({});
     setRegionOverrides({});
     setDateOverrides({});
+    setTwoOverrides({});
     setBulkDate("");
     setExcludedRows({});
     onSaved();
