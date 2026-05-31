@@ -17,6 +17,7 @@ import Holidays from "./pages/Holidays";
 import Saves from "./pages/Saves";
 import Settings from "./pages/Settings";
 import SpecTests from "./pages/SpecTests";
+import OcrTest from "./pages/OcrTest";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/saves" element={<Saves />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/spec-tests" element={<SpecTests />} />
+              <Route path="/ocr-test" element={<OcrTest />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
