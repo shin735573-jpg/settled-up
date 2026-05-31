@@ -573,6 +573,28 @@ function LeaderPreview({
           <Stat label="부가세포함" value={data.payoutWithVat} accent />
         </div>
       )}
+      {data.deductions && (data.deductions.commonLines.length > 0 || data.deductions.personalLines.length > 0) && (
+        <div className="rounded-md border bg-muted/30 p-3 text-xs">
+          <div className="mb-1 font-semibold">공제 내역</div>
+          <ul className="space-y-0.5">
+            {data.deductions.commonLines.map((d, i) => (
+              <li key={"c"+i} className="flex justify-between">
+                <span>공통 · {d.label}{data.deductions!.commonLines.length > 1 ? ` (${d.periodKey})` : ""}</span>
+                <span className="font-medium">{fmt(d.amount)}</span>
+              </li>
+            ))}
+            {data.deductions.personalLines.map((d, i) => (
+              <li key={"p"+i} className="flex justify-between">
+                <span>개별 · {d.label}</span>
+                <span className="font-medium">{fmt(d.amount)}</span>
+              </li>
+            ))}
+            <li className="mt-1 flex justify-between border-t pt-1 font-semibold">
+              <span>공제총액</span><span>{fmt(data.deductions.total)}</span>
+            </li>
+          </ul>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-xs">
           <thead className="bg-muted">
@@ -607,7 +629,9 @@ function LeaderPreview({
                 <td className="px-1 py-1 text-right">{fmt(r.unitFee)}</td>
                 <td className="px-1 py-1 text-right">{fmt(r.unitAfterFee)}</td>
                 <td className="px-1 py-1 text-right">{fmt(r.unitPayout)}</td>
-                <td className="px-1 py-1 text-[10px]">{r.share.reason ?? ""}</td>
+                <td className="px-1 py-1 text-[10px]">
+                  {r.isOeunkyuTransfer ? "오은규 → 오동선" : (r.share.reason ?? "")}
+                </td>
               </tr>
             ))}
             {data.rows.length === 0 && (
