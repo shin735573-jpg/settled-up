@@ -24,6 +24,7 @@ type Company = {
   settlement_cycle: "biweekly" | "monthly";
   rejected_leader_id: string | null;
   rejected_leader_id_2: string | null;
+  rejected_leader_id_3: string | null;
   has_cod: boolean;
   active: boolean;
 };
@@ -173,18 +174,22 @@ function CompaniesTab() {
   };
 
   // 거부팀장 선택 시 같은 업체 내 중복 검사 후 저장.
-  const setRejected = async (r: Company, slot: 1 | 2, value: string | null) => {
+  const setRejected = async (r: Company, slot: 1 | 2 | 3, value: string | null) => {
     const cur = {
       1: r.rejected_leader_id,
       2: r.rejected_leader_id_2,
-    } as Record<1 | 2, string | null>;
+      3: r.rejected_leader_id_3,
+    } as Record<1 | 2 | 3, string | null>;
     cur[slot] = value;
-    const picked = [cur[1], cur[2]].filter(Boolean) as string[];
+    const picked = [cur[1], cur[2], cur[3]].filter(Boolean) as string[];
     if (new Set(picked).size !== picked.length) {
       toast.error("같은 거부팀장이 중복 등록되었습니다.");
       return;
     }
-    const col = slot === 1 ? "rejected_leader_id" : "rejected_leader_id_2";
+    const col =
+      slot === 1 ? "rejected_leader_id" :
+      slot === 2 ? "rejected_leader_id_2" :
+      "rejected_leader_id_3";
     await update(r.id, { [col]: value } as any);
   };
 
@@ -209,6 +214,7 @@ function CompaniesTab() {
             <TableHead>정산주기</TableHead>
             <TableHead>거부팀장1</TableHead>
             <TableHead>거부팀장2</TableHead>
+            <TableHead>거부팀장3</TableHead>
             <TableHead>착불유무</TableHead>
             <TableHead>사용</TableHead>
             <TableHead></TableHead>
@@ -239,9 +245,11 @@ function CompaniesTab() {
                   </SelectContent>
                 </Select>
               </TableCell>
-              {([1, 2] as const).map((slot) => {
+              {([1, 2, 3] as const).map((slot) => {
                 const val =
-                  slot === 1 ? r.rejected_leader_id : r.rejected_leader_id_2;
+                  slot === 1 ? r.rejected_leader_id :
+                  slot === 2 ? r.rejected_leader_id_2 :
+                  r.rejected_leader_id_3;
                 return (
                   <TableCell key={slot}>
                     <Select
@@ -262,7 +270,7 @@ function CompaniesTab() {
               <TableCell><Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
             </TableRow>
           ))}
-          {rows.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">등록된 업체가 없습니다</TableCell></TableRow>}
+          {rows.length === 0 && <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">등록된 업체가 없습니다</TableCell></TableRow>}
         </TableBody>
       </Table>
     </Card>
