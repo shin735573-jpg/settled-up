@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { useAuth } from "@/hooks/useAuth";
 import { sortLeadersByFeeAsc, compareLeadersByFeeAsc } from "@/lib/leaderSort";
 import { Card } from "@/components/ui/card";
@@ -252,6 +253,9 @@ export default function HQSettlement() {
     [rows, companies, leaders],
   );
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  useArrowKeyNav(rootRef);
+
   // ── 업체 정산 상세
   type CompanyDetail = {
     id: string; name: string; count: number; fee: number;
@@ -364,7 +368,7 @@ export default function HQSettlement() {
     }));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={rootRef}>
       {/* 헤더 */}
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-2xl font-bold flex-1">본사정산</h1>
