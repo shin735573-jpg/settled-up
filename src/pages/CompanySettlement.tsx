@@ -158,11 +158,12 @@ export default function CompanySettlement() {
     const deliveringCompanyIds = new Set<string>();
     let totalDeliveries = 0, totalCod = 0, totalFee = 0;
     allRows.forEach((r: any) => {
+      const matched = visibleCompanies.find((c) => matchesCompany(r, c));
+      if (!matched) return;
       totalDeliveries += 1;
       totalCod += Number(r.cod_amount) || 0;
       totalFee += (Number(r.metro_fee) || 0) + (Number(r.note_amount) || 0) + (Number(r.regional_fee) || 0);
-      const matched = visibleCompanies.find((c) => matchesCompany(r, c));
-      if (matched) deliveringCompanyIds.add(matched.id);
+      deliveringCompanyIds.add(matched.id);
     });
     return {
       totalCompanies,
