@@ -26,7 +26,6 @@ const COMPANY_COLUMNS: Array<{
   { key: "name",        label: "업체명",        width: 200, align: "center" },
   { key: "count",       label: "건수",          width: 110, align: "center" },
   { key: "total",       label: "총배송비",      width: 180, align: "center", amount: true },
-  { key: "leaderTotal", label: "팀장 총배송비", width: 180, align: "center", amount: true },
   { key: "cod",         label: "착불합계",      width: 160, align: "center", amount: true },
   { key: "detail",      label: "상세보기",      width: 120, align: "center" },
 ];
@@ -525,9 +524,6 @@ export default function CompanySettlement() {
                       <Button size="sm" variant="outline" onClick={() => setCompanyId(s.company.id)}>
                         상세
                       </Button>
-                    ),
-                    leaderTotal: (
-                      <span className="font-semibold text-red-600">{fmtAmount(s.total)}</span>
                     ),
                   };
                   return (
