@@ -468,7 +468,7 @@ function LeadersTab() {
                   onBlur={(e) => {
                     const v = e.target.value;
                     if ((v.trim() || "") !== (al[0] || "")) {
-                      updateAliasSlot(r.id, 0, v);
+                      updateAlias(r.id, v);
                     }
                   }}
                 />
