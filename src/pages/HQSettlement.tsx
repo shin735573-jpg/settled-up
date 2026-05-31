@@ -20,6 +20,7 @@ type Leader = {
   id: string; name: string; active: boolean; is_rejected: boolean; is_virtual: boolean;
   settle_to_id: string | null; settle_status?: "included" | "excluded" | null;
   aliases?: string[] | null; deduction_amount?: number; trash_cost?: number;
+  region?: string | null;
   fee_rate_metro?: number; fee_rate_regional?: number;
   min_guarantee_enabled?: boolean; min_guarantee_amount?: number;
 };
