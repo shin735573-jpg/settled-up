@@ -481,6 +481,7 @@ function CompaniesTab() {
           전체 {rows.length}개 업체{search.trim() ? ` · 검색 결과 ${filteredRows.length}개` : ""}
         </div>
       </div>
+      <div className="[&_th]:text-center [&_td]:text-center [&_input]:text-center [&_[role=combobox]]:justify-center">
       <Table>
         <TableHeader>
           <TableRow>
@@ -551,6 +552,7 @@ function CompaniesTab() {
           {filteredRows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">{search.trim() ? "검색 결과가 없습니다" : "등록된 업체가 없습니다"}</TableCell></TableRow>}
         </TableBody>
       </Table>
+      </div>
       <Dialog open={dupOpen} onOpenChange={setDupOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
