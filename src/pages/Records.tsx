@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2 } from "lucide-react";
+import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2, ScanSearch } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { CompanyCombobox } from "@/components/CompanyCombobox";
@@ -37,6 +37,7 @@ import {
   type ValidationContext,
 } from "@/lib/recordValidation";
 import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
+import OcrCheckPanel, { type ExtractedRow } from "@/components/OcrCheckPanel";
 
 type Company = {
   id: string;
