@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -201,6 +202,9 @@ export default function CompanySettlement() {
     [allRows, companies, leaders, companyId],
   );
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  useArrowKeyNav(rootRef);
+
   const detailRows = useMemo(
     () => (company ? allRows.filter((r) => matchesCompany(r, company)) : []),
     [company, allRows]
@@ -369,7 +373,7 @@ export default function CompanySettlement() {
   }, [companyId, companySummaries]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={rootRef}>
       <div className="flex flex-wrap items-center gap-2">
         {companyId && (
           <Button variant="outline" size="sm" onClick={() => setCompanyId("")}>
