@@ -780,7 +780,7 @@ export default function Saves() {
           position: "fixed",
           left: -10000,
           top: 0,
-          width: 1200,
+          width: 1400,
           background: "#ffffff",
           color: "#000000",
           pointerEvents: "none",
