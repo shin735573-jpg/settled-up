@@ -37,7 +37,6 @@ import {
 } from "@/lib/statementValidation";
 import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
-import { getEntry, keyFor } from "@/lib/statementVersion";
 
 export default function Saves() {
   const { user } = useAuth();
@@ -497,7 +496,6 @@ export default function Saves() {
                   )}
                   {companyStmts.map((s) => {
                     const active = s.company.id === selectedCompanyId;
-                    const ver = getEntry(keyFor("company", s.company.id, month, period));
                     const noClaim = s.finalClaim <= 0;
                     return (
                       <button
@@ -518,9 +516,6 @@ export default function Saves() {
                           </span>
                         </span>
                         <span className="flex shrink-0 items-center gap-1">
-                          {ver && (
-                            <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
-                          )}
                           {noClaim
                             ? <Badge variant="outline" className="text-[10px] border-yellow-400 text-yellow-700 dark:text-yellow-300">청구금액 없음</Badge>
                             : <Badge className="text-[10px]">저장가능</Badge>}
@@ -559,7 +554,6 @@ export default function Saves() {
                   )}
                   {leaderStmts.map((s) => {
                     const active = s.leader.id === selectedLeaderId;
-                    const ver = getEntry(keyFor("leader", s.leader.id, month, period));
                     const empty = s.deliveryCount === 0;
                     return (
                       <button
@@ -580,9 +574,6 @@ export default function Saves() {
                           </span>
                         </span>
                         <span className="flex shrink-0 items-center gap-1">
-                          {ver && (
-                            <Badge variant="secondary" className="text-[10px]">v{ver.version}</Badge>
-                          )}
                           {empty
                             ? <Badge variant="outline" className="text-[10px] border-yellow-400 text-yellow-700 dark:text-yellow-300">정산내역 없음</Badge>
                             : <Badge className="text-[10px]">저장가능</Badge>}
