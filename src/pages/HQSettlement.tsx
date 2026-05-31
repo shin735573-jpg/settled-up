@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { sortLeadersByFeeAsc, compareLeadersByFeeAsc } from "@/lib/leaderSort";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { AmountInput } from "@/components/AmountInput";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -633,8 +634,8 @@ export default function HQSettlement() {
                       </Select>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Input type="number" value={lc.amount || ""} className="h-8 text-center"
-                        onChange={(e) => updateLoading(lc.id, { amount: Number(e.target.value) })} />
+                      <AmountInput value={lc.amount} className="h-8 text-center"
+                        onChange={(n) => updateLoading(lc.id, { amount: n })} />
                     </TableCell>
                     <TableCell className="text-center">
                       <Select value={lc.billed} onValueChange={(v) => updateLoading(lc.id, { billed: v as "billed" | "unbilled" })}>
@@ -717,8 +718,8 @@ export default function HQSettlement() {
                   <TableRow key={f.key}>
                     <TableCell className="text-center whitespace-nowrap">{f.label}</TableCell>
                     <TableCell className="text-center">
-                      <Input type="number" value={expenses[f.key] || ""} className="h-8 text-center"
-                        onChange={(e) => setExpenses((p) => ({ ...p, [f.key]: Number(e.target.value) }))} />
+                      <AmountInput value={expenses[f.key]} className="h-8 text-center"
+                        onChange={(n) => setExpenses((p) => ({ ...p, [f.key]: n }))} />
                     </TableCell>
                     <TableCell className="text-center"></TableCell>
                     <TableCell className="text-center"></TableCell>
@@ -739,8 +740,8 @@ export default function HQSettlement() {
                         onChange={(e) => setAdditional(i, { label: e.target.value })} />
                     </TableCell>
                     <TableCell className="text-center">
-                      <Input type="number" value={a.amount || ""} className="h-8 text-center"
-                        onChange={(e) => setAdditional(i, { amount: Number(e.target.value) })} />
+                      <AmountInput value={a.amount} className="h-8 text-center"
+                        onChange={(n) => setAdditional(i, { amount: n })} />
                     </TableCell>
                     <TableCell className="text-center align-middle">
                       <Textarea
@@ -866,8 +867,8 @@ export default function HQSettlement() {
                     <TableCell className="text-center px-1">{fmt(c.unpaidAmt)}</TableCell>
                     <TableCell className="text-center px-1">{fmt(c.cod)}</TableCell>
                     <TableCell className="text-center px-1">
-                      <Input type="number" value={c.prevCarry || ""} className="h-7 text-center w-full px-1 text-xs"
-                        onChange={(e) => setCodCarry((p) => ({ ...p, [c.id]: Number(e.target.value) }))} />
+                      <AmountInput value={c.prevCarry} className="h-7 text-center w-full px-1 text-xs"
+                        onChange={(n) => setCodCarry((p) => ({ ...p, [c.id]: n }))} />
                     </TableCell>
                     <TableCell className="text-center font-semibold px-1">{fmt(c.netClaim)}</TableCell>
                     <TableCell className="text-center px-1">
