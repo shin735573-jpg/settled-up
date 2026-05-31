@@ -40,25 +40,11 @@ import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExpor
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Cloud, CloudOff } from "lucide-react";
+import { getCurrentHalf } from "@/lib/autoPeriod";
 
-/**
- * 오늘 날짜 기준으로 "현재 저장 대상 기간"을 자동 계산
- *  - 매월 1~15일  → 직전 달의 h2 (16~말일)  정산서 저장 시기
- *  - 매월 16~말일 → 이번 달의 h1 (1~15일) 정산서 저장 시기
- */
-function getCurrentSavingPeriod(today: Date = new Date()): { month: string; period: PeriodKey } {
-  const y = today.getFullYear();
-  const m = today.getMonth(); // 0-base
-  const d = today.getDate();
-  if (d <= 15) {
-    // 직전 달의 h2
-    const prev = new Date(y, m - 1, 1);
-    const month = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
-    return { month, period: "h2" };
-  }
-  // 이번 달의 h1
-  const month = `${y}-${String(m + 1).padStart(2, "0")}`;
-  return { month, period: "h1" };
+function getCurrentSavingPeriod() {
+  const { month, half } = getCurrentHalf();
+  return { month, period: half as PeriodKey };
 }
 
 export default function Saves() {
