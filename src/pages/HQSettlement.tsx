@@ -296,6 +296,19 @@ export default function HQSettlement() {
   // 팀장 수수료 합계 — 본사 수입으로 가산
   const leaderCommissionTotal = leaderDetails.reduce((s, x) => s + x.commission, 0);
 
+  // 신동석 / 삼호 수수료 별도 추출
+  const shindongseokCommission = useMemo(() => {
+    if (!shindongseokId) return 0;
+    const d = leaderDetails.find((x) => x.id === shindongseokId);
+    return d ? d.commission : 0;
+  }, [leaderDetails, shindongseokId]);
+  const samhoCommission = useMemo(() => {
+    if (!samhoId) return 0;
+    const d = leaderDetails.find((x) => x.id === samhoId);
+    return d ? d.commission : 0;
+  }, [leaderDetails, samhoId]);
+  const otherCommissionTotal = leaderCommissionTotal - shindongseokCommission - samhoCommission;
+
   // 자동검증 (내부 관점) — 현재 기간 탭에 표시되는 행만 검사
   const audit = useMemo(
     () => auditDeliveries({
@@ -401,7 +414,8 @@ export default function HQSettlement() {
   // ── 매출 / 수익
   // companyDeliveryTotal 에는 자동등록된 적재비가 이미 포함되므로
   // 미등록 적재비만 추가해 중복 집계를 방지한다.
-  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal + hqDirectFee + leaderCommissionTotal;
+  // 신동석·삼호 수수료는 별도 항목으로 노출하고 기타 팀장 수수료와 합산
+  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal + hqDirectFee + otherCommissionTotal + shindongseokCommission + samhoCommission;
   const hqProfit = grossSales - expenseTotal;
 
   // 업체정산관리 요약
@@ -566,8 +580,16 @@ export default function HQSettlement() {
               <span className="font-medium">{fmt(samhoFee)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">팀장 수수료 합계</span>
-              <span className="font-medium">{fmt(leaderCommissionTotal)}</span>
+              <span className="text-muted-foreground">신동석 수수료</span>
+              <span className="font-medium">{fmt(shindongseokCommission)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">삼호 수수료</span>
+              <span className="font-medium">{fmt(samhoCommission)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">기타 팀장 수수료</span>
+              <span className="font-medium">{fmt(otherCommissionTotal)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">전체 매출</span>
