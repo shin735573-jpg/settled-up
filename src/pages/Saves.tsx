@@ -307,7 +307,7 @@ export default function Saves() {
 
   // ─── 기간 변경 자동저장 옵션 ────────────────────────────
   const [autoSaveOnChange, setAutoSaveOnChange] = useState<boolean>(() => {
-    try { return localStorage.getItem("saves.autoSaveOnChange") !== "0"; } catch { return true; }
+    try { return localStorage.getItem("saves.autoSaveOnChange") === "1"; } catch { return false; }
   });
   const toggleAutoSaveOnChange = (v: boolean) => {
     setAutoSaveOnChange(v);
@@ -322,6 +322,9 @@ export default function Saves() {
     try { localStorage.setItem(autoSavedKey(m, p), "1"); } catch { /* noop */ }
   };
   const autoSavingRef = useRef<string | null>(null);
+  // 최초 마운트 시점의 (month, period) 를 기록 → 이후 "변경"된 경우에만 자동저장
+  const lastPeriodRef = useRef<string>(`${month}:${period}`);
+  const mountedRef = useRef(false);
   const [verifyingOD, setVerifyingOD] = useState(false);
   async function verifyOneDrive() {
     setVerifyingOD(true);
@@ -516,18 +519,28 @@ export default function Saves() {
 
   // ─── 기간 변경 시 자동저장 (업체+팀장 전체, 1회) ──────────
   useEffect(() => {
+    const key = `${month}:${period}`;
+    // 첫 마운트는 스킵 (페이지 진입만으로 자동저장하지 않음 → 저장 버튼 잠금 방지)
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      lastPeriodRef.current = key;
+      return;
+    }
+    // (month, period) 가 실제로 바뀐 경우에만 동작 (loading 완료까지 ref 갱신은 보류)
+    if (lastPeriodRef.current === key) return;
+
     if (!autoSaveOnChange) return;
     if (!uid) return;
     if (loading) return;
-    const key = `${month}:${period}`;
     if (autoSavingRef.current === key) return;
-    if (isAutoSavedFor(month, period)) return;
+    if (isAutoSavedFor(month, period)) { lastPeriodRef.current = key; return; }
     if (locks.has(lockKey("company")) || locks.has(lockKey("leader"))) return;
     // 저장 대상이 하나도 없으면 스킵 (플래그도 세우지 않음 → 데이터 들어오면 재시도)
     const hasCompany = companyStmts.some((s) => s.finalClaim > 0);
     const hasLeader = leaderStmts.some((s) => s.deliveryCount > 0);
     if (!hasCompany && !hasLeader) return;
     autoSavingRef.current = key;
+    lastPeriodRef.current = key;
     // DOM(숨겨진 export 노드)이 그려질 시간을 확보
     const t = setTimeout(async () => {
       try {
