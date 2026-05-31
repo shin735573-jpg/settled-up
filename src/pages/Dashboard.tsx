@@ -27,7 +27,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <h1 className="text-2xl font-bold flex-1">대시보드</h1>
+        <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">대시보드</h1>
         <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border rounded px-3 py-2" />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

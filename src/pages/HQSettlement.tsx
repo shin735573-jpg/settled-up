@@ -544,7 +544,7 @@ export default function HQSettlement() {
     <div className="space-y-4" ref={rootRef}>
       {/* 헤더 */}
       <div className="flex items-center gap-2 flex-wrap">
-        <h1 className="text-2xl font-bold flex-1">본사정산</h1>
+        <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">본사정산</h1>
         <PrintButton documentTitle={`본사정산_${month}`} />
         <Input type="month" value={month} onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }} className="w-40" />
         <Tabs value={period} onValueChange={(v) => { setPeriod(v as Period); if (autoPeriod) toggleAutoPeriod(false); }}>

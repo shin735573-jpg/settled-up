@@ -309,7 +309,7 @@ export default function Summary() {
   return (
     <div className="space-y-4" ref={rootRef}>
       <div className="flex items-center gap-2">
-        <h1 className="text-2xl font-bold flex-1">한눈요약</h1>
+        <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">한눈요약</h1>
         <PrintButton documentTitle={`한눈요약_${month}`} />
         <Input
           type="month"
