@@ -1431,6 +1431,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const readFileAsDataURL = (file: File) =>
     new Promise<string>((resolve, reject) => {
