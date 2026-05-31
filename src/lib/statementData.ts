@@ -274,7 +274,8 @@ export function buildCompanyStatements(
     const carryOutCod = Math.max(0, offset - unpaidTotal);
     const loadingFee = 0; // TODO: 적재비 테이블 도입 시 연결
     const finalClaim = realClaim + loadingFee;
-    const vat = c.issues_invoice ? Math.round(finalClaim * 0.1) : 0;
+    // vat_included=true 인 업체는 단가에 이미 부가세가 포함되어 있으므로 추가 부과하지 않음
+    const vat = c.issues_invoice && !c.vat_included ? Math.round(finalClaim * 0.1) : 0;
     const claimWithVat = c.issues_invoice ? finalClaim + vat : 0;
 
     out.push({
