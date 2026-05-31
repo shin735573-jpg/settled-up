@@ -112,20 +112,17 @@ All colors MUST be HSL.
   .num { font-variant-numeric: tabular-nums; }
 }
 
-/* 기록입력 폼: 각 입력 칸을 밝은 파스텔 색상으로 구분 */
-.random-cells > div {
+/* 기록입력 폼: 깔끔한 테두리 + 통일된 배경 */
+.form-cells > div {
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  transition: background-color 150ms ease;
 }
-.random-cells > div:nth-child(8n+1) { background-color: #fff8d6; }
-.random-cells > div:nth-child(8n+2) { background-color: #d8ecff; }
-.random-cells > div:nth-child(8n+3) { background-color: #ffe1ec; }
-.random-cells > div:nth-child(8n+4) { background-color: #e2ffd8; }
-.random-cells > div:nth-child(8n+5) { background-color: #f3e1ff; }
-.random-cells > div:nth-child(8n+6) { background-color: #ffe6c7; }
-.random-cells > div:nth-child(8n+7) { background-color: #d6fff3; }
-.random-cells > div:nth-child(8n+8) { background-color: #ffd9d9; }
+.form-cells > div:hover {
+  background-color: hsl(var(--muted));
+}
 
 @media print {
   @page { size: A4; margin: 12mm; }
