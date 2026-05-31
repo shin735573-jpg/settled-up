@@ -956,8 +956,26 @@ function LeadersTab() {
         <div>
           <Input placeholder="팀장 검색 (이름 또는 별칭 일부 입력)" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full" />
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground mr-1">위치 필터:</span>
+          {([
+            ["all", `전체(${regionCounts.all})`],
+            ["metro", `수도권(${regionCounts.metro})`],
+            ["regional", `지방(${regionCounts.regional})`],
+            ["none", `미지정(${regionCounts.none})`],
+          ] as const).map(([v, label]) => (
+            <Button
+              key={v}
+              size="sm"
+              variant={regionFilter === v ? "default" : "outline"}
+              onClick={() => setRegionFilter(v as any)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
         <div className="text-xs text-muted-foreground">
-          전체 {rows.length}명 팀장{search.trim() ? ` · 검색 결과 ${filteredRows.length}명` : ""}
+          전체 {rows.length}명 팀장{(search.trim() || regionFilter !== "all") ? ` · 필터 결과 ${filteredRows.length}명` : ""}
         </div>
       </div>
       <div className="text-xs text-muted-foreground">
@@ -970,6 +988,7 @@ function LeadersTab() {
           <TableRow>
             <TableHead className="w-12">연번</TableHead>
             <TableHead>정식 팀장명</TableHead>
+            <TableHead className="w-28">위치</TableHead>
             <TableHead className="min-w-[110px]">
               별칭(1개)
               <div className="text-[10px] text-amber-700 font-normal">거부기사 업체표시용</div>
