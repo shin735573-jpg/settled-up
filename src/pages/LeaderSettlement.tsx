@@ -1085,7 +1085,7 @@ export default function LeaderSettlement() {
                       </TableCell>
                       <TableCell className="text-right">{fmt(fee)}</TableCell>
                       <TableCell className="text-right">{fmt(afterFee)}</TableCell>
-                      <TableCell className="text-right">{fmt(afterFee)}</TableCell>
+                      <TableCell className="text-right">{fmt(afterFee - shareCod)}</TableCell>
                       <TableCell className={src ? "text-amber-800 font-medium" : "text-muted-foreground"}>
                         <div className="space-y-0.5">
                           <div>{src ? `${src.name} → ${detailLeader.name}` : "본인"}</div>
