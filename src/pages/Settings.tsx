@@ -1027,6 +1027,19 @@ function LeadersTab() {
                 {isDup && <div className="text-xs text-muted-foreground mt-1">표시: {getDisplayName(r, rows)}</div>}
               </TableCell>
               <TableCell>
+                <Select
+                  value={(r.region || "") === "metro" ? "metro" : (r.region || "") === "regional" ? "regional" : "__none__"}
+                  onValueChange={(v) => updateRegion(r, v === "__none__" ? "" : (v as "metro" | "regional"))}
+                >
+                  <SelectTrigger className="w-24"><SelectValue placeholder="미지정" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">미지정</SelectItem>
+                    <SelectItem value="metro">수도권</SelectItem>
+                    <SelectItem value="regional">지방</SelectItem>
+                  </SelectContent>
+                </Select>
+              </TableCell>
+              <TableCell>
                 <Input
                   className={`w-28 ${needsAlias ? "border-destructive" : ""}`}
                   defaultValue={al[0] || ""}
