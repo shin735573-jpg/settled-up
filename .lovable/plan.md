@@ -1,100 +1,79 @@
-# 팀장정산 화면 및 팀장명 인식 규칙 개선
+# 정산서저장 화면 — 단계별 구현 계획
 
-## 1. DB 스키마 변경 (마이그레이션)
+전체 사양이 매우 방대하므로(이미지 렌더링 + 분할 + 버전관리 + 오류검사 + 특수정산 반영 + OneDrive 저장) **4개 단계**로 나눠 차례대로 구현·검증합니다. 각 단계가 끝나면 미리보기에서 확인 후 다음 단계로 진행합니다.
 
-`team_leaders` 테이블에 컬럼 추가:
-- `aliases text[] default '{}'` — 별칭 목록 (예: 강형주의 ["형주"])
-- `display_suffix text` — 동명이인 구분 (예: "2", "3" 또는 직접 입력)
+다른 화면(기록입력/업체정산/팀장정산/한눈요약/본사정산/설정/휴무일관리)은 수정하지 않습니다. 다만 **데이터 참조용 함수**(이미 있는 `splitAllocation`, `summaryAggregation`, `companySettings`, `businessDay` 등)는 그대로 호출만 합니다.
 
-별칭 중복 방지용 부분 유니크 인덱스:
-```sql
-CREATE UNIQUE INDEX team_leaders_alias_unique
-  ON team_leaders (user_id, lower(unnest))
-  -- 실제로는 trigger로 별칭 중복 검사
-```
-(Postgres 한계상 trigger 기반 검증 함수 사용)
+---
 
-## 2. 이름 정규화 라이브러리 (`src/lib/leaderResolver.ts`)
+## STEP 1 — 화면 구조 + 기간 선택 + 대상 선택 + 데이터 집계
 
-순수 함수:
-- `resolveLeaderName(input: string, leaders: Leader[]): Leader | null`
-  - 정식 이름 → 매칭
-  - 별칭(aliases) → 매칭
-  - 공백/대소문자 무시
-- `getDisplayName(leader: Leader): string`
-  - `name + (display_suffix ? display_suffix : "")`
-- `detectDuplicates(leaders: Leader[]): Map<name, count>`
+대상 파일: `src/pages/Saves.tsx` (전면 재작성), `src/lib/statementData.ts` (신규)
 
-기존 `companyMatch.ts` 패턴과 동일한 테스트 파일 추가
-(`leaderResolver.test.ts`).
+- 상단 컨트롤: 연/월, 기간(1~15 / 16~말일 / 월전체), 새로고침
+- 4개 버튼: `업체 사진 저장`, `업체 전체 사진 저장`, `팀장 사진 저장`, `팀장 전체 사진 저장`
+- 보조 버튼: `정산서 재생성`, `저장 전 오류 검사`
+- 좌측 패널: 업체 목록(체크박스), 우측 패널: 팀장 목록(체크박스) — 정산제외/오은규 자동 숨김
+- `statementData.ts`에서 선택 기간의 deliveries를 가져와 **업체별 / 정산기사별**로 집계
+  - 강형주↔신동석 50/50, 3인배송 1/3, 오은규→오동선 합산은 기존 `splitAllocation` 재사용
+  - 정산주기 보름 업체는 월전체 비활성화, 한달 업체는 1~15/16~말일 비활성화
 
-## 3. 적용 지점
+검증: 화면 진입 시 콘솔/네트워크 오류 없이 업체·팀장 목록과 합계 미리보기가 표시되는지
 
-`resolveLeaderName`을 다음 위치에 모두 적용:
-- 엑셀 붙여넣기 파서 (Records 화면)
-- 수기입력 leader1/leader2/leader3 필드
-- 제목에서 팀장명 자동 추출 로직
-- `recordValidation.ts`의 팀장 등록 검사
+---
 
-저장 시 `leader_name`은 항상 정식 이름(`leaders.name`)으로 정규화하여 기록.
+## STEP 2 — 정산서 렌더링 (HTML 컴포넌트 + PNG 변환)
 
-## 4. 오은규 → 오동선 합산 표시 (팀장정산 화면)
+대상 파일: `src/components/statements/CompanyStatement.tsx`, `src/components/statements/LeaderStatement.tsx`, `src/lib/renderStatement.ts` (신규)
 
-`team_leaders.settle_to_id`가 이미 존재 → 활용.
+- `html-to-image` 라이브러리 추가 (PNG 변환)
+- **업체 정산서**: 제목 `<업체명> 정산서`, 상단요약(배송비합계/결제완료/미결제/착불/이월/실청구/적재비/최종청구금액), 컬럼(날짜·업체·팀장1·팀장2·고객명·품목·비고·배송비·결제), 계산서 발행 업체만 부가세 블록, 계좌·안내문 강조, 거부팀장은 별칭으로 치환
+- **팀장 정산서**: 제목 `<팀장명> 정산서`, 상단요약(건수/수도권/비고/지방/실지급배송비/착불/수수료/계산후/공제/실지급), 컬럼(날짜·업체·실제기사1·실제기사2·정산기사·고객명·배송지·품목·비고·수도권/비고/지방/착불/실지급/분할/2인/건별수수료/건별실지급/정산처리), 오은규→오동선 행은 연노랑 배경
+- 행 15~25개 단위 분할, 각 페이지 상단에 제목/기간/합계, 페이지 번호 `n / total`
+- 미리보기 다이얼로그: 선택 대상을 렌더링해서 화면에서 확인 가능
 
-팀장정산 상세에서 `leader1_id`가 자기 자신 외에 `settle_to_id = 본인` 인 팀장 건도 합산.
+검증: 모던 업체와 오동선 팀장 정산서를 미리보기로 띄워 컬럼/합계/색상/페이지 분할이 보이는지
 
-표시:
-- 행 배경: `bg-amber-50` (연주황)
-- 정산처리 컬럼: `오은규 → 오동선`
-- 요약 카드에 별도 섹션:
-  - "오은규 정산합산 포함" 뱃지 (연노랑)
-  - 합산 건수 / 합산 금액
+---
 
-색상은 `index.css`에 semantic token 추가:
-```css
---settle-merged-bg: 45 100% 95%;
---settle-merged-fg: 30 80% 30%;
-```
+## STEP 3 — 저장 전 오류 검사 + 저장(다운로드/OneDrive) + 버전관리
 
-## 5. 팀장관리 UI (Settings)
+대상 파일: `src/lib/statementValidation.ts` (신규), `src/lib/statementStorage.ts` (신규), 기존 `supabase/functions/onedrive-upload` 호출
 
-각 팀장 row에 추가 입력:
-- 별칭 (쉼표 구분 입력 or 칩 형태 추가/삭제)
-- 구분명 (display_suffix, 동명이인 시)
+- **검사 규칙** (사양 12 그대로):
+  - 업체: 타 업체 혼입, 미발행에 부가세 문구, 거부팀장 실명 노출, 별칭 없는 거부팀장, 적재비 월 2회 등
+  - 팀장: 정산제외 팀장 생성 시도, 오은규 단독 생성, 오동선에 오은규 누락, 강형주↔신동석 누락/중복, 쓰레기비용 기간 초과 등
+  - 공통: 정산마감 상태(`canAutoGenerate` 재사용), 필수값 누락
+- 검사 결과: error → 저장 차단, warning → 사용자 확인 후 저장
+- 저장:
+  - 로컬 ZIP 다운로드 (즉시 동작)
+  - OneDrive 업로드: `정산서_저장/YYYY-MM_<기간>/업체|팀장/` 폴더, 파일명 `<유형>_<이름>_YYYY-MM_<기간>_v{N}.png`, 분할 시 `_1.png _2.png`
+  - 버전관리: localStorage에 `{ key, version, status, createdAt }` 인덱스. 재생성 시 v+1, v1 보존
+- 상태 표시: 생성전 / 생성완료 / 재생성필요 / 재생성완료
 
-저장 시 검증:
-- 별칭 중복 → 토스트 경고 + 저장 차단
-- 동명이인 자동 감지 → 안내 메시지 (suffix 미입력 시 자동 "2","3" 제안)
+검증: 단일 업체 저장 → ZIP 다운로드 + OneDrive 업로드 성공, 재실행 시 v2 생성
 
-## 6. 기존 데이터 마이그레이션
+---
 
-별도 SQL 마이그레이션 (idempotent):
-- 강형주 team_leader에 aliases=['형주'] 자동 추가 (존재하면)
-- 기존 deliveries 중 `leader1_name='형주'` → 강형주 ID로 업데이트, leader1_name='강형주'
-- 동일 처리: leader2_name, leader3_name
+## STEP 4 — 정산마감/자동생성 게이트 + 전체저장 + 사양 15 테스트 통과 확인
 
-(사용자 데이터별 처리는 trigger 없이 일회성 UPDATE.)
+- `canAutoGenerate` + `businessDay` 헬퍼로 1차(16일)/2차(다음달 1일) 영업일 자동 생성 가능 시점 표시
+- 입력완료/정산마감 안 됐을 때 저장 버튼 비활성화 + 사유 툴팁
+- `업체 전체 저장`, `팀장 전체 저장`: 활성화된 모든 대상에 대해 순차 렌더링 → 진행률 표시 → ZIP/업로드
+- 사양 15의 13개 테스트 케이스를 수동으로 확인하고 결과 보고
 
-## 7. 집계 정합성
+검증: 한 번에 전체 저장, 진행률 정상, 정산마감 전에는 저장 차단 동작
 
-모든 집계는 `leader_id` 기준 group by (이미 그렇게 되어 있음). 표시명만 `getDisplayName()` 사용. 한눈요약/본사정산도 동일.
+---
 
-## 작업 순서
+## 기술 메모
 
-1. 마이그레이션: aliases, display_suffix 컬럼 + 기존 데이터 정리
-2. `leaderResolver.ts` + 테스트
-3. Records 화면 입력/붙여넣기에 resolver 적용
-4. Settings 팀장관리 UI (별칭, 구분명)
-5. 팀장정산 화면: 오은규 합산 표시 + 색상
-6. 한눈요약/본사정산 표시명 통일 확인
+- 추가 의존성: `html-to-image`, `jszip`, `file-saver`
+- 페이지 분할: 데이터 슬라이스 + 동일 컴포넌트를 페이지별로 재렌더 후 각각 PNG화
+- 오은규 특수정산은 `loadCompanySettings(uid).oeunkyuSpecial` 값을 읽어 분기
+- 거부팀장 치환은 `companies.rejected_leader_id*` + `team_leaders.aliases[0]` 사용
+- 적재비 데이터는 현재 스키마에 없음 → STEP 3에서 별도 테이블이 필요한지 사용자에게 확인 후 진행 (없으면 일단 0 처리)
 
-## 예상 규모
+---
 
-대규모 작업 (5~6 크레딧 예상). 단계별 진행도 가능합니다.
-
-## 진행 방식
-
-- A. 한 번에 전체 구현
-- B. 단계별 (먼저 1~4: 별칭/동명이인 → 확인 후 5~6: 오은규 합산 표시)
-- C. 가장 시급한 것 먼저 (어느 항목?)
+**먼저 STEP 1만 구현해도 될까요? 승인하시면 바로 진행하고, 끝나면 미리보기 확인 후 STEP 2로 넘어가겠습니다.**
