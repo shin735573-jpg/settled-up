@@ -139,10 +139,14 @@ export default function Saves() {
       ? companyStmts.map((s) => ({ id: s.company.id, name: s.company.name }))
       : leaderStmts.map((s) => ({ id: s.leader.id, name: s.leader.name }));
     for (const it of items) {
-      const node = exportRoot.current.querySelector<HTMLElement>(
-        `[data-stmt="${kind}:${it.id}"]`,
+      const pages = Array.from(
+        exportRoot.current.querySelectorAll<HTMLElement>(
+          `[data-stmt-id="${kind}:${it.id}"]`,
+        ),
+      ).sort((a, b) =>
+        Number(a.dataset.stmtPage ?? "0") - Number(b.dataset.stmtPage ?? "0"),
       );
-      if (node) out.push({ kind, id: it.id, name: it.name, node });
+      if (pages.length > 0) out.push({ kind, id: it.id, name: it.name, pages });
     }
     return out;
   }
@@ -458,16 +462,42 @@ export default function Saves() {
           pointerEvents: "none",
         }}
       >
-        {companyStmts.map((s) => (
-          <div key={"c-" + s.company.id} data-stmt={`company:${s.company.id}`} className="p-6 bg-white text-black">
-            <CompanyPreview data={s} />
-          </div>
-        ))}
-        {leaderStmts.map((s) => (
-          <div key={"l-" + s.leader.id} data-stmt={`leader:${s.leader.id}`} className="p-6 bg-white text-black">
-            <LeaderPreview data={s} />
-          </div>
-        ))}
+        {companyStmts.flatMap((s) => {
+          const pages = paginate(s.rows.length, 25);
+          return pages.map((slice, idx) => (
+            <div
+              key={`c-${s.company.id}-${idx}`}
+              data-stmt-id={`company:${s.company.id}`}
+              data-stmt-page={idx + 1}
+              className="p-6 bg-white text-black"
+            >
+              <CompanyPreview
+                data={s}
+                rowsSlice={slice}
+                pageIndex={idx + 1}
+                totalPages={pages.length}
+              />
+            </div>
+          ));
+        })}
+        {leaderStmts.flatMap((s) => {
+          const pages = paginate(s.rows.length, 25);
+          return pages.map((slice, idx) => (
+            <div
+              key={`l-${s.leader.id}-${idx}`}
+              data-stmt-id={`leader:${s.leader.id}`}
+              data-stmt-page={idx + 1}
+              className="p-6 bg-white text-black"
+            >
+              <LeaderPreview
+                data={s}
+                rowsSlice={slice}
+                pageIndex={idx + 1}
+                totalPages={pages.length}
+              />
+            </div>
+          ));
+        })}
       </div>
 
       <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
@@ -570,17 +600,37 @@ function Stat({ label, value, accent }: { label: string; value: number | string;
   );
 }
 
+/** rowCount 를 pageSize 단위로 잘라 [start, end) 범위 배열을 반환. 0건이면 1페이지(빈) 반환 */
+function paginate(rowCount: number, pageSize: number): Array<{ start: number; end: number }> {
+  if (rowCount <= 0) return [{ start: 0, end: 0 }];
+  const out: Array<{ start: number; end: number }> = [];
+  for (let s = 0; s < rowCount; s += pageSize) {
+    out.push({ start: s, end: Math.min(s + pageSize, rowCount) });
+  }
+  return out;
+}
+
 function CompanyPreview({
   data,
+  rowsSlice,
+  pageIndex,
+  totalPages,
 }: {
   data: ReturnType<typeof buildCompanyStatements>[number];
+  rowsSlice?: { start: number; end: number };
+  pageIndex?: number;
+  totalPages?: number;
 }) {
   const c = data.company;
+  const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-xs text-muted-foreground">{PERIOD_LABEL[data.period]} · 미리보기</div>
+          <div className="text-xs text-muted-foreground">
+            {PERIOD_LABEL[data.period]}
+            {totalPages && totalPages > 1 ? ` · ${pageIndex} / ${totalPages}` : " · 미리보기"}
+          </div>
           <h2 className="text-xl font-bold">{c.name} 정산서</h2>
         </div>
         <div className="flex gap-1">
@@ -622,7 +672,7 @@ function CompanyPreview({
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((r) => (
+            {rows.map((r) => (
               <tr key={r.id} className="border-t">
                 <td className="px-2 py-1">{r.date.slice(5)}</td>
                 <td className="px-2 py-1">{c.name}</td>
@@ -637,7 +687,7 @@ function CompanyPreview({
                 </td>
               </tr>
             ))}
-            {data.rows.length === 0 && (
+            {rows.length === 0 && (
               <tr><td colSpan={9} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
@@ -651,21 +701,34 @@ function CompanyPreview({
           </div>
         </div>
       )}
+      {totalPages && totalPages > 1 && (
+        <div className="text-right text-xs text-muted-foreground">{pageIndex} / {totalPages}</div>
+      )}
     </div>
   );
 }
 
 function LeaderPreview({
   data,
+  rowsSlice,
+  pageIndex,
+  totalPages,
 }: {
   data: ReturnType<typeof buildLeaderStatements>[number];
+  rowsSlice?: { start: number; end: number };
+  pageIndex?: number;
+  totalPages?: number;
 }) {
   const l = data.leader;
+  const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-xs text-muted-foreground">{PERIOD_LABEL[data.period]} · 미리보기</div>
+          <div className="text-xs text-muted-foreground">
+            {PERIOD_LABEL[data.period]}
+            {totalPages && totalPages > 1 ? ` · ${pageIndex} / ${totalPages}` : " · 미리보기"}
+          </div>
           <h2 className="text-xl font-bold">{l.name} 정산서</h2>
         </div>
         <div className="flex gap-1">
@@ -724,7 +787,7 @@ function LeaderPreview({
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((r, i) => (
+            {rows.map((r, i) => (
               <tr
                 key={r.delivery.id + "-" + i}
                 className={"border-t " + (r.isOeunkyuTransfer ? "bg-yellow-100/60" : "")}
@@ -753,7 +816,7 @@ function LeaderPreview({
                 </td>
               </tr>
             ))}
-            {data.rows.length === 0 && (
+            {rows.length === 0 && (
               <tr><td colSpan={20} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
@@ -763,6 +826,9 @@ function LeaderPreview({
         <div className="rounded-md border bg-muted/40 p-3 text-sm font-semibold">
           계좌: {l.account_number}
         </div>
+      )}
+      {totalPages && totalPages > 1 && (
+        <div className="text-right text-xs text-muted-foreground">{pageIndex} / {totalPages}</div>
       )}
     </div>
   );
