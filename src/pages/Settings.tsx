@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
@@ -655,6 +655,7 @@ function CompaniesTab() {
   const [leaders, setLeadersList] = useState<{ id: string; name: string }[]>([]);
   const [dupOpen, setDupOpen] = useState(false);
   const [dupGroups, setDupGroups] = useState<Company[][]>([]);
+  const [dupSel, setDupSel] = useState<Record<string, { checked: Set<string>; canonical: string | null }>>({});
   const [merging, setMerging] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualChecked, setManualChecked] = useState<Set<string>>(new Set());
@@ -758,8 +759,49 @@ function CompaniesTab() {
     }
     const groups = Array.from(map.values()).filter((g) => g.length > 1);
     setDupGroups(groups);
+    setDupSel(initSel(groups));
     setDupOpen(true);
     if (groups.length === 0) toast.success("중복된 업체가 없습니다.");
+  };
+
+  // 그룹별 선택 상태 초기화: 모두 체크 + 첫 번째를 기준
+  const initSel = (groups: Company[][]) => {
+    const out: Record<string, { checked: Set<string>; canonical: string | null }> = {};
+    groups.forEach((g, i) => {
+      const key = groupKey(g, i);
+      out[key] = { checked: new Set(g.map((c) => c.id)), canonical: g[0]?.id || null };
+    });
+    return out;
+  };
+  const groupKey = (g: Company[], i: number) => `${i}:${g.map((c) => c.id).join(",")}`;
+  const toggleDupCheck = (key: string, id: string) => {
+    setDupSel((prev) => {
+      const cur = prev[key] || { checked: new Set<string>(), canonical: null };
+      const next = new Set(cur.checked);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      let canonical = cur.canonical;
+      if (canonical && !next.has(canonical)) canonical = null;
+      return { ...prev, [key]: { checked: next, canonical } };
+    });
+  };
+  const setDupCanonical = (key: string, id: string) => {
+    setDupSel((prev) => {
+      const cur = prev[key] || { checked: new Set<string>([id]), canonical: id };
+      const next = new Set(cur.checked);
+      next.add(id);
+      return { ...prev, [key]: { checked: next, canonical: id } };
+    });
+  };
+  const skipDupGroup = (g: Company[]) => {
+    setDupGroups((prev) => prev.filter((x) => x !== g));
+  };
+  const previewSelected = async (g: Company[], key: string) => {
+    const sel = dupSel[key];
+    if (!sel || !sel.canonical) { toast.error("기준 업체를 선택해 주세요."); return; }
+    const picked = g.filter((c) => sel.checked.has(c.id));
+    if (picked.length < 2) { toast.error("2개 이상 선택해 주세요."); return; }
+    if (!picked.some((c) => c.id === sel.canonical)) { toast.error("기준 업체를 선택 항목에 포함해 주세요."); return; }
+    await openPreview(picked, sel.canonical);
   };
 
   // 유사 이름 검사: 임계값 이상 유사한 업체끼리 묶기 (Union-Find)
@@ -786,6 +828,7 @@ function CompaniesTab() {
     }
     const groups = Array.from(buckets.values()).filter((g) => g.length > 1);
     setDupGroups(groups);
+    setDupSel(initSel(groups));
     setDupOpen(true);
     if (groups.length === 0) toast.success("유사한 업체가 없습니다.");
     else toast.info(`유사 후보 ${groups.length}개 그룹을 찾았습니다.`);
@@ -1055,33 +1098,53 @@ function CompaniesTab() {
           ) : (
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">
               <div className="text-xs text-muted-foreground">
-                같은 이름(공백/특수문자 무시)으로 묶인 그룹입니다. 기준 업체를 선택하면 나머지가 그 업체로 통합되며, 모든 배송/단가 데이터가 옮겨집니다.
+                각 그룹에서 통합할 업체만 체크하고, 기준 업체를 선택하세요. 선택한 업체들의 모든 배송/단가 데이터가 기준 업체로 옮겨집니다. 통합하지 않을 그룹은 "통합 안 함"을 누르세요.
               </div>
-              {dupGroups.map((g, gi) => (
-                <Card key={gi} className="p-3 space-y-2">
-                  <div className="text-sm font-medium">그룹 {gi + 1} · {g.length}개</div>
-                  <div className="space-y-1">
-                    {g.map((c) => (
-                      <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
-                        <div className="flex-1 truncate">
-                          <span className="font-medium">{c.name}</span>
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {c.active ? "사용중" : "미사용"} · {c.issues_invoice ? "계산서" : "노계산서"}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={merging}
-                          onClick={() => openPreview(g, c.id)}
-                        >
-                          이 업체로 통합 (미리보기)
+              {dupGroups.map((g, gi) => {
+                const key = groupKey(g, gi);
+                const sel = dupSel[key] || { checked: new Set<string>(), canonical: null };
+                return (
+                  <Card key={key} className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">그룹 {gi + 1} · {g.length}개</div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" disabled={merging} onClick={() => skipDupGroup(g)}>
+                          통합 안 함
+                        </Button>
+                        <Button size="sm" disabled={merging} onClick={() => previewSelected(g, key)}>
+                          선택 통합 (미리보기)
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                </Card>
-              ))}
+                    </div>
+                    <div className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-1 text-sm items-center">
+                      <div className="text-[11px] text-muted-foreground">통합</div>
+                      <div className="text-[11px] text-muted-foreground">기준</div>
+                      <div className="text-[11px] text-muted-foreground">업체명</div>
+                      {g.map((c) => (
+                        <React.Fragment key={c.id}>
+                          <Checkbox
+                            checked={sel.checked.has(c.id)}
+                            onCheckedChange={() => toggleDupCheck(key, c.id)}
+                          />
+                          <input
+                            type="radio"
+                            name={`canonical-${key}`}
+                            checked={sel.canonical === c.id}
+                            onChange={() => setDupCanonical(key, c.id)}
+                            className="h-4 w-4 cursor-pointer"
+                          />
+                          <div className="flex-1 truncate">
+                            <span className="font-medium">{c.name}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {c.active ? "사용중" : "미사용"} · {c.issues_invoice ? "계산서" : "노계산서"}
+                            </span>
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
           <DialogFooter>
