@@ -62,6 +62,11 @@ export default function Auth() {
                   <Label htmlFor="si-pw">비밀번호</Label>
                   <Input id="si-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
+                <div className="text-right">
+                  <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+                    비밀번호를 잊으셨나요?
+                  </Link>
+                </div>
                 <Button type="submit" className="w-full" disabled={loading}>로그인</Button>
               </form>
             </TabsContent>
