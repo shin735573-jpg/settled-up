@@ -39,6 +39,7 @@ import {
   type RestoreMode,
   type RestoreResult,
 } from "@/lib/excelBackup";
+import { validateBackupForRestore, type RestoreValidationResult } from "@/lib/restoreValidation";
 
 type Company = {
   id: string;
@@ -288,16 +289,31 @@ function RestoreSection({ uid }: { uid: string }) {
     ? parsed.tables.filter((t) => selected[t.table]).reduce((s, t) => s + t.rows.length, 0)
     : 0;
 
+  // 선택 변경 시 즉시 재검증
+  const validation: RestoreValidationResult | null = parsed
+    ? validateBackupForRestore(
+        parsed,
+        Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
+      )
+    : null;
+
   const canRun = (() => {
     if (!parsed || busy) return false;
     if (!Object.values(selected).some(Boolean)) return false;
     if (mode === "replace" && confirmText.trim() !== "REPLACE") return false;
+    if (validation && !validation.ok) return false;
     return true;
   })();
 
   const run = async () => {
     if (!parsed || !uid || uid === "anon") {
       toast.error("로그인이 필요합니다.");
+      return;
+    }
+    if (validation && !validation.ok) {
+      toast.error("복구 차단", {
+        description: `금지 규칙 ${validation.errors.length}건 위반 — 백업 파일을 점검하세요.`,
+      });
       return;
     }
     const tables = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
