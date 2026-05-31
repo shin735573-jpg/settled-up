@@ -223,7 +223,12 @@ export default function HQSettlement() {
         fee, cod: x.cod, commission, deduct: x.deduct, payout,
         minGuarantee: x.minGuarantee, topUp,
       };
-    }).sort((a, b) => b.payout - a.payout);
+    }).sort((a, b) => {
+      const la = byId.get(a.id);
+      const lb = byId.get(b.id);
+      if (la && lb) return compareLeadersByFeeAsc(la, lb);
+      return (a.name || "").localeCompare(b.name || "");
+    });
   }, [leaders, validRows, byId]);
 
   const leaderDeliveryTotal = leaderDetails.reduce((s, x) => s + x.fee, 0);
