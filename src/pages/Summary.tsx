@@ -334,64 +334,72 @@ export default function Summary() {
                 {diagMsg}
               </span>
             )}
-            <Button size="sm" variant="outline" onClick={runDiagnostic}>컬럼 위치 진단</Button>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <div style={{ minWidth }}>
-            <div
-              className="grid bg-muted/50 font-medium text-muted-foreground"
-              style={{ gridTemplateColumns: gridTemplate }}
-            >
-              {SUMMARY_COLUMNS.map((c) => (
-                <div
-                  key={c.key}
-                  data-summary-header-cell
-                  data-col-key={c.key}
-                  className={cellBase + " border-r last:border-r-0"}
-                >
-                  {c.label}
-                </div>
-              ))}
-            </div>
-            {mergedRows.map((row, idx) => {
-              const c = row.company;
-              const l = row.leader;
-              const cells: Record<string, React.ReactNode> = {
-                rank: row.rank,
-                company: c ? c.name : "-",
-                company_count: c ? c.count : "-",
-                company_amount: c ? fmt(c.fee) : "-",
-                company_share: c ? `${c.share.toFixed(1)}%` : "-",
-                gap: "",
-                leader: l ? l.name : "-",
-                leader_count: l ? l.count : "-",
-                leader_amount: l ? fmt(l.payout) : "-",
-                leader_share: l ? `${l.share.toFixed(1)}%` : "-",
-              };
-              return (
-                <div
-                  key={idx}
-                  data-summary-row={idx}
-                  className="grid hover:bg-muted/30"
-                  style={{ gridTemplateColumns: gridTemplate }}
-                >
-                  {SUMMARY_COLUMNS.map((col) => (
-                    <div
-                      key={col.key}
-                      data-summary-cell
-                      data-col-key={col.key}
-                      className={cellBase + " border-r last:border-r-0"}
-                    >
-                      {cells[col.key]}
-                    </div>
+        <div className="flex gap-4 p-4">
+          {/* 왼쪽: 업체 테이블 */}
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm mb-2 text-center">업체</div>
+            <div className="overflow-x-auto">
+              <div>
+                <div className="grid bg-muted/50 font-medium text-muted-foreground" style={{ gridTemplateColumns: companyGridTemplate }}>
+                  {COMPANY_COLUMNS.map((c) => (
+                    <div key={c.key} className={cellBase + " border-r last:border-r-0"}>{c.label}</div>
                   ))}
                 </div>
-              );
-            })}
-            {mergedRows.length === 0 && (
-              <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
-            )}
+                {companyAgg.map((c, idx) => {
+                  const cells: Record<string, React.ReactNode> = {
+                    rank: idx + 1,
+                    company: c.name,
+                    company_count: c.count,
+                    company_amount: fmt(c.fee),
+                    company_share: `${c.share.toFixed(1)}%`,
+                  };
+                  return (
+                    <div key={c.id} className="grid hover:bg-muted/30" style={{ gridTemplateColumns: companyGridTemplate }}>
+                      {COMPANY_COLUMNS.map((col) => (
+                        <div key={col.key} className={cellBase + " border-r last:border-r-0"}>{cells[col.key]}</div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {companyAgg.length === 0 && (
+                  <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* 오른쪽: 팀장 테이블 */}
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm mb-2 text-center">팀장</div>
+            <div className="overflow-x-auto">
+              <div>
+                <div className="grid bg-muted/50 font-medium text-muted-foreground" style={{ gridTemplateColumns: leaderGridTemplate }}>
+                  {LEADER_COLUMNS.map((c) => (
+                    <div key={c.key} className={cellBase + " border-r last:border-r-0"}>{c.label}</div>
+                  ))}
+                </div>
+                {leaderAgg.map((l, idx) => {
+                  const cells: Record<string, React.ReactNode> = {
+                    rank: idx + 1,
+                    leader: l.name,
+                    leader_count: l.count,
+                    leader_amount: fmt(l.payout),
+                    leader_share: `${l.share.toFixed(1)}%`,
+                  };
+                  return (
+                    <div key={l.id} className="grid hover:bg-muted/30" style={{ gridTemplateColumns: leaderGridTemplate }}>
+                      {LEADER_COLUMNS.map((col) => (
+                        <div key={col.key} className={cellBase + " border-r last:border-r-0"}>{cells[col.key]}</div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {leaderAgg.length === 0 && (
+                  <div className="py-6 text-center text-muted-foreground text-sm">표시할 데이터가 없습니다.</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </Card>
