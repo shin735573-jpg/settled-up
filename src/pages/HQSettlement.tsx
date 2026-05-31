@@ -399,9 +399,8 @@ export default function HQSettlement() {
   const expenseTotal = fixedTotal + additionalTotal + minGuaranteeTopUp;
 
   // ── 매출 / 수익
-  // companyDeliveryTotal 에는 자동등록된 적재비가 이미 포함되므로
-  // 미등록 적재비만 추가해 중복 집계를 방지한다.
-  const grossSales = companyDeliveryTotal + unregisteredLoadingTotal + hqDirectFee + leaderCommissionTotal;
+  // 본사 수익 = 신동석 + 삼호 + 적재비 + 수수료
+  const grossSales = hqDirectFee + loadingTotal + leaderCommissionTotal;
   const hqProfit = grossSales - expenseTotal;
 
   // 업체정산관리 요약
@@ -545,14 +544,6 @@ export default function HQSettlement() {
         <Card className="p-0 overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 수익 요약</div>
           <div className="divide-y text-sm">
-            <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">업체 배송비 총액</span>
-              <span className="font-medium">{fmt(companyDeliveryTotal)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">팀장 배송비 총액</span>
-              <span className="font-medium">{fmt(leaderDeliveryTotal)}</span>
-            </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">적재비</span>
               <span className="font-medium">{fmt(loadingTotal)}</span>
