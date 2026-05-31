@@ -2297,7 +2297,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
             </>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="px-6 py-3 border-t bg-background shrink-0 sticky bottom-0">
           <Button variant="outline" onClick={onClose}>취소</Button>
           <Button onClick={save} disabled={saving || visible.length === 0 || missingRequired.length > 0}>
             {skipErrors ? `정상 ${visible.length - errorCount}건 저장` : `${visible.length}건 저장`}
