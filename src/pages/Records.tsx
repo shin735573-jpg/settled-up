@@ -1419,6 +1419,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   const [dateOverrides, setDateOverrides] = useState<Record<number, string>>({});
   // 행별 2인배송 수동 토글
   const [twoOverrides, setTwoOverrides] = useState<Record<number, boolean>>({});
+  // 행별 분할 수동 선택 ("" | "3분할" | "형주동석")
+  const [splitOverrides, setSplitOverrides] = useState<Record<number, string>>({});
   // 일괄 적용용 입력값
   const [bulkDate, setBulkDate] = useState("");
   // 미리보기에서 사용자가 제외한 행
