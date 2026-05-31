@@ -1213,6 +1213,9 @@ export default function Records() {
       )}
 
       <Card className="overflow-x-auto">
+        {(searchCompany || searchCustomer || searchLeader) && filteredRecords.length === 0 && (
+          <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
+        )}
         <RecordsTable
           records={filteredRecords}
           issuesByRow={issuesByRow}
