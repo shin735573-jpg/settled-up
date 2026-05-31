@@ -531,6 +531,123 @@ function RestoreSection({ uid }: { uid: string }) {
 
 
 
+function RestoreResultPanel({
+  results,
+  mode,
+}: {
+  results: RestoreResult[];
+  mode: RestoreMode;
+}) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggle = (table: string) =>
+    setExpanded((s) => ({ ...s, [table]: !s[table] }));
+
+  const totalRows = results.reduce((s, r) => s + r.total, 0);
+  const totalInserted = results.reduce((s, r) => s + r.inserted, 0);
+  const totalDeleted = results.reduce((s, r) => s + r.deleted, 0);
+  const totalSkipped = results.reduce((s, r) => s + r.skipped, 0);
+  const failCount = results.filter((r) => r.error || r.skipped > 0).length;
+  const allOk = failCount === 0;
+
+  return (
+    <div className="space-y-2 border rounded p-3 bg-muted/20">
+      <div className="flex items-center gap-2">
+        {allOk ? (
+          <CheckCircle2 className="w-4 h-4 text-green-600" />
+        ) : (
+          <AlertCircle className="w-4 h-4 text-amber-600" />
+        )}
+        <span className="text-sm font-semibold">
+          복구 결과 {allOk ? "· 전체 성공" : `· ${failCount}개 시트 이슈`}
+        </span>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {totalInserted.toLocaleString()}건 적용 / {totalRows.toLocaleString()}건
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="bg-green-50 dark:bg-green-950/30 rounded p-2">
+          <div className="text-xs text-muted-foreground">적용</div>
+          <div className="text-base font-bold text-green-700 dark:text-green-400">
+            {totalInserted.toLocaleString()}
+          </div>
+        </div>
+        {mode === "replace" && (
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded p-2">
+            <div className="text-xs text-muted-foreground">삭제</div>
+            <div className="text-base font-bold text-blue-700 dark:text-blue-400">
+              {totalDeleted.toLocaleString()}
+            </div>
+          </div>
+        )}
+        {totalSkipped > 0 && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 rounded p-2">
+            <div className="text-xs text-muted-foreground">건너뜀</div>
+            <div className="text-base font-bold text-amber-700 dark:text-amber-400">
+              {totalSkipped.toLocaleString()}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        {results.map((r) => {
+          const ok = !r.error && r.skipped === 0;
+          const hasErrors = !!r.error || (r.batchErrors && r.batchErrors.length > 0);
+          return (
+            <div key={r.table} className="border rounded bg-background">
+              <button
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-left"
+                onClick={() => toggle(r.table)}
+              >
+                {ok ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                ) : hasErrors ? (
+                  <XCircle className="w-3.5 h-3.5 text-destructive shrink-0" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                )}
+                <span className="text-sm flex-1">{r.sheet}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {r.inserted.toLocaleString()}/{r.total.toLocaleString()}건
+                </span>
+                {expanded[r.table] ? (
+                  <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+              </button>
+              {expanded[r.table] && (
+                <div className="px-2 pb-2 space-y-1 text-xs">
+                  <div className="grid grid-cols-3 gap-1 text-center">
+                    <div>적용: <span className="font-medium">{r.inserted}</span></div>
+                    {mode === "replace" && <div>삭제: <span className="font-medium">{r.deleted}</span></div>}
+                    {r.skipped > 0 && <div>건너뜀: <span className="font-medium text-amber-700">{r.skipped}</span></div>}
+                  </div>
+                  {r.error && (
+                    <div className="text-destructive bg-destructive/5 rounded px-2 py-1">
+                      {r.error}
+                    </div>
+                  )}
+                  {r.batchErrors && r.batchErrors.length > 0 && (
+                    <div className="space-y-0.5">
+                      {r.batchErrors.map((be, idx) => (
+                        <div key={idx} className="text-destructive/90">
+                          · 배치 {be.batchIndex} ({be.count}건): {be.message}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CompaniesTab() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Company[]>([]);
