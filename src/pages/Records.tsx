@@ -1090,6 +1090,25 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     [grid]
   );
 
+  // 제목(헤더 윗부분) 행에서 팀장명 자동 인식 → 기본 팀장 입력란이 비어있으면 자동 채움
+  const titleLeaderHint = useMemo(() => {
+    if (grid.length === 0) return null;
+    const titleRows = headerInfo.hasHeader ? grid.slice(0, headerInfo.dataStart - 1) : grid.slice(0, Math.min(3, grid.length));
+    const titleText = titleRows.map((r) => r.join(" ")).join("\n").trim();
+    if (!titleText) return null;
+    const ex = extractLeaders(titleText, leaderIndex);
+    if (ex.ids.length === 0) return null;
+    const names = ex.ids.slice(0, 2).map((id) => leaderById.get(id)?.name || "").filter(Boolean);
+    return { ids: ex.ids.slice(0, 2), names, raw: titleText };
+  }, [grid, headerInfo, leaderIndex, leaderById]);
+
+  useEffect(() => {
+    if (titleLeaderHint && !defaultLeadersText.trim()) {
+      setDefaultLeadersText(titleLeaderHint.names.join("/"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titleLeaderHint]);
+
   // 컬럼 매핑 상태 (자동 + 사용자 수정)
   const [mapping, setMapping] = useState<(FieldKey | null)[]>([]);
 
