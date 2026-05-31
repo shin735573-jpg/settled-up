@@ -1,7 +1,7 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const GATEWAY = 'https://connector-gateway.lovable.dev/microsoft_onedrive/v1.0';
+const GATEWAY = 'https://connector-gateway.lovable.dev/microsoft_onedrive';
 
 function gwHeaders() {
   const lovable = Deno.env.get('LOVABLE_API_KEY');
