@@ -232,7 +232,8 @@ export default function Saves() {
     }
     setExportingMsg(`${name} 저장 중…`);
     try {
-      const { filename } = await exportSingle(target, month, period, regenerate, { uploadOneDrive: uploadOD });
+      const dir = await getReadyDir();
+      const { filename } = await exportSingle(target, month, period, regenerate, { uploadOneDrive: uploadOD, saveDirectory: dir });
       toast({ title: "저장 완료", description: filename });
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
@@ -277,7 +278,7 @@ export default function Saves() {
       const { filename, count } = await exportZip(
         targets, month, period, regenerate,
         (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
-        { uploadOneDrive: uploadOD },
+        { uploadOneDrive: uploadOD, saveDirectory: await getReadyDir() },
       );
       const skipCount = skippedCompanies.length + skippedLeaders.length;
       setBulkResult({
@@ -514,7 +515,7 @@ export default function Saves() {
       const { filename, count } = await exportZip(
         targets, month, period, regenerate,
         (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
-        { uploadOneDrive: uploadOD },
+        { uploadOneDrive: uploadOD, saveDirectory: await getReadyDir() },
       );
       toast({ title: "저장 완료", description: `${filename} (${count}건, 오류 ${all.length - count}건 제외)` });
     } catch (e) {
