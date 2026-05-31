@@ -446,7 +446,7 @@ export default function HQSettlement() {
             <Table className="text-sm">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-20">일자</TableHead>
+                  <TableHead className="w-20">날짜</TableHead>
                   <TableHead>업체</TableHead>
                   <TableHead className="w-32 text-right">금액</TableHead>
                   <TableHead className="w-28">청구여부</TableHead>
