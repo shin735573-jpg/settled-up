@@ -1428,6 +1428,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       note: r.note || null,
       metro_fee: r.metro, note_amount: r.noteAmt, regional_fee: r.regional, cod_amount: r.cod,
       split_type: r.split || null, paid: r.paid,
+      two_person: r.twoPerson,
     }));
     const { error } = await supabase.from("deliveries").insert(rows);
     setSaving(false);
