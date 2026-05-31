@@ -668,6 +668,7 @@ export default function LeaderSettlement() {
           </Button>
         )}
         <h1 className="text-2xl font-bold flex-1">팀장정산</h1>
+        <PrintButton documentTitle={`팀장정산_${month}`} />
         <input
           type="month" value={month} onChange={(e) => setMonth(e.target.value)}
           disabled={period === "all"} className="border rounded px-3 py-2"

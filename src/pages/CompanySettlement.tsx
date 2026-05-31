@@ -381,6 +381,7 @@ export default function CompanySettlement() {
           </Button>
         )}
         <h1 className="text-2xl font-bold flex-1">업체정산</h1>
+        <PrintButton documentTitle={`업체정산_${month}`} />
         <input
           type="month"
           value={month}
