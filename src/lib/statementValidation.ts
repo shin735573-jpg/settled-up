@@ -168,6 +168,22 @@ export function validateLeaderStatement(
     push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`);
   }
 
+  // 8) 팀장 정산서 부가세 표시 규칙 (사양 10-10/11/12)
+  //    총합배송비 = 수도권 + 비고 + 지방 (착불/수수료/공제 차감 없음)
+  const totalDelivery = data.metroSum + data.noteSum + data.regionalSum;
+  const expectedVat = Math.round(totalDelivery * 0.1);
+  if (!l.issues_invoice) {
+    // 미발급 팀장: 부가세 문구/금액 절대 금지 — data.vat/payoutWithVat 는 0이어야 함
+    if (data.vat !== 0) {
+      push(r, "error", `${prefix} 계산서 미발급 팀장에 부가세 표시 금지`);
+    }
+  } else {
+    // 발급 팀장: 총합배송비 > 0 인데 부가세 미표시면 오류
+    if (totalDelivery > 0 && expectedVat <= 0) {
+      push(r, "error", `${prefix} 계산서 발급 팀장에 부가세/부가세포함총배송비 누락`);
+    }
+  }
+
   return r;
 }
 
