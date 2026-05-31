@@ -651,47 +651,95 @@ export default function LeaderSettlement() {
       {!leaderId && (
         <Card className="p-4">
           <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
-          <Table className="text-sm num">
-            <TableHeader>
-              <TableRow>
-                <TableHead>팀장명</TableHead>
-                <TableHead className="text-right">배송건수</TableHead>
-                <TableHead className="text-right">수도권배송비</TableHead>
-                <TableHead className="text-right">비고금액</TableHead>
-                <TableHead className="text-right">지방배송비</TableHead>
-                <TableHead className="text-right">실지급배송비</TableHead>
-                <TableHead className="text-right">착불합계</TableHead>
-                <TableHead className="text-right">수수료합계</TableHead>
-                <TableHead className="text-right">계산후 지급금액</TableHead>
-                <TableHead className="text-right">공제총액</TableHead>
-                <TableHead className="text-right">실지급액</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {masterRows.map((m) => (
-                <TableRow key={m.leader.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setLeaderId(m.leader.id)}>
-                  <TableCell>
-                    <button className="text-primary hover:underline font-medium">
-                      {getDisplayName(m.leader, leaders)}
-                    </button>
-                  </TableCell>
-                  <TableCell className="text-right">{m.count || "-"}</TableCell>
-                  <TableCell className="text-right">{fmt(m.metro)}</TableCell>
-                  <TableCell className="text-right">{fmt(m.noteAmt)}</TableCell>
-                  <TableCell className="text-right">{fmt(m.regional)}</TableCell>
-                  <TableCell className="text-right font-semibold">{fmt(m.total)}</TableCell>
-                  <TableCell className="text-right">{fmt(m.cod)}</TableCell>
-                  <TableCell className="text-right">{fmt(m.fees)}</TableCell>
-                  <TableCell className="text-right">{fmt(m.afterFees)}</TableCell>
-                  <TableCell className="text-right">{fmt(m.deduction)}</TableCell>
-                  <TableCell className="text-right font-bold">{fmt(m.net)}</TableCell>
-                </TableRow>
-              ))}
-              {masterRows.length === 0 && (
-                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-6">정산대상 팀장 없음</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
+          {leaderColAlignError && (
+            <div className="mb-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive font-medium">
+              팀장정산 목록의 헤더와 데이터 컬럼 위치가 일치하지 않습니다.
+            </div>
+          )}
+          <div className="w-full overflow-x-auto">
+            <table
+              data-testid="leader-summary-table"
+              className="text-sm num table-fixed border-collapse"
+              style={{ minWidth: `${LEADER_TABLE_MIN_WIDTH}px`, width: `${LEADER_TABLE_MIN_WIDTH}px` }}
+            >
+              <colgroup>
+                {LEADER_COLUMNS.map((c) => (
+                  <col key={c.key} style={{ width: `${c.width}px` }} />
+                ))}
+              </colgroup>
+              <thead className="[&_tr]:border-b">
+                <tr className="border-b">
+                  {LEADER_COLUMNS.map((c) => (
+                    <th
+                      key={c.key}
+                      className="h-12 px-2 text-center align-middle font-medium text-muted-foreground whitespace-nowrap"
+                      style={{ width: `${c.width}px` }}
+                    >
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="[&_tr:last-child]:border-0">
+                {masterRows.map((m) => {
+                  const statusText =
+                    m.leader.settle_status === "excluded" ? "정산제외" : "미정산";
+                  const cells: Record<LeaderColKey, React.ReactNode> = {
+                    name: (
+                      <button className="text-primary hover:underline font-medium">
+                        {getDisplayName(m.leader, leaders)}
+                      </button>
+                    ),
+                    count: m.count ? m.count.toLocaleString() : "-",
+                    metro: fmt(m.metro),
+                    note: fmt(m.noteAmt),
+                    regional: fmt(m.regional),
+                    total: <span className="font-semibold">{fmt(m.total)}</span>,
+                    cod: fmt(m.cod),
+                    fees: fmt(m.fees),
+                    afterFees: fmt(m.afterFees),
+                    deduction: fmt(m.deduction),
+                    net: <span className="font-bold">{fmt(m.net)}</span>,
+                    status: (
+                      <span className="inline-block rounded px-2 py-0.5 text-xs bg-muted text-muted-foreground">
+                        {statusText}
+                      </span>
+                    ),
+                    detail: (
+                      <span className="text-primary text-xs hover:underline">상세보기</span>
+                    ),
+                  };
+                  return (
+                    <tr
+                      key={m.leader.id}
+                      className="border-b transition-colors cursor-pointer hover:bg-muted/50"
+                      onClick={() => setLeaderId(m.leader.id)}
+                    >
+                      {LEADER_COLUMNS.map((c) => (
+                        <td
+                          key={c.key}
+                          className="p-2 align-middle text-center whitespace-nowrap"
+                          style={{ width: `${c.width}px` }}
+                        >
+                          {cells[c.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+                {masterRows.length === 0 && (
+                  <tr className="border-b">
+                    <td
+                      colSpan={LEADER_COLUMNS.length}
+                      className="text-center text-muted-foreground py-6"
+                    >
+                      정산대상 팀장 없음
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
