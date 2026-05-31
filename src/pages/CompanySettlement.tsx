@@ -286,6 +286,9 @@ export default function CompanySettlement() {
             <Stat label="착불합계" value={detailSummary.cod} />
             <Stat label="이월착불금" value={detailSummary.carry} />
             <Stat label="실청구액" value={detailSummary.net} highlight />
+            {detailSummary.newCarry > 0 && (
+              <Stat label="새이월착불금" value={detailSummary.newCarry} />
+            )}
             {company.issues_invoice && (
               <Stat label="부가세포함 청구금액" value={detailSummary.net + Math.round(detailSummary.net * 0.1)} />
             )}
