@@ -34,10 +34,10 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        head_cell: "text-muted-foreground rounded-md w-12 font-medium text-sm",
+        head_cell: "text-muted-foreground rounded-md w-14 font-semibold text-sm",
         row: "flex w-full mt-2",
-        cell: "h-12 w-12 text-center text-base p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-        day: cn(buttonVariants({ variant: "ghost" }), "h-12 w-12 p-0 font-normal text-base aria-selected:opacity-100"),
+        cell: "h-14 w-14 text-center text-base p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        day: cn(buttonVariants({ variant: "ghost" }), "h-14 w-14 p-0 font-normal text-base aria-selected:opacity-100"),
         day_range_end: "day-range-end",
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
@@ -55,7 +55,7 @@ function Calendar({
         ...(modifiers || {}),
       }}
       modifiersClassNames={{
-        koreanHoliday: "text-pink-600 font-bold bg-pink-50 hover:bg-pink-100",
+        koreanHoliday: "text-red-600 font-bold bg-red-100 hover:bg-red-200",
         sunday: "text-red-600",
         ...(modifiersClassNames || {}),
       }}
