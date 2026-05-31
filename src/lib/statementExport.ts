@@ -3,6 +3,7 @@ import { toPng } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { bumpVersion, keyFor } from "./statementVersion";
+import { supabase } from "@/integrations/supabase/client";
 
 /** 한 정산서가 여러 페이지로 분할될 때 각 페이지 노드 */
 export type ExportTarget = {
@@ -29,28 +30,65 @@ async function renderPng(node: HTMLElement): Promise<Blob> {
   return await res.blob();
 }
 
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < buf.length; i += CHUNK) {
+    bin += String.fromCharCode(...buf.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
+/** OneDrive 에지 함수로 단일 PNG 업로드 */
+async function uploadOneDrive(folder: string, filename: string, blob: Blob) {
+  const contentBase64 = await blobToBase64(blob);
+  const { data, error } = await supabase.functions.invoke("onedrive-upload", {
+    body: {
+      action: "upload",
+      folder,
+      filename,
+      contentBase64,
+      contentType: "image/png",
+    },
+  });
+  if (error) throw new Error(`OneDrive 업로드 실패: ${error.message}`);
+  if (data?.error) throw new Error(`OneDrive 업로드 실패: ${data.error}`);
+  return data as { ok: true; webUrl?: string };
+}
+
+export type ExportOptions = {
+  /** true면 OneDrive에도 업로드 (로컬 다운로드는 항상 수행) */
+  uploadOneDrive?: boolean;
+};
+
 export async function exportSingle(
   target: ExportTarget,
   month: string,
   period: string,
   regenerate: boolean,
+  options: ExportOptions = {},
 ): Promise<{ filename: string; version: number; pages: number }> {
   const entry = bumpVersion(keyFor(target.kind, target.id, month, period), regenerate);
   const kindLabel = target.kind === "company" ? "업체" : "팀장";
   const pLabel = periodLabelKR(period);
   const base = `${kindLabel}_${SAFE(target.name)}_${month}_${pLabel}_v${entry.version}`;
+  const odFolder = `정산서_저장/${month}_${pLabel}/${kindLabel}`;
   // 1장이면 단일 파일, 여러 장이면 ZIP 으로 묶어서 다운로드
   if (target.pages.length === 1) {
     const blob = await renderPng(target.pages[0]);
     const filename = `${base}.png`;
     saveAs(blob, filename);
+    if (options.uploadOneDrive) await uploadOneDrive(odFolder, filename, blob);
     return { filename, version: entry.version, pages: 1 };
   }
   const zip = new JSZip();
   let i = 1;
   for (const node of target.pages) {
     const blob = await renderPng(node);
-    zip.file(`${base}_${i}.png`, blob);
+    const pngName = `${base}_${i}.png`;
+    zip.file(pngName, blob);
+    if (options.uploadOneDrive) await uploadOneDrive(odFolder, pngName, blob);
     i++;
   }
   const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -65,6 +103,7 @@ export async function exportZip(
   period: string,
   regenerate: boolean,
   onProgress?: (done: number, total: number, name: string) => void,
+  options: ExportOptions = {},
 ): Promise<{ filename: string; count: number }> {
   const zip = new JSZip();
   const pLabel = periodLabelKR(period);
@@ -78,13 +117,19 @@ export async function exportZip(
     const entry = bumpVersion(keyFor(t.kind, t.id, month, period), regenerate);
     const kindLabel = t.kind === "company" ? "업체" : "팀장";
     const folder = t.kind === "company" ? companyFolder : leaderFolder;
+    const odFolder = `정산서_저장/${month}_${pLabel}/${kindLabel}`;
     const base = `${kindLabel}_${SAFE(t.name)}_${month}_${pLabel}_v${entry.version}`;
     if (t.pages.length === 1) {
-      folder.file(`${base}.png`, await renderPng(t.pages[0]));
+      const blob = await renderPng(t.pages[0]);
+      folder.file(`${base}.png`, blob);
+      if (options.uploadOneDrive) await uploadOneDrive(odFolder, `${base}.png`, blob);
     } else {
       let p = 1;
       for (const node of t.pages) {
-        folder.file(`${base}_${p}.png`, await renderPng(node));
+        const blob = await renderPng(node);
+        const pngName = `${base}_${p}.png`;
+        folder.file(pngName, blob);
+        if (options.uploadOneDrive) await uploadOneDrive(odFolder, pngName, blob);
         p++;
       }
     }
