@@ -430,6 +430,38 @@ export default function Saves() {
         파일명: 업체_업체명_기간_v1.png · 팀장_팀장명_기간_v1.png (재생성 시 v2, v3로 자동 증가).
       </p>
 
+      {exportingMsg && (
+        <div className="fixed bottom-4 right-4 z-50 rounded-md border bg-background px-4 py-2 text-sm shadow">
+          {exportingMsg}
+        </div>
+      )}
+
+      {/* 숨겨진 PNG 렌더 영역: 화면에는 안 보이지만 DOM에는 존재해야 html-to-image가 캡처 가능 */}
+      <div
+        ref={exportRoot}
+        aria-hidden
+        style={{
+          position: "fixed",
+          left: -10000,
+          top: 0,
+          width: 1200,
+          background: "#ffffff",
+          color: "#000000",
+          pointerEvents: "none",
+        }}
+      >
+        {companyStmts.map((s) => (
+          <div key={"c-" + s.company.id} data-stmt={`company:${s.company.id}`} className="p-6 bg-white text-black">
+            <CompanyPreview data={s} />
+          </div>
+        ))}
+        {leaderStmts.map((s) => (
+          <div key={"l-" + s.leader.id} data-stmt={`leader:${s.leader.id}`} className="p-6 bg-white text-black">
+            <LeaderPreview data={s} />
+          </div>
+        ))}
+      </div>
+
       <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
