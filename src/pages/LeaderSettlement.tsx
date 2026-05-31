@@ -622,14 +622,6 @@ export default function LeaderSettlement() {
       {!leaderId && (
         <Card className="p-4">
           <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
-          <SdsGhjCrossCheck
-            masterRows={masterRows}
-            shindongseokId={shindongseokId}
-            ganghyungjuId={ganghyungjuId}
-            config={crossCfg}
-            rawTotalsFor={rawTotalsFor}
-            leadersById={leadersById}
-          />
           <Table className="text-sm num">
             <TableHeader>
               <TableRow>
