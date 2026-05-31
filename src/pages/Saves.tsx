@@ -769,6 +769,72 @@ export default function Saves() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!bulkResult} onOpenChange={(o) => { if (!o) setBulkResult(null); }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>전체저장 결과</DialogTitle>
+            <DialogDescription>{bulkResult?.filename}</DialogDescription>
+          </DialogHeader>
+          {bulkResult && (
+            <>
+              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="rounded-md border p-2">
+                  <div className="text-muted-foreground">등록 업체</div>
+                  <div className="text-base font-bold">{companyStmts.length}</div>
+                </div>
+                <div className="rounded-md border p-2">
+                  <div className="text-muted-foreground">등록 팀장</div>
+                  <div className="text-base font-bold">{leaderStmts.length}</div>
+                </div>
+                <div className="rounded-md border border-primary/40 bg-primary/5 p-2">
+                  <div className="text-muted-foreground">저장 완료</div>
+                  <div className="text-base font-bold text-primary">{bulkResult.savedCount}</div>
+                </div>
+                <div className="rounded-md border border-yellow-300 bg-yellow-50 p-2 dark:bg-yellow-950/30">
+                  <div className="text-muted-foreground">제외</div>
+                  <div className="text-base font-bold text-yellow-700 dark:text-yellow-300">
+                    {bulkResult.skippedCompanies.length + bulkResult.skippedLeaders.length}
+                  </div>
+                </div>
+              </div>
+              <ScrollArea className="max-h-[280px] pr-3">
+                <div className="space-y-3 text-sm">
+                  {bulkResult.skippedCompanies.length > 0 && (
+                    <div>
+                      <div className="mb-1 text-xs font-semibold text-muted-foreground">제외 업체</div>
+                      <ul className="space-y-1">
+                        {bulkResult.skippedCompanies.map((x) => (
+                          <li key={x.name} className="flex justify-between rounded border border-yellow-300 bg-yellow-50 px-2 py-1 dark:bg-yellow-950/30">
+                            <span>{x.name}</span>
+                            <span className="text-xs text-muted-foreground">{x.reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {bulkResult.skippedLeaders.length > 0 && (
+                    <div>
+                      <div className="mb-1 text-xs font-semibold text-muted-foreground">제외 팀장</div>
+                      <ul className="space-y-1">
+                        {bulkResult.skippedLeaders.map((x) => (
+                          <li key={x.name} className="flex justify-between rounded border border-yellow-300 bg-yellow-50 px-2 py-1 dark:bg-yellow-950/30">
+                            <span>{x.name}</span>
+                            <span className="text-xs text-muted-foreground">{x.reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setBulkResult(null)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
