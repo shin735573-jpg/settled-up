@@ -398,9 +398,12 @@ export default function HQSettlement() {
   const additionalTotal = expenses.additional.reduce((s, x) => s + Number(x.amount || 0), 0);
   const expenseTotal = fixedTotal + additionalTotal + minGuaranteeTopUp;
 
-  // ── 본사 총배송비 (참고용, 계산 미포함)
+  // ── 본사 총배송비 (참고용, 계산 미포함) — 적재비 행은 제외
   const totalDeliveryFee = periodRows.reduce(
-    (s, r) => s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee), 0,
+    (s, r) => {
+      if (((r.item as string) || "").trim() === "적재비") return s;
+      return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+    }, 0,
   );
 
   // ── 매출 / 수익
