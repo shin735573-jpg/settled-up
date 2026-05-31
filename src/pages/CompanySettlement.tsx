@@ -111,8 +111,10 @@ export default function CompanySettlement() {
       cod += Number(r.cod_amount);
     });
     const carry = carryForCompany.reduce((s, r) => s + Number(r.cod_amount), 0);
-    const net = Math.max(0, unpaid - cod - carry);
-    return { count: companyRows.length, total, paid, unpaid, cod, carry, net };
+    const rawNet = unpaid - cod - carry;
+    const net = Math.max(0, rawNet);
+    const newCarry = rawNet < 0 ? -rawNet : 0;
+    return { count: companyRows.length, total, paid, unpaid, cod, carry, net, newCarry };
   };
 
   // 정산주기에 따라 업체 표시 필터
@@ -228,8 +230,8 @@ export default function CompanySettlement() {
                 <TableHead>업체명</TableHead>
                 <TableHead className="text-right">건수</TableHead>
                 <TableHead className="text-right">배송비합계</TableHead>
-                <TableHead className="text-right">결제완료</TableHead>
-                <TableHead className="text-right">미결제</TableHead>
+                <TableHead className="text-right">결제완료금액</TableHead>
+                <TableHead className="text-right">미결제금액</TableHead>
                 <TableHead className="text-right">착불합계</TableHead>
                 <TableHead className="text-right">이월착불금</TableHead>
                 <TableHead className="text-right">실청구액</TableHead>
@@ -284,6 +286,9 @@ export default function CompanySettlement() {
             <Stat label="착불합계" value={detailSummary.cod} />
             <Stat label="이월착불금" value={detailSummary.carry} />
             <Stat label="실청구액" value={detailSummary.net} highlight />
+            {detailSummary.newCarry > 0 && (
+              <Stat label="새이월착불금" value={detailSummary.newCarry} />
+            )}
             {company.issues_invoice && (
               <Stat label="부가세포함 청구금액" value={detailSummary.net + Math.round(detailSummary.net * 0.1)} />
             )}
