@@ -20,8 +20,8 @@ type Period = "all" | "first" | "second" | "month";
 
 // ===== 팀장정산 전체 목록 컬럼 정의 (헤더/바디 단일 소스) =====
 type LeaderColKey =
-  | "name" | "count" | "metro" | "note" | "regional" | "total"
-  | "cod" | "fees" | "afterFees" | "deduction" | "net" | "status" | "detail" | "companyTotal";
+  | "name" | "count" | "metro" | "note" | "regional"
+  | "cod" | "deduction" | "total" | "detail";
 
 type LeaderCol = {
   key: LeaderColKey;
@@ -31,20 +31,15 @@ type LeaderCol = {
 };
 
 const LEADER_COLUMNS: LeaderCol[] = [
-  { key: "name",       label: "팀장명",         width: 130, align: "center" },
-  { key: "count",      label: "배송건수",       width: 90,  align: "center" },
-  { key: "metro",      label: "수도권배송비",   width: 140, align: "center" },
-  { key: "note",       label: "비고금액",       width: 130, align: "center" },
-  { key: "regional",   label: "지방배송비",     width: 140, align: "center" },
-  { key: "total",      label: "실지급배송비",   width: 150, align: "center" },
-  { key: "cod",        label: "착불합계",       width: 130, align: "center" },
-  { key: "fees",       label: "수수료합계",     width: 140, align: "center" },
-  { key: "afterFees",  label: "계산후 지급금액", width: 160, align: "center" },
-  { key: "deduction",  label: "공제총액",       width: 130, align: "center" },
-  { key: "net",        label: "실지급액",       width: 140, align: "center" },
-  { key: "status",     label: "정산상태",       width: 120, align: "center" },
-  { key: "detail",     label: "상세보기",       width: 100, align: "center" },
-  { key: "companyTotal", label: "업체총배송비",  width: 150, align: "center" },
+  { key: "name",       label: "팀장명",       width: 160, align: "center" },
+  { key: "count",      label: "배송건수",     width: 120, align: "center" },
+  { key: "metro",      label: "수도권배송비", width: 160, align: "center" },
+  { key: "note",       label: "비고금액",     width: 140, align: "center" },
+  { key: "regional",   label: "지방배송비",   width: 160, align: "center" },
+  { key: "cod",        label: "착불합계",     width: 140, align: "center" },
+  { key: "deduction",  label: "공제총액",     width: 140, align: "center" },
+  { key: "total",      label: "총합배송비",   width: 160, align: "center" },
+  { key: "detail",     label: "상세보기",     width: 120, align: "center" },
 ];
 const LEADER_TABLE_MIN_WIDTH = LEADER_COLUMNS.reduce((s, c) => s + c.width, 0);
 
@@ -402,13 +397,15 @@ export default function LeaderSettlement() {
       totalCod += m.cod;
       totalFee += m.total;
     });
+    const companyTotalFee = rows.reduce((s, r) => s + sumFee(r), 0);
     return {
       totalLeaders: masterRows.length,
       totalCount,
       totalCod,
       totalFee,
+      companyTotalFee,
     };
-  }, [masterRows]);
+  }, [masterRows, rows]);
 
   // ===== 헤더-셀 컬럼 위치 검증 (개발용) =====
   useEffect(() => {
@@ -692,11 +689,12 @@ export default function LeaderSettlement() {
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
       {!leaderId && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
           <LeaderSummaryCard label="총배송건수" value={topSummary.totalCount.toLocaleString()} />
           <LeaderSummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
           <LeaderSummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
+          <LeaderSummaryCard label="업체총배송비" value={fmt(topSummary.companyTotalFee)} bold />
         </div>
       )}
 
@@ -734,8 +732,6 @@ export default function LeaderSettlement() {
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {masterRows.map((m) => {
-                  const statusText =
-                    m.leader.settle_status === "excluded" ? "정산제외" : "미정산";
                   const cells: Record<LeaderColKey, React.ReactNode> = {
                     name: (
                       <button className="text-primary hover:underline font-medium">
@@ -746,22 +742,11 @@ export default function LeaderSettlement() {
                     metro: fmt(m.metro),
                     note: fmt(m.noteAmt),
                     regional: fmt(m.regional),
-                    total: <span className="font-semibold">{fmt(m.total)}</span>,
                     cod: fmt(m.cod),
-                    fees: fmt(m.fees),
-                    afterFees: fmt(m.afterFees),
                     deduction: fmt(m.deduction),
-                    net: <span className="font-bold">{fmt(m.net)}</span>,
-                    status: (
-                      <span className="inline-block rounded px-2 py-0.5 text-xs bg-muted text-muted-foreground">
-                        {statusText}
-                      </span>
-                    ),
+                    total: <span className="font-bold text-red-600">{fmt(m.total)}</span>,
                     detail: (
                       <span className="text-primary text-xs hover:underline">상세보기</span>
-                    ),
-                    companyTotal: (
-                      <span className="font-semibold text-red-600">{fmt(m.total)}</span>
                     ),
                   };
                   return (
