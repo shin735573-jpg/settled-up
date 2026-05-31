@@ -560,6 +560,19 @@ export default function Saves() {
           <GateButton reason={blockedReason} variant="secondary" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader") || saveBlocked}>정산서 재생성</GateButton>
           <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3 text-sm">
+          <div className="flex items-center gap-2">
+            {uploadOD ? <Cloud className="h-4 w-4 text-primary" /> : <CloudOff className="h-4 w-4 text-muted-foreground" />}
+            <Label htmlFor="save-od" className="cursor-pointer">OneDrive에도 업로드</Label>
+            <Switch id="save-od" checked={uploadOD} onCheckedChange={toggleUploadOD} />
+          </div>
+          <Button variant="outline" size="sm" onClick={verifyOneDrive} disabled={verifyingOD}>
+            {verifyingOD ? "확인 중…" : "OneDrive 연결 확인"}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            업로드 폴더: <span className="font-mono">정산서_저장/{month}_{period === "h1" ? "1-15일" : period === "h2" ? "16-말일" : "월전체"}/업체|팀장/</span>
+          </span>
+        </div>
       </Card>
 
       <Tabs defaultValue="company" className="space-y-3">
