@@ -128,6 +128,61 @@ export default function Saves() {
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
 
+  // ─── PNG 렌더 대상 노드 보관 (숨겨진 영역) ─────────────
+  const exportRoot = useRef<HTMLDivElement>(null);
+  const [exportingMsg, setExportingMsg] = useState<string>("");
+
+  function collectNodes(kind: "company" | "leader"): ExportTarget[] {
+    if (!exportRoot.current) return [];
+    const out: ExportTarget[] = [];
+    const items = kind === "company"
+      ? companyStmts.map((s) => ({ id: s.company.id, name: s.company.name }))
+      : leaderStmts.map((s) => ({ id: s.leader.id, name: s.leader.name }));
+    for (const it of items) {
+      const node = exportRoot.current.querySelector<HTMLElement>(
+        `[data-stmt="${kind}:${it.id}"]`,
+      );
+      if (node) out.push({ kind, id: it.id, name: it.name, node });
+    }
+    return out;
+  }
+
+  async function doExportSingle(kind: "company" | "leader", id: string, name: string, regenerate: boolean) {
+    const nodes = collectNodes(kind);
+    const target = nodes.find((n) => n.id === id);
+    if (!target) { toast({ title: "저장 실패", description: "렌더 대상 없음", variant: "destructive" }); return; }
+    setExportingMsg(`${name} 저장 중…`);
+    try {
+      const { filename } = await exportSingle(target, month, period, regenerate);
+      toast({ title: "저장 완료", description: filename });
+    } catch (e) {
+      toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setExportingMsg("");
+    }
+  }
+
+  async function doExportAll(kind: "company" | "leader" | "both", regenerate: boolean) {
+    const targets =
+      kind === "company" ? collectNodes("company")
+      : kind === "leader" ? collectNodes("leader")
+      : [...collectNodes("company"), ...collectNodes("leader")];
+    if (targets.length === 0) {
+      toast({ title: "저장 대상 없음", variant: "destructive" }); return;
+    }
+    try {
+      const { filename, count } = await exportZip(
+        targets, month, period, regenerate,
+        (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
+      );
+      toast({ title: "저장 완료", description: `${filename} (${count}건)` });
+    } catch (e) {
+      toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setExportingMsg("");
+    }
+  }
+
   // ─── 저장 전 오류 검사 + 후속 저장 액션 ────────────────────
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
@@ -188,28 +243,27 @@ export default function Saves() {
     setPendingSave(() => (result.ok ? save : null));
   }
 
-  const doSaveStub = (label: string) => () => {
-    toast({ title: "저장 단계 준비 중", description: `${label} — 오류 검사 통과. PNG 생성/업로드는 다음 단계에서 활성화됩니다.` });
-  };
-
-  const onSaveCompanyOne = () => withValidation(
-    `${selectedCompany?.company.name ?? "업체"} 정산서 저장`,
+  const onSaveCompanyOne = () => selectedCompany && withValidation(
+    `${selectedCompany.company.name} 정산서 저장`,
     "company-one",
-    doSaveStub(`${selectedCompany?.company.name} 업체 정산서`),
+    () => doExportSingle("company", selectedCompany.company.id, selectedCompany.company.name, false),
   );
   const onSaveCompanyAll = () => withValidation(
-    "업체 전체 정산서 저장", "company-all", doSaveStub("업체 전체"),
+    "업체 전체 정산서 저장", "company-all",
+    () => doExportAll("company", false),
   );
-  const onSaveLeaderOne = () => withValidation(
-    `${selectedLeader?.leader.name ?? "팀장"} 정산서 저장`,
+  const onSaveLeaderOne = () => selectedLeader && withValidation(
+    `${selectedLeader.leader.name} 정산서 저장`,
     "leader-one",
-    doSaveStub(`${selectedLeader?.leader.name} 팀장 정산서`),
+    () => doExportSingle("leader", selectedLeader.leader.id, selectedLeader.leader.name, false),
   );
   const onSaveLeaderAll = () => withValidation(
-    "팀장 전체 정산서 저장", "leader-all", doSaveStub("팀장 전체"),
+    "팀장 전체 정산서 저장", "leader-all",
+    () => doExportAll("leader", false),
   );
   const onRegenerate = () => withValidation(
-    "정산서 재생성", "both-all", doSaveStub("재생성"),
+    "정산서 재생성", "both-all",
+    () => doExportAll("both", true),
   );
   const onCheckOnly = () => {
     const result = runChecksFor("both-all");
