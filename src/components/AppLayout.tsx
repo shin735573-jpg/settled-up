@@ -21,7 +21,7 @@ export default function AppLayout() {
   const handleLogout = async () => { await signOut(); navigate("/auth"); };
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-muted/30">
-      <aside className="md:w-56 md:min-h-screen bg-card border-r flex md:flex-col w-full">
+      <aside className="md:w-56 md:min-h-screen bg-card border-r flex md:flex-col w-full print:hidden">
         <div className="px-4 py-3 border-b w-full flex items-center justify-between gap-2 md:block">
           <div className="min-w-0">
             <div className="font-bold text-lg leading-tight">삼호정산표</div>

@@ -10,6 +10,7 @@ import { fmt } from "@/lib/format";
 import { allocateRow } from "@/lib/splitAllocation";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
+import PrintButton from "@/components/PrintButton";
 
 type Delivery = any;
 type Company = {
@@ -295,6 +296,7 @@ export default function Summary() {
     <div className="space-y-4" ref={rootRef}>
       <div className="flex items-center gap-2">
         <h1 className="text-2xl font-bold flex-1">한눈요약</h1>
+        <PrintButton documentTitle={`한눈요약_${month}`} />
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-40" />
       </div>
 

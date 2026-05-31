@@ -11,6 +11,7 @@ import { matchesCompany } from "@/lib/companyMatch";
 import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolver";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
+import PrintButton from "@/components/PrintButton";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -381,6 +382,7 @@ export default function CompanySettlement() {
           </Button>
         )}
         <h1 className="text-2xl font-bold flex-1">업체정산</h1>
+        <PrintButton documentTitle={`업체정산_${month}`} />
         <input
           type="month"
           value={month}

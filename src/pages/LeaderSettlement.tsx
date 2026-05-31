@@ -14,6 +14,7 @@ import { getDisplayName } from "@/lib/leaderResolver";
 import { allocateRow, feeForShare, type LeaderShare } from "@/lib/splitAllocation";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
+import PrintButton from "@/components/PrintButton";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -668,6 +669,7 @@ export default function LeaderSettlement() {
           </Button>
         )}
         <h1 className="text-2xl font-bold flex-1">팀장정산</h1>
+        <PrintButton documentTitle={`팀장정산_${month}`} />
         <input
           type="month" value={month} onChange={(e) => setMonth(e.target.value)}
           disabled={period === "all"} className="border rounded px-3 py-2"
