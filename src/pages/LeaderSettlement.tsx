@@ -412,13 +412,14 @@ export default function LeaderSettlement() {
 
   // 상단 요약바: 정산귀속/팀 재분배가 모두 반영된 masterRows 기준 합계
   const topSummary = useMemo(() => {
-    let totalCount = 0, totalCod = 0, totalFee = 0;
+    let totalCount = 0, totalCod = 0;
     masterRows.forEach((m) => {
       totalCount += m.count;
       totalCod += m.cod;
-      totalFee += m.total;
     });
+    // 총배송비 = 기간 내 모든 배송 행의 (수도권+비고+지방) 합 — 업체정산 화면과 동일 기준
     const companyTotalFee = rows.reduce((s, r) => s + sumFee(r), 0);
+    const totalFee = companyTotalFee;
     return {
       totalLeaders: masterRows.length,
       totalCount,
