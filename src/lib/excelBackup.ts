@@ -200,3 +200,194 @@ export async function maybeRunDailyBackup(
     return false;
   }
 }
+
+// ─── 복구 (Restore) ────────────────────────────────────────
+// 백업 파일(.xlsx)을 읽어 선택한 테이블을 안전하게 복원한다.
+
+/** sheet 이름 → DB 테이블 이름 역매핑 */
+const SHEET_TO_TABLE: Record<string, string> = TABLES.reduce(
+  (acc, t) => { acc[t.sheet] = t.name; return acc; },
+  {} as Record<string, string>,
+);
+
+export type ParsedTable = {
+  /** DB 테이블 이름 */
+  table: string;
+  /** 시트 이름 (한글) */
+  sheet: string;
+  /** 헤더 목록 */
+  headers: string[];
+  /** 변환된 행 (user_id 제거된 상태) */
+  rows: Row[];
+};
+
+export type ParsedBackup = {
+  meta: Record<string, string>;
+  tables: ParsedTable[];
+};
+
+function cellValue(v: unknown): unknown {
+  if (v === null || v === undefined) return null;
+  if (v instanceof Date) {
+    // 날짜 컬럼이면 YYYY-MM-DD, 타임스탬프면 ISO — 호출부에서 컬럼별 판단 안 함.
+    // Postgres는 ISO 둘 다 허용하므로 ISO 사용.
+    return v.toISOString();
+  }
+  if (typeof v === "object") {
+    // ExcelJS rich text / formula / hyperlink 객체 처리
+    const obj = v as { text?: string; result?: unknown; richText?: Array<{ text: string }> };
+    if (typeof obj.text === "string") return obj.text;
+    if (Array.isArray(obj.richText)) return obj.richText.map((r) => r.text).join("");
+    if (obj.result !== undefined) return obj.result;
+    return JSON.stringify(v);
+  }
+  return v;
+}
+
+function normalizeRow(headers: string[], rawRow: unknown[]): Row {
+  const out: Row = {};
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    if (!h) continue;
+    let v = cellValue(rawRow[i]);
+    if (v === "") v = null;
+    // JSON 직렬화된 배열/객체 복원 (aliases 등)
+    if (typeof v === "string") {
+      const s = v.trim();
+      if ((s.startsWith("[") && s.endsWith("]")) || (s.startsWith("{") && s.endsWith("}"))) {
+        try { v = JSON.parse(s); } catch { /* keep string */ }
+      }
+    }
+    out[h] = v;
+  }
+  return out;
+}
+
+/** 백업 파일 파싱 — 검증 포함. 유효하지 않으면 throw. */
+export async function parseBackupFile(file: File): Promise<ParsedBackup> {
+  const buf = await file.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  try {
+    await wb.xlsx.load(buf);
+  } catch (e) {
+    throw new Error(`엑셀 파일을 읽을 수 없습니다: ${(e as Error).message}`);
+  }
+
+  // 메타 수집 (선택)
+  const meta: Record<string, string> = {};
+  const metaWs = wb.getWorksheet("백업정보");
+  if (metaWs) {
+    metaWs.eachRow((row) => {
+      const k = String(cellValue(row.getCell(1).value) ?? "").trim();
+      const v = String(cellValue(row.getCell(2).value) ?? "").trim();
+      if (k && k !== "항목") meta[k] = v;
+    });
+  }
+
+  const tables: ParsedTable[] = [];
+  for (const t of TABLES) {
+    const ws = wb.getWorksheet(t.sheet);
+    if (!ws) continue;
+    const headerRow = ws.getRow(1);
+    const headers: string[] = [];
+    headerRow.eachCell({ includeEmpty: false }, (cell, col) => {
+      headers[col - 1] = String(cellValue(cell.value) ?? "").trim();
+    });
+    if (headers.length === 0) continue;
+    if (headers[0] === "(데이터 없음)") {
+      tables.push({ table: t.name, sheet: t.sheet, headers: [], rows: [] });
+      continue;
+    }
+
+    const rows: Row[] = [];
+    const rowCount = ws.rowCount;
+    for (let r = 2; r <= rowCount; r++) {
+      const row = ws.getRow(r);
+      const raw: unknown[] = [];
+      let hasAny = false;
+      for (let c = 1; c <= headers.length; c++) {
+        const v = row.getCell(c).value;
+        if (v !== null && v !== undefined && v !== "") hasAny = true;
+        raw.push(v);
+      }
+      if (!hasAny) continue;
+      const norm = normalizeRow(headers, raw);
+      // user_id 는 복구 시 현재 사용자로 강제 — 파일 값 무시
+      delete (norm as Record<string, unknown>).user_id;
+      rows.push(norm);
+    }
+    tables.push({ table: t.name, sheet: t.sheet, headers, rows });
+  }
+
+  if (tables.length === 0) {
+    throw new Error("백업 파일에서 복구 가능한 시트를 찾지 못했습니다.");
+  }
+  return { meta, tables };
+}
+
+export type RestoreMode = "upsert" | "replace";
+
+export type RestoreResult = {
+  table: string;
+  sheet: string;
+  inserted: number;
+  deleted: number;
+  error?: string;
+};
+
+/**
+ * 선택된 테이블만 복구.
+ * - "upsert": id 기준 병합 (기존 데이터 유지, 동일 id 는 덮어씀)
+ * - "replace": 해당 사용자의 데이터 전체 삭제 후 재삽입
+ * 항상 user_id 는 현재 로그인 사용자로 고정.
+ */
+export async function restoreBackup(
+  uid: string,
+  parsed: ParsedBackup,
+  selectedTables: string[],
+  mode: RestoreMode,
+): Promise<RestoreResult[]> {
+  if (!uid) throw new Error("로그인이 필요합니다.");
+  const results: RestoreResult[] = [];
+  const BATCH = 500;
+
+  for (const t of parsed.tables) {
+    if (!selectedTables.includes(t.table)) continue;
+    const res: RestoreResult = { table: t.table, sheet: t.sheet, inserted: 0, deleted: 0 };
+    try {
+      if (mode === "replace") {
+        const { error: delErr, count } = await supabase
+          .from(t.table as never)
+          .delete({ count: "exact" })
+          .eq("user_id", uid);
+        if (delErr) throw new Error(`삭제 실패: ${delErr.message}`);
+        res.deleted = count ?? 0;
+      }
+
+      // 행 준비 — user_id 부여
+      const payload = t.rows.map((r) => ({ ...r, user_id: uid }));
+      for (let i = 0; i < payload.length; i += BATCH) {
+        const chunk = payload.slice(i, i + BATCH);
+        if (chunk.length === 0) continue;
+        const q = supabase.from(t.table as never);
+        const { error } =
+          mode === "upsert"
+            ? await q.upsert(chunk as never, { onConflict: "id" })
+            : await q.insert(chunk as never);
+        if (error) throw new Error(`${i + 1}번째 배치 실패: ${error.message}`);
+        res.inserted += chunk.length;
+      }
+    } catch (e) {
+      res.error = (e as Error).message;
+    }
+    results.push(res);
+  }
+  return results;
+}
+
+/** 라벨 헬퍼 */
+export function tableLabel(table: string): string {
+  return TABLES.find((t) => t.name === table)?.sheet ?? table;
+}
+
+export const RESTORABLE_TABLES = TABLES.map((t) => ({ table: t.name, sheet: t.sheet }));
