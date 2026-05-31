@@ -111,7 +111,7 @@ function CompanyTab() {
             className="mt-1"
             value={s.companyName}
             onChange={(e) => update({ companyName: e.target.value })}
-            placeholder="예: 삼호물류"
+            placeholder="회사명 입력"
           />
         </div>
         <div>
