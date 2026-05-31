@@ -1098,33 +1098,53 @@ function CompaniesTab() {
           ) : (
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">
               <div className="text-xs text-muted-foreground">
-                같은 이름(공백/특수문자 무시)으로 묶인 그룹입니다. 기준 업체를 선택하면 나머지가 그 업체로 통합되며, 모든 배송/단가 데이터가 옮겨집니다.
+                각 그룹에서 통합할 업체만 체크하고, 기준 업체를 선택하세요. 선택한 업체들의 모든 배송/단가 데이터가 기준 업체로 옮겨집니다. 통합하지 않을 그룹은 "통합 안 함"을 누르세요.
               </div>
-              {dupGroups.map((g, gi) => (
-                <Card key={gi} className="p-3 space-y-2">
-                  <div className="text-sm font-medium">그룹 {gi + 1} · {g.length}개</div>
-                  <div className="space-y-1">
-                    {g.map((c) => (
-                      <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
-                        <div className="flex-1 truncate">
-                          <span className="font-medium">{c.name}</span>
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {c.active ? "사용중" : "미사용"} · {c.issues_invoice ? "계산서" : "노계산서"}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={merging}
-                          onClick={() => openPreview(g, c.id)}
-                        >
-                          이 업체로 통합 (미리보기)
+              {dupGroups.map((g, gi) => {
+                const key = groupKey(g, gi);
+                const sel = dupSel[key] || { checked: new Set<string>(), canonical: null };
+                return (
+                  <Card key={key} className="p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">그룹 {gi + 1} · {g.length}개</div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" disabled={merging} onClick={() => skipDupGroup(g)}>
+                          통합 안 함
+                        </Button>
+                        <Button size="sm" disabled={merging} onClick={() => previewSelected(g, key)}>
+                          선택 통합 (미리보기)
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                </Card>
-              ))}
+                    </div>
+                    <div className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-1 text-sm items-center">
+                      <div className="text-[11px] text-muted-foreground">통합</div>
+                      <div className="text-[11px] text-muted-foreground">기준</div>
+                      <div className="text-[11px] text-muted-foreground">업체명</div>
+                      {g.map((c) => (
+                        <React.Fragment key={c.id}>
+                          <Checkbox
+                            checked={sel.checked.has(c.id)}
+                            onCheckedChange={() => toggleDupCheck(key, c.id)}
+                          />
+                          <input
+                            type="radio"
+                            name={`canonical-${key}`}
+                            checked={sel.canonical === c.id}
+                            onChange={() => setDupCanonical(key, c.id)}
+                            className="h-4 w-4 cursor-pointer"
+                          />
+                          <div className="flex-1 truncate">
+                            <span className="font-medium">{c.name}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {c.active ? "사용중" : "미사용"} · {c.issues_invoice ? "계산서" : "노계산서"}
+                            </span>
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
           <DialogFooter>
