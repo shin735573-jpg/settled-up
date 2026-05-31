@@ -128,6 +128,7 @@ export type LeaderStmtData = {
   payout: number;      // 실지급액
   vat: number;
   payoutWithVat: number;
+  deductions?: LeaderDeductionDetail;
 };
 
 export type AggregateOptions = {
