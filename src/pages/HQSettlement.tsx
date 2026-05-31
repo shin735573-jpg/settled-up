@@ -17,6 +17,7 @@ import { allocateRow, feeForShare } from "@/lib/splitAllocation";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
+import { toast } from "@/hooks/use-toast";
 
 type Period = "h1" | "h2" | "all";
 type Delivery = any;
@@ -102,6 +103,7 @@ export default function HQSettlement() {
   const [rows, setRows] = useState<Delivery[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const expKey = `hq.expenses.${uid}.${month}`;
   const loadKey = `hq.loading.${uid}.${month}`;
@@ -132,7 +134,7 @@ export default function HQSettlement() {
       setCompanies((c as Company[]) || []);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
     })();
-  }, [month]);
+  }, [month, refreshKey]);
 
   const periodRows = useMemo(() => rows.filter((r) => inPeriod(r.date, period)), [rows, period]);
 
@@ -147,6 +149,8 @@ export default function HQSettlement() {
   };
   const shindongseokId = findId(["신동석", "동석"]);
   const ganghyungjuId = findId(["강형주", "형주"]);
+  const samhoId = findId(["삼호"]);
+  const samhoName = useMemo(() => leaders.find((l) => l.id === samhoId)?.name ?? "삼호", [leaders, samhoId]);
 
   const resolveSettleId = (id: string): string => {
     let cur = byId.get(id);
@@ -352,6 +356,78 @@ export default function HQSettlement() {
   const removeLoading = (id: string) =>
     setLoadingCosts((p) => p.filter((x) => x.id !== id));
 
+  // ── 적재비 자동등록: 해당 업체에 (팀장=삼호, 품목=적재비, 금액=입력 금액) 배송 행을 생성
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const autoRegisterLoading = async (lc: LoadingCost): Promise<{ ok: boolean; reason?: string }> => {
+    if (!user?.id) return { ok: false, reason: "로그인 필요" };
+    if (!lc.company_id) return { ok: false, reason: "업체 미지정" };
+    if (!lc.day || lc.day < 1 || lc.day > 31) return { ok: false, reason: "날짜 오류" };
+    if (!lc.amount || lc.amount <= 0) return { ok: false, reason: "금액 0" };
+    if (!samhoId) return { ok: false, reason: "팀장 '삼호' 없음" };
+    const company = companies.find((c) => c.id === lc.company_id);
+    if (!company) return { ok: false, reason: "업체 없음" };
+    // 해당 달의 실제 마지막 일자로 보정
+    const [y, m] = month.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const day = Math.min(lc.day, lastDay);
+    const dateStr = `${month}-${pad2(day)}`;
+    // 중복 검사
+    const { data: existing } = await supabase
+      .from("deliveries")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("date", dateStr)
+      .eq("company_id", lc.company_id)
+      .eq("item", "적재비")
+      .limit(1);
+    if (existing && existing.length > 0) return { ok: false, reason: "이미 등록됨" };
+    const { error } = await supabase.from("deliveries").insert({
+      user_id: user.id,
+      date: dateStr,
+      company_id: company.id,
+      company_name: company.name,
+      leader1_id: samhoId,
+      leader1_name: samhoName,
+      item: "적재비",
+      metro_fee: 0,
+      regional_fee: 0,
+      note_amount: Number(lc.amount),
+      cod_amount: 0,
+      note: "적재비 자동등록",
+    } as any);
+    if (error) return { ok: false, reason: error.message };
+    return { ok: true };
+  };
+  const handleAutoRegisterOne = async (lc: LoadingCost) => {
+    const r = await autoRegisterLoading(lc);
+    if (r.ok) {
+      toast({ title: "자동등록 완료", description: `${companies.find((c) => c.id === lc.company_id)?.name ?? ""} · ${month}-${pad2(lc.day)} · ${fmt(lc.amount)}` });
+      setRefreshKey((k) => k + 1);
+    } else {
+      toast({ title: "자동등록 실패", description: r.reason, variant: "destructive" });
+    }
+  };
+  const handleAutoRegisterAll = async () => {
+    if (loadingCosts.length === 0) {
+      toast({ title: "등록할 적재비 없음", variant: "destructive" });
+      return;
+    }
+    let ok = 0, skip = 0, fail = 0;
+    const failReasons: string[] = [];
+    for (const lc of loadingCosts) {
+      const r = await autoRegisterLoading(lc);
+      if (r.ok) ok++;
+      else if (r.reason === "이미 등록됨") skip++;
+      else { fail++; failReasons.push(r.reason || "오류"); }
+    }
+    setRefreshKey((k) => k + 1);
+    toast({
+      title: "전체 자동등록 결과",
+      description: `성공 ${ok}건 · 중복 ${skip}건 · 실패 ${fail}건${failReasons.length ? ` (${[...new Set(failReasons)].join(", ")})` : ""}`,
+      variant: fail > 0 ? "destructive" : "default",
+    });
+  };
+
   const setAdditional = (idx: number, patch: Partial<{ date: string; label: string; amount: number; note: string }>) =>
     setExpenses((p) => ({
       ...p,
@@ -422,9 +498,14 @@ export default function HQSettlement() {
           <div className="px-4 py-3 border-b font-semibold flex items-center gap-2">
             적재비 입력
             <span className="text-xs text-muted-foreground">청구 {fmt(loadingBilled)} · 미청구 {fmt(loadingUnbilled)} · 합계 {fmt(loadingTotal)}</span>
-            <Button size="sm" variant="outline" className="ml-auto" onClick={addLoading}>
-              <Plus className="w-4 h-4 mr-1" />추가
-            </Button>
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" variant="default" onClick={handleAutoRegisterAll} disabled={!samhoId} title={samhoId ? "" : "팀장 '삼호' 등록 필요"}>
+                전체 자동등록
+              </Button>
+              <Button size="sm" variant="outline" onClick={addLoading}>
+                <Plus className="w-4 h-4 mr-1" />추가
+              </Button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <Table className="text-sm min-w-max">
@@ -435,12 +516,13 @@ export default function HQSettlement() {
                   <TableHead className="text-center" style={{ minWidth: 130, width: 130 }}>금액</TableHead>
                   <TableHead className="text-center" style={{ minWidth: 110, width: 110 }}>청구여부</TableHead>
                   <TableHead className="text-center" style={{ minWidth: 110, width: 110 }}>계산서</TableHead>
+                  <TableHead className="text-center" style={{ minWidth: 110, width: 110 }}>자동등록</TableHead>
                   <TableHead className="text-center" style={{ width: 50 }}></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loadingCosts.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">적재비 입력 없음</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">적재비 입력 없음</TableCell></TableRow>
                 )}
                 {loadingCosts.map((lc) => (
                   <TableRow key={lc.id}>
@@ -479,6 +561,18 @@ export default function HQSettlement() {
                           <SelectItem value="not_issued">미발행</SelectItem>
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8"
+                        disabled={!samhoId || !lc.company_id || !lc.amount}
+                        title={!samhoId ? "팀장 '삼호' 미등록" : ""}
+                        onClick={() => handleAutoRegisterOne(lc)}
+                      >
+                        등록
+                      </Button>
                     </TableCell>
                     <TableCell className="text-center">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLoading(lc.id)}>
