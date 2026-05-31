@@ -111,3 +111,17 @@ All colors MUST be HSL.
 @layer utilities {
   .num { font-variant-numeric: tabular-nums; }
 }
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { background: #fff !important; }
+  body { font-size: 11px; }
+  main { padding: 0 !important; overflow: visible !important; }
+  .no-print { display: none !important; }
+  table { page-break-inside: auto; }
+  tr, td, th { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  .print-break { page-break-before: always; }
+  /* shadcn card shadows look messy when printed */
+  [class*="shadow"] { box-shadow: none !important; }
+}
