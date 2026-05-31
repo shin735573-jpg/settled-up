@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { getKoreanHolidayName } from "@/lib/koreanHolidays";
 
 type Leader = { id: string; name: string; active: boolean; is_virtual: boolean };
 type Holiday = {
@@ -302,6 +303,8 @@ export default function Holidays() {
             <div className="flex gap-3 mb-3 text-xs">
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-destructive inline-block" /> 본사휴무</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-400 inline-block" /> 팀장휴무</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-pink-300 inline-block" /> 공휴일</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded inline-block" style={{ background: "hsl(var(--destructive))" }} /> 일요일</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border-2 border-primary inline-block" /> 오늘</span>
             </div>
             <CalendarMonth
@@ -350,39 +353,52 @@ function CalendarMonth({
   });
 
   return (
-    <div className="grid grid-cols-7 gap-1">
+    <div className="grid grid-cols-7 gap-2">
       {weekdays.map((w, i) => (
         <div key={w} className={cn(
-          "text-center text-xs font-semibold py-1",
+          "text-center text-sm font-semibold py-2",
           i === 0 && "text-destructive",
           i === 6 && "text-blue-600",
         )}>{w}</div>
       ))}
       {cells.map((iso, idx) => {
-        if (!iso) return <div key={idx} className="aspect-square" />;
+        if (!iso) return <div key={idx} className="min-h-[130px]" />;
         const day = Number(iso.slice(-2));
         const isHQ = hqDates.has(iso);
         const isLeader = leaderDates.has(iso);
         const isToday = iso === today;
+        const koreanHolidayName = getKoreanHolidayName(iso);
+        const dow = new Date(iso + "T00:00:00").getDay();
         const items = itemsByDate.get(iso) || [];
         return (
           <div
             key={idx}
             className={cn(
-              "aspect-square border rounded p-1 text-xs flex flex-col gap-0.5",
+              "min-h-[130px] border rounded-md p-2 text-sm flex flex-col gap-1",
+              koreanHolidayName && !isHQ && !isLeader && "bg-pink-50 border-pink-300",
               isHQ && "bg-destructive/20 border-destructive",
               !isHQ && isLeader && "bg-yellow-200 border-yellow-400",
               isToday && "ring-2 ring-primary",
             )}
           >
-            <div className="font-semibold">{day}</div>
+            <div className={cn(
+              "font-bold text-base leading-none",
+              dow === 0 && "text-destructive",
+              dow === 6 && "text-blue-600",
+              koreanHolidayName && "text-pink-700",
+            )}>{day}</div>
+            {koreanHolidayName && (
+              <div className="truncate text-[11px] font-semibold text-pink-700">
+                {koreanHolidayName}
+              </div>
+            )}
             <div className="flex-1 overflow-hidden space-y-0.5">
-              {items.slice(0, 2).map((h) => (
-                <div key={h.id} className="truncate text-[10px]">
+              {items.slice(0, 3).map((h) => (
+                <div key={h.id} className="truncate text-[11px]">
                   {h.scope === "hq" ? "본사" : leaderNameById.get(h.team_leader_id || "") || "팀장"}
                 </div>
               ))}
-              {items.length > 2 && <div className="text-[10px] text-muted-foreground">+{items.length - 2}</div>}
+              {items.length > 3 && <div className="text-[11px] text-muted-foreground">+{items.length - 3}</div>}
             </div>
           </div>
         );
