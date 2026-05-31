@@ -973,43 +973,6 @@ export default function LeaderSettlement() {
             </Card>
           </div>
 
-          <Card className="p-3 mb-4">
-            <h3 className="font-semibold text-sm mb-2">업체별 요약</h3>
-            <div className="overflow-x-auto">
-              <Table className="text-xs num">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>업체명</TableHead>
-                    <TableHead className="text-right">배송건수</TableHead>
-                    <TableHead className="text-right">수도권배송비</TableHead>
-                    <TableHead className="text-right">비고금액</TableHead>
-                    <TableHead className="text-right">지방배송비</TableHead>
-                    <TableHead className="text-right">착불합계</TableHead>
-                    <TableHead className="text-right">수수료합계</TableHead>
-                    <TableHead className="text-right">계산후 지급금액</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailByCompany.map((c) => (
-                    <TableRow key={c.company}>
-                      <TableCell>{c.company}</TableCell>
-                      <TableCell className="text-right">{c.count}</TableCell>
-                      <TableCell className="text-right">{fmt(c.metro)}</TableCell>
-                      <TableCell className="text-right">{fmt(c.noteAmt)}</TableCell>
-                      <TableCell className="text-right">{fmt(c.regional)}</TableCell>
-                      <TableCell className="text-right">{fmt(c.cod)}</TableCell>
-                      <TableCell className="text-right">{fmt(c.fees)}</TableCell>
-                      <TableCell className="text-right font-bold">{fmt(c.afterFees)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {detailByCompany.length === 0 && (
-                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-4">데이터 없음</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
-
           <div className="overflow-x-auto">
             <Table className="text-xs num">
               <TableHeader>
