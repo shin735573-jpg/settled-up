@@ -1,5 +1,5 @@
-// PNG 생성 + ZIP 묶음 다운로드
-import { toPng } from "html-to-image";
+// JPG 생성 + ZIP 묶음 다운로드 (카톡 공유 최적화)
+import { toJpeg } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { bumpVersion, keyFor } from "./statementVersion";
@@ -20,11 +20,12 @@ const SAFE = (s: string) => s.replace(/[\\/:*?"<>|]+/g, "_").trim();
 export const periodLabelKR = (p: string) =>
   p === "h1" ? "1-15일" : p === "h2" ? "16-말일" : "월전체";
 
-async function renderPng(node: HTMLElement): Promise<Blob> {
-  const dataUrl = await toPng(node, {
+async function renderJpg(node: HTMLElement): Promise<Blob> {
+  const dataUrl = await toJpeg(node, {
     pixelRatio: 2,
     backgroundColor: "#ffffff",
     cacheBust: true,
+    quality: 0.92,
   });
   const res = await fetch(dataUrl);
   return await res.blob();
@@ -40,7 +41,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(bin);
 }
 
-/** OneDrive 에지 함수로 단일 PNG 업로드 */
+/** OneDrive 에지 함수로 단일 JPG 업로드 */
 async function uploadOneDrive(folder: string, filename: string, blob: Blob) {
   const contentBase64 = await blobToBase64(blob);
   const { data, error } = await supabase.functions.invoke("onedrive-upload", {
@@ -49,7 +50,7 @@ async function uploadOneDrive(folder: string, filename: string, blob: Blob) {
       folder,
       filename,
       contentBase64,
-      contentType: "image/png",
+      contentType: "image/jpeg",
     },
   });
   if (error) throw new Error(`OneDrive 업로드 실패: ${error.message}`);
@@ -76,8 +77,8 @@ export async function exportSingle(
   const odFolder = `정산서_저장/${month}_${pLabel}/${kindLabel}`;
   // 1장이면 단일 파일, 여러 장이면 ZIP 으로 묶어서 다운로드
   if (target.pages.length === 1) {
-    const blob = await renderPng(target.pages[0]);
-    const filename = `${base}.png`;
+    const blob = await renderJpg(target.pages[0]);
+    const filename = `${base}.jpg`;
     saveAs(blob, filename);
     if (options.uploadOneDrive) await uploadOneDrive(odFolder, filename, blob);
     return { filename, version: entry.version, pages: 1 };
@@ -85,10 +86,10 @@ export async function exportSingle(
   const zip = new JSZip();
   let i = 1;
   for (const node of target.pages) {
-    const blob = await renderPng(node);
-    const pngName = `${base}_${i}.png`;
-    zip.file(pngName, blob);
-    if (options.uploadOneDrive) await uploadOneDrive(odFolder, pngName, blob);
+    const blob = await renderJpg(node);
+    const jpgName = `${base}_${i}.jpg`;
+    zip.file(jpgName, blob);
+    if (options.uploadOneDrive) await uploadOneDrive(odFolder, jpgName, blob);
     i++;
   }
   const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -120,16 +121,16 @@ export async function exportZip(
     const odFolder = `정산서_저장/${month}_${pLabel}/${kindLabel}`;
     const base = `${kindLabel}_${SAFE(t.name)}_${month}_${pLabel}_v${entry.version}`;
     if (t.pages.length === 1) {
-      const blob = await renderPng(t.pages[0]);
-      folder.file(`${base}.png`, blob);
-      if (options.uploadOneDrive) await uploadOneDrive(odFolder, `${base}.png`, blob);
+      const blob = await renderJpg(t.pages[0]);
+      folder.file(`${base}.jpg`, blob);
+      if (options.uploadOneDrive) await uploadOneDrive(odFolder, `${base}.jpg`, blob);
     } else {
       let p = 1;
       for (const node of t.pages) {
-        const blob = await renderPng(node);
-        const pngName = `${base}_${p}.png`;
-        folder.file(pngName, blob);
-        if (options.uploadOneDrive) await uploadOneDrive(odFolder, pngName, blob);
+        const blob = await renderJpg(node);
+        const jpgName = `${base}_${p}.jpg`;
+        folder.file(jpgName, blob);
+        if (options.uploadOneDrive) await uploadOneDrive(odFolder, jpgName, blob);
         p++;
       }
     }
