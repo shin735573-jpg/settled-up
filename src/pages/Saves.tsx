@@ -370,7 +370,8 @@ export default function Saves() {
       </Tabs>
 
       <p className="text-xs text-muted-foreground">
-        ※ 1단계: 구조 + 기간/대상 선택 + 데이터 집계 완료. 다음 단계에서 정산서 렌더링(PNG 생성)·저장·오류검사가 추가됩니다.
+        ※ 미리보기는 화면용입니다. 저장 시 동일 데이터로 카톡 공유용 PNG가 생성됩니다.
+        파일명: 업체_업체명_기간_v1.png · 팀장_팀장명_기간_v1.png (재생성 시 v2, v3로 자동 증가).
       </p>
 
       <Dialog open={!!checkResult} onOpenChange={(o) => { if (!o) { setCheckResult(null); setPendingSave(null); } }}>
@@ -394,6 +395,28 @@ export default function Saves() {
                 : "이상 없습니다."}
             </DialogDescription>
           </DialogHeader>
+          {checkResult && (
+            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+              <div className="rounded-md border p-2">
+                <div className="text-muted-foreground">전체 검사</div>
+                <div className="text-base font-bold">{checkResult.findings.length}</div>
+              </div>
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2">
+                <div className="text-muted-foreground">오류</div>
+                <div className="text-base font-bold text-destructive">{checkResult.errors.length}</div>
+              </div>
+              <div className="rounded-md border border-yellow-300 bg-yellow-50 p-2 dark:bg-yellow-950/30">
+                <div className="text-muted-foreground">경고</div>
+                <div className="text-base font-bold text-yellow-700 dark:text-yellow-300">{checkResult.warnings.length}</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-muted-foreground">정상</div>
+                <div className="text-base font-bold">
+                  {checkResult.findings.length === 0 ? "OK" : "-"}
+                </div>
+              </div>
+            </div>
+          )}
           <ScrollArea className="max-h-[360px] pr-3">
             <ul className="space-y-1 text-sm">
               {checkResult?.findings.map((f, i) => (
