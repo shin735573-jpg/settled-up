@@ -408,6 +408,14 @@ export default function HQSettlement() {
     }, 0,
   );
 
+  // ── 월전체 본사 총배송비 (적재비 제외)
+  const monthlyDeliveryFee = rows.reduce(
+    (s, r) => {
+      if (((r.item as string) || "").trim() === "적재비") return s;
+      return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+    }, 0,
+  );
+
   // ── 매출 / 수익
   // 본사 수익 = 신동석 + 삼호 + 적재비(청구분만) + 수수료
   const grossSales = hqDirectFee + loadingBilled + leaderCommissionTotal;
@@ -557,6 +565,10 @@ export default function HQSettlement() {
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">본사 총배송비</span>
               <span className="font-medium text-destructive">{fmt(totalDeliveryFee)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2">
+              <span className="text-muted-foreground">월전체 배송비</span>
+              <span className="font-medium text-destructive">{fmt(monthlyDeliveryFee)}</span>
             </div>
             <div className="flex justify-between px-4 py-2">
               <span className="text-muted-foreground">적재비 (청구분)</span>
