@@ -716,7 +716,7 @@ export default function HQSettlement() {
                 <TableRow className="bg-muted/40">
                   <TableCell className="text-center whitespace-nowrap">최저보장보전금</TableCell>
                   <TableCell className="text-center">
-                    <Input value={fmt(minGuaranteeTopUp)} readOnly className="h-8 text-center bg-background" />
+                    <Input value={minGuaranteeTopUp ? `-${fmt(minGuaranteeTopUp)}` : "0"} readOnly className="h-8 text-center bg-background" />
                   </TableCell>
                   <TableCell className="text-center text-xs text-muted-foreground">자동 계산</TableCell>
                   <TableCell className="text-center"></TableCell>
