@@ -450,6 +450,10 @@ function CompaniesTab() {
     if (ra !== rb) return ra - rb;
     return (a.name || "").localeCompare(b.name || "", "ko");
   });
+  const filteredRows = sortedRows.filter((r) => {
+    if (!search.trim()) return true;
+    return (r.name || "").toLowerCase().includes(search.trim().toLowerCase());
+  });
 
   return (
     <Card className="p-4 space-y-4">
