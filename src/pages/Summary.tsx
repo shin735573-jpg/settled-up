@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fmt } from "@/lib/format";
-import { allocateRow } from "@/lib/splitAllocation";
+import { allocateRow, feeForShare } from "@/lib/splitAllocation";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
@@ -180,7 +180,7 @@ export default function Summary() {
       visible.map((l) => [
         l.id,
         {
-          id: l.id, name: l.name, count: 0, fee: 0, cod: 0,
+          id: l.id, name: l.name, count: 0, fee: 0, cod: 0, commission: 0,
           deduct: Number(l.deduction_amount || 0) + Number(l.trash_cost || 0),
         },
       ]),
@@ -193,11 +193,16 @@ export default function Summary() {
         if (!counted.has(s.target)) { b.count += 1; counted.add(s.target); }
         b.fee += s.metro + s.note_amount + s.regional;
         b.cod += s.cod;
+        const lead = byId.get(s.target);
+        const rateM = Number(lead?.fee_rate_metro || 0);
+        const rateR = Number(lead?.fee_rate_regional || 0);
+        b.commission += feeForShare({ metro: s.metro, regional: s.regional }, { metro: rateM, regional: rateR });
       }
     }
     const list = Array.from(acc.values()).map((x) => ({
       ...x,
-      payout: Math.max(0, x.fee - x.cod - x.deduct),
+      // 팀장정산 실지급식과 동일: 배송비 - 착불 - 수수료 - 공제
+      payout: Math.max(0, x.fee - x.cod - x.commission - x.deduct),
     }));
     const grand = list.reduce((s, x) => s + x.payout, 0);
     return list
