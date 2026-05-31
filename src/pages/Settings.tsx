@@ -1210,3 +1210,125 @@ function CommonDeductionsTab() {
     </Card>
   );
 }
+
+// ============================================================
+// 지역(수도권/지방) 자동 분류 키워드 관리
+// ============================================================
+function RegionKeywordsTab() {
+  const { user } = useAuth();
+  const uid = user?.id ?? "anon";
+  const [keywords, setKeywords] = useState<string[]>(() => loadMetroKeywords(uid));
+  const [text, setText] = useState<string>(() => loadMetroKeywords(uid).join(", "));
+  const [test, setTest] = useState("");
+
+  useEffect(() => {
+    const next = loadMetroKeywords(uid);
+    setKeywords(next);
+    setText(next.join(", "));
+  }, [uid]);
+
+  const parse = (raw: string) =>
+    Array.from(
+      new Set(
+        raw
+          .split(/[\n,]+/g)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+      )
+    );
+
+  const save = () => {
+    const list = parse(text);
+    if (list.length === 0) { toast.error("키워드가 비어 있습니다"); return; }
+    saveMetroKeywords(uid, list);
+    setKeywords(list);
+    setText(list.join(", "));
+    toast.success(`저장됨 (${list.length}개 키워드)`);
+  };
+
+  const resetDefault = () => {
+    if (!confirm("기본값으로 되돌리시겠습니까? (저장된 키워드가 사라집니다)")) return;
+    saveMetroKeywords(uid, [...DEFAULT_METRO_KEYWORDS]);
+    setKeywords([...DEFAULT_METRO_KEYWORDS]);
+    setText(DEFAULT_METRO_KEYWORDS.join(", "));
+    toast.success("기본 키워드로 복원되었습니다");
+  };
+
+  const removeKw = (kw: string) => {
+    const next = keywords.filter((k) => k !== kw);
+    setKeywords(next);
+    setText(next.join(", "));
+    saveMetroKeywords(uid, next);
+  };
+
+  const testResult = test.trim() ? classifyRegion(test, keywords) : null;
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div className="space-y-1">
+        <div className="text-sm font-medium">수도권 키워드 (자동 지역 분류)</div>
+        <div className="text-xs text-muted-foreground">
+          배송지 텍스트에 아래 키워드 중 하나라도 포함되면 <b>수도권(metro)</b>으로 분류됩니다.
+          그 외에는 <b>지방(regional)</b>으로 처리됩니다.
+          쉼표(,) 또는 줄바꿈으로 구분하세요. (대소문자/공백 자동 정리, 중복 제거)
+        </div>
+      </div>
+      <Textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        className="min-h-[160px] font-mono text-sm"
+        placeholder="예: 서울, 경기, 인천, 강남구, 분당, ..."
+      />
+      <div className="flex flex-wrap gap-2 items-center">
+        <Button onClick={save}>저장</Button>
+        <Button variant="outline" onClick={resetDefault}>기본값 복원</Button>
+        <div className="text-xs text-muted-foreground ml-auto">
+          현재 저장된 키워드: <b>{keywords.length}</b>개
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-sm font-medium">분류 테스트</div>
+        <div className="flex gap-2 items-center">
+          <Input
+            placeholder="배송지 주소를 입력해 분류 결과를 확인하세요"
+            value={test}
+            onChange={(e) => setTest(e.target.value)}
+            className="flex-1"
+          />
+          {testResult && (
+            <span className={`text-sm font-semibold px-2 py-1 rounded ${
+              testResult === "metro" ? "bg-primary/10 text-primary" : "bg-muted text-foreground"
+            }`}>
+              {testResult === "metro" ? "수도권" : testResult === "regional" ? "지방" : "미확인"}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-sm font-medium">등록된 키워드 ({keywords.length})</div>
+        <div className="flex flex-wrap gap-1.5 max-h-[280px] overflow-auto p-2 border rounded">
+          {keywords.map((k) => (
+            <span
+              key={k}
+              className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded"
+            >
+              {k}
+              <button
+                onClick={() => removeKw(k)}
+                className="text-muted-foreground hover:text-destructive"
+                title="삭제"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          {keywords.length === 0 && (
+            <div className="text-xs text-muted-foreground">등록된 키워드가 없습니다</div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
