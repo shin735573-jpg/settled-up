@@ -1893,7 +1893,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       fee_rate_metro: 0,
       fee_rate_regional: 0,
     }));
-    const { error } = await supabase.from("companies").insert(rows);
+    const { error } = await supabase
+      .from("companies")
+      .upsert(rows, { onConflict: "user_id,name", ignoreDuplicates: true });
     setRegistering(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`${rows.length}개 업체 자동등록 완료`);
@@ -1940,7 +1942,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       deduction_amount: 0,
       trash_cost: 0,
     }));
-    const { error } = await supabase.from("team_leaders").insert(rows);
+    const { error } = await supabase
+      .from("team_leaders")
+      .upsert(rows, { onConflict: "user_id,name", ignoreDuplicates: true });
     setRegistering(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`${rows.length}명 팀장 자동등록 완료`);
