@@ -114,6 +114,7 @@ export default function LeaderSettlement() {
   // 상세 화면에서 편집 중인 공통공제 값 (cd_id -> amount). undefined면 base 사용.
   const [detailCommonEdits, setDetailCommonEdits] = useState<Record<string, number>>({});
   const [savingCommon, setSavingCommon] = useState(false);
+  const [leaderColAlignError, setLeaderColAlignError] = useState(false);
 
   const periodKey = useMemo(() => (period === "all" ? "all" : `${month}-${period}`), [month, period]);
 
