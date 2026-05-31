@@ -442,6 +442,14 @@ function CompaniesTab() {
     await openPreview(group, manualCanonical);
   };
 
+  // 정렬 우선순위: 1) 계산서 발행, 2) 착불 있음, 3) 나머지. 같은 그룹 내 이름순.
+  const sortedRows = [...rows].sort((a, b) => {
+    const rank = (c: Company) => (c.issues_invoice ? 0 : c.has_cod ? 1 : 2);
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    return (a.name || "").localeCompare(b.name || "", "ko");
+  });
+
   return (
     <Card className="p-4 space-y-4">
       <div className="flex gap-2">
