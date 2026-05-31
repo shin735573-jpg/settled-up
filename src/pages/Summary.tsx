@@ -224,27 +224,9 @@ export default function Summary() {
   }, [companyAgg, leaderAgg]);
 
   const [diagMsg, setDiagMsg] = useState<string | null>(null);
-  const runDiagnostic = () => {
-    const headers = document.querySelectorAll('[data-summary-header-cell]');
-    const firstRow = document.querySelector('[data-summary-row="0"]');
-    const cells = firstRow ? firstRow.querySelectorAll('[data-summary-cell]') : null;
-    if (!cells || headers.length !== cells.length) {
-      setDiagMsg("한눈요약 목록의 업체/팀장 컬럼 위치가 일치하지 않습니다.");
-      return;
-    }
-    for (let i = 0; i < headers.length; i++) {
-      const hk = (headers[i] as HTMLElement).dataset.colKey;
-      const ck = (cells[i] as HTMLElement).dataset.colKey;
-      if (hk !== ck) {
-        setDiagMsg("한눈요약 목록의 업체/팀장 컬럼 위치가 일치하지 않습니다.");
-        return;
-      }
-    }
-    setDiagMsg(`정상: ${headers.length}개 컬럼 위치 일치`);
-  };
 
-  const gridTemplate = SUMMARY_COLUMNS.map((c) => `${c.width}px`).join(" ");
-  const minWidth = SUMMARY_COLUMNS.reduce((s, c) => s + c.width, 0);
+  const companyGridTemplate = COMPANY_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
+  const leaderGridTemplate = LEADER_COLUMNS.map((c) => (typeof c.width === "number" && c.width <= 100 ? `${c.width}px` : "1fr")).join(" ");
   const cellBase = "flex items-center justify-center text-center px-2 py-2 text-sm border-b";
 
   // 기준서 #12 — 한눈요약 오류 6종 자동 탐지
