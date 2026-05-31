@@ -38,7 +38,7 @@ type Company = {
   rejected_leader_id_2?: string | null;
   rejected_leader_id_3?: string | null;
 };
-type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean; aliases?: string[] | null };
+type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: boolean; active: boolean; aliases?: string[] | null; settle_to_id?: string | null };
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
@@ -472,6 +472,7 @@ function RecordsTable({
         headCount, expected, mismatches,
         badColumns: [...badColSet].map((i) => `#${i + 1} ${RECORDS_COLUMNS[i]?.label ?? "(범위초과)"}`),
       });
+      if (badColSet.size === 0) RECORDS_COLUMNS.forEach((_c, i) => badColSet.add(i));
       setAlignmentError(msg);
       setBadCols(badColSet);
       setBadRowIds(badRowSet);
@@ -503,14 +504,19 @@ function RecordsTable({
           ⚠ {alignmentError}
         </div>
       )}
-      <Table ref={tableRef} className="text-xs num w-max min-w-full table-fixed">
-        <TableHeader className="sticky top-0 bg-background z-10">
+      <Table ref={tableRef} className="text-xs num table-fixed" style={{ width: RECORDS_TABLE_WIDTH, minWidth: RECORDS_TABLE_WIDTH }}>
+        <colgroup>
+          {RECORDS_COLUMNS.map((c) => <col key={c.key} style={{ width: c.width }} />)}
+        </colgroup>
+        <TableHeader className="sticky top-0 bg-muted/80 z-10">
           <TableRow>
             {RECORDS_COLUMNS.map((c, i) => (
               <TableHead
                 key={c.key}
                 className={cn(
-                  "whitespace-nowrap",
+                  "whitespace-nowrap px-2 bg-muted/80",
+                  RECORDS_AMOUNT_COLUMN_KEYS.has(c.key) && "bg-accent/30",
+                  RECORDS_STATUS_COLUMN_KEYS.has(c.key) && "text-center",
                   c.headerCls,
                   badCols.has(i) && "bg-destructive text-destructive-foreground ring-2 ring-destructive",
                 )}
@@ -567,7 +573,7 @@ function RecordsTable({
                   return (
                     <TableCell
                       key={c.key}
-                      className={cn(c.cellCls, highlight && "bg-destructive/20 ring-1 ring-destructive")}
+                      className={cn("px-2 overflow-hidden", c.cellCls, highlight && "bg-destructive/20 ring-1 ring-destructive")}
                       {...extraProps}
                     >
                       {c.render(r, ctx)}
