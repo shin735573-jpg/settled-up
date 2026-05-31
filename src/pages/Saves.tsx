@@ -178,7 +178,7 @@ export default function Saves() {
   async function doExportSingle(kind: "company" | "leader", id: string, name: string, regenerate: boolean) {
     const keys = [lockKey(kind)];
     if (!acquireLocks(keys)) {
-      toast({ title: "이미 저장 중", description: `${kind === "company" ? "업체" : "팀장"} ${month} ${periodLabelShort(period)} 작업이 진행 중입니다.`, variant: "destructive" });
+      toast({ title: "이미 저장 중", description: `${kind === "company" ? "업체" : "팀장"} ${month} ${period} 작업이 진행 중입니다.`, variant: "destructive" });
       return;
     }
     const nodes = collectNodes(kind);
@@ -203,7 +203,7 @@ export default function Saves() {
   async function doExportAll(kind: "company" | "leader" | "both", regenerate: boolean) {
     const keys = kind === "both" ? [lockKey("company"), lockKey("leader")] : [lockKey(kind)];
     if (!acquireLocks(keys)) {
-      toast({ title: "이미 저장 중", description: `${month} ${periodLabelShort(period)} 작업이 진행 중입니다.`, variant: "destructive" });
+      toast({ title: "이미 저장 중", description: `${month} ${period} 작업이 진행 중입니다.`, variant: "destructive" });
       return;
     }
     const targets =
