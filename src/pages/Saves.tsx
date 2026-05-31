@@ -304,6 +304,24 @@ export default function Saves() {
     setUploadOD(v);
     try { localStorage.setItem("saves.uploadOD", v ? "1" : "0"); } catch { /* noop */ }
   };
+
+  // ─── 기간 변경 자동저장 옵션 ────────────────────────────
+  const [autoSaveOnChange, setAutoSaveOnChange] = useState<boolean>(() => {
+    try { return localStorage.getItem("saves.autoSaveOnChange") !== "0"; } catch { return true; }
+  });
+  const toggleAutoSaveOnChange = (v: boolean) => {
+    setAutoSaveOnChange(v);
+    try { localStorage.setItem("saves.autoSaveOnChange", v ? "1" : "0"); } catch { /* noop */ }
+  };
+  const autoSavedKey = (m: string, p: PeriodKey) =>
+    `saves.autoSaved.${uid ?? "anon"}.${m}.${p}`;
+  const isAutoSavedFor = (m: string, p: PeriodKey) => {
+    try { return localStorage.getItem(autoSavedKey(m, p)) === "1"; } catch { return false; }
+  };
+  const markAutoSavedFor = (m: string, p: PeriodKey) => {
+    try { localStorage.setItem(autoSavedKey(m, p), "1"); } catch { /* noop */ }
+  };
+  const autoSavingRef = useRef<string | null>(null);
   const [verifyingOD, setVerifyingOD] = useState(false);
   async function verifyOneDrive() {
     setVerifyingOD(true);
