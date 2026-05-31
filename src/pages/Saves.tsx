@@ -519,10 +519,20 @@ export default function Saves() {
 
   // ─── 기간 변경 시 자동저장 (업체+팀장 전체, 1회) ──────────
   useEffect(() => {
+    const key = `${month}:${period}`;
+    // 첫 마운트는 스킵 (페이지 진입만으로 자동저장하지 않음 → 저장 버튼 잠금 방지)
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      lastPeriodRef.current = key;
+      return;
+    }
+    // (month, period) 가 실제로 바뀐 경우에만 동작
+    if (lastPeriodRef.current === key) return;
+    lastPeriodRef.current = key;
+
     if (!autoSaveOnChange) return;
     if (!uid) return;
     if (loading) return;
-    const key = `${month}:${period}`;
     if (autoSavingRef.current === key) return;
     if (isAutoSavedFor(month, period)) return;
     if (locks.has(lockKey("company")) || locks.has(lockKey("leader"))) return;
