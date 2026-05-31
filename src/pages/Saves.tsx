@@ -556,13 +556,13 @@ function LeaderPreview({
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-6">
         <Stat label="배송건수" value={data.deliveryCount} />
-        <Stat label="수도권" value={data.metroSum} />
-        <Stat label="비고" value={data.noteSum} />
-        <Stat label="지방" value={data.regionalSum} />
+        <Stat label="수도권배송비" value={data.metroSum} />
+        <Stat label="비고금액" value={data.noteSum} />
+        <Stat label="지방배송비" value={data.regionalSum} />
         <Stat label="실지급배송비" value={data.realFee} />
         <Stat label="착불합계" value={data.codSum} />
-        <Stat label="수수료" value={data.feeTotal} />
-        <Stat label="계산후" value={data.afterFee} />
+        <Stat label="수수료합계" value={data.feeTotal} />
+        <Stat label="계산후 지급금액" value={data.afterFee} />
         <Stat label="공제총액" value={data.deductionTotal} />
         <Stat label="실지급액" value={data.payout} accent />
       </div>
@@ -577,7 +577,7 @@ function LeaderPreview({
         <table className="w-full text-xs">
           <thead className="bg-muted">
             <tr>
-              {["날짜","업체","실제기사1","실제기사2","정산기사","고객명","배송지","품목","비고","수도권","비고","지방","착불","실지급","분할","2인","수수료","계산후","실지급액","처리"].map((h, i) => (
+              {["날짜","업체","실제기사1","실제기사2","정산기사","고객명","배송지","품목","비고","수도권배송비","비고금액","지방배송비","착불","실지급배송비","분할","2인배송","건별 수수료","건별 계산후 지급액","건별 실지급액","정산처리"].map((h, i) => (
                 <th key={i} className="px-1 py-1 text-left font-medium whitespace-nowrap">{h}</th>
               ))}
             </tr>
