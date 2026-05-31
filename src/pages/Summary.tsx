@@ -229,9 +229,9 @@ export default function Summary() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">순위</TableHead>
-                <TableHead>업체명</TableHead>
+                <TableHead>업체</TableHead>
                 <TableHead className="text-right">건수</TableHead>
-                <TableHead className="text-right">배송비총액</TableHead>
+                <TableHead className="text-right">금액</TableHead>
                 <TableHead className="text-right">비중%</TableHead>
               </TableRow>
             </TableHeader>
@@ -256,9 +256,9 @@ export default function Summary() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">순위</TableHead>
-                <TableHead>팀장명</TableHead>
+                <TableHead>팀장</TableHead>
                 <TableHead className="text-right">건수</TableHead>
-                <TableHead className="text-right">실지급액</TableHead>
+                <TableHead className="text-right">실수령액</TableHead>
                 <TableHead className="text-right">비중%</TableHead>
               </TableRow>
             </TableHeader>
