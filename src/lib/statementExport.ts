@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { bumpVersion, keyFor } from "./statementVersion";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureTodayFolders, ensureWritePermission, writeBlobToDir } from "./saveDirectory";
 
 /** 한 정산서가 여러 페이지로 분할될 때 각 페이지 노드 */
 export type ExportTarget = {
@@ -61,6 +62,8 @@ async function uploadOneDrive(folder: string, filename: string, blob: Blob) {
 export type ExportOptions = {
   /** true면 OneDrive에도 업로드 (로컬 다운로드는 항상 수행) */
   uploadOneDrive?: boolean;
+  /** 지정 시: 다운로드 대신 이 폴더 안에 "오늘날짜_정산서/업체|팀장/" 구조로 직접 저장 */
+  saveDirectory?: FileSystemDirectoryHandle | null;
 };
 
 export async function exportSingle(
@@ -75,7 +78,32 @@ export async function exportSingle(
   const pLabel = periodLabelKR(period);
   const base = `${kindLabel}_${SAFE(target.name)}_${month}_${pLabel}_v${entry.version}`;
   const odFolder = `정산서_저장/${month}_${pLabel}/${kindLabel}`;
-  // 1장이면 단일 파일, 여러 장이면 ZIP 으로 묶어서 다운로드
+
+  // 지정 폴더가 있으면: 다운로드 없이 폴더 안에 JPG 들을 직접 저장 (오늘날짜_정산서/업체|팀장)
+  if (options.saveDirectory) {
+    const ok = await ensureWritePermission(options.saveDirectory);
+    if (!ok) throw new Error("저장 폴더 쓰기 권한이 거부되었습니다. 폴더를 다시 지정하세요.");
+    const dirs = await ensureTodayFolders(options.saveDirectory);
+    const targetDir = target.kind === "company" ? dirs.companyDir : dirs.leaderDir;
+    if (target.pages.length === 1) {
+      const blob = await renderJpg(target.pages[0]);
+      const filename = `${base}.jpg`;
+      await writeBlobToDir(targetDir, filename, blob);
+      if (options.uploadOneDrive) await uploadOneDrive(odFolder, filename, blob);
+      return { filename: `${dirs.todayName}/${kindLabel}/${filename}`, version: entry.version, pages: 1 };
+    }
+    let i = 1;
+    for (const node of target.pages) {
+      const blob = await renderJpg(node);
+      const jpgName = `${base}_${i}.jpg`;
+      await writeBlobToDir(targetDir, jpgName, blob);
+      if (options.uploadOneDrive) await uploadOneDrive(odFolder, jpgName, blob);
+      i++;
+    }
+    return { filename: `${dirs.todayName}/${kindLabel}/${base}_*.jpg`, version: entry.version, pages: target.pages.length };
+  }
+
+  // 폴더 미지정 → 기존 동작 (다운로드)
   if (target.pages.length === 1) {
     const blob = await renderJpg(target.pages[0]);
     const filename = `${base}.jpg`;
@@ -106,6 +134,40 @@ export async function exportZip(
   onProgress?: (done: number, total: number, name: string) => void,
   options: ExportOptions = {},
 ): Promise<{ filename: string; count: number }> {
+  // 지정 폴더가 있으면: ZIP 없이 폴더에 직접 저장
+  if (options.saveDirectory) {
+    const ok = await ensureWritePermission(options.saveDirectory);
+    if (!ok) throw new Error("저장 폴더 쓰기 권한이 거부되었습니다. 폴더를 다시 지정하세요.");
+    const dirs = await ensureTodayFolders(options.saveDirectory);
+    const pLabel = periodLabelKR(period);
+    let i = 0;
+    for (const t of targets) {
+      onProgress?.(i, targets.length, t.name);
+      const entry = bumpVersion(keyFor(t.kind, t.id, month, period), regenerate);
+      const kindLabel = t.kind === "company" ? "업체" : "팀장";
+      const targetDir = t.kind === "company" ? dirs.companyDir : dirs.leaderDir;
+      const odFolder = `정산서_저장/${month}_${pLabel}/${kindLabel}`;
+      const base = `${kindLabel}_${SAFE(t.name)}_${month}_${pLabel}_v${entry.version}`;
+      if (t.pages.length === 1) {
+        const blob = await renderJpg(t.pages[0]);
+        await writeBlobToDir(targetDir, `${base}.jpg`, blob);
+        if (options.uploadOneDrive) await uploadOneDrive(odFolder, `${base}.jpg`, blob);
+      } else {
+        let p = 1;
+        for (const node of t.pages) {
+          const blob = await renderJpg(node);
+          const jpgName = `${base}_${p}.jpg`;
+          await writeBlobToDir(targetDir, jpgName, blob);
+          if (options.uploadOneDrive) await uploadOneDrive(odFolder, jpgName, blob);
+          p++;
+        }
+      }
+      i++;
+    }
+    onProgress?.(targets.length, targets.length, "");
+    return { filename: `${dirs.todayName}/`, count: targets.length };
+  }
+
   const zip = new JSZip();
   const pLabel = periodLabelKR(period);
   // 폴더 구조: 정산서_저장/YYYY-MM_<기간>/업체|팀장/
