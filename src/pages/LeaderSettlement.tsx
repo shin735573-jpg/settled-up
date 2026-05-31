@@ -729,8 +729,6 @@ export default function LeaderSettlement() {
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {masterRows.map((m) => {
-                  const statusText =
-                    m.leader.settle_status === "excluded" ? "정산제외" : "미정산";
                   const cells: Record<LeaderColKey, React.ReactNode> = {
                     name: (
                       <button className="text-primary hover:underline font-medium">
@@ -741,22 +739,11 @@ export default function LeaderSettlement() {
                     metro: fmt(m.metro),
                     note: fmt(m.noteAmt),
                     regional: fmt(m.regional),
-                    total: <span className="font-semibold">{fmt(m.total)}</span>,
                     cod: fmt(m.cod),
-                    fees: fmt(m.fees),
-                    afterFees: fmt(m.afterFees),
                     deduction: fmt(m.deduction),
-                    net: <span className="font-bold">{fmt(m.net)}</span>,
-                    status: (
-                      <span className="inline-block rounded px-2 py-0.5 text-xs bg-muted text-muted-foreground">
-                        {statusText}
-                      </span>
-                    ),
+                    total: <span className="font-bold text-red-600">{fmt(m.total)}</span>,
                     detail: (
                       <span className="text-primary text-xs hover:underline">상세보기</span>
-                    ),
-                    companyTotal: (
-                      <span className="font-semibold text-red-600">{fmt(m.total)}</span>
                     ),
                   };
                   return (
