@@ -29,18 +29,33 @@ export function getEntry(key: string): VersionEntry | null {
   return load()[key] ?? null;
 }
 
-/** 새 저장 — 기존 없으면 v1, 있으면 v+1 (재생성으로 간주) */
+/**
+ * 새 저장 — 기존 없으면 v1, 재생성 시 prev.version + 1.
+ * 단조 증가 보장:
+ *  - 저장 직전에 localStorage 를 다시 읽어 가장 최신 prev 사용 (다른 탭/이전 호출과의 충돌 방지)
+ *  - 절대 prev.version 보다 작은 버전이 기록되지 않음 (Math.max)
+ *  - 일반 저장(regenerate=false) 은 기존 버전을 유지 (덮어쓰기)
+ *  - 재생성(regenerate=true) 은 항상 +1 (이미 vN 이면 v(N+1))
+ */
 export function bumpVersion(key: string, regenerate: boolean): VersionEntry {
+  // read-modify-write: 직전에 한 번 더 읽어 최신 상태 기준으로 결정
   const idx = load();
   const prev = idx[key];
-  const version = prev ? prev.version + (regenerate ? 1 : 0) : 1;
+  const prevVersion = prev?.version ?? 0;
+  const nextVersion = prev
+    ? (regenerate ? prevVersion + 1 : prevVersion)
+    : 1;
+  // 단조 증가 가드 — 어떤 경우에도 prev 보다 작아질 수 없음
+  const safeVersion = Math.max(prevVersion, nextVersion, 1);
   const entry: VersionEntry = {
     key,
-    version: prev && !regenerate ? prev.version : version,
+    version: safeVersion,
     status: prev ? "재생성완료" : "생성완료",
     createdAt: new Date().toISOString(),
   };
-  idx[key] = entry;
-  save(idx);
+  // write-back 직전 한 번 더 최신 인덱스를 읽어 다른 키들의 동시 갱신 손실 방지
+  const latest = load();
+  latest[key] = entry;
+  save(latest);
   return entry;
 }
