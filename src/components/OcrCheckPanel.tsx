@@ -1,16 +1,12 @@
-import OcrCheckPanel from "@/components/OcrCheckPanel";
-
-export default function OcrTest() {
-  return (
-    <div className="space-y-4 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-bold">OCR 정확도 테스트</h1>
-        <p className="text-sm text-muted-foreground">샘플 이미지에 기대값(정답)을 입력하고 분석하여 필드별 일치도를 점검합니다.</p>
-      </div>
-      <OcrCheckPanel max={10} />
-    </div>
-  );
-}
+import { useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Camera, Loader2, RefreshCw, Trash2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 type Field = "customer" | "region" | "item" | "note";
 const FIELDS: { key: Field; label: string }[] = [
@@ -19,6 +15,8 @@ const FIELDS: { key: Field; label: string }[] = [
   { key: "item", label: "품목" },
   { key: "note", label: "비고" },
 ];
+
+type ExtractedRow = { customer: string; region: string; item: string; note: string; uncertain: string[] };
 
 type Sample = {
   id: string;
@@ -39,7 +37,6 @@ const readFileAsDataURL = (file: File) =>
     r.readAsDataURL(file);
   });
 
-// 한글/영문/숫자만 남기고 정규화 (공백/구두점/대소문자 무시)
 const norm = (s: string) =>
   (s ?? "").toString().normalize("NFKC").replace(/[\s\u200b]+/g, "").replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
 
@@ -51,7 +48,6 @@ function fieldMatch(expected: string, actual: string): "match" | "partial" | "mi
   if (!a) return "miss";
   if (e === a) return "match";
   if (e.includes(a) || a.includes(e)) return "partial";
-  // 70% 문자 겹침 → partial
   const big = e.length >= a.length ? e : a;
   const small = e.length < a.length ? e : a;
   let hit = 0;
@@ -60,14 +56,32 @@ function fieldMatch(expected: string, actual: string): "match" | "partial" | "mi
   return "miss";
 }
 
-export default function OcrTest() {
+export interface OcrCheckPanelProps {
+  /** 최대 업로드 장수 (기본 10) */
+  max?: number;
+  /** "등록" 버튼: 분석된 결과(추출값)를 외부로 전달. 지정 시 등록 버튼이 노출됨. */
+  onRegister?: (rows: ExtractedRow[]) => void;
+  /** 등록 후 자동으로 샘플 초기화 (기본 true) */
+  clearOnRegister?: boolean;
+}
+
+export default function OcrCheckPanel({ max = 10, onRegister, clearOnRegister = true }: OcrCheckPanelProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [busy, setBusy] = useState(false);
 
   const onPick = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const arr = Array.from(files).slice(0, 20 - samples.length);
+    const remaining = Math.max(0, max - samples.length);
+    if (remaining <= 0) {
+      toast.warning(`최대 ${max}장까지 추가할 수 있습니다`);
+      return;
+    }
+    const incoming = Array.from(files);
+    if (incoming.length > remaining) {
+      toast.warning(`최대 ${max}장 제한: 앞 ${remaining}장만 추가됩니다`);
+    }
+    const arr = incoming.slice(0, remaining);
     const next: Sample[] = [];
     for (const f of arr) {
       try {
@@ -98,14 +112,12 @@ export default function OcrTest() {
     setBusy(true);
     setSamples((p) => p.map((s) => (ids.includes(s.id) ? { ...s, status: "running", errorMsg: undefined } : s)));
     try {
-      // 한 번에 모두 보내고 source(1-based) 인덱스로 매핑
       const targets = samples.filter((s) => ids.includes(s.id));
       const images = targets.map((s) => s.dataUrl);
       const { data, error } = await supabase.functions.invoke("extract-invoice", { body: { images } });
       if (error) throw error;
       const rows: any[] = Array.isArray(data?.rows) ? data.rows : [];
       const errs: any[] = Array.isArray(data?.errors) ? data.errors : [];
-      // source(1-based) → 첫 번째 매치만 사용 (한 사진당 한 건 가정)
       const bySource = new Map<number, any>();
       for (const r of rows) {
         const idx = Number(r.source ?? 0);
@@ -142,8 +154,8 @@ export default function OcrTest() {
     }
   };
 
-  // 통계
   const done = samples.filter((s) => s.status === "done");
+
   const stats = (() => {
     let total = 0, match = 0, partial = 0, miss = 0;
     const perField: Record<Field, { m: number; p: number; x: number; total: number }> = {
@@ -154,7 +166,7 @@ export default function OcrTest() {
     };
     for (const s of done) {
       for (const { key } of FIELDS) {
-        if (!s.expected[key]) continue; // 기대값 없는 필드는 평가 제외
+        if (!s.expected[key]) continue;
         const r = fieldMatch(s.expected[key], s.actual?.[key] ?? "");
         if (r === "empty") continue;
         total++;
@@ -168,13 +180,26 @@ export default function OcrTest() {
     return { total, match, partial, miss, acc, perField };
   })();
 
-  return (
-    <div className="space-y-4 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-bold">OCR 정확도 테스트</h1>
-        <p className="text-sm text-muted-foreground">샘플 이미지에 기대값(정답)을 입력하고 분석하여 필드별 일치도를 점검합니다.</p>
-      </div>
+  const handleRegister = () => {
+    if (!onRegister) return;
+    if (done.length === 0) {
+      toast.warning("등록할 분석 결과가 없습니다 (먼저 분석 실행)");
+      return;
+    }
+    const rows: ExtractedRow[] = done.map((s) => ({
+      customer: s.actual?.customer ?? "",
+      region: s.actual?.region ?? "",
+      item: s.actual?.item ?? "",
+      note: s.actual?.note ?? "",
+      uncertain: s.uncertain ?? [],
+    }));
+    onRegister(rows);
+    toast.success(`${rows.length}건 등록`);
+    if (clearOnRegister) setSamples([]);
+  };
 
+  return (
+    <div className="space-y-4">
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -185,18 +210,29 @@ export default function OcrTest() {
             hidden
             onChange={(e) => onPick(e.target.files)}
           />
-          <Button onClick={() => fileRef.current?.click()} disabled={busy || samples.length >= 20}>
-            <Camera className="h-4 w-4 mr-1" /> 샘플 추가 ({samples.length}/20)
+          <Button onClick={() => fileRef.current?.click()} disabled={busy || samples.length >= max} size="sm">
+            <Camera className="h-4 w-4 mr-1" /> 샘플 추가 ({samples.length}/{max})
           </Button>
           <Button
             variant="default"
+            size="sm"
             onClick={() => analyze(samples.filter((s) => s.status !== "running").map((s) => s.id))}
             disabled={busy || samples.length === 0}
           >
             {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
             전체 분석
           </Button>
-          <Button variant="outline" onClick={clearAll} disabled={busy || samples.length === 0}>
+          {onRegister && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRegister}
+              disabled={busy || done.length === 0}
+            >
+              분석결과 등록 ({done.length})
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={clearAll} disabled={busy || samples.length === 0}>
             <Trash2 className="h-4 w-4 mr-1" /> 전체 삭제
           </Button>
           {done.length > 0 && (
@@ -228,7 +264,7 @@ export default function OcrTest() {
 
       {samples.length === 0 && (
         <Card className="p-8 text-center text-sm text-muted-foreground">
-          위 "샘플 추가"를 눌러 계약서/송장 이미지를 업로드하세요. (최대 20장)
+          위 "샘플 추가"를 눌러 계약서/송장 이미지를 업로드하세요. (최대 {max}장)
         </Card>
       )}
 
@@ -313,3 +349,5 @@ export default function OcrTest() {
     </div>
   );
 }
+
+export type { ExtractedRow };
