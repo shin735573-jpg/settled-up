@@ -287,6 +287,178 @@ const emptyForm = (): FormState => ({
   missing_reason: "",
 });
 
+type RecordsColumn = {
+  key: string;
+  label: string;
+  headerCls: string;
+  cellCls: string;
+  render: (r: any, ctx: {
+    total: number;
+    expanded: boolean;
+    toggleExpand: () => void;
+    displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
+    removeRow: (id: string) => void;
+  }) => React.ReactNode;
+};
+
+const RECORDS_COLUMNS: RecordsColumn[] = [
+  { key: "kind", label: "구분", headerCls: "w-[70px] min-w-[70px]", cellCls: "whitespace-nowrap w-[70px] min-w-[70px]",
+    render: (r) => r.is_missing
+      ? <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>
+      : <Badge variant="secondary">일반</Badge> },
+  { key: "date", label: "날짜", headerCls: "w-[110px] min-w-[110px]", cellCls: "whitespace-nowrap w-[110px] min-w-[110px]",
+    render: (r) => r.date },
+  { key: "company", label: "업체", headerCls: "w-[120px] min-w-[120px]", cellCls: "whitespace-nowrap w-[120px] min-w-[120px]",
+    render: (r) => r.company_name },
+  { key: "leader1", label: "팀장1", headerCls: "w-[110px] min-w-[110px]", cellCls: "whitespace-nowrap w-[110px] min-w-[110px]",
+    render: (r, { displayLeaderById }) => displayLeaderById(r.leader1_id, r.leader1_name) },
+  { key: "leader2", label: "팀장2", headerCls: "w-[110px] min-w-[110px]", cellCls: "whitespace-nowrap w-[110px] min-w-[110px]",
+    render: (r, { displayLeaderById }) => displayLeaderById(r.leader2_id, r.leader2_name) },
+  { key: "customer", label: "고객명", headerCls: "w-[120px] min-w-[120px]", cellCls: "w-[120px] min-w-[120px]",
+    render: (r) => r.customer_name || "-" },
+  { key: "region", label: "배송지", headerCls: "w-[150px] min-w-[150px]", cellCls: "w-[150px] min-w-[150px]",
+    render: (r) => r.region || "-" },
+  { key: "region_type", label: "지역구분", headerCls: "w-[90px] min-w-[90px]", cellCls: "whitespace-nowrap w-[90px] min-w-[90px]",
+    render: (r) => r.region_type === "metro" ? "수도권" : r.region_type === "regional" ? "지방" : "-" },
+  { key: "item", label: "품목", headerCls: "w-[200px] min-w-[200px]", cellCls: "align-top w-[200px] min-w-[200px] max-w-[200px] cursor-pointer",
+    render: (r, { expanded }) => (
+      <div className={`whitespace-pre-wrap break-words ${expanded ? "" : "line-clamp-3"}`}>{r.item || "-"}</div>
+    ) },
+  { key: "note", label: "비고", headerCls: "w-[160px] min-w-[160px]", cellCls: "w-[160px] min-w-[160px] max-w-[160px] align-top",
+    render: (r) => <div className="whitespace-pre-wrap break-words">{r.note || "-"}</div> },
+  { key: "metro_fee", label: "수도권배송비", headerCls: "w-[130px] min-w-[130px] text-right", cellCls: "text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums",
+    render: (r) => fmt(r.metro_fee) },
+  { key: "note_amount", label: "비고금액", headerCls: "w-[120px] min-w-[120px] text-right", cellCls: "text-right whitespace-nowrap w-[120px] min-w-[120px] tabular-nums",
+    render: (r) => fmt(r.note_amount) },
+  { key: "regional_fee", label: "지방배송비", headerCls: "w-[130px] min-w-[130px] text-right", cellCls: "text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums",
+    render: (r) => fmt(r.regional_fee) },
+  { key: "cod_amount", label: "착불", headerCls: "w-[110px] min-w-[110px] text-right", cellCls: "text-right whitespace-nowrap w-[110px] min-w-[110px] tabular-nums",
+    render: (r) => fmt(r.cod_amount) },
+  { key: "total", label: "배송비총액", headerCls: "w-[130px] min-w-[130px] text-right", cellCls: "text-right whitespace-nowrap w-[130px] min-w-[130px] tabular-nums font-semibold",
+    render: (_r, { total }) => fmt(total) },
+  { key: "two_person", label: "2인배송", headerCls: "w-[90px] min-w-[90px]", cellCls: "whitespace-nowrap w-[90px] min-w-[90px]",
+    render: (r) => r.two_person ? <Badge className="bg-blue-500 hover:bg-blue-600">2인배송</Badge> : "-" },
+  { key: "split", label: "분할", headerCls: "w-[100px] min-w-[100px]", cellCls: "w-[100px] min-w-[100px]",
+    render: (r) => r.split_type || "-" },
+  { key: "paid", label: "결제유무", headerCls: "w-[110px] min-w-[110px]", cellCls: "w-[110px] min-w-[110px]",
+    render: (r) => r.paid ? "✓" : "-" },
+  { key: "settle", label: "정산처리", headerCls: "w-[220px] min-w-[220px]", cellCls: "w-[220px] min-w-[220px] text-muted-foreground",
+    render: () => "-" },
+  { key: "delete", label: "삭제", headerCls: "w-[60px] min-w-[60px]", cellCls: "w-[60px] min-w-[60px]",
+    render: (r, { removeRow }) => (
+      <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); removeRow(r.id); }}>
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    ) },
+];
+
+function RecordsTable({
+  records, issuesByRow, expandedItems, setExpandedItems, editRow, removeRow, displayLeaderById,
+}: {
+  records: any[];
+  issuesByRow: Map<string, ValidationIssue[]>;
+  expandedItems: Record<string, boolean>;
+  setExpandedItems: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  editRow: (r: any) => void;
+  removeRow: (id: string) => void;
+  displayLeaderById: (id: string | null | undefined, fallback: string | null | undefined) => string;
+}) {
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [alignmentError, setAlignmentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const tbl = tableRef.current;
+    if (!tbl) return;
+    const headRow = tbl.querySelector("thead tr");
+    const bodyRows = tbl.querySelectorAll("tbody tr");
+    if (!headRow) return;
+    const headCount = headRow.querySelectorAll("th").length;
+    const expected = RECORDS_COLUMNS.length;
+    const mismatches: string[] = [];
+    if (headCount !== expected) {
+      mismatches.push(`헤더 셀 수(${headCount}) ≠ 정의된 컬럼 수(${expected})`);
+    }
+    bodyRows.forEach((tr, i) => {
+      const tdCount = tr.querySelectorAll("td").length;
+      // skip placeholder row (uses colSpan)
+      const isPlaceholder = tr.querySelector("td[colspan]");
+      if (isPlaceholder) return;
+      if (tdCount !== headCount) {
+        mismatches.push(`${i + 1}행 셀 수(${tdCount}) ≠ 헤더(${headCount})`);
+      }
+    });
+    if (mismatches.length > 0) {
+      const msg = `금액 컬럼 표시 위치가 맞지 않습니다. 헤더와 데이터 셀 순서를 확인하세요. [${mismatches.slice(0, 3).join(" / ")}]`;
+      // eslint-disable-next-line no-console
+      console.warn("[Records 컬럼 정렬 오류]", msg, { headCount, expected, mismatches });
+      setAlignmentError(msg);
+    } else {
+      setAlignmentError(null);
+    }
+  }, [records]);
+
+  return (
+    <>
+      {alignmentError && (
+        <div className="p-2 m-2 rounded border border-destructive bg-destructive/10 text-destructive text-xs font-medium">
+          ⚠ {alignmentError}
+        </div>
+      )}
+      <Table ref={tableRef} className="text-xs num w-max min-w-full table-fixed">
+        <TableHeader className="sticky top-0 bg-background z-10">
+          <TableRow>
+            {RECORDS_COLUMNS.map((c) => (
+              <TableHead key={c.key} className={cn("whitespace-nowrap", c.headerCls)}>{c.label}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {records.map((r) => {
+            const total = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+            const rowIssues = issuesByRow.get(r.id);
+            const rowSeverity = rowIssues?.some((i) => i.severity === "error")
+              ? "error" : rowIssues?.length ? "warning" : null;
+            const ctx = {
+              total,
+              expanded: !!expandedItems[r.id],
+              toggleExpand: () => setExpandedItems((prev) => ({ ...prev, [r.id]: !prev[r.id] })),
+              displayLeaderById,
+              removeRow,
+            };
+            return (
+              <TableRow key={r.id} className={cn(
+                "cursor-pointer",
+                rowSeverity === "error" && "bg-destructive/5",
+                rowSeverity === "warning" && "bg-orange-500/5",
+              )} onClick={() => editRow(r)}>
+                {RECORDS_COLUMNS.map((c) => {
+                  const extraProps: React.HTMLAttributes<HTMLTableCellElement> = {};
+                  if (c.key === "item") {
+                    extraProps.onClick = (e) => { e.stopPropagation(); ctx.toggleExpand(); };
+                    (extraProps as any).title = r.item || "";
+                  }
+                  return (
+                    <TableCell key={c.key} className={c.cellCls} {...extraProps}>
+                      {c.render(r, ctx)}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            );
+          })}
+          {records.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={RECORDS_COLUMNS.length} className="text-center py-8 text-muted-foreground">
+                기록이 없습니다. 위 새 배송입력 또는 엑셀 붙여넣기로 추가하세요.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </>
+  );
+}
+
 export default function Records() {
   const { user } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
