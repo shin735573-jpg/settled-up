@@ -867,7 +867,8 @@ function CompanyPreview({
   const c = data.company;
   const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
   const issuesInvoice = !!c.issues_invoice;
-  const hasCod = (data.codTotal + data.carryInCod) > 0;
+  // 업체 설정의 착불유무가 우선. 설정에서 미사용이면 착불/이월착불 라인을 표시하지 않음.
+  const hasCod = (c.has_cod ?? true) && (data.codTotal + data.carryInCod) > 0;
   const claimTotal = data.finalClaim;
 
   // 기간 라벨: "기간: 2026년 05월 1~15일"
