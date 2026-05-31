@@ -112,46 +112,35 @@ All colors MUST be HSL.
   .num { font-variant-numeric: tabular-nums; }
 }
 
-/* 기록입력 폼: 깔끔한 테두리 — 상태는 상단 얇은 색띠로만 표시 */
+/* 기록입력 폼: 미니멀 언더라인 스타일 — 박스/배경 제거, 하단 라인만 */
 .form-cells {
   position: relative;
-  padding-top: 0.25rem;
 }
-.form-cells::before {
-  content: "";
-  position: absolute;
-  top: -4px;
-  left: 0;
-  right: 0;
-  height: 3px;
-  border-radius: 2px;
-  background-color: transparent;
-}
-.form-cells.is-new::before {
-  background-color: hsl(210 70% 55%);
-}
-.form-cells.is-edit::before {
-  background-color: hsl(38 70% 50%);
-}
-
 .form-cells > div {
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  border: 1px solid hsl(var(--border));
-  background-color: hsl(var(--card));
+  padding: 0.375rem 0.25rem;
+  border: none;
+  border-bottom: 1px solid hsl(var(--border));
+  border-radius: 0;
+  background-color: transparent;
   transition: border-color 150ms ease;
 }
-.form-cells > div:hover {
-  border-color: hsl(215 20% 65%);
+.form-cells > div:focus-within {
+  border-bottom-color: hsl(var(--primary));
+}
+.form-cells.is-edit > div:focus-within {
+  border-bottom-color: hsl(38 70% 50%);
 }
 
-/* 엑셀 붙여넣기 영역: 민트 테두리만 */
+/* 엑셀 붙여넣기 영역: 언더라인만 */
 .paste-area {
-  border-color: hsl(150 45% 45% / 0.45) !important;
+  border: none !important;
+  border-bottom: 1px dashed hsl(150 45% 45% / 0.6) !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
 }
 .paste-area:focus-visible {
-  border-color: hsl(150 45% 45%) !important;
-  box-shadow: 0 0 0 2px hsl(150 45% 45% / 0.08) !important;
+  border-bottom-color: hsl(150 45% 45%) !important;
+  box-shadow: none !important;
 }
 
 @media print {
