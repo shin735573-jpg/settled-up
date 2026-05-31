@@ -291,12 +291,13 @@ function CompaniesTab() {
 
   // 한 그룹을 canonical로 통합
   const mergeGroup = async (group: Company[], canonicalId: string) => {
-    if (!user) return;
+    if (!user) { toast.error("로그인이 필요합니다."); return; }
     const canonical = group.find((g) => g.id === canonicalId);
-    if (!canonical) return;
+    if (!canonical) { toast.error("기준 업체를 찾을 수 없습니다."); return; }
     const others = group.filter((g) => g.id !== canonicalId);
     const otherIds = others.map((o) => o.id);
-    if (otherIds.length === 0) return;
+    if (otherIds.length === 0) { toast.error("통합할 대상이 없습니다."); return; }
+    if (otherIds.includes(canonical.id)) { toast.error("기준 업체가 대상에 포함되어 있습니다."); return; }
     setMerging(true);
     try {
       // 1) deliveries 재할당
@@ -308,17 +309,27 @@ function CompaniesTab() {
       // 2) 이름 기반 deliveries (company_id null 인 경우 대비)
       const otherNames = others.map((o) => o.name);
       if (otherNames.length > 0) {
-        await supabase
+        const { error: e2 } = await supabase
           .from("deliveries")
           .update({ company_id: canonical.id, company_name: canonical.name })
           .is("company_id", null)
           .in("company_name", otherNames);
+        if (e2) throw e2;
       }
       // 3) price_list 재할당
-      await supabase
+      const { error: ep } = await supabase
         .from("price_list")
         .update({ company_id: canonical.id, company_name: canonical.name })
         .in("company_id", otherIds);
+      if (ep) throw ep;
+      // 3.5) 검증: 옮겨지지 않은 잔여 행이 있으면 중단(데이터 손실 방지)
+      const [{ count: remDel }, { count: remPrice }] = await Promise.all([
+        supabase.from("deliveries").select("id", { count: "exact", head: true }).in("company_id", otherIds),
+        supabase.from("price_list").select("id", { count: "exact", head: true }).in("company_id", otherIds),
+      ]);
+      if ((remDel || 0) > 0 || (remPrice || 0) > 0) {
+        throw new Error(`잔여 데이터(배송 ${remDel || 0}건 / 단가 ${remPrice || 0}건)가 남아 통합을 중단했습니다.`);
+      }
       // 4) 중복 업체 삭제
       const { error: e3 } = await supabase.from("companies").delete().in("id", otherIds);
       if (e3) throw e3;
