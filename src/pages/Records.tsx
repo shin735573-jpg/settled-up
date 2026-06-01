@@ -1733,17 +1733,17 @@ export default function Records() {
             </Button>
           </div>
         </Card>
-      )}
+      </TabsContent>
 
-      {formOpen && (
+      <TabsContent value="form" className="mt-0">
         <Card className="p-4 md:p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               {form.id ? "배송 수정" : (form.is_missing ? "누락분 추가" : "새 배송 입력")}
               {form.is_missing && <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>}
             </h2>
-            <Button variant="ghost" size="icon" onClick={() => { setForm(emptyForm()); setFormOpen(false); }}>
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={() => { setForm(emptyForm()); }}>
+              <X className="h-4 w-4 mr-1" />초기화
             </Button>
           </div>
 
@@ -2007,11 +2007,10 @@ export default function Records() {
             </Button>
           </div>
         </Card>
-      )}
-      </Card>
+      </TabsContent>
 
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 pt-2 border-t">
+      <TabsContent value="list" className="mt-0 space-y-4">
+        <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold">배송내용 상세</h2>
           <Badge variant="secondary">{records.length}건</Badge>
         </div>
