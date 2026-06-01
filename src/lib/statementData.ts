@@ -287,6 +287,48 @@ export function buildCompanyStatements(
         });
       });
 
+    // 행사철수 등 특수일 품목 — 같은 날짜 행들을 1건으로 합산 (업체 청구만)
+    // 합산 금액 = 같은 날짜 모든 팀장 행의 비고금액 합. 수도권/지방 배송비는 0 처리.
+    const collapsed: CompanyStmtRow[] = [];
+    const specialBuckets = new Map<string, CompanyStmtRow[]>();
+    for (const r of rows) {
+      if (isSpecialOneTimeItem(r.item)) {
+        const key = `${r.date}|${(r.item ?? "").trim()}`;
+        const bucket = specialBuckets.get(key);
+        if (bucket) bucket.push(r);
+        else specialBuckets.set(key, [r]);
+      } else {
+        collapsed.push(r);
+      }
+    }
+    for (const [, bucket] of specialBuckets) {
+      const first = bucket[0];
+      const noteSum = bucket.reduce((s, r) => s + Number(r.note_amount), 0);
+      const codSum = bucket.reduce((s, r) => s + Number(r.cod_amount), 0);
+      const paid = bucket.every((r) => r.paid);
+      // 수도권/지방 배송비가 입력된 행이 있으면 경고 (무시됨)
+      const ignoredFee = bucket.reduce(
+        (s, r) => s + Number(r.metro_fee) + Number(r.regional_fee), 0);
+      if (ignoredFee > 0) {
+        warnings.push(
+          `${first.date} ${first.item}: 수도권/지방 배송비(${Math.round(ignoredFee).toLocaleString()})는 업체 청구 시 무시되고 비고금액만 합산됩니다`,
+        );
+      }
+      collapsed.push({
+        ...first,
+        metro_fee: 0,
+        regional_fee: 0,
+        note_amount: noteSum,
+        cod_amount: codSum,
+        paid,
+        delivery_fee: noteSum,
+        customer_name: first.customer_name || first.item || "",
+      });
+    }
+    // 원본 rows 자리 교체
+    rows.length = 0;
+    rows.push(...collapsed);
+
     const feeTotal = rows.reduce((s, r) => s + r.delivery_fee, 0);
     const paidTotal = rows.filter((r) => r.paid).reduce((s, r) => s + r.delivery_fee, 0);
     const unpaidTotal = feeTotal - paidTotal;
