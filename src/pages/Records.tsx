@@ -823,7 +823,13 @@ export default function Records() {
   const [formOpen, setFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"input" | "detail">("input");
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
-  const [form, setForm] = useState<FormState>(emptyForm());
+  const [form, setForm] = useState<FormState>(() => {
+    try {
+      const raw = localStorage.getItem("records.form.draft");
+      if (raw) return { ...emptyForm(), ...JSON.parse(raw) } as FormState;
+    } catch { /* noop */ }
+    return emptyForm();
+  });
   const [saving, setSaving] = useState(false);
   // 한 팀장 여러건 일괄 입력
   type BulkRow = {
@@ -855,25 +861,38 @@ export default function Records() {
     paid: false,
   });
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkShared, setBulkShared] = useState({
-    date: new Date().toISOString().slice(0, 10),
-    default_company_id: "",
-    leader1_id: "",
-    leader2_id: "",
-    leader3_id: "",
-    two_person: false,
-    split_type: "",
-    paid: false,
+  const [bulkShared, setBulkShared] = useState(() => {
+    const def = {
+      date: new Date().toISOString().slice(0, 10),
+      default_company_id: "",
+      leader1_id: "",
+      leader2_id: "",
+      leader3_id: "",
+      two_person: false,
+      split_type: "",
+      paid: false,
+    };
+    try {
+      const raw = localStorage.getItem("records.bulk.shared.draft");
+      if (raw) return { ...def, ...JSON.parse(raw) };
+    } catch { /* noop */ }
+    return def;
   });
-  const [bulkRows, setBulkRows] = useState<BulkRow[]>([
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-  ]);
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>(() => {
+    try {
+      const raw = localStorage.getItem("records.bulk.rows.draft");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((r: any) => ({ ...emptyBulkRow(), ...r })) as BulkRow[];
+        }
+      }
+    } catch { /* noop */ }
+    return [
+      emptyBulkRow(), emptyBulkRow(), emptyBulkRow(),
+      emptyBulkRow(), emptyBulkRow(), emptyBulkRow(), emptyBulkRow(),
+    ];
+  });
   const [bulkSaving, setBulkSaving] = useState(false);
   const bulkCompanyRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
@@ -908,6 +927,17 @@ export default function Records() {
     setRecords(d || []);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filterMonth]);
+
+  // 입력 중 내용 자동 저장 (페이지 이동/메뉴 전환 시 보존)
+  useEffect(() => {
+    try { localStorage.setItem("records.form.draft", JSON.stringify(form)); } catch { /* noop */ }
+  }, [form]);
+  useEffect(() => {
+    try { localStorage.setItem("records.bulk.shared.draft", JSON.stringify(bulkShared)); } catch { /* noop */ }
+  }, [bulkShared]);
+  useEffect(() => {
+    try { localStorage.setItem("records.bulk.rows.draft", JSON.stringify(bulkRows)); } catch { /* noop */ }
+  }, [bulkRows]);
 
   const removeRow = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
@@ -1477,7 +1507,6 @@ export default function Records() {
                   <th className="p-2 min-w-[140px]">업체 *</th>
                   <th className="p-2 min-w-[110px]">고객명</th>
                   <th className="p-2 min-w-[140px]">배송지</th>
-                  <th className="p-2 min-w-[100px]">지역구분</th>
                   <th className="p-2 min-w-[180px]">품목</th>
                   <th className="p-2 min-w-[100px]">2인배송</th>
                   <th className="p-2 min-w-[120px]">비고</th>
@@ -1486,6 +1515,7 @@ export default function Records() {
                   <th className="p-2 min-w-[100px]">지방</th>
                   <th className="p-2 min-w-[100px]">착불</th>
                   <th className="p-2 min-w-[90px]">선결제</th>
+                  <th className="p-2 min-w-[100px]">지역구분</th>
                   <th className="p-2 min-w-[100px]">총액</th>
                   <th className="p-2 w-12"></th>
                 </tr>
@@ -1536,16 +1566,6 @@ export default function Records() {
                           value={r.region}
                           onChange={(e) => upd({ region: e.target.value, region_type: classifyRegion(e.target.value) })}
                         />
-                      </td>
-                      <td className="p-1">
-                        <Select value={r.region_type} onValueChange={(v) => upd({ region_type: v as RegionType })}>
-                          <SelectTrigger className={cn("h-8", r.region_type === "unknown" && "border-destructive text-destructive")}><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="metro">수도권</SelectItem>
-                            <SelectItem value="regional">지방</SelectItem>
-                            <SelectItem value="unknown">미분류</SelectItem>
-                          </SelectContent>
-                        </Select>
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
                       <td className="p-1 text-center">
@@ -1598,6 +1618,16 @@ export default function Records() {
                         >
                           {r.paid ? "선결제" : "—"}
                         </button>
+                      </td>
+                      <td className="p-1">
+                        <Select value={r.region_type} onValueChange={(v) => upd({ region_type: v as RegionType })}>
+                          <SelectTrigger className={cn("h-8", r.region_type === "unknown" && "border-destructive text-destructive")}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="metro">수도권</SelectItem>
+                            <SelectItem value="regional">지방</SelectItem>
+                            <SelectItem value="unknown">미분류</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
                       <td className="p-1 text-center">
