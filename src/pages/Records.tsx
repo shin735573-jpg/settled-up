@@ -1280,6 +1280,36 @@ export default function Records() {
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">기록입력</h1>
         <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40 flex-1 sm:flex-none" />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-40 justify-start text-left font-normal shrink-0",
+                !searchDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {searchDate ? format(searchDate, "yyyy-MM-dd") : "날짜 선택"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={searchDate}
+              onSelect={(d) => setSearchDate(d)}
+              defaultMonth={searchDate ?? new Date(filterMonth + "-01")}
+              initialFocus
+              locale={ko}
+              className={cn("p-3 pointer-events-auto")}
+            />
+          </PopoverContent>
+        </Popover>
+        {searchDate && (
+          <Button variant="ghost" size="sm" onClick={() => setSearchDate(undefined)} className="shrink-0">
+            <X className="h-4 w-4 mr-1" />날짜 초기화
+          </Button>
+        )}
         <Button onClick={() => setPasteOpen(true)} className="shrink-0"><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
 
