@@ -1365,12 +1365,12 @@ export default function Records() {
               </Popover>
             </div>
             <div className="space-y-1">
-              <Label>업체</Label>
+              <Label>기본 업체 (신규 행에 자동 적용)</Label>
               <CompanyCombobox
                 companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
-                value={bulkShared.company_id}
-                onChange={(v) => setBulkShared({ ...bulkShared, company_id: v })}
-                placeholder="업체명 입력"
+                value={bulkShared.default_company_id}
+                onChange={(v) => setBulkShared({ ...bulkShared, default_company_id: v })}
+                placeholder="(선택) 행마다 다르면 비워두세요"
               />
             </div>
             {[1, 2, 3].map((i) => {
