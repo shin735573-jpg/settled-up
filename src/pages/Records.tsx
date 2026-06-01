@@ -1871,7 +1871,7 @@ export default function Records() {
                 <Trash2 className="h-4 w-4 mr-1" /> 선택 삭제
               </Button>
             </div>
-            {(searchCompany || searchCustomer || searchLeader) && filteredRecords.length === 0 && (
+            {(searchCompany || searchCustomer || searchLeader || searchDate) && filteredRecords.length === 0 && (
               <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
             )}
             {(() => {
