@@ -860,7 +860,7 @@ export default function Records() {
   const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [pasteOpen, setPasteOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<"input" | "detail">("input");
+  const [activeTab, setActiveTab] = useState<"bulk" | "form" | "list">("bulk");
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<FormState>(() => {
     try {
@@ -1399,47 +1399,17 @@ export default function Records() {
           </Button>
         )}
         <Button onClick={() => setPasteOpen(true)} className="shrink-0"><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
-        <Button
-          variant="secondary"
-          className="shrink-0"
-          onClick={() => setBulkOpen((v) => !v)}
-        >
-          <Plus className="h-4 w-4 mr-1" /> 여러건 입력
-        </Button>
         <div className="flex-1" />
-        <Button
-          className="shrink-0"
-          onClick={() => {
-            setForm(emptyForm());
-            setFormOpen((v) => !v);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-1" /> 새 배송 입력
-        </Button>
       </div>
 
-      <Card className="p-4 md:p-6 space-y-4 bg-muted/30">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">📋 기록입력</h2>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant={bulkOpen ? "default" : "outline"}
-              onClick={() => setBulkOpen((v) => !v)}
-            >
-              여러건 {bulkOpen ? "▾" : "▸"}
-            </Button>
-            <Button
-              size="sm"
-              variant={formOpen ? "default" : "outline"}
-              onClick={() => setFormOpen((v) => !v)}
-            >
-              개별 {formOpen ? "▾" : "▸"}
-            </Button>
-          </div>
-        </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "bulk" | "form" | "list")} className="space-y-4">
+        <TabsList className="grid grid-cols-3 w-full md:w-auto md:inline-grid">
+          <TabsTrigger value="bulk">여러건 입력</TabsTrigger>
+          <TabsTrigger value="form" onClick={() => { if (activeTab !== "form") setForm(emptyForm()); }}>새 배송 입력</TabsTrigger>
+          <TabsTrigger value="list">배송내역 상세 <Badge variant="secondary" className="ml-2">{records.length}</Badge></TabsTrigger>
+        </TabsList>
 
-      {bulkOpen && (
+      <TabsContent value="bulk" className="mt-0">
         <Card className="p-4 md:p-6 space-y-4 border-primary/40">
           <h3 className="text-base font-semibold border-l-4 border-primary pl-2">한 팀장 여러건 배송입력</h3>
 
@@ -1763,17 +1733,17 @@ export default function Records() {
             </Button>
           </div>
         </Card>
-      )}
+      </TabsContent>
 
-      {formOpen && (
+      <TabsContent value="form" className="mt-0">
         <Card className="p-4 md:p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               {form.id ? "배송 수정" : (form.is_missing ? "누락분 추가" : "새 배송 입력")}
               {form.is_missing && <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>}
             </h2>
-            <Button variant="ghost" size="icon" onClick={() => { setForm(emptyForm()); setFormOpen(false); }}>
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={() => { setForm(emptyForm()); }}>
+              <X className="h-4 w-4 mr-1" />초기화
             </Button>
           </div>
 
@@ -2037,11 +2007,10 @@ export default function Records() {
             </Button>
           </div>
         </Card>
-      )}
-      </Card>
+      </TabsContent>
 
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 pt-2 border-t">
+      <TabsContent value="list" className="mt-0 space-y-4">
+        <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold">배송내용 상세</h2>
           <Badge variant="secondary">{records.length}건</Badge>
         </div>
@@ -2239,7 +2208,8 @@ export default function Records() {
               );
             })()}
           </Card>
-      </div>
+      </TabsContent>
+      </Tabs>
 
       <PasteDialog
         open={pasteOpen}
