@@ -1562,6 +1562,18 @@ export default function Records() {
                           }}
                         />
                       </td>
+                      <td className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => upd({ paid: !r.paid })}
+                          className={cn(
+                            "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
+                            r.paid ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                          )}
+                        >
+                          {r.paid ? "선결제" : "—"}
+                        </button>
+                      </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
                       <td className="p-1 text-center">
                         <Button
