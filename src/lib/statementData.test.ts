@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildCompanyStatements,
+  buildLeaderStatements,
   isSpecialOneTimeItem,
   type StmtDelivery,
   type StmtCompany,
@@ -149,5 +150,16 @@ describe("행사철수 특수일 처리", () => {
       .toEqual(["김용익", "오동선", "오은규"].sort());
     // 비고에 추가팀장 텍스트 없음
     expect(row.note ?? "").not.toContain("추가팀장");
+  });
+
+  it("팀장 정산서는 적재비 품목을 팀장 금액으로 합산하지 않는다", () => {
+    const leaders = [mkLeader("L1", "삼호")];
+    const deliveries: StmtDelivery[] = [
+      mkRow({ item: "일반", leader1_id: "L1", leader1_name: "삼호", note_amount: 10000 }),
+      mkRow({ item: "적재비", leader1_id: "L1", leader1_name: "삼호", note_amount: 50000 }),
+    ];
+    const [stmt] = buildLeaderStatements(deliveries, leaders, "h1", { oeunkyuSpecial: true });
+    expect(stmt.rows).toHaveLength(1);
+    expect(stmt.realFee).toBe(10000);
   });
 });
