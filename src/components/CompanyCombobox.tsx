@@ -107,6 +107,9 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
         ref={inputRef}
         value={query}
         placeholder={placeholder ?? "업체명 입력 (부분검색·↑↓ 선택)"}
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
         onFocus={(e) => {
           setOpen(true);
           const idx = selected ? filtered.findIndex((c) => c.id === selected.id) : -1;
