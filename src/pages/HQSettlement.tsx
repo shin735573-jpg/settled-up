@@ -694,21 +694,15 @@ export default function HQSettlement() {
                   );
                 })}
               </tbody>
+              <tfoot className="border-t-2 bg-muted/30">
+                <tr>
+                  <td className="px-3 py-3 font-semibold">본사 총매출</td>
+                  <td className="px-3 py-3 text-right tabular-nums font-medium text-destructive">{fmt(yearCompanyDeliveryTotal)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums font-medium text-destructive">{fmt(yearLoadingTotal)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums font-bold text-destructive">{fmt(yearGrossSales)}</td>
+                </tr>
+              </tfoot>
             </table>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x text-sm border-t">
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-muted-foreground">업체 총배송비</span>
-              <span className="font-medium text-destructive">{fmt(yearCompanyDeliveryTotal)}</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-muted-foreground">적재비</span>
-              <span className="font-medium text-destructive">{fmt(yearLoadingTotal)}</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-              <span className="font-semibold">본사 총매출</span>
-              <span className="font-bold text-destructive">{fmt(yearGrossSales)}</span>
-            </div>
           </div>
         </Card>
 
