@@ -1603,7 +1603,16 @@ export default function Records() {
                         <Input
                           className="h-8"
                           value={r.region}
-                          onChange={(e) => upd({ region: e.target.value, region_type: classifyRegion(e.target.value) })}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            const next = classifyRegion(v);
+                            const fee = r.metro_fee || r.regional_fee || "";
+                            const patch: Partial<BulkRow> = { region: v, region_type: next, metro_fee: "", regional_fee: "" };
+                            if (next === "metro") patch.metro_fee = fee;
+                            else if (next === "regional") patch.regional_fee = fee;
+                            else { patch.metro_fee = r.metro_fee; patch.regional_fee = r.regional_fee; }
+                            upd(patch);
+                          }}
                         />
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
