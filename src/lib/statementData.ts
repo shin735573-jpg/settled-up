@@ -72,6 +72,15 @@ export const PERIOD_LABEL: Record<PeriodKey, string> = {
   all: "월전체",
 };
 
+/**
+ * 행사철수 같은 "특수일" 품목 — 업체에는 같은 날짜에 1회만 청구되어야 함.
+ * 팀장 정산에는 각 팀장이 입력한 행이 그대로 반영되지만,
+ * 업체 청구서에서는 (date, company)별로 1행만 표시하고 금액은 비고금액 합계.
+ */
+export const SPECIAL_ONE_TIME_ITEMS = new Set<string>(["행사철수"]);
+export const isSpecialOneTimeItem = (item: string | null | undefined): boolean =>
+  !!item && SPECIAL_ONE_TIME_ITEMS.has(String(item).trim());
+
 /** 업체 정산서 1장에 들어가는 행 (분배 전, 원본 1건). */
 export type CompanyStmtRow = StmtDelivery & {
   /** 업체 제출용에 표시될 팀장 표기 (거부팀장 → 별칭) */
