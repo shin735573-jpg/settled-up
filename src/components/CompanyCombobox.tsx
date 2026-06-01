@@ -10,12 +10,13 @@ interface Props {
   onChange: (id: string) => void;
   placeholder?: string;
   className?: string;
+  inputRef?: React.Ref<HTMLInputElement>;
 }
 
 // 정규화: 공백 제거 + 소문자
 const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 
-export function CompanyCombobox({ companies, value, onChange, placeholder, className }: Props) {
+export function CompanyCombobox({ companies, value, onChange, placeholder, className, inputRef }: Props) {
   const selected = companies.find((c) => c.id === value);
   const [query, setQuery] = useState<string>(selected?.name ?? "");
   const [open, setOpen] = useState(false);
@@ -102,6 +103,7 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
   return (
     <div ref={wrapRef} className={cn("relative", className)}>
       <Input
+        ref={inputRef}
         value={query}
         placeholder={placeholder ?? "업체명 입력 (부분검색·↑↓ 선택)"}
         onFocus={() => { setOpen(true); setHi(0); }}
