@@ -138,9 +138,9 @@ All colors MUST be HSL.
   border-radius: 0 !important;
   background-color: transparent !important;
   /* 탭 폭을 넓혀 엑셀 컬럼이 가지런히 보이도록 */
-  /* 셀을 공백으로 패딩해 정렬하므로 탭은 1칸짜리 컬럼 구분자로만 사용 */
-  tab-size: 1;
-  -moz-tab-size: 1;
+  /* 탭 폭을 넓혀 엑셀 컬럼이 가지런히 보이도록 */
+  tab-size: 16;
+  -moz-tab-size: 16;
   /* 한글/숫자가 같은 폭으로 정렬되도록 등폭 폰트 우선 */
   font-family: "D2Coding", "Sarasa Mono K", "Nanum Gothic Coding",
     ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
