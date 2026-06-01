@@ -186,6 +186,9 @@ export default function HQSettlement() {
   };
   const shindongseokId = findId(["신동석", "동석"]);
   const ganghyungjuId = findId(["강형주", "형주"]);
+  const oeunkyuId = findId(["오은규"]);
+  const odongseonId = findId(["오동선"]);
+  const kimyongikId = findId(["김용익"]);
   const samhoId = findId(["삼호"]);
   const samhoName = useMemo(() => leaders.find((l) => l.id === samhoId)?.name ?? "삼호", [leaders, samhoId]);
 
@@ -212,13 +215,13 @@ export default function HQSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      }, { shindongseokId, ganghyungjuId });
+      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
         .filter((s) => isCountable(byId.get(s.target)));
       return { row: r, shares: resolved, hasValid: resolved.length > 0 };
     });
-  }, [periodRows, byId, shindongseokId, ganghyungjuId]);
+  }, [periodRows, byId, shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId]);
   const validRows = useMemo(() => allocations.filter((a) => a.hasValid), [allocations]);
 
   // ── 업체 배송비 총액 = 본사 총배송비(적재비 제외)와 동일
@@ -478,13 +481,13 @@ export default function HQSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      }, { shindongseokId, ganghyungjuId });
+      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
         .filter((s) => isCountable(byId.get(s.target)));
       return { row: r, shares: resolved, hasValid: resolved.length > 0 };
     });
-  }, [yearRows, byId, shindongseokId, ganghyungjuId]);
+  }, [yearRows, byId, shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId]);
   const yearValidRows = useMemo(() => yearAllocations.filter((a) => a.hasValid), [yearAllocations]);
 
   // ── 월별 매출 (1~12월): 업체 총배송비 / 수수료 / 적재비 / 합계
