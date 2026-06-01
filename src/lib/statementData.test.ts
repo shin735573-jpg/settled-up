@@ -99,4 +99,29 @@ describe("행사철수 특수일 처리", () => {
     expect(stmt.rows[0].delivery_fee).toBe(10000);
     expect(stmt.warnings.some((w) => w.includes("무시"))).toBe(true);
   });
+
+  it("강형주/신동석은 업체 청구서 팀장 표시에서 제외되지만 금액은 합산됨", () => {
+    const leaders = [
+      mkLeader("L1", "강형주"),
+      mkLeader("L2", "신동석"),
+      mkLeader("L3", "박팀장"),
+      mkLeader("L4", "김팀장"),
+    ];
+    const deliveries: StmtDelivery[] = [
+      mkRow({ item: "행사철수", leader1_id: "L1", leader1_name: "강형주", note_amount: 10000 }),
+      mkRow({ item: "행사철수", leader1_id: "L2", leader1_name: "신동석", note_amount: 10000 }),
+      mkRow({ item: "행사철수", leader1_id: "L3", leader1_name: "박팀장", note_amount: 15000 }),
+      mkRow({ item: "행사철수", leader1_id: "L4", leader1_name: "김팀장", note_amount: 20000 }),
+    ];
+    const [stmt] = buildCompanyStatements(deliveries, [company], leaders, "h1");
+    expect(stmt.rows).toHaveLength(1);
+    // 금액은 4명 전부 합산
+    expect(stmt.rows[0].note_amount).toBe(55000);
+    // 팀장 칸은 박팀장/김팀장만 (강형주, 신동석 제외)
+    expect(stmt.rows[0].display_leader1).toBe("박팀장");
+    expect(stmt.rows[0].display_leader2).toBe("김팀장");
+    // 비고에도 강형주/신동석 표시 안됨
+    expect(stmt.rows[0].note ?? "").not.toContain("강형주");
+    expect(stmt.rows[0].note ?? "").not.toContain("신동석");
+  });
 });
