@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { X, Search, Building2, Users, Maximize2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,21 @@ type Sel =
 
 const SLOT_COUNT = 6;
 
+type RangeMode = "month" | "day" | "range";
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const addDays = (iso: string, n: number) => {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const monthStart = (m: string) => m + "-01";
+const monthEndExclusive = (m: string) => {
+  const d = new Date(m + "-01");
+  d.setMonth(d.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
 const gridColsByCount = (n: number) => {
   if (n <= 1) return "grid-cols-1";
   if (n === 2) return "grid-cols-1 lg:grid-cols-2";
@@ -31,7 +47,14 @@ export default function RecordsBrowse() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [records, setRecords] = useState<Delivery[]>([]);
+  const [rangeMode, setRangeMode] = useState<RangeMode>("month");
   const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [filterDay, setFilterDay] = useState<string>(() => todayStr());
+  const [rangeStart, setRangeStart] = useState<string>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10);
+  });
+  const [rangeEnd, setRangeEnd] = useState<string>(() => todayStr());
+  const [dailyFilter, setDailyFilter] = useState<string>(""); // 패널 내부 추가 일자 필터 (YYYY-MM-DD)
   const [slots, setSlots] = useState<(Sel | null)[]>(() => Array(SLOT_COUNT).fill(null));
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<Sel | null>(null);
@@ -50,34 +73,62 @@ export default function RecordsBrowse() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const start = filterMonth + "-01";
-      const next = new Date(filterMonth + "-01");
-      next.setMonth(next.getMonth() + 1);
-      const end = next.toISOString().slice(0, 10);
+      let start = "", end = "";
+      if (rangeMode === "month") {
+        start = monthStart(filterMonth);
+        end = monthEndExclusive(filterMonth);
+      } else if (rangeMode === "day") {
+        start = filterDay;
+        end = addDays(filterDay, 1);
+      } else {
+        const s = rangeStart, e = rangeEnd;
+        const lo = s <= e ? s : e;
+        const hi = s <= e ? e : s;
+        start = lo;
+        end = addDays(hi, 1);
+      }
       const { data } = await supabase
         .from("deliveries")
         .select("*")
         .gte("date", start)
         .lt("date", end)
         .order("date", { ascending: false })
-        .limit(2000);
+        .limit(5000);
       setRecords(data || []);
+      setDailyFilter("");
       setLoading(false);
     })();
-  }, [filterMonth]);
+  }, [rangeMode, filterMonth, filterDay, rangeStart, rangeEnd]);
 
   const setSlot = (idx: number, sel: Sel | null) =>
     setSlots((prev) => prev.map((s, i) => (i === idx ? sel : s)));
   const clearAll = () => setSlots(Array(SLOT_COUNT).fill(null));
 
   const recordsFor = (sel: Sel): Delivery[] => {
+    let base = records;
     if (sel.kind === "company") {
-      return records.filter((r) => r.company_id === sel.id);
+      base = base.filter((r) => r.company_id === sel.id);
+    } else {
+      base = base.filter(
+        (r) => r.leader1_id === sel.id || r.leader2_id === sel.id || r.leader3_id === sel.id,
+      );
     }
-    return records.filter(
-      (r) => r.leader1_id === sel.id || r.leader2_id === sel.id || r.leader3_id === sel.id,
-    );
+    if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
+    return base;
   };
+
+  // 현재 로드된 데이터 안에서 존재하는 날짜들 (drill-down용)
+  const availableDates = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of records) if (r.date) s.add(r.date);
+    return Array.from(s).sort().reverse();
+  }, [records]);
+
+  const rangeLabel = useMemo(() => {
+    if (rangeMode === "month") return `${filterMonth} (월)`;
+    if (rangeMode === "day") return `${filterDay} (하루)`;
+    return `${rangeStart} ~ ${rangeEnd}`;
+  }, [rangeMode, filterMonth, filterDay, rangeStart, rangeEnd]);
 
   const filledCount = slots.filter(Boolean).length;
   const usedKeys = new Set(slots.filter(Boolean).map((s) => `${s!.kind}:${s!.id}`));
@@ -86,17 +137,96 @@ export default function RecordsBrowse() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0">배송내역 조회</h1>
-        <Input
-          type="month"
-          value={filterMonth}
-          onChange={(e) => setFilterMonth(e.target.value)}
-          className="w-40"
-        />
         <Badge variant="secondary">{records.length}건</Badge>
         {filledCount > 0 && (
           <Button variant="outline" size="sm" onClick={clearAll}>전체 비우기</Button>
         )}
       </div>
+
+      <Card className="p-3 md:p-4 space-y-3">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">조회 단위</Label>
+            <div className="inline-flex rounded-md border overflow-hidden">
+              {(["month", "range", "day"] as RangeMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setRangeMode(m)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium",
+                    rangeMode === m ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent",
+                  )}
+                >
+                  {m === "month" ? "월별" : m === "range" ? "기간" : "하루"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {rangeMode === "month" && (
+            <div className="space-y-1">
+              <Label className="text-xs">월 선택</Label>
+              <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40 h-9" />
+            </div>
+          )}
+          {rangeMode === "day" && (
+            <div className="space-y-1">
+              <Label className="text-xs">날짜</Label>
+              <Input type="date" value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className="w-44 h-9" />
+            </div>
+          )}
+          {rangeMode === "range" && (
+            <>
+              <div className="space-y-1">
+                <Label className="text-xs">시작일</Label>
+                <Input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} className="w-44 h-9" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">종료일</Label>
+                <Input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className="w-44 h-9" />
+              </div>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" onClick={() => { const t = todayStr(); setRangeStart(t); setRangeEnd(t); }}>오늘</Button>
+                <Button size="sm" variant="outline" onClick={() => { setRangeStart(addDays(todayStr(), -6)); setRangeEnd(todayStr()); }}>최근 7일</Button>
+                <Button size="sm" variant="outline" onClick={() => { setRangeStart(addDays(todayStr(), -29)); setRangeEnd(todayStr()); }}>최근 30일</Button>
+              </div>
+            </>
+          )}
+
+          <div className="flex-1" />
+          <div className="text-xs text-muted-foreground">조회 범위: <span className="font-semibold">{rangeLabel}</span></div>
+        </div>
+
+        {rangeMode !== "day" && availableDates.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 pt-2 border-t">
+            <span className="text-xs text-muted-foreground mr-1">하루별 보기:</span>
+            <button
+              type="button"
+              onClick={() => setDailyFilter("")}
+              className={cn(
+                "text-xs px-2 py-1 rounded border",
+                dailyFilter === "" ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent",
+              )}
+            >
+              전체
+            </button>
+            {availableDates.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDailyFilter(d === dailyFilter ? "" : d)}
+                className={cn(
+                  "text-xs px-2 py-1 rounded border tabular-nums",
+                  dailyFilter === d ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent",
+                )}
+              >
+                {d.slice(5)}
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card className="p-3 md:p-4">
         <div className="text-xs text-muted-foreground mb-2">
