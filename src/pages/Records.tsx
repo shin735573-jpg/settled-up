@@ -1856,7 +1856,18 @@ export default function Records() {
                   <LeaderCombobox
                     leaders={selectableLeaders}
                     value={form[key] || ""}
-                    onChange={(v) => setForm({ ...form, [key]: v })}
+                    onChange={(v) => {
+                      // 팀장2/3가 선택되면 자동 2인배송 활성화 → 금액 자동 50/50 분배
+                      // (해제 시 다른 추가팀장이 남아 있지 않으면 2인배송도 함께 해제)
+                      const next = { ...form, [key]: v } as typeof form;
+                      if (key === "leader2_id" || key === "leader3_id") {
+                        const hasExtra =
+                          (key === "leader2_id" ? !!v : !!next.leader2_id) ||
+                          (key === "leader3_id" ? !!v : !!next.leader3_id);
+                        next.two_person = hasExtra;
+                      }
+                      setForm(next);
+                    }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
                   {isCompanyRejected && (
