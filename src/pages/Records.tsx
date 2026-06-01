@@ -1404,8 +1404,8 @@ export default function Records() {
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "bulk" | "form" | "list")} className="space-y-4">
         <TabsList className="grid grid-cols-3 w-full md:w-auto md:inline-grid">
-          <TabsTrigger value="bulk">여러건 입력</TabsTrigger>
-          <TabsTrigger value="form" onClick={() => { if (activeTab !== "form") setForm(emptyForm()); }}>새 배송 입력</TabsTrigger>
+          <TabsTrigger value="bulk">배송 입력</TabsTrigger>
+          <TabsTrigger value="form" onClick={() => { if (activeTab !== "form") setForm(emptyForm()); }}>1건 배송 입력</TabsTrigger>
           <TabsTrigger value="list">배송내역 상세 <Badge variant="secondary" className="ml-2">{records.length}</Badge></TabsTrigger>
         </TabsList>
 
