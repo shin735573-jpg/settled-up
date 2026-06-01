@@ -161,19 +161,15 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
   });
   const afterTeam = Array.from(merged.values());
 
-  // 오은규 단독 → 오동선 정산: 행에 오동선/김용익이 모두 없을 때만 오은규 몫을 오동선으로 합산.
-  // (오동선+김용익 50/50, 오동선+오은규+김용익 3분의1씩 규칙과 양립하도록 단독 케이스만 처리)
-  const { oeunkyuId, odongseonId, kimyongikId } = opts;
+  // 오은규 → 오동선 합산 정산: 오은규 몫은 항상 오동선 정산서로 합산.
+  // (오동선+김용익 50/50 유지, 오동선+오은규+김용익이면 오동선 2/3·김용익 1/3 효과)
+  const { oeunkyuId, odongseonId } = opts;
   if (!oeunkyuId || !odongseonId) return afterTeam;
-  const rowLeaderIds = new Set([l1, l2, l3].filter(Boolean) as string[]);
-  const hasOdongseon = rowLeaderIds.has(odongseonId);
-  const hasKim = !!kimyongikId && rowLeaderIds.has(kimyongikId);
-  if (hasOdongseon || hasKim) return afterTeam;
   const oeunkyuShare = afterTeam.find((s) => s.leader_id === oeunkyuId);
   if (!oeunkyuShare) return afterTeam;
   const others = afterTeam.filter((s) => s.leader_id !== oeunkyuId);
   const existing = others.find((s) => s.leader_id === odongseonId);
-  const reason = "오은규 단독 → 오동선 정산";
+  const reason = "오은규 → 오동선 합산 정산";
   if (existing) {
     existing.weight += oeunkyuShare.weight;
     existing.metro += oeunkyuShare.metro;
