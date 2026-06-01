@@ -1417,19 +1417,6 @@ export default function Records() {
               );
             })}
             <div className="space-y-1">
-              <Label>2인배송</Label>
-              <Select
-                value={bulkShared.two_person ? "yes" : "no"}
-                onValueChange={(v) => setBulkShared({ ...bulkShared, two_person: v === "yes" })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no">아니오</SelectItem>
-                  <SelectItem value="yes">예</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
               <Label>분할</Label>
               <Select
                 value={bulkShared.split_type || "__none__"}
