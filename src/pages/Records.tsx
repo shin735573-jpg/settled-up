@@ -1188,9 +1188,7 @@ export default function Records() {
       toast.error("2인배송은 팀장2가 필요합니다.");
       return;
     }
-    if (!form.two_person && form.leader2_id) {
-      if (!confirm("팀장2가 입력되어 있습니다. 2인배송 여부를 확인해주세요. 그대로 저장할까요?")) return;
-    }
+    // 팀장2가 입력되면 자동으로 2인배송으로 간주되어 금액이 50/50 분배됨 (확인 다이얼로그 불필요)
     if (form.split_type === "3분할") {
       const names = [form.leader1_id, form.leader2_id]
         .map((id) => leaders.find((l) => l.id === id)?.name);
@@ -1493,7 +1491,15 @@ export default function Records() {
                   <LeaderCombobox
                     leaders={selectableLeaders}
                     value={bulkShared[key] || ""}
-                    onChange={(v) => setBulkShared({ ...bulkShared, [key]: v })}
+                    onChange={(v) => {
+                      const nextShared = { ...bulkShared, [key]: v };
+                      setBulkShared(nextShared);
+                      // 공통 팀장2/3이 선택되면 모든 행의 2인배송을 자동 활성화 → 금액 자동 50/50 분배
+                      if (key === "leader2_id" || key === "leader3_id") {
+                        const hasExtra = !!nextShared.leader2_id || !!nextShared.leader3_id;
+                        setBulkRows((rows) => rows.map((r) => ({ ...r, two_person: hasExtra })));
+                      }
+                    }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
                 </div>
@@ -1856,7 +1862,18 @@ export default function Records() {
                   <LeaderCombobox
                     leaders={selectableLeaders}
                     value={form[key] || ""}
-                    onChange={(v) => setForm({ ...form, [key]: v })}
+                    onChange={(v) => {
+                      // 팀장2/3가 선택되면 자동 2인배송 활성화 → 금액 자동 50/50 분배
+                      // (해제 시 다른 추가팀장이 남아 있지 않으면 2인배송도 함께 해제)
+                      const next = { ...form, [key]: v } as typeof form;
+                      if (key === "leader2_id" || key === "leader3_id") {
+                        const hasExtra =
+                          (key === "leader2_id" ? !!v : !!next.leader2_id) ||
+                          (key === "leader3_id" ? !!v : !!next.leader3_id);
+                        next.two_person = hasExtra;
+                      }
+                      setForm(next);
+                    }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
                   {isCompanyRejected && (
