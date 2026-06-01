@@ -127,9 +127,106 @@ function tryParseKeyValueText(raw: string): string[][] | null {
   return [header, ...rows];
 }
 
+/**
+ * 주문 메모(자유 형식) 텍스트에서 고객명/주소/품목/날짜/배송비/착불/연락처 등을
+ * 추출하여 "키:값" 블록 형태의 문자열로 반환. 기존 KV 파서에 그대로 전달 가능.
+ * 예) "일산메종드르블랑\n고객명:문지연\n주소:대구...\n모델:식탁\n배송비 12만원 고객님착불\n배송일:6월5일(금)"
+ */
+function parseOrderMemoToKV(raw: string): string | null {
+  const text = (raw || "").replace(/\r/g, "").trim();
+  if (!text) return null;
+  const rawLines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (!rawLines.length) return null;
+
+  const out: Record<string, string> = {};
+  const extraNotes: string[] = [];
+  let firstFreeLine = "";
+
+  // 한국어 날짜 "6월5일", "6/5", "06-05" → 올해 기준 YYYY-MM-DD
+  const toIsoDate = (v: string): string | null => {
+    const s = v.replace(/\s+/g, "");
+    let m = s.match(/(\d{1,2})월\s*(\d{1,2})일?/);
+    if (!m) m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})/);
+    if (!m) {
+      const iso = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+      if (iso) {
+        const y = iso[1], mm = iso[2].padStart(2, "0"), dd = iso[3].padStart(2, "0");
+        return `${y}-${mm}-${dd}`;
+      }
+      return null;
+    }
+    const y = new Date().getFullYear();
+    const mm = m[1].padStart(2, "0");
+    const dd = m[2].padStart(2, "0");
+    return `${y}-${mm}-${dd}`;
+  };
+
+  const KV_RE = /^([^:：]+)\s*[:：]\s*(.*)$/;
+  const NUM_KO = /(\d+(?:[\.,]\d+)?)\s*만\s*원?/;
+
+  for (const rawLine of rawLines) {
+    // 강조 마커(**, *) 제거
+    const line = rawLine.replace(/^\*+\s*/, "").replace(/\s*\*+$/, "").trim();
+    if (!line) continue;
+
+    const m = line.match(KV_RE);
+    if (m) {
+      const key = m[1].trim();
+      const val = m[2].trim();
+      const k = normalizeHeader(key);
+      if (["고객명","고객","성명","이름","성함","받는분","수령인"].some((a) => normalizeHeader(a) === k)) {
+        out["고객명"] = val;
+      } else if (["주소","배송지","배송주소","지역","지역명","address"].some((a) => normalizeHeader(a) === k)) {
+        out["배송지"] = val;
+      } else if (["모델","모델명","품목","상품","제품","품명","내용"].some((a) => normalizeHeader(a) === k)) {
+        out["품목"] = val;
+      } else if (["배송일","날짜","일자","출고일"].some((a) => normalizeHeader(a) === k)) {
+        out["날짜"] = toIsoDate(val) || val;
+      } else if (["업체","업체명","거래처","상호","회사","회사명"].some((a) => normalizeHeader(a) === k)) {
+        out["업체"] = val;
+      } else if (["연락처","전화","전화번호","휴대폰","핸드폰","phone","tel"].some((a) => normalizeHeader(a) === k)) {
+        extraNotes.push(`연락처: ${val}`);
+      } else {
+        extraNotes.push(`${key}: ${val}`);
+      }
+      continue;
+    }
+
+    // 콜론 없는 자유 라인
+    // 배송비 + 만원 + 착불 → 착불 금액
+    const feeKo = line.match(NUM_KO);
+    const isFeeLine = /배송비|운임|요금/.test(line);
+    const isCod = /착불|현장수령|현장지급/.test(line);
+    if (feeKo && (isFeeLine || isCod)) {
+      const won = Math.round(parseFloat(feeKo[1].replace(/,/g, "")) * 10000);
+      if (isCod) out["착불"] = String(won);
+      else out["수도권배송비"] = String(won);
+      // 원본 메모도 비고에 남김
+      extraNotes.push(line);
+      continue;
+    }
+    // 첫 자유 라인은 업체명 후보로 사용
+    if (!firstFreeLine) {
+      firstFreeLine = line;
+      continue;
+    }
+    extraNotes.push(line);
+  }
+
+  if (firstFreeLine && !out["업체"]) out["업체"] = firstFreeLine;
+  if (extraNotes.length) out["비고"] = extraNotes.join(" / ");
+
+  // 필드가 아무것도 추출되지 않으면 실패
+  if (Object.keys(out).length === 0) return null;
+
+  // KV 블록 문자열로 직렬화
+  return Object.entries(out)
+    .map(([k, v]) => `${k}:${v}`)
+    .join("\n");
+}
+
 function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
   const used = new Set<FieldKey>();
-  void parseOrderMemoToKV; // ensure helper kept
   return headers.map((h) => {
     const norm = normalizeHeader(h);
     if (TOTAL_ALIASES.includes(norm)) return null;
