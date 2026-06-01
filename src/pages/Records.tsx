@@ -14,6 +14,7 @@ import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2, ScanSea
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { CompanyCombobox } from "@/components/CompanyCombobox";
+import { LeaderCombobox } from "@/components/LeaderCombobox";
 import { AmountTextInput } from "@/components/AmountTextInput";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
