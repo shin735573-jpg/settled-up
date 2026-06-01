@@ -1679,6 +1679,16 @@ export default function Records() {
                                         upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
                                       }}
                                     />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        upd({ cod_amount: "", note: applyCodToNote(r.note, 0) })
+                                      }
+                                    >
+                                      삭제
+                                    </Button>
                                   </div>
                                 </div>
                               </PopoverContent>
@@ -1959,6 +1969,16 @@ export default function Records() {
                             setForm({ ...form, cod_amount: v, note: applyCodToNote(form.note, amt) });
                           }}
                         />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setForm({ ...form, cod_amount: "", note: applyCodToNote(form.note, 0) })
+                          }
+                        >
+                          삭제
+                        </Button>
                       </div>
                     </div>
                   </PopoverContent>
