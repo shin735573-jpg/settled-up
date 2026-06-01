@@ -1441,6 +1441,7 @@ export default function Records() {
               <thead className="bg-muted">
                 <tr className="text-left">
                   <th className="p-2 w-8">#</th>
+                  <th className="p-2 min-w-[140px]">업체 *</th>
                   <th className="p-2 min-w-[110px]">고객명</th>
                   <th className="p-2 min-w-[140px]">배송지</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
@@ -1462,6 +1463,14 @@ export default function Records() {
                   return (
                     <tr key={idx} className="border-t">
                       <td className="p-1 text-center text-muted-foreground">{idx + 1}</td>
+                      <td className="p-1">
+                        <CompanyCombobox
+                          companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
+                          value={r.company_id}
+                          onChange={(v) => upd({ company_id: v })}
+                          placeholder="업체"
+                        />
+                      </td>
                       <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} /></td>
                       <td className="p-1">
                         <Input
