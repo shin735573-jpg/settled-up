@@ -1543,6 +1543,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; defaultMonth?: string; onSaved: () => void; onReload: () => void | Promise<void>;
 }) {
   const [text, setText] = useState("");
+  // 주문 메모 자유 입력 (자동 분석 → 붙여넣기 칸에 KV 블록으로 추가)
+  const [memoText, setMemoText] = useState("");
+  const [memoError, setMemoError] = useState<string | null>(null);
   const [skipErrors, setSkipErrors] = useState(false);
   const [saving, setSaving] = useState(false);
   const [registering, setRegistering] = useState(false);
