@@ -1464,7 +1464,29 @@ export default function Records() {
                   const upd = (patch: Partial<BulkRow>) =>
                     setBulkRows((rows) => rows.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
                   return (
-                    <tr key={idx} className="border-t">
+                     <tr
+                       key={idx}
+                       className="border-t"
+                       onKeyDown={(e) => {
+                         if (e.key !== "Enter") return;
+                         if (e.defaultPrevented) return;
+                         const target = e.target as HTMLElement;
+                         // Select/Combobox 등이 자체 처리하는 경우는 제외
+                         if (target.tagName === "BUTTON" || target.getAttribute("role") === "combobox") return;
+                         e.preventDefault();
+                         const nextIdx = idx + 1;
+                         const focusNext = () => {
+                           const el = bulkCompanyRefs.current[nextIdx];
+                           if (el) { el.focus(); el.select?.(); }
+                         };
+                         if (nextIdx >= bulkRows.length) {
+                           setBulkRows((rows) => [...rows, emptyBulkRow(bulkShared.default_company_id)]);
+                           setTimeout(focusNext, 0);
+                         } else {
+                           focusNext();
+                         }
+                       }}
+                     >
                       <td className="p-1 text-center text-muted-foreground">{idx + 1}</td>
                       <td className="p-1">
                         <CompanyCombobox
