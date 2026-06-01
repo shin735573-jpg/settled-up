@@ -899,7 +899,7 @@ export default function Records() {
     two_person: false,
     paid: false,
   });
-  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(true);
   const [bulkShared, setBulkShared] = useState(() => {
     const def = {
       date: new Date().toISOString().slice(0, 10),
@@ -1400,28 +1400,21 @@ export default function Records() {
         )}
         <Button onClick={() => setPasteOpen(true)} className="shrink-0"><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
         <Button
+          variant="secondary"
+          className="shrink-0"
+          onClick={() => setBulkOpen((v) => !v)}
+        >
+          <Plus className="h-4 w-4 mr-1" /> 여러건 입력
+        </Button>
+        <div className="flex-1" />
+        <Button
           className="shrink-0"
           onClick={() => {
             setForm(emptyForm());
-            setFormOpen((v) => {
-              const next = !v;
-              if (next) setBulkOpen(false);
-              return next;
-            });
+            setFormOpen((v) => !v);
           }}
         >
           <Plus className="h-4 w-4 mr-1" /> 새 배송 입력
-        </Button>
-        <Button
-          variant="secondary"
-          className="shrink-0"
-          onClick={() => setBulkOpen((v) => {
-            const next = !v;
-            if (next) setFormOpen(false);
-            return next;
-          })}
-        >
-          <Plus className="h-4 w-4 mr-1" /> 여러건 입력
         </Button>
       </div>
 
