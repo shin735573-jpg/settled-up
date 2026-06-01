@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2, ScanSearch } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { CompanyCombobox } from "@/components/CompanyCombobox";
 import { LeaderCombobox } from "@/components/LeaderCombobox";
 import { AmountTextInput } from "@/components/AmountTextInput";
