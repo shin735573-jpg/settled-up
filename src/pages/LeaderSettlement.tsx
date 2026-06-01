@@ -791,8 +791,9 @@ export default function LeaderSettlement() {
               <tbody className="[&_tr:last-child]:border-0">
                 {masterRows.map((m) => {
                   const issuesInvoice = !!m.leader.issues_invoice;
-                  const vat = issuesInvoice ? Math.round(m.total * 0.1) : 0;
-                  const totalWithVat = m.total + vat;
+                  // 부가세는 실지급액(net) 기준 10% — 정산서 저장본과 100% 동일
+                  const vat = issuesInvoice ? Math.round(m.net * 0.1) : 0;
+                  const totalWithVat = m.net + vat;
                   const cells: Record<LeaderColKey, React.ReactNode> = {
                     name: (
                       <button className="text-primary hover:underline font-medium">
