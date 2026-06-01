@@ -1454,11 +1454,13 @@ export default function Records() {
                   <th className="p-2 min-w-[140px]">배송지</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
                   <th className="p-2 min-w-[180px]">품목</th>
+                  <th className="p-2 min-w-[100px]">2인배송</th>
                   <th className="p-2 min-w-[120px]">비고</th>
                   <th className="p-2 min-w-[100px]">수도권</th>
                   <th className="p-2 min-w-[100px]">비고금액</th>
                   <th className="p-2 min-w-[100px]">지방</th>
                   <th className="p-2 min-w-[100px]">착불</th>
+                  <th className="p-2 min-w-[90px]">선결제</th>
                   <th className="p-2 min-w-[100px]">총액</th>
                   <th className="p-2 w-12"></th>
                 </tr>
