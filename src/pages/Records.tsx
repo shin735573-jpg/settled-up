@@ -1188,9 +1188,7 @@ export default function Records() {
       toast.error("2인배송은 팀장2가 필요합니다.");
       return;
     }
-    if (!form.two_person && form.leader2_id) {
-      if (!confirm("팀장2가 입력되어 있습니다. 2인배송 여부를 확인해주세요. 그대로 저장할까요?")) return;
-    }
+    // 팀장2가 입력되면 자동으로 2인배송으로 간주되어 금액이 50/50 분배됨 (확인 다이얼로그 불필요)
     if (form.split_type === "3분할") {
       const names = [form.leader1_id, form.leader2_id]
         .map((id) => leaders.find((l) => l.id === id)?.name);
