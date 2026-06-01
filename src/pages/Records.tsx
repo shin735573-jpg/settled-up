@@ -2341,6 +2341,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                       <TableHead className="whitespace-nowrap min-w-[140px]">업체</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">팀장1</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">팀장2</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px]">팀장3</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">고객명</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">배송지</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[110px]">지역구분</TableHead>
@@ -2362,8 +2363,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                     {visible.map(({ row: r, i }, displayIdx) => {
                       const total = r.metro + r.noteAmt + r.regional;
                       const hasErr = r.errors.length > 0;
-                      const leaderCell = (slot: 0 | 1) => {
-                        const key = slot === 0 ? "l1" : "l2";
+                      const leaderCell = (slot: 0 | 1 | 2) => {
+                        const key = (slot === 0 ? "l1" : slot === 1 ? "l2" : "l3") as "l1" | "l2" | "l3";
                         const ovVal = leaderOverrides[i]?.[key];
                         const current = ovVal !== undefined ? ovVal : (r.leaderIds[slot] || "");
                         const unknown = !current && !!r.leaders[slot];
@@ -2444,6 +2445,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                           <TableCell className="min-w-[140px] whitespace-nowrap">{r.company || "-"}</TableCell>
                           <TableCell>{leaderCell(0)}</TableCell>
                           <TableCell>{leaderCell(1)}</TableCell>
+                          <TableCell>{leaderCell(2)}</TableCell>
                           <TableCell className="min-w-[120px] whitespace-nowrap">{r.customer || "-"}</TableCell>
                           <TableCell className="min-w-[120px] whitespace-nowrap">{r.region || "-"}</TableCell>
                           <TableCell className="min-w-[110px]">
