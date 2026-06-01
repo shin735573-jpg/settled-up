@@ -481,17 +481,21 @@ export function validateTeamParity(
     // 이 행이 형주/동석 팀과 관련 있는지 (id 또는 이름/별칭 기준)
     const l1 = r.leader1_id ? leaderById.get(r.leader1_id) : null;
     const l2 = r.leader2_id ? leaderById.get(r.leader2_id) : null;
+    const l3 = r.leader3_id ? leaderById.get(r.leader3_id) : null;
     const involvesTeam =
       r.leader1_id === ganghyungjuId || r.leader1_id === shindongseokId ||
       r.leader2_id === ganghyungjuId || r.leader2_id === shindongseokId ||
+      r.leader3_id === ganghyungjuId || r.leader3_id === shindongseokId ||
       teamNameMatch(r.leader1_name, l1?.aliases) ||
-      teamNameMatch(r.leader2_name, l2?.aliases);
+      teamNameMatch(r.leader2_name, l2?.aliases) ||
+      teamNameMatch(r.leader3_name, l3?.aliases);
     if (!involvesTeam) return;
 
     const shares = allocateRow(
       {
         leader1_id: r.leader1_id,
         leader2_id: r.leader2_id,
+        leader3_id: r.leader3_id ?? null,
         split_type: r.split_type,
         two_person: r.two_person ?? false,
         metro_fee: isNumLike(r.metro_fee).n,
