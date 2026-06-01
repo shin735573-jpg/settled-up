@@ -883,6 +883,7 @@ export default function Records() {
   const [searchCompany, setSearchCompany] = useState("");
   const [searchCustomer, setSearchCustomer] = useState("");
   const [searchLeader, setSearchLeader] = useState("");
+  const [searchDate, setSearchDate] = useState<Date | undefined>(undefined);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // 동(洞) 단독 입력 시 수도권/지방 선택 다이얼로그
   const [dongPrompt, setDongPrompt] = useState<string | null>(null);
@@ -938,10 +939,12 @@ export default function Records() {
     const qc = norm(searchCompany);
     const qcu = norm(searchCustomer);
     const ql = norm(searchLeader);
-    if (!qc && !qcu && !ql) return records;
+    const qd = searchDate ? format(searchDate, "yyyy-MM-dd") : "";
+    if (!qc && !qcu && !ql && !qd) return records;
     // 팀장 검색은 별칭→정식 매핑 후 비교 (입력값 자체도 부분일치 허용)
     const canonLeader = ql ? norm(canonicalLeaderName(searchLeader, leaders)) : "";
     return records.filter((r: any) => {
+      if (qd && r.date !== qd) return false;
       if (qc && !norm(r.company_name).includes(qc)) return false;
       if (qcu && !norm(r.customer_name).includes(qcu)) return false;
       if (ql) {
@@ -964,7 +967,7 @@ export default function Records() {
       }
       return true;
     });
-  }, [records, searchCompany, searchCustomer, searchLeader, leaders, leadersById]);
+  }, [records, searchCompany, searchCustomer, searchLeader, searchDate, leaders, leadersById]);
 
   const displayLeaderById = (id: string | null, fallback: string | null): string => {
     if (id) {
@@ -1763,7 +1766,7 @@ export default function Records() {
 
         <TabsContent value="detail" className="space-y-4 mt-0">
           <Card className="p-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 items-end">
               <div className="space-y-1">
                 <Label className="text-xs">업체 검색</Label>
                 <Input
@@ -1788,15 +1791,46 @@ export default function Records() {
                   placeholder="예: 형주 / 동석 / 동선"
                 />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">날짜 검색</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !searchDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {searchDate ? format(searchDate, "yyyy-MM-dd") : "날짜 선택"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={searchDate}
+                      onSelect={setSearchDate}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => { setSearchCompany(""); setSearchCustomer(""); setSearchLeader(""); }}
+                  onClick={() => {
+                    setSearchCompany("");
+                    setSearchCustomer("");
+                    setSearchLeader("");
+                    setSearchDate(undefined);
+                  }}
                 >
                   초기화
                 </Button>
                 <div className="text-xs text-muted-foreground">
-                  {(searchCompany || searchCustomer || searchLeader)
+                  {(searchCompany || searchCustomer || searchLeader || searchDate)
                     ? `검색 결과 ${filteredRecords.length}건`
                     : `전체 ${records.length}건`}
                 </div>
@@ -1837,7 +1871,7 @@ export default function Records() {
                 <Trash2 className="h-4 w-4 mr-1" /> 선택 삭제
               </Button>
             </div>
-            {(searchCompany || searchCustomer || searchLeader) && filteredRecords.length === 0 && (
+            {(searchCompany || searchCustomer || searchLeader || searchDate) && filteredRecords.length === 0 && (
               <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
             )}
             {(() => {
@@ -1848,7 +1882,7 @@ export default function Records() {
                 groups.get(key)!.push(r);
               }
               const sorted = Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-              if (sorted.length === 0 && !(searchCompany || searchCustomer || searchLeader)) {
+              if (sorted.length === 0 && !(searchCompany || searchCustomer || searchLeader || searchDate)) {
                 return <div className="p-6 text-center text-muted-foreground text-sm">표시할 배송 내역이 없습니다.</div>;
               }
               return (
