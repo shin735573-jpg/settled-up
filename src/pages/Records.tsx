@@ -1492,10 +1492,10 @@ export default function Records() {
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} /></td>
-                      <td className="p-1"><Input className="h-8" inputMode="numeric" value={r.metro_fee} onChange={(e) => upd({ metro_fee: e.target.value })} /></td>
-                      <td className="p-1"><Input className="h-8" inputMode="numeric" value={r.note_amount} onChange={(e) => upd({ note_amount: e.target.value })} /></td>
-                      <td className="p-1"><Input className="h-8" inputMode="numeric" value={r.regional_fee} onChange={(e) => upd({ regional_fee: e.target.value })} /></td>
-                      <td className="p-1"><Input className="h-8" inputMode="numeric" value={r.cod_amount} onChange={(e) => upd({ cod_amount: e.target.value })} /></td>
+                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.metro_fee} onChange={(v) => upd({ metro_fee: v })} /></td>
+                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
+                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.regional_fee} onChange={(v) => upd({ regional_fee: v })} /></td>
+                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.cod_amount} onChange={(v) => upd({ cod_amount: v })} /></td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
                       <td className="p-1 text-center">
                         <Button
@@ -1671,19 +1671,19 @@ export default function Records() {
 
             <div className="space-y-1">
               <Label>수도권배송비</Label>
-              <Input inputMode="numeric" value={form.metro_fee} onChange={(e) => setForm({ ...form, metro_fee: e.target.value })} />
+              <AmountTextInput className="text-right tabular-nums" value={form.metro_fee} onChange={(v) => setForm({ ...form, metro_fee: v })} />
             </div>
             <div className="space-y-1">
               <Label>비고금액</Label>
-              <Input inputMode="numeric" value={form.note_amount} onChange={(e) => setForm({ ...form, note_amount: e.target.value })} />
+              <AmountTextInput className="text-right tabular-nums" value={form.note_amount} onChange={(v) => setForm({ ...form, note_amount: v })} />
             </div>
             <div className="space-y-1">
               <Label>지방배송비</Label>
-              <Input inputMode="numeric" value={form.regional_fee} onChange={(e) => setForm({ ...form, regional_fee: e.target.value })} />
+              <AmountTextInput className="text-right tabular-nums" value={form.regional_fee} onChange={(v) => setForm({ ...form, regional_fee: v })} />
             </div>
             <div className="space-y-1">
               <Label>착불</Label>
-              <Input inputMode="numeric" value={form.cod_amount} onChange={(e) => setForm({ ...form, cod_amount: e.target.value })} />
+              <AmountTextInput className="text-right tabular-nums" value={form.cod_amount} onChange={(v) => setForm({ ...form, cod_amount: v })} />
             </div>
 
             <div className="space-y-1">
