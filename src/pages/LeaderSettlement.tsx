@@ -537,7 +537,8 @@ export default function LeaderSettlement() {
     const trashAuto = !detailLeader ? 0 : trashCostAutoFor(detailLeader.id);
     const commonTotal = commonBase + trashAuto;
     const deduction = commonTotal + indivTotal;
-    const net = afterFees - cod - deduction;
+    // 정산금은 음수 불가 — 마스터/저장 화면과 동일하게 0 으로 클램프
+    const net = Math.max(0, afterFees - cod - deduction);
     return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal, count };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailRows, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides, commonKeysJoined]);
