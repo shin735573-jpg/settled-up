@@ -1959,6 +1959,16 @@ export default function Records() {
                             setForm({ ...form, cod_amount: v, note: applyCodToNote(form.note, amt) });
                           }}
                         />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setForm({ ...form, cod_amount: "", note: applyCodToNote(form.note, 0) })
+                          }
+                        >
+                          삭제
+                        </Button>
                       </div>
                     </div>
                   </PopoverContent>
