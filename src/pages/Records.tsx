@@ -859,7 +859,7 @@ export default function Records() {
   const [records, setRecords] = useState<Delivery[]>([]);
   const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [pasteOpen, setPasteOpen] = useState(false);
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<"input" | "detail">("input");
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const [form, setForm] = useState<FormState>(() => {
