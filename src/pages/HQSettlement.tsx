@@ -625,9 +625,9 @@ export default function HQSettlement() {
 
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
-      {/* 상단: 본사 수익 요약 + 적재비 입력 */}
+      {/* 상단: 본사 수익 요약 + 본사 총매출 + 적재비 입력 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="p-0 overflow-hidden lg:col-start-2">
+        <Card className="p-0 overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 수익 요약</div>
           <div className="divide-y text-sm">
             <div className="flex justify-between px-4 py-2">
@@ -664,7 +664,55 @@ export default function HQSettlement() {
           </div>
         </Card>
 
-        <Card className="overflow-hidden lg:col-start-3">
+        <Card className="p-0 overflow-hidden">
+          <div className="px-4 py-3 border-b font-semibold bg-muted/40 flex items-center justify-between">
+            <span>본사 총매출 ({yearLabel}년 1~12월 합계)</span>
+            <span className="text-xs text-muted-foreground font-normal">
+              기간 선택과 무관하게 항상 연간 합계로 표시
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/30">
+                <tr className="text-muted-foreground">
+                  <th className="text-left px-3 py-2 font-medium">월</th>
+                  <th className="text-right px-3 py-2 font-medium">업체 총배송비</th>
+                  <th className="text-right px-3 py-2 font-medium">적재비</th>
+                  <th className="text-right px-3 py-2 font-medium">합계</th>
+                </tr>
+              </thead>
+              <tbody>
+                {yearMonthly.map((m, i) => {
+                  const sum = m.company + m.loading;
+                  return (
+                    <tr key={i} className="border-t">
+                      <td className="px-3 py-1.5">{i + 1}월</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{fmt(m.company)}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{fmt(m.loading)}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{fmt(sum)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x text-sm border-t">
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-muted-foreground">업체 총배송비</span>
+              <span className="font-medium text-destructive">{fmt(yearCompanyDeliveryTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-muted-foreground">적재비</span>
+              <span className="font-medium text-destructive">{fmt(yearLoadingTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+              <span className="font-semibold">본사 총매출</span>
+              <span className="font-bold text-destructive">{fmt(yearGrossSales)}</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold flex items-center gap-2">
             적재비 입력
             <span className="text-xs text-muted-foreground">청구 {fmt(loadingBilled)} · 미청구 {fmt(loadingUnbilled)} · 합계 {fmt(loadingTotal)}</span>
