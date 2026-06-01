@@ -1864,20 +1864,51 @@ export default function Records() {
             </div>
 
             <div className="space-y-1">
-              <Label>수도권배송비</Label>
-              <AmountTextInput className="text-right tabular-nums" value={form.metro_fee} onChange={(v) => setForm({ ...form, metro_fee: v })} />
+              <Label>
+                배송비
+                {form.region_type === "metro" && <span className="ml-1 text-xs text-muted-foreground">(수도권)</span>}
+                {form.region_type === "regional" && <span className="ml-1 text-xs text-muted-foreground">(지방)</span>}
+              </Label>
+              <AmountTextInput
+                className="text-right tabular-nums"
+                value={form.region_type === "regional" ? form.regional_fee : form.metro_fee}
+                onChange={(v) => {
+                  if (form.region_type === "regional") {
+                    setForm({ ...form, regional_fee: v, metro_fee: "" });
+                  } else if (form.region_type === "metro") {
+                    setForm({ ...form, metro_fee: v, regional_fee: "" });
+                  } else {
+                    // 지역구분 미선택 — 임시로 수도권 칸에 저장. UI에서 경고 표시.
+                    setForm({ ...form, metro_fee: v, regional_fee: "" });
+                  }
+                }}
+                disabled={form.region_type === "unknown"}
+              />
+              {form.region_type === "unknown" && (
+                <div className="text-[11px] text-destructive">지역구분을 먼저 선택하세요 (수도권/지방).</div>
+              )}
             </div>
             <div className="space-y-1">
               <Label>비고금액</Label>
               <AmountTextInput className="text-right tabular-nums" value={form.note_amount} onChange={(v) => setForm({ ...form, note_amount: v })} />
             </div>
-            <div className="space-y-1">
-              <Label>지방배송비</Label>
-              <AmountTextInput className="text-right tabular-nums" value={form.regional_fee} onChange={(v) => setForm({ ...form, regional_fee: v })} />
-            </div>
-            <div className="space-y-1">
+            <div className={cn("space-y-1", formHasCod ? "sm:col-span-2 lg:col-span-2" : "")}>
               <Label>착불</Label>
-              <AmountTextInput className="text-right tabular-nums" value={form.cod_amount} onChange={(v) => setForm({ ...form, cod_amount: v })} />
+              {formHasCod ? (
+                <div className="space-y-2">
+                  <AmountTextInput
+                    className="text-right tabular-nums"
+                    value={form.cod_amount}
+                    onChange={(v) => setForm({ ...form, cod_amount: v })}
+                  />
+                  <CodPicker
+                    value={form.cod_amount}
+                    onChange={(v) => setForm({ ...form, cod_amount: v })}
+                  />
+                </div>
+              ) : (
+                <Input value="착불 미지원 업체" disabled className="bg-muted text-muted-foreground" />
+              )}
             </div>
 
             <div className="space-y-1">
