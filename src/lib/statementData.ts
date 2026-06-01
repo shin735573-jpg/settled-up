@@ -344,7 +344,17 @@ export function buildCompanyStatements(
       const primary = leaderNames[0] || "";
       const secondary = leaderNames[1] || "";
       const extras = leaderNames.slice(2);
-      const extraNote = extras.length > 0 ? `추가팀장: ${extras.join(", ")}` : "";
+      // 오동선/오은규/김용익 팀만 팀장3까지 자동 등록 (업체 청구서 팀장칸에 함께 표시)
+      const TRIO = new Set(["오동선", "오은규", "김용익", "동선", "은규", "용익"]);
+      const isTrioTeam =
+        leaderNames.length >= 3 && leaderNames.every((n) => TRIO.has(n));
+      let displaySecondary = secondary;
+      let remainingExtras = extras;
+      if (isTrioTeam && extras.length > 0) {
+        displaySecondary = [secondary, extras[0]].filter(Boolean).join("/");
+        remainingExtras = extras.slice(1);
+      }
+      const extraNote = remainingExtras.length > 0 ? `추가팀장: ${remainingExtras.join(", ")}` : "";
       const mergedNote = [first.note, extraNote].filter((x) => x && String(x).trim()).join(" / ");
       collapsed.push({
         ...first,
@@ -356,7 +366,7 @@ export function buildCompanyStatements(
         delivery_fee: noteSum,
         customer_name: first.customer_name || first.item || "",
         display_leader1: primary,
-        display_leader2: secondary,
+        display_leader2: displaySecondary,
         note: mergedNote || first.note,
       });
     }
