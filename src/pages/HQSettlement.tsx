@@ -470,9 +470,26 @@ export default function HQSettlement() {
     return arr;
   }, [yearRows, companies]);
 
-  // ── 월별 매출 (1~12월): 업체 총배송비 / 적재비 / 합계
+  // ── 연간 행별 팀장 분배 (수수료 계산용)
+  const yearAllocations = useMemo(() => {
+    return yearRows.map((r) => {
+      const shares = allocateRow({
+        leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
+        split_type: r.split_type, two_person: r.two_person,
+        metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
+        regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
+      }, { shindongseokId, ganghyungjuId });
+      const resolved = shares
+        .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
+        .filter((s) => isCountable(byId.get(s.target)));
+      return { row: r, shares: resolved, hasValid: resolved.length > 0 };
+    });
+  }, [yearRows, byId, shindongseokId, ganghyungjuId]);
+  const yearValidRows = useMemo(() => yearAllocations.filter((a) => a.hasValid), [yearAllocations]);
+
+  // ── 월별 매출 (1~12월): 업체 총배송비 / 수수료 / 적재비 / 합계
   const yearMonthly = useMemo(() => {
-    const arr = Array.from({ length: 12 }, () => ({ company: 0, loading: 0 }));
+    const arr = Array.from({ length: 12 }, () => ({ company: 0, commission: 0, loading: 0 }));
     for (const r of yearRows) {
       const m = Number((r.date || "").slice(5, 7));
       if (!m || m < 1 || m > 12) continue;
@@ -481,8 +498,29 @@ export default function HQSettlement() {
       if (isLoading) arr[m - 1].loading += amt;
       else arr[m - 1].company += amt;
     }
+    // 월별 수수료 계산
+    for (const { row, shares } of yearValidRows) {
+      if (((row.item as string) || "").trim() === "적재비") continue;
+      const m = Number((row.date || "").slice(5, 7));
+      if (!m || m < 1 || m > 12) continue;
+      const counted = new Set<string>();
+      for (const s of shares) {
+        const b = arr[m - 1];
+        if (!counted.has(s.target)) { counted.add(s.target); }
+        const lead = byId.get(s.target);
+        const rateM = Number(lead?.fee_rate_metro || 0);
+        const rateR = Number(lead?.fee_rate_regional || 0);
+        b.commission += feeForShare({ metro: s.metro, regional: s.regional }, { metro: rateM, regional: rateR });
+      }
+    }
     return arr;
-  }, [yearRows]);
+  }, [yearRows, yearValidRows, byId]);
+
+  // ── 연간 수수료 총합
+  const yearCommissionTotal = useMemo(
+    () => yearMonthly.reduce((s, m) => s + m.commission, 0),
+    [yearMonthly],
+  );
 
   // ── 매출 / 수익
   // 본사 수익 = 신동석 + 삼호 + 적재비(청구분만) + 수수료
