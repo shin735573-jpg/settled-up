@@ -419,13 +419,13 @@ const RECORDS_EXPECTED_SEQUENCE = [
   ["region", "배송지", 150],
   ["region_type", "지역구분", 100],
   ["item", "품목", 240],
+  ["two_person", "2인배송", 100],
   ["note", "비고", 200],
   ["metro_fee", "수도권배송비", 140],
   ["note_amount", "비고금액", 130],
   ["regional_fee", "지방배송비", 140],
   ["cod_amount", "착불", 120],
   ["total", "배송비총액", 140],
-  ["two_person", "2인배송", 100],
   ["split", "분할", 110],
   ["paid", "결제유무", 120],
   ["settle", "정산처리", 260],
@@ -481,6 +481,8 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r, { expanded }) => (
       <div className={`whitespace-pre-wrap break-words text-center ${expanded ? "" : "line-clamp-3"}`}>{r.item || "-"}</div>
     ) },
+  { key: "two_person", label: "2인배송", width: 100, cellCls: "text-center whitespace-nowrap font-medium",
+    render: (r) => r.two_person ? "2인배송" : "" },
   { key: "note", label: "비고", width: 200, headerCls: "text-center", cellCls: "align-middle text-center",
     render: (r) => <div className="whitespace-pre-wrap break-words text-center">{r.note || "-"}</div> },
   { key: "metro_fee", label: "수도권배송비", width: 140, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums",
@@ -493,8 +495,6 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r) => fmt(r.cod_amount) },
   { key: "total", label: "배송비총액", width: 140, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums font-semibold",
     render: (_r, { total }) => fmt(total) },
-  { key: "two_person", label: "2인배송", width: 100, cellCls: "text-center whitespace-nowrap",
-    render: (r) => r.two_person ? "예" : "아니오" },
   { key: "split", label: "분할", width: 110, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.split_type || "" },
   { key: "paid", label: "결제유무", width: 120, cellCls: "text-center whitespace-nowrap",
@@ -837,6 +837,8 @@ export default function Records() {
     note_amount: string;
     regional_fee: string;
     cod_amount: string;
+    two_person: boolean;
+    paid: boolean;
   };
   const emptyBulkRow = (companyId: string = ""): BulkRow => ({
     company_id: companyId,
@@ -849,6 +851,8 @@ export default function Records() {
     note_amount: "",
     regional_fee: "",
     cod_amount: "",
+    two_person: false,
+    paid: false,
   });
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkShared, setBulkShared] = useState({
@@ -1151,7 +1155,8 @@ export default function Records() {
     if (!user) return;
     if (!bulkShared.date) { toast.error("날짜를 선택하세요"); return; }
     if (!bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
-    if (bulkShared.two_person && !bulkShared.leader2_id) {
+    const anyTwoPerson = bulkRows.some((r) => r.two_person);
+    if (anyTwoPerson && !bulkShared.leader2_id) {
       toast.error("2인배송은 팀장2가 필요합니다.");
       return;
     }
@@ -1195,8 +1200,8 @@ export default function Records() {
       regional_fee: parseNum(r.regional_fee) || 0,
       cod_amount: parseNum(r.cod_amount) || 0,
       split_type: bulkShared.split_type || null,
-      paid: bulkShared.paid,
-      two_person: bulkShared.two_person,
+      paid: r.paid || bulkShared.paid,
+      two_person: r.two_person,
       is_missing: false,
       };
     });
@@ -1326,7 +1331,14 @@ export default function Records() {
             <Button
               size="lg"
               className="h-14 text-base font-semibold"
-              onClick={() => { setForm(emptyForm()); setFormOpen((v) => !v); }}
+              onClick={() => {
+                setForm(emptyForm());
+                setFormOpen((v) => {
+                  const next = !v;
+                  if (next) setBulkOpen(false);
+                  return next;
+                });
+              }}
             >
               <Plus className="h-5 w-5 mr-2" /> 새 배송 입력
             </Button>
@@ -1334,7 +1346,11 @@ export default function Records() {
               size="lg"
               variant="secondary"
               className="h-14 text-base font-semibold"
-              onClick={() => setBulkOpen((v) => !v)}
+              onClick={() => setBulkOpen((v) => {
+                const next = !v;
+                if (next) setFormOpen(false);
+                return next;
+              })}
             >
               <Plus className="h-5 w-5 mr-2" /> 한 팀장 여러건 입력
             </Button>
@@ -1402,19 +1418,6 @@ export default function Records() {
               );
             })}
             <div className="space-y-1">
-              <Label>2인배송</Label>
-              <Select
-                value={bulkShared.two_person ? "yes" : "no"}
-                onValueChange={(v) => setBulkShared({ ...bulkShared, two_person: v === "yes" })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="no">아니오</SelectItem>
-                  <SelectItem value="yes">예</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
               <Label>분할</Label>
               <Select
                 value={bulkShared.split_type || "__none__"}
@@ -1452,11 +1455,13 @@ export default function Records() {
                   <th className="p-2 min-w-[140px]">배송지</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
                   <th className="p-2 min-w-[180px]">품목</th>
+                  <th className="p-2 min-w-[100px]">2인배송</th>
                   <th className="p-2 min-w-[120px]">비고</th>
                   <th className="p-2 min-w-[100px]">수도권</th>
                   <th className="p-2 min-w-[100px]">비고금액</th>
                   <th className="p-2 min-w-[100px]">지방</th>
                   <th className="p-2 min-w-[100px]">착불</th>
+                  <th className="p-2 min-w-[90px]">선결제</th>
                   <th className="p-2 min-w-[100px]">총액</th>
                   <th className="p-2 w-12"></th>
                 </tr>
@@ -1519,6 +1524,18 @@ export default function Records() {
                         </Select>
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
+                      <td className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => upd({ two_person: !r.two_person })}
+                          className={cn(
+                            "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
+                            r.two_person ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                          )}
+                        >
+                          {r.two_person ? "2인배송" : "—"}
+                        </button>
+                      </td>
                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} /></td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.metro_fee} onChange={(v) => upd({ metro_fee: v })} /></td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
@@ -1545,6 +1562,18 @@ export default function Records() {
                             }
                           }}
                         />
+                      </td>
+                      <td className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => upd({ paid: !r.paid })}
+                          className={cn(
+                            "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
+                            r.paid ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                          )}
+                        >
+                          {r.paid ? "선결제" : "—"}
+                        </button>
                       </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
                       <td className="p-1 text-center">
