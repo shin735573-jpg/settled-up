@@ -1380,20 +1380,12 @@ export default function Records() {
               return (
                 <div key={i} className="space-y-1">
                   <Label>팀장{i}{i === 1 ? " *" : ""}</Label>
-                  <Select
-                    value={bulkShared[key] || NONE}
-                    onValueChange={(v) => setBulkShared({ ...bulkShared, [key]: v === NONE ? "" : v })}
-                  >
-                    <SelectTrigger><SelectValue placeholder="선택 안 함" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>선택 안 함</SelectItem>
-                      {selectableLeaders.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>
-                          {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <LeaderCombobox
+                    leaders={selectableLeaders}
+                    value={bulkShared[key] || ""}
+                    onChange={(v) => setBulkShared({ ...bulkShared, [key]: v })}
+                    placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
+                  />
                 </div>
               );
             })}
