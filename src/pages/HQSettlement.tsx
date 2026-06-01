@@ -669,8 +669,17 @@ export default function HQSettlement() {
                   </tr>
                 );
               })}
+              <tr className="border-t bg-muted/30">
+                <td colSpan={4} className="px-3 py-2 font-semibold text-muted-foreground">업체별 배송비</td>
+              </tr>
+              {yearCompanyDeliveryFees.map((c) => (
+                <tr key={c.cid} className="border-t">
+                  <td className="px-3 py-1.5 text-muted-foreground">{c.name}</td>
+                  <td colSpan={3} className="px-3 py-1.5 text-right tabular-nums font-medium">{fmt(c.amt)}</td>
+                </tr>
+              ))}
               <tr className="border-t bg-muted/40 font-semibold">
-                <td className="px-3 py-2">연간 합계</td>
+                <td className="px-3 py-2">업체 배송비 합계</td>
                 <td className="px-3 py-2 text-right tabular-nums">{fmt(yearCompanyDeliveryTotal)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{fmt(yearLoadingTotal)}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-destructive">{fmt(yearGrossSales)}</td>
