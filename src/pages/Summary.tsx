@@ -314,7 +314,7 @@ export default function Summary() {
         <Input
           type="month"
           value={month}
-          onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }}
+          onChange={(e) => { setMonth(e.target.value); }}
           className="w-40"
         />
         <div className="flex h-10 items-center gap-2 rounded-md border px-3">
@@ -323,7 +323,7 @@ export default function Summary() {
         </div>
       </div>
 
-      <Tabs value={period} onValueChange={(v) => { setPeriod(v as Period); if (autoPeriod) toggleAutoPeriod(false); }}>
+      <Tabs value={period} onValueChange={(v) => { setPeriod(v as Period); }}>
         <TabsList>
           <TabsTrigger value="h1">1~15일</TabsTrigger>
           <TabsTrigger value="h2">16~말일</TabsTrigger>
