@@ -1882,7 +1882,7 @@ export default function Records() {
                 groups.get(key)!.push(r);
               }
               const sorted = Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-              if (sorted.length === 0 && !(searchCompany || searchCustomer || searchLeader)) {
+              if (sorted.length === 0 && !(searchCompany || searchCustomer || searchLeader || searchDate)) {
                 return <div className="p-6 text-center text-muted-foreground text-sm">표시할 배송 내역이 없습니다.</div>;
               }
               return (
