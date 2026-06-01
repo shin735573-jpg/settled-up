@@ -1882,6 +1882,22 @@ export default function Records() {
                 >
                   모두 펼치기
                 </Button>
+                {(() => {
+                  const set = new Set<string>();
+                  for (const r of filteredRecords as any[]) {
+                    const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
+                    const names = [r.leader1_name, r.leader2_name, r.leader3_name];
+                    for (let i = 0; i < 3; i++) {
+                      const key = ids[i] || (names[i] ? `name:${names[i]}` : "");
+                      if (key) set.add(key);
+                    }
+                  }
+                  return (
+                    <Badge variant="secondary" className="ml-1 whitespace-nowrap">
+                      당일근무팀장 {set.size}명
+                    </Badge>
+                  );
+                })()}
               </div>
               <Button
                 size="sm"
