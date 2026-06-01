@@ -811,7 +811,7 @@ export default function LeaderSettlement() {
                         <span className="font-bold">{fmt(m.total)}</span>
                         {issuesInvoice && (
                           <span className="text-[11px] text-muted-foreground">
-                            +VAT {fmt(vat)} = <b className="text-primary">{fmt(totalWithVat)}</b>
+                            실지급+VAT {fmt(vat)} = <b className="text-primary">{fmt(totalWithVat)}</b>
                           </span>
                         )}
                       </div>
