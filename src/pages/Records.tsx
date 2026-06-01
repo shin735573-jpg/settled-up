@@ -1515,10 +1515,10 @@ export default function Records() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, emptyBulkRow()])}>
+            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, emptyBulkRow(bulkShared.default_company_id)])}>
               <Plus className="h-4 w-4 mr-1" /> 행 추가
             </Button>
-            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, ...Array.from({ length: 5 }, emptyBulkRow)])}>
+            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, ...Array.from({ length: 5 }, () => emptyBulkRow(bulkShared.default_company_id))])}>
               <Plus className="h-4 w-4 mr-1" /> 5행 추가
             </Button>
             <div className="flex-1" />
