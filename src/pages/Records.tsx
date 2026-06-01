@@ -805,6 +805,16 @@ function RecordsTable({
 // 착불 빠른선택 금액 리스트 (1만 ~ 30만, 1만원 단위)
 const COD_AMOUNTS = Array.from({ length: 30 }, (_, i) => (i + 1) * 10000);
 
+// 비고 내용에서 "착불 N만원" 토큰을 제거하거나 새 금액을 덧붙인다.
+const COD_NOTE_REGEX = /\s*착불\s*\d+\s*만원/g;
+export function applyCodToNote(note: string | null | undefined, codAmount: number): string {
+  const cleaned = String(note ?? "").replace(COD_NOTE_REGEX, "").replace(/\s+/g, " ").trim();
+  if (!codAmount || codAmount <= 0) return cleaned;
+  const man = Math.round(codAmount / 10000);
+  const tag = `착불 ${man}만원`;
+  return cleaned ? `${cleaned} ${tag}` : tag;
+}
+
 function CodPicker({
   value,
   onChange,
