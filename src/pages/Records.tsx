@@ -795,7 +795,7 @@ export default function Records() {
       if (qcu && !norm(r.customer_name).includes(qcu)) return false;
       if (ql) {
         const names: string[] = [];
-        for (const id of [r.leader1_id, r.leader2_id]) {
+        for (const id of [r.leader1_id, r.leader2_id, r.leader3_id]) {
           if (id) {
             const l = leadersById.get(id);
             if (l) {
@@ -806,6 +806,7 @@ export default function Records() {
         }
         if (r.leader1_name) names.push(r.leader1_name);
         if (r.leader2_name) names.push(r.leader2_name);
+        if (r.leader3_name) names.push(r.leader3_name);
         const hay = names.map(norm);
         const match = hay.some((h) => h.includes(ql) || (canonLeader && h.includes(canonLeader)));
         if (!match) return false;
@@ -823,7 +824,7 @@ export default function Records() {
   };
 
   const displaySettlementStatus = (r: Delivery): string => {
-    const rowLeaderIds = [r.leader1_id, r.leader2_id].filter(Boolean) as string[];
+    const rowLeaderIds = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean) as string[];
     const redirected = rowLeaderIds
       .map((id) => leadersById.get(id))
       .find((l) => l?.settle_to_id && leadersById.has(l.settle_to_id));
@@ -832,6 +833,7 @@ export default function Records() {
     }
     if (r.split_type === "형주동석") return "강형주/신동석 반반";
     if (r.split_type === "3분할") return "다른팀장 50%, 강형주 25%, 신동석 25%";
+    if (rowLeaderIds.length >= 3) return "3인배송 1/3씩";
     return "일반";
   };
 
