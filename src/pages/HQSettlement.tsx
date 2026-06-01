@@ -437,6 +437,24 @@ export default function HQSettlement() {
     }, 0,
   );
 
+  // ── 연간(12개월) 총매출 — 기간/월 선택과 무관하게 항상 표시
+  const yearLabel = month.slice(0, 4);
+  const yearCompanyDeliveryTotal = useMemo(
+    () => yearRows.reduce((s, r) => {
+      if (((r.item as string) || "").trim() === "적재비") return s;
+      return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+    }, 0),
+    [yearRows],
+  );
+  const yearLoadingTotal = useMemo(
+    () => yearRows.reduce((s, r) => {
+      if (((r.item as string) || "").trim() !== "적재비") return s;
+      return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+    }, 0),
+    [yearRows],
+  );
+  const yearGrossSales = yearCompanyDeliveryTotal + yearLoadingTotal;
+
   // ── 매출 / 수익
   // 본사 수익 = 신동석 + 삼호 + 적재비(청구분만) + 수수료
   const grossSales = hqDirectFee + loadingBilled + leaderCommissionTotal;
