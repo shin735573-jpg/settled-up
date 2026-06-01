@@ -789,6 +789,9 @@ export default function LeaderSettlement() {
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {masterRows.map((m) => {
+                  const issuesInvoice = !!m.leader.issues_invoice;
+                  const vat = issuesInvoice ? Math.round(m.total * 0.1) : 0;
+                  const totalWithVat = m.total + vat;
                   const cells: Record<LeaderColKey, React.ReactNode> = {
                     name: (
                       <button className="text-primary hover:underline font-medium">
@@ -801,7 +804,16 @@ export default function LeaderSettlement() {
                     regional: fmt(m.regional),
                     cod: fmt(m.cod),
                     deduction: fmt(m.deduction),
-                    total: <span className="font-bold">{fmt(m.total)}</span>,
+                    total: (
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-bold">{fmt(m.total)}</span>
+                        {issuesInvoice && (
+                          <span className="text-[11px] text-muted-foreground">
+                            +VAT {fmt(vat)} = <b className="text-primary">{fmt(totalWithVat)}</b>
+                          </span>
+                        )}
+                      </div>
+                    ),
                     detail: (
                       <span className="text-primary text-xs hover:underline">상세보기</span>
                     ),
