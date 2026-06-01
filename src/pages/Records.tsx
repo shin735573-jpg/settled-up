@@ -999,6 +999,20 @@ export default function Records() {
   };
 
   const activeCompanies = useMemo(() => companies.filter((c) => c.active), [companies]);
+  const companiesById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
+  const formCompany = form.company_id ? companiesById.get(form.company_id) : null;
+  const formHasCod = formCompany?.has_cod !== false; // 미등록은 기본 표시
+
+  // 지역구분이 바뀌면 배송비 값을 해당 칸으로 자동 이동 (단일 입력 보장)
+  useEffect(() => {
+    if (form.region_type === "metro" && form.regional_fee && !form.metro_fee) {
+      setForm((f) => ({ ...f, metro_fee: f.regional_fee, regional_fee: "" }));
+    } else if (form.region_type === "regional" && form.metro_fee && !form.regional_fee) {
+      setForm((f) => ({ ...f, regional_fee: f.metro_fee, metro_fee: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.region_type]);
+
   // 거부기사도 선택 가능 (저장 시 별칭 적용 — 경고만 표시)
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active), [leaders]);
 
