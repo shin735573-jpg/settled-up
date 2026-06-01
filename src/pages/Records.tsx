@@ -1280,50 +1280,16 @@ export default function Records() {
         <Button onClick={() => setPasteOpen(true)} className="shrink-0"><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
       </div>
 
-      <Card className="p-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
-          <div className="space-y-1">
-            <Label className="text-xs">업체 검색</Label>
-            <Input
-              value={searchCompany}
-              onChange={(e) => setSearchCompany(e.target.value)}
-              placeholder="업체명 부분검색 (예: 모던)"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">고객명 검색</Label>
-            <Input
-              value={searchCustomer}
-              onChange={(e) => setSearchCustomer(e.target.value)}
-              placeholder="고객명 부분검색 (예: 김)"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">팀장 검색 (별칭 가능)</Label>
-            <Input
-              value={searchLeader}
-              onChange={(e) => setSearchLeader(e.target.value)}
-              placeholder="예: 형주 / 동석 / 동선"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => { setSearchCompany(""); setSearchCustomer(""); setSearchLeader(""); }}
-            >
-              초기화
-            </Button>
-            <div className="text-xs text-muted-foreground">
-              {(searchCompany || searchCustomer || searchLeader)
-                ? `검색 결과 ${filteredRecords.length}건`
-                : `전체 ${records.length}건`}
-            </div>
-          </div>
-        </div>
-      </Card>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "input" | "detail")} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 h-12">
+          <TabsTrigger value="input" className="text-base font-semibold">기록입력</TabsTrigger>
+          <TabsTrigger value="detail" className="text-base font-semibold">
+            배송내용 상세 ({records.length}건)
+          </TabsTrigger>
+        </TabsList>
 
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <TabsContent value="input" className="space-y-4 mt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Button
           size="lg"
           className="h-14 text-base font-semibold"
@@ -1339,7 +1305,7 @@ export default function Records() {
         >
           <Plus className="h-5 w-5 mr-2" /> 한 팀장 여러건 입력
         </Button>
-      </div>
+          </div>
 
       {bulkOpen && (
         <Card className="p-4 md:p-6 space-y-4 border-primary/40">
