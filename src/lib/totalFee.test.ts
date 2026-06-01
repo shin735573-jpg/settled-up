@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { totalDeliveryFee, rowDeliveryFee } from "./totalFee";
+import { totalDeliveryFee, totalLeaderSettlementDeliveryFee, rowDeliveryFee } from "./totalFee";
 
 // 샘플 배송 데이터 — 다양한 형태(숫자/문자열/누락/0) 포함
 const sample = [
@@ -50,6 +50,15 @@ describe("총배송비 교차검증 (업체정산 ↔ 팀장정산)", () => {
     expect(rowDeliveryFee({})).toBe(0);
     expect(rowDeliveryFee({ metro_fee: null, note_amount: undefined, regional_fee: "abc" as any })).toBe(0);
     expect(rowDeliveryFee({ metro_fee: "1500", note_amount: 500, regional_fee: null })).toBe(2000);
+  });
+
+  it("팀장정산 총배송비는 적재비 품목을 제외한다", () => {
+    const rows = [
+      { item: "일반", metro_fee: 10000, note_amount: 0, regional_fee: 0 },
+      { item: " 적재비 ", metro_fee: 0, note_amount: 50000, regional_fee: 0 },
+    ];
+    expect(totalDeliveryFee(rows)).toBe(60000);
+    expect(totalLeaderSettlementDeliveryFee(rows)).toBe(10000);
   });
 
   it("무작위 1000행 샘플에서도 두 화면 계산이 항상 일치", () => {

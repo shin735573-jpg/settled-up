@@ -1,6 +1,8 @@
-// 총배송비 공통 계산기 — 업체정산/팀장정산이 항상 동일한 값을 표시하도록
-// 두 화면에서 모두 이 함수를 사용해야 한다.
+import { isLeaderSettlementExcludedItem } from "./itemRules";
+
+// 총배송비 공통 계산기 — 화면별 합산 기준을 한 곳에서 관리한다.
 export type DeliveryLike = {
+  item?: string | null;
   metro_fee?: number | string | null;
   note_amount?: number | string | null;
   regional_fee?: number | string | null;
@@ -15,3 +17,7 @@ export const rowDeliveryFee = (r: DeliveryLike): number =>
 /** 기간 내 전체 배송 행의 총배송비 합 */
 export const totalDeliveryFee = (rows: DeliveryLike[]): number =>
   rows.reduce((s, r) => s + rowDeliveryFee(r), 0);
+
+/** 팀장정산 배송비 합 — 적재비 같은 별도 매출 품목은 제외 */
+export const totalLeaderSettlementDeliveryFee = (rows: DeliveryLike[]): number =>
+  rows.reduce((s, r) => s + (isLeaderSettlementExcludedItem(r.item) ? 0 : rowDeliveryFee(r)), 0);
