@@ -1399,38 +1399,33 @@ export default function Records() {
           </Button>
         )}
         <Button onClick={() => setPasteOpen(true)} className="shrink-0"><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
+        <Button
+          className="shrink-0"
+          onClick={() => {
+            setForm(emptyForm());
+            setFormOpen((v) => {
+              const next = !v;
+              if (next) setBulkOpen(false);
+              return next;
+            });
+          }}
+        >
+          <Plus className="h-4 w-4 mr-1" /> 새 배송 입력
+        </Button>
+        <Button
+          variant="secondary"
+          className="shrink-0"
+          onClick={() => setBulkOpen((v) => {
+            const next = !v;
+            if (next) setFormOpen(false);
+            return next;
+          })}
+        >
+          <Plus className="h-4 w-4 mr-1" /> 여러건 입력
+        </Button>
       </div>
 
       <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              size="lg"
-              className="h-14 text-base font-semibold"
-              onClick={() => {
-                setForm(emptyForm());
-                setFormOpen((v) => {
-                  const next = !v;
-                  if (next) setBulkOpen(false);
-                  return next;
-                });
-              }}
-            >
-              <Plus className="h-5 w-5 mr-2" /> 새 배송 입력
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="h-14 text-base font-semibold"
-              onClick={() => setBulkOpen((v) => {
-                const next = !v;
-                if (next) setFormOpen(false);
-                return next;
-              })}
-            >
-              <Plus className="h-5 w-5 mr-2" /> 한 팀장 여러건 입력
-            </Button>
-          </div>
-
       {bulkOpen && (
         <Card className="p-4 md:p-6 space-y-4 border-primary/40">
           <div className="flex items-center justify-between">
