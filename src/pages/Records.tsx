@@ -53,11 +53,11 @@ type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: bool
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
-const COLS = ["날짜","업체","팀장1","팀장2","고객명","배송지","지역구분","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","2인배송","분할","결제유무"];
+const COLS = ["날짜","업체","팀장1","팀장2","팀장3","고객명","배송지","지역구분","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","2인배송","분할","결제유무"];
 
 // 표준 필드 + 별칭 (헤더 자동 인식용)
 type FieldKey =
-  | "date" | "company" | "leader1" | "leader2" | "customer" | "region"
+  | "date" | "company" | "leader1" | "leader2" | "leader3" | "customer" | "region"
   | "item" | "note" | "metro" | "noteAmt" | "regional" | "cod" | "split" | "paid"
   | "twoPerson";
 
@@ -66,6 +66,7 @@ const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: 
   { key: "company",  label: "업체",       required: true,  aliases: ["업체","업체명","거래처","거래처명","상호","회사","회사명","company"] },
   { key: "leader1",  label: "팀장1",                       aliases: ["팀장1","기사1","배송팀장1","팀장","leader1"] },
   { key: "leader2",  label: "팀장2",                       aliases: ["팀장2","기사2","배송팀장2","leader2"] },
+  { key: "leader3",  label: "팀장3",                       aliases: ["팀장3","기사3","배송팀장3","leader3"] },
   { key: "customer", label: "고객명",                       aliases: ["고객명","고객","성명","이름","성함","받는분","수령인","customer"] },
   { key: "region",   label: "배송지",                       aliases: ["배송지","지역","배송지역","지역명","region"] },
   { key: "item",     label: "품목",                         aliases: ["품목","상품","제품","품명","내용","item"] },
@@ -239,6 +240,7 @@ type FormState = {
   company_id: string;
   leader1_id: string;
   leader2_id: string;
+  leader3_id: string;
   customer_name: string;
   region: string;
   region_type: RegionType;
@@ -263,6 +265,7 @@ const emptyForm = (): FormState => ({
   company_id: "",
   leader1_id: "",
   leader2_id: "",
+  leader3_id: "",
   customer_name: "",
   region: "",
   region_type: "unknown",
@@ -309,6 +312,7 @@ const RECORDS_EXPECTED_SEQUENCE = [
   ["company", "업체", 120],
   ["leader1", "팀장1", 110],
   ["leader2", "팀장2", 110],
+  ["leader3", "팀장3", 110],
   ["customer", "고객명", 120],
   ["region", "배송지", 150],
   ["region_type", "지역구분", 100],
@@ -363,6 +367,8 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader1_id, r.leader1_name) },
   { key: "leader2", label: "팀장2", width: 110, cellCls: "whitespace-nowrap",
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader2_id, r.leader2_name) },
+  { key: "leader3", label: "팀장3", width: 110, cellCls: "whitespace-nowrap",
+    render: (r, { displayLeaderById }) => displayLeaderById(r.leader3_id, r.leader3_name) },
   { key: "customer", label: "고객명", width: 120, cellCls: "whitespace-nowrap",
     render: (r) => r.customer_name || "-" },
   { key: "region", label: "배송지", width: 150, cellCls: "whitespace-nowrap",
