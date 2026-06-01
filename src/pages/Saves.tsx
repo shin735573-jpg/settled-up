@@ -19,6 +19,7 @@ import {
   buildLeaderStatements,
   detectSpecialLeaderIds,
   PERIOD_LABEL,
+  setSpecialOneTimeItems,
   type PeriodKey,
   type StmtCompany,
   type StmtDelivery,
@@ -134,6 +135,23 @@ export default function Saves() {
   }
 
   useEffect(() => { reload(); /* eslint-disable-next-line */ }, [uid, month, period]);
+
+  // 특수일 품목 (행사철수 등) 로드 → statementData 모듈에 주입
+  useEffect(() => {
+    if (!uid) return;
+    (async () => {
+      const { data } = await supabase
+        .from("special_items" as any)
+        .select("label,active")
+        .eq("user_id", uid);
+      const labels = ((data as any[]) || [])
+        .filter((r) => r.active)
+        .map((r) => String(r.label || "").trim())
+        .filter((l) => l.length > 0);
+      // 비어있으면 기본값(행사철수) 유지
+      if (labels.length > 0) setSpecialOneTimeItems(labels);
+    })();
+  }, [uid]);
 
   const special = useMemo(() => detectSpecialLeaderIds(leaders), [leaders]);
   const oeunkyuSpecial = settings?.oeunkyuSpecial ?? true;

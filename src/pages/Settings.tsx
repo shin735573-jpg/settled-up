@@ -86,6 +86,7 @@ export default function Settings() {
             <TabsTrigger value="companies">업체관리</TabsTrigger>
             <TabsTrigger value="leaders">팀장관리</TabsTrigger>
             <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
+            <TabsTrigger value="special-items">특수일 품목</TabsTrigger>
             <TabsTrigger value="region">지역분류</TabsTrigger>
             <TabsTrigger value="share">앱 공유</TabsTrigger>
           </TabsList>
@@ -94,6 +95,7 @@ export default function Settings() {
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
+        <TabsContent value="special-items"><SpecialItemsTab /></TabsContent>
         <TabsContent value="region"><RegionKeywordsTab /></TabsContent>
         <TabsContent value="share"><ShareAppTab /></TabsContent>
       </Tabs>
@@ -1822,6 +1824,119 @@ function CommonDeductionsTab() {
 // 지역(수도권/지방) 자동 분류 키워드 관리
 // ============================================================
 function RegionKeywordsTab() {
+  return _RegionKeywordsTab_inner();
+}
+
+// ── 특수일 품목 관리 (행사철수 등) ───────────────────────────
+type SpecialItem = { id: string; label: string; active: boolean; sort_order: number };
+
+function SpecialItemsTab() {
+  const { user } = useAuth();
+  const [rows, setRows] = useState<SpecialItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    const { data, error } = await supabase
+      .from("special_items" as any)
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) { toast.error("불러오기 실패: " + error.message); return; }
+    let list = ((data as unknown) as SpecialItem[]) || [];
+    if (list.length === 0 && user) {
+      const { data: ins } = await supabase
+        .from("special_items" as any)
+        .insert({ user_id: user.id, label: "행사철수", active: true, sort_order: 0 } as any)
+        .select()
+        .single();
+      if (ins) list = [(ins as unknown) as SpecialItem];
+    }
+    setRows(list);
+  };
+  useEffect(() => { if (user) load(); /* eslint-disable-next-line */ }, [user]);
+
+  const addRow = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("special_items" as any)
+      .insert({ user_id: user.id, label: "", active: true, sort_order: rows.length } as any)
+      .select()
+      .single();
+    if (error) { toast.error("추가 실패: " + error.message); return; }
+    setRows([...rows, (data as unknown) as SpecialItem]);
+  };
+
+  const update = (id: string, patch: Partial<SpecialItem>) => {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("special_items" as any).delete().eq("id", id);
+    if (error) { toast.error("삭제 실패: " + error.message); return; }
+    setRows(rows.filter((r) => r.id !== id));
+  };
+
+  const saveAll = async () => {
+    setLoading(true);
+    for (const r of rows) {
+      await supabase
+        .from("special_items" as any)
+        .update({ label: (r.label || "").trim(), active: r.active, sort_order: r.sort_order } as any)
+        .eq("id", r.id);
+    }
+    setLoading(false);
+    toast.success("저장 완료");
+    load();
+  };
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">특수일 품목 관리</h3>
+          <p className="text-sm text-muted-foreground">
+            여기 등록된 품목은 같은 날짜에 여러 팀장이 입력해도 <b>업체에 1건만 청구</b>되고,
+            금액은 모든 팀장의 비고금액 합계로 자동 계산됩니다. 팀장 정산에는 각자 그대로 반영됩니다. (예: 행사철수)
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={addRow}><Plus className="h-4 w-4 mr-1" />항목 추가</Button>
+          <Button size="sm" onClick={saveAll} disabled={loading}>저장</Button>
+        </div>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>품목명 (입력 시 정확히 일치해야 함)</TableHead>
+            <TableHead className="w-24 text-center">사용</TableHead>
+            <TableHead className="w-16"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.id}>
+              <TableCell>
+                <Input value={r.label} onChange={(e) => update(r.id, { label: e.target.value })} placeholder="예: 행사철수" />
+              </TableCell>
+              <TableCell className="text-center">
+                <Checkbox checked={r.active} onCheckedChange={(v) => update(r.id, { active: !!v })} />
+              </TableCell>
+              <TableCell>
+                <Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="h-4 w-4" /></Button>
+              </TableCell>
+            </TableRow>
+          ))}
+          {rows.length === 0 && (
+            <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8">특수일 품목이 없습니다</TableCell></TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
+
+function _RegionKeywordsTab_inner() {
   const { user } = useAuth();
   const uid = user?.id ?? "anon";
   const [keywords, setKeywords] = useState<string[]>(() => loadMetroKeywords(uid));
