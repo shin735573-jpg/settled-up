@@ -30,6 +30,8 @@ import {
   getAutoBackupEnabled,
   setAutoBackupEnabled,
   getLastBackupAt,
+  getAutoOneDriveEnabled,
+  setAutoOneDriveEnabled,
 } from "@/lib/excelBackup";
 import {
   parseBackupFile,
@@ -185,16 +187,22 @@ function CompanyTab() {
 
 function BackupCard({ uid }: { uid: string }) {
   const [auto, setAuto] = useState<boolean>(() => getAutoBackupEnabled(uid));
+  const [autoOD, setAutoOD] = useState<boolean>(() => getAutoOneDriveEnabled(uid));
   const [lastAt, setLastAt] = useState<string | null>(() => getLastBackupAt(uid));
   const [busy, setBusy] = useState<"" | "local" | "onedrive">("");
   useEffect(() => {
     setAuto(getAutoBackupEnabled(uid));
+    setAutoOD(getAutoOneDriveEnabled(uid));
     setLastAt(getLastBackupAt(uid));
   }, [uid]);
 
   const toggleAuto = (v: boolean) => {
     setAuto(v);
     setAutoBackupEnabled(uid, v);
+  };
+  const toggleAutoOD = (v: boolean) => {
+    setAutoOD(v);
+    setAutoOneDriveEnabled(uid, v);
   };
 
   const run = async (mode: "local" | "onedrive") => {
@@ -245,11 +253,22 @@ function BackupCard({ uid }: { uid: string }) {
           onCheckedChange={(v) => toggleAuto(!!v)}
         />
         <Label htmlFor="auto-backup" className="text-sm font-normal cursor-pointer">
-          매일 첫 접속 시 자동 백업 (24시간 1회)
+          자동 백업 (6시간 1회 · 로컬 .xlsx 다운로드)
+        </Label>
+      </div>
+      <div className="flex items-center gap-3 pl-6">
+        <Checkbox
+          id="auto-backup-od"
+          checked={autoOD}
+          disabled={!auto}
+          onCheckedChange={(v) => toggleAutoOD(!!v)}
+        />
+        <Label htmlFor="auto-backup-od" className={`text-sm font-normal cursor-pointer ${!auto ? "opacity-50" : ""}`}>
+          OneDrive에도 동시 업로드 (이중 백업)
         </Label>
       </div>
       <p className="text-[11px] text-muted-foreground">
-        마지막 백업: {lastAt ? new Date(lastAt).toLocaleString() : "없음"}
+        마지막 백업: {lastAt ? new Date(lastAt).toLocaleString() : "없음"} · 자동 점검 30분 간격
       </p>
       <RestoreSection uid={uid} />
     </Card>

@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save, Search } from "lucide-react";
 import { useEffect } from "react";
-import { maybeRunDailyBackup } from "@/lib/excelBackup";
+import { startAutoBackupScheduler } from "@/lib/excelBackup";
 
 const nav = [
   { to: "/records", label: "기록입력", icon: FileSpreadsheet },
@@ -21,11 +21,10 @@ export default function AppLayout() {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const handleLogout = async () => { await signOut(); navigate("/auth"); };
-  // 24h 1회 자동 백업 (사용자가 켰을 때만). 실패는 조용히 무시.
+  // 자동 백업 스케줄러 (6시간 1회 이중 백업: 로컬 .xlsx + OneDrive[옵션])
   useEffect(() => {
     if (!user?.id) return;
-    const t = setTimeout(() => { void maybeRunDailyBackup(user.id); }, 1500);
-    return () => clearTimeout(t);
+    return startAutoBackupScheduler(user.id);
   }, [user?.id]);
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-muted/30">
