@@ -54,7 +54,9 @@ export default function AppLayout() {
               end={to === "/"}
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-3 text-sm whitespace-nowrap hover:bg-accent min-h-[44px] ${
-                  isActive ? "bg-accent font-semibold border-b-2 md:border-b-0 md:border-l-2 border-primary" : ""
+                  isActive
+                    ? "bg-primary text-primary-foreground font-bold border-l-4 border-primary shadow-sm"
+                    : "text-foreground/80"
                 }`
               }
             >
