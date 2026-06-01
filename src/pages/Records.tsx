@@ -129,6 +129,7 @@ function tryParseKeyValueText(raw: string): string[][] | null {
 
 function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
   const used = new Set<FieldKey>();
+  void parseOrderMemoToKV; // ensure helper kept
   return headers.map((h) => {
     const norm = normalizeHeader(h);
     if (TOTAL_ALIASES.includes(norm)) return null;
