@@ -1345,27 +1345,31 @@ export default function Records() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
               <Label>날짜</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full justify-start text-left font-normal", !bulkShared.date && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {bulkShared.date ? format(new Date(bulkShared.date + "T00:00:00"), "yyyy-MM-dd") : "날짜 선택"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={bulkShared.date ? new Date(bulkShared.date + "T00:00:00") : undefined}
-                    onSelect={(d) => d && setBulkShared({ ...bulkShared, date: format(d, "yyyy-MM-dd") })}
-                    locale={ko}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="flex gap-1">
+                <Input
+                  type="date"
+                  value={bulkShared.date}
+                  onChange={(e) => setBulkShared({ ...bulkShared, date: e.target.value })}
+                  className="flex-1"
+                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" type="button" title="달력">
+                      <CalendarIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={bulkShared.date ? new Date(bulkShared.date + "T00:00:00") : undefined}
+                      onSelect={(d) => d && setBulkShared({ ...bulkShared, date: format(d, "yyyy-MM-dd") })}
+                      locale={ko}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <div className="space-y-1">
               <Label>기본 업체 (신규 행에 자동 적용)</Label>
