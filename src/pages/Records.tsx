@@ -1155,7 +1155,8 @@ export default function Records() {
     if (!user) return;
     if (!bulkShared.date) { toast.error("날짜를 선택하세요"); return; }
     if (!bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
-    if (bulkShared.two_person && !bulkShared.leader2_id) {
+    const anyTwoPerson = bulkRows.some((r) => r.two_person);
+    if (anyTwoPerson && !bulkShared.leader2_id) {
       toast.error("2인배송은 팀장2가 필요합니다.");
       return;
     }
@@ -1199,8 +1200,8 @@ export default function Records() {
       regional_fee: parseNum(r.regional_fee) || 0,
       cod_amount: parseNum(r.cod_amount) || 0,
       split_type: bulkShared.split_type || null,
-      paid: bulkShared.paid,
-      two_person: bulkShared.two_person,
+      paid: r.paid || bulkShared.paid,
+      two_person: r.two_person,
       is_missing: false,
       };
     });
