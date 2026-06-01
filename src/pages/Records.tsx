@@ -2025,19 +2025,11 @@ export default function Records() {
       )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "input" | "detail")} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 h-12">
-          <TabsTrigger value="input" className="text-base font-semibold">기록입력</TabsTrigger>
-          <TabsTrigger value="detail" className="text-base font-semibold">
-            배송내용 상세 ({records.length}건)
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="input" className="mt-0">
-          <p className="text-sm text-muted-foreground">위 입력 영역을 사용하세요.</p>
-        </TabsContent>
-
-        <TabsContent value="detail" className="space-y-4 mt-0">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 pt-2 border-t">
+          <h2 className="text-lg font-bold">배송내용 상세</h2>
+          <Badge variant="secondary">{records.length}건</Badge>
+        </div>
           <Card className="p-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 items-end">
               <div className="space-y-1">
@@ -2232,8 +2224,7 @@ export default function Records() {
               );
             })()}
           </Card>
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <PasteDialog
         open={pasteOpen}
