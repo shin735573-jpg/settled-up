@@ -715,6 +715,7 @@ export default function HQSettlement() {
                 <tr className="text-muted-foreground">
                   <th className="text-left px-3 py-2 font-medium">월</th>
                   <th className="text-right px-3 py-2 font-medium">업체 총배송비</th>
+                  <th className="text-right px-3 py-2 font-medium text-destructive">수쇼총합</th>
                   <th className="text-right px-3 py-2 font-medium">적재비</th>
                   <th className="text-right px-3 py-2 font-medium">합계</th>
                 </tr>
@@ -726,6 +727,7 @@ export default function HQSettlement() {
                     <tr key={i} className="border-t">
                       <td className="px-3 py-1.5">{i + 1}월</td>
                       <td className="px-3 py-1.5 text-right tabular-nums">{fmt(m.company)}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums text-destructive">{fmt(m.commission)}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums">{fmt(m.loading)}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-medium">{fmt(sum)}</td>
                     </tr>
@@ -736,6 +738,7 @@ export default function HQSettlement() {
                 <tr>
                   <td className="px-3 py-3 font-semibold">본사 총매출</td>
                   <td className="px-3 py-3 text-right tabular-nums font-medium text-destructive">{fmt(yearCompanyDeliveryTotal)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums font-medium text-destructive">{fmt(yearCommissionTotal)}</td>
                   <td className="px-3 py-3 text-right tabular-nums font-medium text-destructive">{fmt(yearLoadingTotal)}</td>
                   <td className="px-3 py-3 text-right tabular-nums font-bold text-destructive">{fmt(yearGrossSales)}</td>
                 </tr>
