@@ -455,6 +455,21 @@ export default function HQSettlement() {
   );
   const yearGrossSales = yearCompanyDeliveryTotal + yearLoadingTotal;
 
+  // ── 연간 업체별 배송비
+  const yearCompanyDeliveryFees = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of yearRows) {
+      if (((r.item as string) || "").trim() === "적재비") continue;
+      const cid = r.company_id || "";
+      const amt = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+      map.set(cid, (map.get(cid) || 0) + amt);
+    }
+    const arr = Array.from(map.entries())
+      .map(([cid, amt]) => ({ cid, name: companies.find((c) => c.id === cid)?.name || "(미지정)", amt }))
+      .sort((a, b) => b.amt - a.amt);
+    return arr;
+  }, [yearRows, companies]);
+
   // ── 월별 매출 (1~12월): 업체 총배송비 / 적재비 / 합계
   const yearMonthly = useMemo(() => {
     const arr = Array.from({ length: 12 }, () => ({ company: 0, loading: 0 }));
