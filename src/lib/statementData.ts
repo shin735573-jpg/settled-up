@@ -5,6 +5,7 @@
 // 다른 화면(업체정산/팀장정산/한눈요약)의 계산 로직은 절대 수정하지 않는다.
 
 import { allocateRow, feeForShare, type LeaderShare } from "./splitAllocation";
+import { isLeaderSettlementExcludedItem } from "./itemRules";
 import {
   inPeriod,
   isCountableLeader,
@@ -434,6 +435,7 @@ export function buildLeaderStatements(
   type Alloc = { d: StmtDelivery; shares: { share: LeaderShare; target: string }[] };
   const allocs: Alloc[] = deliveries
     .filter((d) => inPeriod(d.date, period as Period))
+    .filter((d) => !isLeaderSettlementExcludedItem(d.item))
     .map((d) => {
       const shares = allocateRow(
         {
