@@ -1136,14 +1136,13 @@ export default function Records() {
   const bulkSaveAll = async () => {
     if (!user) return;
     if (!bulkShared.date) { toast.error("날짜를 선택하세요"); return; }
-    const company = companies.find((c) => c.id === bulkShared.company_id);
-    if (!company) { toast.error("업체를 선택하세요"); return; }
     if (!bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
     if (bulkShared.two_person && !bulkShared.leader2_id) {
       toast.error("2인배송은 팀장2가 필요합니다.");
       return;
     }
     const rows = bulkRows.filter((r) =>
+      r.company_id ||
       r.customer_name.trim() ||
       r.region.trim() ||
       r.item.trim() ||
@@ -1153,13 +1152,20 @@ export default function Records() {
       parseNum(r.cod_amount),
     );
     if (rows.length === 0) { toast.error("입력된 행이 없습니다."); return; }
+    const missingCompanyIdx = rows.findIndex((r) => !r.company_id);
+    if (missingCompanyIdx >= 0) {
+      toast.error(`${missingCompanyIdx + 1}번 행의 업체를 선택하세요`);
+      return;
+    }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
-    const payloads = rows.map((r) => ({
-      user_id: user.id,
-      date: bulkShared.date,
-      company_id: bulkShared.company_id,
-      company_name: company.name,
-      leader1_id: bulkShared.leader1_id || null,
+    const payloads = rows.map((r) => {
+      const co = companies.find((c) => c.id === r.company_id);
+      return {
+        user_id: user.id,
+        date: bulkShared.date,
+        company_id: r.company_id,
+        company_name: co?.name || "",
+        leader1_id: bulkShared.leader1_id || null,
       leader1_name: leaderName(bulkShared.leader1_id),
       leader2_id: bulkShared.leader2_id || null,
       leader2_name: leaderName(bulkShared.leader2_id),
@@ -1178,13 +1184,15 @@ export default function Records() {
       paid: bulkShared.paid,
       two_person: bulkShared.two_person,
       is_missing: false,
-    }));
+      };
+    });
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`${rows.length}건 저장 완료`);
-    setBulkRows([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()]);
+    const dc = bulkShared.default_company_id;
+    setBulkRows([emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc)]);
     load();
   };
 
