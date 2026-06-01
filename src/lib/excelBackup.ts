@@ -156,9 +156,12 @@ export async function runBackup(
   return { filename, size: blob.size, uploaded };
 }
 
-// ─── 자동 백업 (24h 1회) ──────────────────────────────────
+// ─── 자동 백업 (6시간 1회, 이중 백업: 로컬 .xlsx + OneDrive) ───────
+export const BACKUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const AUTO_KEY = (uid: string) => `backup.auto.${uid}`;
+const AUTO_OD_KEY = (uid: string) => `backup.autoOneDrive.${uid}`;
 const LAST_KEY = (uid: string) => `backup.lastAt.${uid}`;
+const LAST_OK_KEY = (uid: string) => `backup.lastOk.${uid}`;
 
 export function getAutoBackupEnabled(uid: string): boolean {
   try {
@@ -173,32 +176,77 @@ export function setAutoBackupEnabled(uid: string, enabled: boolean) {
   } catch { /* noop */ }
 }
 
+export function getAutoOneDriveEnabled(uid: string): boolean {
+  try { return localStorage.getItem(AUTO_OD_KEY(uid)) === "1"; } catch { return false; }
+}
+export function setAutoOneDriveEnabled(uid: string, enabled: boolean) {
+  try {
+    if (enabled) localStorage.setItem(AUTO_OD_KEY(uid), "1");
+    else localStorage.removeItem(AUTO_OD_KEY(uid));
+  } catch { /* noop */ }
+}
+
 export function getLastBackupAt(uid: string): string | null {
   try { return localStorage.getItem(LAST_KEY(uid)); } catch { return null; }
 }
 
 /**
- * 24시간이 지났고 자동백업이 켜져 있으면 백업 1회 실행.
- * 옵션: OneDrive에도 자동 업로드. 실패는 조용히 무시 (콘솔 경고만).
+ * 6시간이 지났고 자동백업이 켜져 있으면 이중 백업(로컬 .xlsx + 선택 시 OneDrive) 1회 실행.
+ * 실패는 조용히 무시 (콘솔 경고만).
  */
-export async function maybeRunDailyBackup(
+export async function maybeRunPeriodicBackup(
   uid: string,
-  options: { uploadOneDrive?: boolean } = {},
+  options: { uploadOneDrive?: boolean; intervalMs?: number } = {},
 ): Promise<boolean> {
   if (!uid) return false;
   if (!getAutoBackupEnabled(uid)) return false;
+  const interval = options.intervalMs ?? BACKUP_INTERVAL_MS;
   const last = getLastBackupAt(uid);
   if (last) {
     const ageMs = Date.now() - new Date(last).getTime();
-    if (Number.isFinite(ageMs) && ageMs < 24 * 60 * 60 * 1000) return false;
+    if (Number.isFinite(ageMs) && ageMs < interval) return false;
   }
+  // OneDrive 자동 업로드: 인자로 명시되지 않았으면 설정값 사용
+  const wantOD = options.uploadOneDrive ?? getAutoOneDriveEnabled(uid);
   try {
-    await runBackup(uid, { download: true, uploadOneDrive: !!options.uploadOneDrive });
+    await runBackup(uid, { download: true, uploadOneDrive: wantOD });
+    try { localStorage.setItem(LAST_OK_KEY(uid), new Date().toISOString()); } catch { /* noop */ }
     return true;
   } catch (e) {
     console.warn("[autoBackup] 실패:", (e as Error).message);
     return false;
   }
+}
+
+/** 하위 호환: 기존 이름 유지 */
+export const maybeRunDailyBackup = maybeRunPeriodicBackup;
+
+/**
+ * 앱 마운트 시 한 번 호출. 즉시 1회 시도 후, 30분 간격으로 백업 필요 여부를 점검한다.
+ * - 자동백업 OFF면 아무 일도 하지 않음 (점검만)
+ * - 6시간 경과 시 이중 백업 (로컬 .xlsx 다운로드 + OneDrive 업로드[옵션])
+ * - 반환값: cleanup 함수
+ */
+export function startAutoBackupScheduler(uid: string): () => void {
+  if (!uid) return () => {};
+  let cancelled = false;
+  const CHECK_MS = 30 * 60 * 1000; // 30분마다 조건 확인
+  const tick = () => {
+    if (cancelled) return;
+    void maybeRunPeriodicBackup(uid);
+  };
+  // 초기 짧은 지연 후 1회
+  const initialT = window.setTimeout(tick, 2000);
+  const intervalT = window.setInterval(tick, CHECK_MS);
+  // 탭 다시 포커스 받을 때도 점검 (장시간 sleep 후 깨어난 경우)
+  const onFocus = () => tick();
+  window.addEventListener("focus", onFocus);
+  return () => {
+    cancelled = true;
+    window.clearTimeout(initialT);
+    window.clearInterval(intervalT);
+    window.removeEventListener("focus", onFocus);
+  };
 }
 
 // ─── 복구 (Restore) ────────────────────────────────────────
