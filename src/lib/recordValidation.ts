@@ -23,6 +23,8 @@ export type DeliveryRecord = {
   leader1_name: string | null;
   leader2_id: string | null;
   leader2_name: string | null;
+  leader3_id?: string | null;
+  leader3_name?: string | null;
   customer_name: string | null;
   region: string | null;
   region_type: "metro" | "regional" | null;
