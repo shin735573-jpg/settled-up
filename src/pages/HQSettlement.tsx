@@ -122,6 +122,7 @@ export default function HQSettlement() {
     setPeriod((prev) => (prev === cur.half ? prev : cur.half));
   });
   const [rows, setRows] = useState<Delivery[]>([]);
+  const [yearRows, setYearRows] = useState<Delivery[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -154,6 +155,21 @@ export default function HQSettlement() {
       setRows(d || []);
       setCompanies((c as Company[]) || []);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
+    })();
+  }, [month, refreshKey]);
+
+  // 연간(12개월) 매출 요약용 — 기간 선택과 무관하게 항상 표시
+  useEffect(() => {
+    (async () => {
+      const year = Number(month.slice(0, 4));
+      if (!year) return;
+      const yStart = `${year}-01-01`;
+      const yEnd = `${year + 1}-01-01`;
+      const { data } = await supabase
+        .from("deliveries")
+        .select("date,item,metro_fee,note_amount,regional_fee,company_id")
+        .gte("date", yStart).lt("date", yEnd);
+      setYearRows(data || []);
     })();
   }, [month, refreshKey]);
 
