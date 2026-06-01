@@ -861,6 +861,10 @@ export default function Records() {
     emptyBulkRow(),
     emptyBulkRow(),
     emptyBulkRow(),
+    emptyBulkRow(),
+    emptyBulkRow(),
+    emptyBulkRow(),
+    emptyBulkRow(),
   ]);
   const [bulkSaving, setBulkSaving] = useState(false);
   const bulkCompanyRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -1195,7 +1199,7 @@ export default function Records() {
     if (error) { toast.error(error.message); return; }
     toast.success(`${rows.length}건 저장 완료`);
     const dc = bulkShared.default_company_id;
-    setBulkRows([emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc)]);
+    setBulkRows([emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc)]);
     load();
   };
 
