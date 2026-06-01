@@ -1759,37 +1759,158 @@ export default function Records() {
           </div>
         </Card>
       )}
+        </TabsContent>
 
-      <Card className="overflow-x-auto">
-        <div className="flex items-center justify-between gap-2 p-2 border-b">
-          <div className="text-xs text-muted-foreground">
-            선택 {selectedIds.size}건 / 표시 {filteredRecords.length}건
-          </div>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={bulkDeleteSelected}
-            disabled={selectedIds.size === 0}
-          >
-            <Trash2 className="h-4 w-4 mr-1" /> 선택 삭제
-          </Button>
-        </div>
-        {(searchCompany || searchCustomer || searchLeader) && filteredRecords.length === 0 && (
-          <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
-        )}
-        <RecordsTable
-          records={filteredRecords}
-          issuesByRow={issuesByRow}
-          expandedItems={expandedItems}
-          setExpandedItems={setExpandedItems}
-          editRow={editRow}
-          removeRow={removeRow}
-          displayLeaderById={displayLeaderById}
-          displaySettlementStatus={displaySettlementStatus}
-          selectedIds={selectedIds}
-          setSelectedIds={setSelectedIds}
-        />
-      </Card>
+        <TabsContent value="detail" className="space-y-4 mt-0">
+          <Card className="p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
+              <div className="space-y-1">
+                <Label className="text-xs">업체 검색</Label>
+                <Input
+                  value={searchCompany}
+                  onChange={(e) => setSearchCompany(e.target.value)}
+                  placeholder="업체명 부분검색 (예: 모던)"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">고객명 검색</Label>
+                <Input
+                  value={searchCustomer}
+                  onChange={(e) => setSearchCustomer(e.target.value)}
+                  placeholder="고객명 부분검색 (예: 김)"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">팀장 검색 (별칭 가능)</Label>
+                <Input
+                  value={searchLeader}
+                  onChange={(e) => setSearchLeader(e.target.value)}
+                  placeholder="예: 형주 / 동석 / 동선"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setSearchCompany(""); setSearchCustomer(""); setSearchLeader(""); }}
+                >
+                  초기화
+                </Button>
+                <div className="text-xs text-muted-foreground">
+                  {(searchCompany || searchCustomer || searchLeader)
+                    ? `검색 결과 ${filteredRecords.length}건`
+                    : `전체 ${records.length}건`}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center justify-between gap-2 p-2 border-b">
+              <div className="flex items-center gap-2">
+                <div className="text-xs text-muted-foreground">
+                  선택 {selectedIds.size}건 / 표시 {filteredRecords.length}건
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const dates = Array.from(new Set(filteredRecords.map((r: any) => r.date || "(날짜없음)")));
+                    setCollapsedDates(new Set(dates));
+                  }}
+                >
+                  모두 접기
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCollapsedDates(new Set())}
+                >
+                  모두 펼치기
+                </Button>
+              </div>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={bulkDeleteSelected}
+                disabled={selectedIds.size === 0}
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> 선택 삭제
+              </Button>
+            </div>
+            {(searchCompany || searchCustomer || searchLeader) && filteredRecords.length === 0 && (
+              <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
+            )}
+            {(() => {
+              const groups = new Map<string, any[]>();
+              for (const r of filteredRecords) {
+                const key = r.date || "(날짜없음)";
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(r);
+              }
+              const sorted = Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+              if (sorted.length === 0 && !(searchCompany || searchCustomer || searchLeader)) {
+                return <div className="p-6 text-center text-muted-foreground text-sm">표시할 배송 내역이 없습니다.</div>;
+              }
+              return (
+                <div className="divide-y">
+                  {sorted.map(([date, rows]) => {
+                    const collapsed = collapsedDates.has(date);
+                    const totalFee = rows.reduce((s: number, r: any) =>
+                      s + Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0), 0);
+                    let label = date;
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                      const d = new Date(date + "T00:00:00");
+                      label = format(d, "M월 d일 (E)", { locale: ko });
+                    }
+                    return (
+                      <div key={date}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCollapsedDates((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(date)) next.delete(date);
+                              else next.add(date);
+                              return next;
+                            });
+                          }}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 hover:bg-muted text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            <span className="font-semibold text-sm">{label}</span>
+                            <span className="text-xs text-muted-foreground">· {date}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
+                            <span>{rows.length}건</span>
+                            <span>합계 {fmt(totalFee)}원</span>
+                          </div>
+                        </button>
+                        {!collapsed && (
+                          <div className="overflow-x-auto">
+                            <RecordsTable
+                              records={rows}
+                              issuesByRow={issuesByRow}
+                              expandedItems={expandedItems}
+                              setExpandedItems={setExpandedItems}
+                              editRow={editRow}
+                              removeRow={removeRow}
+                              displayLeaderById={displayLeaderById}
+                              displaySettlementStatus={displaySettlementStatus}
+                              selectedIds={selectedIds}
+                              setSelectedIds={setSelectedIds}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <PasteDialog
         open={pasteOpen}
