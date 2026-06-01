@@ -109,8 +109,7 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
         placeholder={placeholder ?? "업체명 입력 (부분검색·↑↓ 선택)"}
         onFocus={(e) => {
           setOpen(true);
-          // 선택된 값이 있으면 현재 항목에 하이라이트, 없으면 첫 항목
-          const idx = selected ? companies.findIndex((c) => c.id === selected.id) : -1;
+          const idx = selected ? filtered.findIndex((c) => c.id === selected.id) : -1;
           setHi(idx >= 0 ? idx : 0);
           e.currentTarget.select();
         }}
