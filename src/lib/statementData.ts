@@ -96,6 +96,7 @@ export type CompanyStmtRow = StmtDelivery & {
   /** 업체 제출용에 표시될 팀장 표기 (거부팀장 → 별칭) */
   display_leader1: string;
   display_leader2: string;
+  display_leader3: string;
   delivery_fee: number; // metro + note_amount + regional
 };
 
@@ -292,6 +293,7 @@ export function buildCompanyStatements(
           ...d,
           display_leader1: remap(d.leader1_id, d.leader1_name),
           display_leader2: remap(d.leader2_id, d.leader2_name),
+          display_leader3: remap(d.leader3_id, d.leader3_name),
           delivery_fee:
             Number(d.metro_fee) + Number(d.note_amount) + Number(d.regional_fee),
         });
@@ -340,6 +342,7 @@ export function buildCompanyStatements(
       for (const r of bucket) {
         pushLeader(r.display_leader1);
         pushLeader(r.display_leader2);
+        pushLeader(r.display_leader3);
       }
       const primary = leaderNames[0] || "";
       const secondary = leaderNames[1] || "";
@@ -348,10 +351,10 @@ export function buildCompanyStatements(
       const TRIO = new Set(["오동선", "오은규", "김용익", "동선", "은규", "용익"]);
       const isTrioTeam =
         leaderNames.length >= 3 && leaderNames.every((n) => TRIO.has(n));
-      let displaySecondary = secondary;
+      let tertiary = "";
       let remainingExtras = extras;
       if (isTrioTeam && extras.length > 0) {
-        displaySecondary = [secondary, extras[0]].filter(Boolean).join("/");
+        tertiary = extras[0];
         remainingExtras = extras.slice(1);
       }
       const extraNote = remainingExtras.length > 0 ? `추가팀장: ${remainingExtras.join(", ")}` : "";
@@ -366,7 +369,8 @@ export function buildCompanyStatements(
         delivery_fee: noteSum,
         customer_name: first.customer_name || first.item || "",
         display_leader1: primary,
-        display_leader2: displaySecondary,
+        display_leader2: secondary,
+        display_leader3: tertiary,
         note: mergedNote || first.note,
       });
     }
