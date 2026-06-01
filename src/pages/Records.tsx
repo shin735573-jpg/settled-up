@@ -1567,16 +1567,6 @@ export default function Records() {
                           onChange={(e) => upd({ region: e.target.value, region_type: classifyRegion(e.target.value) })}
                         />
                       </td>
-                      <td className="p-1">
-                        <Select value={r.region_type} onValueChange={(v) => upd({ region_type: v as RegionType })}>
-                          <SelectTrigger className={cn("h-8", r.region_type === "unknown" && "border-destructive text-destructive")}><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="metro">수도권</SelectItem>
-                            <SelectItem value="regional">지방</SelectItem>
-                            <SelectItem value="unknown">미분류</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
                       <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
                       <td className="p-1 text-center">
                         <button
@@ -1628,6 +1618,16 @@ export default function Records() {
                         >
                           {r.paid ? "선결제" : "—"}
                         </button>
+                      </td>
+                      <td className="p-1">
+                        <Select value={r.region_type} onValueChange={(v) => upd({ region_type: v as RegionType })}>
+                          <SelectTrigger className={cn("h-8", r.region_type === "unknown" && "border-destructive text-destructive")}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="metro">수도권</SelectItem>
+                            <SelectItem value="regional">지방</SelectItem>
+                            <SelectItem value="unknown">미분류</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
                       <td className="p-1 text-center">
