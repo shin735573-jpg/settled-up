@@ -370,41 +370,39 @@ export default function Summary() {
       <Card className="p-4">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="font-semibold text-base">기간 통계</div>
-          <div className="flex items-center gap-2">
-            {diagMsg && (
-              <span className={diagMsg.startsWith("정상") ? "text-sm text-primary" : "text-sm text-destructive"}>
-                {diagMsg}
-              </span>
-            )}
-            <Button size="sm" variant="outline" onClick={runInspection}>검수</Button>
-          </div>
+          {diagMsg && (
+            <span className={diagMsg.startsWith("정상") ? "text-sm text-primary" : "text-sm text-destructive"}>
+              {diagMsg}
+            </span>
+          )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-stretch">
+          {/* 1열: 업체 */}
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">업체 총건수 (행=1건)</div>
-            <div className="text-xl font-bold num">{topStats.companyRowCount.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground mt-1">금액 {fmt(topStats.companyTotal)} · 비중 100%</div>
+            <div className="text-xs font-semibold text-muted-foreground mb-1">업체 (행=1건)</div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>건수</span><span className="num font-bold text-foreground">{topStats.companyRowCount.toLocaleString()}</span></div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>금액</span><span className="num font-bold text-destructive">{fmt(topStats.companyTotal)}</span></div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>비중</span><span className="num font-bold text-foreground">100%</span></div>
           </div>
+          {/* 2열: 팀장 (업체기준) */}
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">팀장 행기준 총건수</div>
-            <div className="text-xl font-bold num">{topStats.leaderRowCount.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {topStats.companyRowCount === topStats.leaderRowCount ? "업체 건수와 일치" : "업체 건수와 불일치"}
-            </div>
+            <div className="text-xs font-semibold text-muted-foreground mb-1">팀장 (업체기준)</div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>건수</span><span className="num font-bold text-foreground">{topStats.leaderRowCount.toLocaleString()}</span></div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>금액</span><span className="num font-bold text-destructive">{fmt(topStats.leaderFeeTotal)}</span></div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>비중</span><span className="num font-bold text-foreground">100%</span></div>
           </div>
+          {/* 3열: 팀장 각자 / 여러명 함께 */}
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">팀장 각자 건수 합</div>
-            <div className="text-xl font-bold num">{topStats.leaderIndividualCount.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              실수령 합 {fmt(topStats.leaderPayoutTotal)} · 비중 100%
-            </div>
+            <div className="text-xs font-semibold text-muted-foreground mb-1">팀장 세부</div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>팀장 각자 건수</span><span className="num font-bold text-foreground">{topStats.leaderIndividualCount.toLocaleString()}</span></div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>여러명 함께 건수</span><span className="num font-bold text-foreground">{topStats.multiLeaderRowCount.toLocaleString()}</span></div>
+            <div className="flex justify-between text-xs text-muted-foreground"><span>함께 비율</span><span className="num font-bold text-foreground">{topStats.companyRowCount > 0 ? ((topStats.multiLeaderRowCount / topStats.companyRowCount) * 100).toFixed(1) : "0.0"}%</span></div>
           </div>
-          <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground">여러명이 함께한 건수</div>
-            <div className="text-xl font-bold num">{topStats.multiLeaderRowCount.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              전체 대비 {topStats.companyRowCount > 0 ? ((topStats.multiLeaderRowCount / topStats.companyRowCount) * 100).toFixed(1) : "0.0"}%
-            </div>
+          {/* 4열: 검수 버튼 */}
+          <div className="rounded-md border p-3 flex items-center justify-center">
+            <Button variant="outline" onClick={runInspection} className="w-full h-full min-h-[80px] text-base font-semibold">
+              검수
+            </Button>
           </div>
         </div>
       </Card>
