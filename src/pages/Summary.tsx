@@ -222,6 +222,23 @@ export default function Summary() {
   const leaderFeeTotal = leaderAgg.reduce((s, x) => s + x.fee, 0);
   void leaderFeeTotal; void companyTotal;
 
+  // 상단 통계 — 업체/팀장 건수·금액·비중 + 여러명이 함께한 건수
+  const topStats = useMemo(() => {
+    const companyRowCount = validRows.length; // 행=1건 (업체 관점)
+    const multiLeaderRowCount = validRows.filter((a) => a.shares.length >= 2).length;
+    const leaderIndividualCount = leaderAgg.reduce((s, x) => s + x.count, 0); // 팀장 각자 건수 합
+    const leaderPayoutTotal = leaderAgg.reduce((s, x) => s + x.payout, 0);
+    return {
+      companyRowCount,
+      companyTotal,
+      multiLeaderRowCount,
+      leaderIndividualCount,
+      leaderRowCount: companyRowCount, // 행 기준 — 업체 총건수와 같아야 함
+      leaderFeeTotal,
+      leaderPayoutTotal,
+    };
+  }, [validRows, leaderAgg, companyTotal, leaderFeeTotal]);
+
   const mergedRows = useMemo(() => {
     const len = Math.max(companyAgg.length, leaderAgg.length);
     return Array.from({ length: len }, (_, i) => ({
@@ -232,6 +249,23 @@ export default function Summary() {
   }, [companyAgg, leaderAgg]);
 
   const [diagMsg, setDiagMsg] = useState<string | null>(null);
+
+  // 검수 — 오류 6종 + 업체↔팀장 건수/금액 일치 확인
+  const runInspection = () => {
+    const issues: string[] = [];
+    for (const c of errorChecks) if (c.err) issues.push(c.label);
+    if (topStats.companyRowCount !== topStats.leaderRowCount) {
+      issues.push(`업체 총건수(${topStats.companyRowCount}) ≠ 팀장 행기준 총건수(${topStats.leaderRowCount})`);
+    }
+    if (Math.round(companyTotal) !== Math.round(leaderFeeTotal)) {
+      issues.push(`업체 총금액(${fmt(companyTotal)}) ≠ 팀장 배송비 합(${fmt(leaderFeeTotal)})`);
+    }
+    if (issues.length === 0) {
+      setDiagMsg(`정상 — 업체 ${topStats.companyRowCount}건 / 팀장 합 ${topStats.leaderIndividualCount}건 (다인동행 ${topStats.multiLeaderRowCount}건)`);
+    } else {
+      setDiagMsg(`오류 ${issues.length}건: ${issues.join(" · ")}`);
+    }
+  };
 
   const companyGridTemplate = COMPANY_COLUMNS.map((c) => c.size).join(" ");
   const leaderGridTemplate = LEADER_COLUMNS.map((c) => c.size).join(" ");
@@ -331,6 +365,50 @@ export default function Summary() {
         </TabsList>
         <TabsContent value={period} className="space-y-4">
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
+
+      {/* 상단 통계 바 + 검수 버튼 */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="font-semibold text-base">기간 통계</div>
+          <div className="flex items-center gap-2">
+            {diagMsg && (
+              <span className={diagMsg.startsWith("정상") ? "text-sm text-primary" : "text-sm text-destructive"}>
+                {diagMsg}
+              </span>
+            )}
+            <Button size="sm" variant="outline" onClick={runInspection}>검수</Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">업체 총건수 (행=1건)</div>
+            <div className="text-xl font-bold num">{topStats.companyRowCount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">금액 {fmt(topStats.companyTotal)} · 비중 100%</div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">팀장 행기준 총건수</div>
+            <div className="text-xl font-bold num">{topStats.leaderRowCount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {topStats.companyRowCount === topStats.leaderRowCount ? "업체 건수와 일치" : "업체 건수와 불일치"}
+            </div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">팀장 각자 건수 합</div>
+            <div className="text-xl font-bold num">{topStats.leaderIndividualCount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              실수령 합 {fmt(topStats.leaderPayoutTotal)} · 비중 100%
+            </div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">여러명이 함께한 건수</div>
+            <div className="text-xl font-bold num">{topStats.multiLeaderRowCount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              전체 대비 {topStats.companyRowCount > 0 ? ((topStats.multiLeaderRowCount / topStats.companyRowCount) * 100).toFixed(1) : "0.0"}%
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="font-semibold text-base">
