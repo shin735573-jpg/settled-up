@@ -2827,25 +2827,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                         const current = ovVal !== undefined ? ovVal : (r.leaderIds[slot] || "");
                         const unknown = !current && !!r.leaders[slot];
                         return (
-                          <Select
-                            value={current || NONE}
-                            onValueChange={(v) => setLeaderOverrides((prev) => ({
+                          <LeaderCombobox
+                            leaders={selectableLeaders}
+                            value={current}
+                            onChange={(v) => setLeaderOverrides((prev) => ({
                               ...prev,
-                              [i]: { ...prev[i], [key]: v === NONE ? "" : v },
+                              [i]: { ...prev[i], [key]: v },
                             }))}
-                          >
-                            <SelectTrigger className={`h-7 text-xs min-w-[110px] ${unknown ? "border-destructive text-destructive" : ""}`}>
-                              <SelectValue placeholder={r.leaders[slot] || "선택 안 함"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>(빈칸)</SelectItem>
-                              {selectableLeaders.map((l) => (
-                                <SelectItem key={l.id} value={l.id}>
-                                  {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder={r.leaders[slot] || "팀장 입력"}
+                            className={unknown ? "[&_input]:border-destructive [&_input]:text-destructive" : ""}
+                          />
                         );
                       };
                       return (
