@@ -156,7 +156,7 @@ describe("신동석 재분배", () => {
   });
 });
 
-describe("오은규 단독 → 오동선 합산 정산 (오동선·오은규·김용익 그룹)", () => {
+describe("오은규 → 오동선 합산 정산 (오동선·오은규·김용익 그룹)", () => {
   const opts = { oeunkyuId: "OEK", odongseonId: "ODS", kimyongikId: "KYI" };
 
   it("오은규 단독: 100%를 오동선으로 합산", () => {
@@ -164,7 +164,7 @@ describe("오은규 단독 → 오동선 합산 정산 (오동선·오은규·�
     expect(r.length).toBe(1);
     expect(r[0].leader_id).toBe("ODS");
     expect(r[0].metro).toBe(100000);
-    expect(r[0].reason).toMatch(/오은규 단독/);
+    expect(r[0].reason).toMatch(/오은규/);
   });
 
   it("오동선 + 김용익 (오은규 없음): 50/50 그대로 유지", () => {
@@ -177,15 +177,15 @@ describe("오은규 단독 → 오동선 합산 정산 (오동선·오은규·�
     expect(r.find((x) => x.leader_id === "KYI")!.metro).toBe(50000);
   });
 
-  it("오동선 + 오은규 + 김용익 3인배송: 각 1/3 유지 (오은규는 합산 안 함)", () => {
+  it("오동선 + 오은규 + 김용익 3인배송: 오은규 1/3을 오동선에 합산 → 오동선 2/3, 김용익 1/3", () => {
     const r = allocateRow(
       base({ leader1_id: "ODS", leader2_id: "OEK", leader3_id: "KYI", metro_fee: 90000 }),
       opts,
     );
-    expect(r.length).toBe(3);
-    expect(r.find((x) => x.leader_id === "ODS")!.metro).toBeCloseTo(30000);
-    expect(r.find((x) => x.leader_id === "OEK")!.metro).toBeCloseTo(30000);
+    expect(r.length).toBe(2);
+    expect(r.find((x) => x.leader_id === "ODS")!.metro).toBeCloseTo(60000);
     expect(r.find((x) => x.leader_id === "KYI")!.metro).toBeCloseTo(30000);
+    expect(r.find((x) => x.leader_id === "OEK")).toBeUndefined();
   });
 
   it("오은규 + 다른 팀장(오동선·김용익 둘 다 없음): 오은규 몫을 오동선으로 합산", () => {
@@ -199,24 +199,24 @@ describe("오은규 단독 → 오동선 합산 정산 (오동선·오은규·�
     expect(r.find((x) => x.leader_id === "OEK")).toBeUndefined();
   });
 
-  it("오은규 + 오동선 (김용익 없음): 오동선이 같이 있으니 합산 트리거 — 결과적으로 오동선 100%", () => {
+  it("오은규 + 오동선: 오은규 몫을 오동선에 합산 → 오동선 100%", () => {
     const r = allocateRow(
       base({ leader1_id: "ODS", leader2_id: "OEK", metro_fee: 100000 }),
       opts,
     );
-    // 오동선이 행에 있으니 단독 케이스 아님 → 기본 50/50 유지
-    expect(r.length).toBe(2);
-    expect(r.find((x) => x.leader_id === "ODS")!.metro).toBe(50000);
-    expect(r.find((x) => x.leader_id === "OEK")!.metro).toBe(50000);
+    expect(r.length).toBe(1);
+    expect(r[0].leader_id).toBe("ODS");
+    expect(r[0].metro).toBe(100000);
   });
 
-  it("오은규 + 김용익 (오동선 없음): 김용익이 같이 있으니 합산 안 함", () => {
+  it("오은규 + 김용익: 오은규 몫을 오동선에 합산 → 김용익 50%, 오동선 50%", () => {
     const r = allocateRow(
       base({ leader1_id: "KYI", leader2_id: "OEK", metro_fee: 100000 }),
       opts,
     );
     expect(r.length).toBe(2);
     expect(r.find((x) => x.leader_id === "KYI")!.metro).toBe(50000);
-    expect(r.find((x) => x.leader_id === "OEK")!.metro).toBe(50000);
+    expect(r.find((x) => x.leader_id === "ODS")!.metro).toBe(50000);
+    expect(r.find((x) => x.leader_id === "OEK")).toBeUndefined();
   });
 });
