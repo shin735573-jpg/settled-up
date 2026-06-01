@@ -52,6 +52,7 @@ type Leader = {
   settle_to_id: string | null; fee_rate_metro: number; fee_rate_regional: number;
   deduction_amount: number; trash_cost: number;
   settle_status?: "included" | "excluded" | null;
+  issues_invoice?: boolean | null;
 };
 type Delivery = {
   id: string; date: string; company_id: string | null; company_name: string;
