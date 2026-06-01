@@ -805,6 +805,16 @@ function RecordsTable({
 // 착불 빠른선택 금액 리스트 (1만 ~ 30만, 1만원 단위)
 const COD_AMOUNTS = Array.from({ length: 30 }, (_, i) => (i + 1) * 10000);
 
+// 비고 내용에서 "착불 N만원" 토큰을 제거하거나 새 금액을 덧붙인다.
+const COD_NOTE_REGEX = /\s*착불\s*\d+\s*만원/g;
+export function applyCodToNote(note: string | null | undefined, codAmount: number): string {
+  const cleaned = String(note ?? "").replace(COD_NOTE_REGEX, "").replace(/\s+/g, " ").trim();
+  if (!codAmount || codAmount <= 0) return cleaned;
+  const man = Math.round(codAmount / 10000);
+  const tag = `착불 ${man}만원`;
+  return cleaned ? `${cleaned} ${tag}` : tag;
+}
+
 function CodPicker({
   value,
   onChange,
@@ -1652,13 +1662,22 @@ export default function Records() {
                               <PopoverContent className="w-[420px] p-3" align="start">
                                 <div className="space-y-2">
                                   <div className="text-xs text-muted-foreground">착불 금액 선택 (1만~30만)</div>
-                                  <CodPicker value={r.cod_amount} onChange={(v) => upd({ cod_amount: v })} />
+                                  <CodPicker
+                                    value={r.cod_amount}
+                                    onChange={(v) => {
+                                      const amt = parseNum(v) || 0;
+                                      upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                    }}
+                                  />
                                   <div className="flex items-center gap-2">
                                     <Label className="text-xs">직접 입력</Label>
                                     <AmountTextInput
                                       className="h-8 text-right tabular-nums flex-1"
                                       value={r.cod_amount}
-                                      onChange={(v) => upd({ cod_amount: v })}
+                                      onChange={(v) => {
+                                        const amt = parseNum(v) || 0;
+                                        upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                      }}
                                     />
                                   </div>
                                 </div>
@@ -1900,14 +1919,50 @@ export default function Records() {
               <Label>
                 착불 선택
                 <span className="ml-2 text-xs text-muted-foreground">
-                  (비고에 "착불 7만원" 같이 적지 말고 여기서 선택하세요 · 1만~30만)
+                  (클릭해서 금액 선택 · 비고에 "착불 N만원" 자동 입력 · 1만~30만)
                 </span>
               </Label>
               {formHasCod ? (
-                <CodPicker
-                  value={form.cod_amount}
-                  onChange={(v) => setForm({ ...form, cod_amount: v })}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "h-10 w-full rounded-md border px-3 text-sm tabular-nums text-left",
+                        (parseNum(form.cod_amount) || 0) > 0
+                          ? "bg-primary/10 border-primary font-semibold"
+                          : "bg-background text-muted-foreground",
+                      )}
+                    >
+                      {(parseNum(form.cod_amount) || 0) > 0
+                        ? `착불 ${(parseNum(form.cod_amount) || 0).toLocaleString()}원`
+                        : "착불 선택 (클릭)"}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[420px] p-3" align="start">
+                    <div className="space-y-2">
+                      <div className="text-xs text-muted-foreground">착불 금액 선택 (1만~30만)</div>
+                      <CodPicker
+                        value={form.cod_amount}
+                        onChange={(v) => {
+                          const amt = parseNum(v) || 0;
+                          setForm({ ...form, cod_amount: v, note: applyCodToNote(form.note, amt) });
+                        }}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">직접 입력</Label>
+                        <AmountTextInput
+                          className="h-8 text-right tabular-nums flex-1"
+                          value={form.cod_amount}
+                          onChange={(v) => {
+                            const amt = parseNum(v) || 0;
+                            setForm({ ...form, cod_amount: v, note: applyCodToNote(form.note, amt) });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               ) : (
                 <div className="text-[11px] text-muted-foreground">착불 미지원 업체</div>
               )}
@@ -1942,20 +1997,17 @@ export default function Records() {
               <Label>비고금액</Label>
               <AmountTextInput className="text-right tabular-nums" value={form.note_amount} onChange={(v) => setForm({ ...form, note_amount: v })} />
             </div>
-            <div className={cn("space-y-1", formHasCod ? "sm:col-span-2 lg:col-span-2" : "")}>
-              <Label>착불</Label>
+            <div className="space-y-1">
+              <Label>착불 금액</Label>
               {formHasCod ? (
-                <div className="space-y-2">
-                  <AmountTextInput
-                    className="text-right tabular-nums"
-                    value={form.cod_amount}
-                    onChange={(v) => setForm({ ...form, cod_amount: v })}
-                  />
-                  <CodPicker
-                    value={form.cod_amount}
-                    onChange={(v) => setForm({ ...form, cod_amount: v })}
-                  />
-                </div>
+                <AmountTextInput
+                  className="text-right tabular-nums"
+                  value={form.cod_amount}
+                  onChange={(v) => {
+                    const amt = parseNum(v) || 0;
+                    setForm({ ...form, cod_amount: v, note: applyCodToNote(form.note, amt) });
+                  }}
+                />
               ) : (
                 <Input value="착불 미지원 업체" disabled className="bg-muted text-muted-foreground" />
               )}
