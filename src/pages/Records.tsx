@@ -1824,7 +1824,14 @@ export default function Records() {
               <CompanyCombobox
                 companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
                 value={form.company_id}
-                onChange={(v) => setForm({ ...form, company_id: v })}
+                onChange={(v) => {
+                  const newCompany = v ? companiesById.get(v) : null;
+                  setForm((f) => ({
+                    ...f,
+                    company_id: v,
+                    cod_amount: newCompany && newCompany.has_cod === false ? "" : f.cod_amount,
+                  }));
+                }}
                 placeholder="업체명 입력 (부분검색·↑↓ 선택)"
               />
             </div>
