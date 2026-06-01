@@ -39,6 +39,7 @@ import {
 } from "@/lib/recordValidation";
 import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
 import OcrCheckPanel, { type ExtractedRow } from "@/components/OcrCheckPanel";
+import { isSkippablePasteRow, parsePastedTableText } from "@/lib/pasteGrid";
 
 type Company = {
   id: string;
@@ -1583,9 +1584,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     if (!text.trim()) return [];
     const kv = tryParseKeyValueText(text);
     if (kv) return kv;
-    return text.replace(/\r/g, "").split("\n")
-      .filter((l) => l.trim() !== "")
-      .map((l) => l.split("\t").map((c) => c.trim()));
+    return parsePastedTableText(text);
   }, [text]);
 
   // 헤더 자동 탐색: 첫 ~30행 중 표준 별칭 매칭 점수가 가장 높은 행을 헤더로 채택 (점수 ≥ 2 필요)
@@ -1682,25 +1681,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       return parts.join("\n");
     };
 
-    // 노이즈 행 키워드 (합계/안내/정산완료 등)
-    const SKIP_KEYWORDS = ["합계","총계","소계","계","정산완료","입금완료","계좌","은행","연락처","담당자","비고없음","주의","안내","총합","TOTAL","SUM"];
-    const isSkipRow = (row: string[]) => {
-      const joined = row.join(" ").trim();
-      if (!joined) return true;
-      const nonEmpty = row.filter((c) => (c ?? "").trim() !== "").length;
-      // 한 셀짜리 제목/안내 행
-      if (nonEmpty <= 1 && joined.length > 0) return true;
-      // 키워드 행
-      for (const kw of SKIP_KEYWORDS) {
-        if (joined.includes(kw)) return true;
-      }
-      // 반복 패턴(예: "==========", "------")
-      if (/^[=\-_\s*]+$/.test(joined)) return true;
-      return false;
-    };
-
     return dataRows.map((cols) => {
-      if (isSkipRow(cols)) return null;
+      if (isSkippablePasteRow(cols)) return null;
       const errors: RowError[] = [];
       const warnings: RowError[] = [];
 
