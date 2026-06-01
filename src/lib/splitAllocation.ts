@@ -111,13 +111,14 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
   // 단, 형주동석 분할로 강형주+신동석이 직접 50:50으로 배정된 경우에만 건너뜀.
   // (형주동석 split이지만 한 명만 입력된 행은 정상 재분배해야 두 사람 건수/금액이 같아짐.)
   const { shindongseokId, ganghyungjuId } = opts;
-  if (!shindongseokId || !ganghyungjuId) return initial;
-  if (split === "형주동석" && l1 && l2) {
-    const ids = new Set([l1, l2]);
-    if (ids.has(shindongseokId) && ids.has(ganghyungjuId)) return initial;
-  }
-
-  const teamIds = new Set([shindongseokId, ganghyungjuId]);
+  const skipTeamRedist =
+    !shindongseokId || !ganghyungjuId ||
+    (split === "형주동석" && !!l1 && !!l2 &&
+      new Set([l1, l2]).has(shindongseokId) &&
+      new Set([l1, l2]).has(ganghyungjuId));
+  const teamIds = new Set(
+    [shindongseokId, ganghyungjuId].filter(Boolean) as string[],
+  );
   const merged = new Map<string, LeaderShare>();
   const add = (s: LeaderShare) => {
     const cur = merged.get(s.leader_id);
@@ -133,7 +134,7 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
   };
 
   initial.forEach((s) => {
-    if (!teamIds.has(s.leader_id)) { add(s); return; }
+    if (skipTeamRedist || !teamIds.has(s.leader_id)) { add(s); return; }
     const [metroA, metroB] = distributeWon(s.metro, [0.5, 0.5]);
     const [noteA, noteB] = distributeWon(s.note_amount, [0.5, 0.5]);
     const [regionalA, regionalB] = distributeWon(s.regional, [0.5, 0.5]);
@@ -142,7 +143,7 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
     const who = s.leader_id === shindongseokId ? "신동석" : "강형주";
     const reason = `${who} 몫 재분배 ${pct}%`;
     add({
-      leader_id: ganghyungjuId,
+      leader_id: ganghyungjuId as string,
       weight: s.weight / 2,
       metro: metroA, note_amount: noteA,
       regional: regionalA, cod: codA,
@@ -150,7 +151,7 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
       reason,
     });
     add({
-      leader_id: shindongseokId,
+      leader_id: shindongseokId as string,
       weight: s.weight / 2,
       metro: metroB, note_amount: noteB,
       regional: regionalB, cod: codB,
