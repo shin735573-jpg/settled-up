@@ -326,8 +326,8 @@ export function buildCompanyStatements(
       }
       // 팀장 등장 순서대로 수집 (중복 제거). 최초 2명만 업체 청구서 팀장 칸에,
       // 나머지는 비고에 자동 추가.
-      // 단, 강형주/신동석은 업체 청구서 팀장 표시에서 제외 (금액은 이미 noteSum에 포함됨).
-      const HIDDEN_TEAM = new Set(["강형주", "신동석", "형주", "동석"]);
+      // 단, 강형주/신동석/삼호도는 업체 청구서 팀장 표시에서 제외 (금액은 이미 noteSum에 포함됨).
+      const HIDDEN_TEAM = new Set(["강형주", "신동석", "형주", "동석", "삼호도", "호도"]);
       const leaderNames: string[] = [];
       const seen = new Set<string>();
       const pushLeader = (n: string) => {
