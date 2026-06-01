@@ -77,9 +77,19 @@ export const PERIOD_LABEL: Record<PeriodKey, string> = {
  * 팀장 정산에는 각 팀장이 입력한 행이 그대로 반영되지만,
  * 업체 청구서에서는 (date, company)별로 1행만 표시하고 금액은 비고금액 합계.
  */
-export const SPECIAL_ONE_TIME_ITEMS = new Set<string>(["행사철수"]);
+export const DEFAULT_SPECIAL_ONE_TIME_ITEMS = ["행사철수"] as const;
+let _specialItems = new Set<string>(DEFAULT_SPECIAL_ONE_TIME_ITEMS);
+/** Settings 화면에서 등록한 특수일 품목 목록을 런타임에 주입 */
+export function setSpecialOneTimeItems(labels: string[]) {
+  _specialItems = new Set(
+    labels.map((l) => (l ?? "").trim()).filter((l) => l.length > 0),
+  );
+}
+export function getSpecialOneTimeItems(): string[] {
+  return Array.from(_specialItems);
+}
 export const isSpecialOneTimeItem = (item: string | null | undefined): boolean =>
-  !!item && SPECIAL_ONE_TIME_ITEMS.has(String(item).trim());
+  !!item && _specialItems.has(String(item).trim());
 
 /** 업체 정산서 1장에 들어가는 행 (분배 전, 원본 1건). */
 export type CompanyStmtRow = StmtDelivery & {
