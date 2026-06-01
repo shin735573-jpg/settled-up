@@ -1730,8 +1730,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     if (!titleText) return null;
     const ex = extractLeaders(titleText, leaderIndex);
     if (ex.ids.length === 0) return null;
-    const names = ex.ids.slice(0, 2).map((id) => leaderById.get(id)?.name || "").filter(Boolean);
-    return { ids: ex.ids.slice(0, 2), names, raw: titleText };
+    const names = ex.ids.slice(0, 3).map((id) => leaderById.get(id)?.name || "").filter(Boolean);
+    return { ids: ex.ids.slice(0, 3), names, raw: titleText };
   }, [grid, headerInfo, leaderIndex, leaderById]);
 
   useEffect(() => {
