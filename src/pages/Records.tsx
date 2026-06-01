@@ -53,11 +53,11 @@ type Leader = { id: string; name: string; is_rejected: boolean; is_virtual: bool
 type Holiday = { date: string; scope: string; team_leader_id: string | null };
 type Delivery = any;
 
-const COLS = ["날짜","업체","팀장1","팀장2","고객명","배송지","지역구분","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","2인배송","분할","결제유무"];
+const COLS = ["날짜","업체","팀장1","팀장2","팀장3","고객명","배송지","지역구분","품목","비고","수도권배송비","비고금액","지방배송비","착불","배송비총액","2인배송","분할","결제유무"];
 
 // 표준 필드 + 별칭 (헤더 자동 인식용)
 type FieldKey =
-  | "date" | "company" | "leader1" | "leader2" | "customer" | "region"
+  | "date" | "company" | "leader1" | "leader2" | "leader3" | "customer" | "region"
   | "item" | "note" | "metro" | "noteAmt" | "regional" | "cod" | "split" | "paid"
   | "twoPerson";
 
@@ -66,6 +66,7 @@ const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: 
   { key: "company",  label: "업체",       required: true,  aliases: ["업체","업체명","거래처","거래처명","상호","회사","회사명","company"] },
   { key: "leader1",  label: "팀장1",                       aliases: ["팀장1","기사1","배송팀장1","팀장","leader1"] },
   { key: "leader2",  label: "팀장2",                       aliases: ["팀장2","기사2","배송팀장2","leader2"] },
+  { key: "leader3",  label: "팀장3",                       aliases: ["팀장3","기사3","배송팀장3","leader3"] },
   { key: "customer", label: "고객명",                       aliases: ["고객명","고객","성명","이름","성함","받는분","수령인","customer"] },
   { key: "region",   label: "배송지",                       aliases: ["배송지","지역","배송지역","지역명","region"] },
   { key: "item",     label: "품목",                         aliases: ["품목","상품","제품","품명","내용","item"] },
@@ -239,6 +240,7 @@ type FormState = {
   company_id: string;
   leader1_id: string;
   leader2_id: string;
+  leader3_id: string;
   customer_name: string;
   region: string;
   region_type: RegionType;
@@ -263,6 +265,7 @@ const emptyForm = (): FormState => ({
   company_id: "",
   leader1_id: "",
   leader2_id: "",
+  leader3_id: "",
   customer_name: "",
   region: "",
   region_type: "unknown",
@@ -309,6 +312,7 @@ const RECORDS_EXPECTED_SEQUENCE = [
   ["company", "업체", 120],
   ["leader1", "팀장1", 110],
   ["leader2", "팀장2", 110],
+  ["leader3", "팀장3", 110],
   ["customer", "고객명", 120],
   ["region", "배송지", 150],
   ["region_type", "지역구분", 100],
@@ -363,6 +367,8 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader1_id, r.leader1_name) },
   { key: "leader2", label: "팀장2", width: 110, cellCls: "whitespace-nowrap",
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader2_id, r.leader2_name) },
+  { key: "leader3", label: "팀장3", width: 110, cellCls: "whitespace-nowrap",
+    render: (r, { displayLeaderById }) => displayLeaderById(r.leader3_id, r.leader3_name) },
   { key: "customer", label: "고객명", width: 120, cellCls: "whitespace-nowrap",
     render: (r) => r.customer_name || "-" },
   { key: "region", label: "배송지", width: 150, cellCls: "whitespace-nowrap",
@@ -789,7 +795,7 @@ export default function Records() {
       if (qcu && !norm(r.customer_name).includes(qcu)) return false;
       if (ql) {
         const names: string[] = [];
-        for (const id of [r.leader1_id, r.leader2_id]) {
+        for (const id of [r.leader1_id, r.leader2_id, r.leader3_id]) {
           if (id) {
             const l = leadersById.get(id);
             if (l) {
@@ -800,6 +806,7 @@ export default function Records() {
         }
         if (r.leader1_name) names.push(r.leader1_name);
         if (r.leader2_name) names.push(r.leader2_name);
+        if (r.leader3_name) names.push(r.leader3_name);
         const hay = names.map(norm);
         const match = hay.some((h) => h.includes(ql) || (canonLeader && h.includes(canonLeader)));
         if (!match) return false;
@@ -817,7 +824,7 @@ export default function Records() {
   };
 
   const displaySettlementStatus = (r: Delivery): string => {
-    const rowLeaderIds = [r.leader1_id, r.leader2_id].filter(Boolean) as string[];
+    const rowLeaderIds = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean) as string[];
     const redirected = rowLeaderIds
       .map((id) => leadersById.get(id))
       .find((l) => l?.settle_to_id && leadersById.has(l.settle_to_id));
@@ -826,6 +833,7 @@ export default function Records() {
     }
     if (r.split_type === "형주동석") return "강형주/신동석 반반";
     if (r.split_type === "3분할") return "다른팀장 50%, 강형주 25%, 신동석 25%";
+    if (rowLeaderIds.length >= 3) return "3인배송 1/3씩";
     return "일반";
   };
 
@@ -841,6 +849,7 @@ export default function Records() {
       company_id: r.company_id || "",
       leader1_id: r.leader1_id || "",
       leader2_id: r.leader2_id || "",
+      leader3_id: r.leader3_id || "",
       customer_name: r.customer_name || "",
       region: r.region || "",
       region_type: (r.region_type as RegionType) || classifyRegion(r.region || ""),
@@ -880,6 +889,8 @@ export default function Records() {
         leader1_name: leaderName(form.leader1_id),
         leader2_id: form.leader2_id || null,
         leader2_name: leaderName(form.leader2_id),
+        leader3_id: form.leader3_id || null,
+        leader3_name: leaderName(form.leader3_id),
         customer_name: form.customer_name || null,
         region: form.region || null,
         region_type: form.region_type === "unknown" ? null : form.region_type,
@@ -946,6 +957,8 @@ export default function Records() {
       leader1_name: leaderName(form.leader1_id),
       leader2_id: form.leader2_id || null,
       leader2_name: leaderName(form.leader2_id),
+      leader3_id: form.leader3_id || null,
+      leader3_name: leaderName(form.leader3_id),
       customer_name: form.customer_name || null,
       region: form.region || null,
       region_type: form.region_type === "unknown" ? null : form.region_type,
@@ -1152,8 +1165,8 @@ export default function Records() {
               />
             </div>
 
-            {[0, 1].map((i) => {
-              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id";
+            {[0, 1, 2].map((i) => {
+              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id" | "leader3_id";
               const selCompany = companies.find((c) => c.id === form.company_id);
               const rejectedIds = selCompany
                 ? [selCompany.rejected_leader_id, selCompany.rejected_leader_id_2, selCompany.rejected_leader_id_3].filter(Boolean) as string[]
@@ -1438,7 +1451,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   // 기본 팀장 입력 (붙여넣은 행에 팀장이 없을 때 적용)
   const [defaultLeadersText, setDefaultLeadersText] = useState("");
   // 행별 팀장 수동 수정: rowIndex -> { l1?: id|""(=빈칸), l2?: id|"" }
-  const [leaderOverrides, setLeaderOverrides] = useState<Record<number, { l1?: string; l2?: string }>>({});
+  const [leaderOverrides, setLeaderOverrides] = useState<Record<number, { l1?: string; l2?: string; l3?: string }>>({});
   // 행별 수도권/지방 수동 수정
   const [regionOverrides, setRegionOverrides] = useState<Record<number, RegionType>>({});
   // 행별 날짜 수동 입력 (raw 텍스트). undefined = 자동, 그 외 = 사용자 입력
@@ -1640,7 +1653,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     for (let i = 0; i < Math.min(auto.length, colCount); i++) arr[i] = auto[i];
     // 헤더 없을 때 기존 순서로 기본 매핑 (있는 만큼만)
     if (!headerInfo.hasHeader && colCount >= 14) {
-      const fallback: FieldKey[] = ["date","company","leader1","leader2","customer","region","item","note","metro","noteAmt","regional","cod","split","paid","twoPerson"];
+      const fallback: FieldKey[] = ["date","company","leader1","leader2","leader3","customer","region","item","note","metro","noteAmt","regional","cod","split","paid","twoPerson"];
       for (let i = 0; i < fallback.length; i++) if (!arr[i]) arr[i] = fallback[i];
     }
     setMapping(arr);
@@ -1671,6 +1684,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       const parts: string[] = [];
       const l1 = cell(row, "leader1"); if (l1) parts.push(l1);
       const l2 = cell(row, "leader2"); if (l2) parts.push(l2);
+      const l3 = cell(row, "leader3"); if (l3) parts.push(l3);
       if (parts.length === 0) {
         // 미매핑 셀들에서 후보를 찾는다
         for (let i = 0; i < row.length; i++) if (!mapping[i]) {
@@ -1705,11 +1719,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       // 행 안에서 팀장 인식 실패 시 기본 팀장 입력란 값 적용
       const usedDefault = extracted.ids.length === 0 && defaultLeaderInfo.ids.length > 0;
       const effectiveIds = usedDefault ? defaultLeaderInfo.ids : extracted.ids;
-      let leaderIds: (string | null)[] = [effectiveIds[0] || null, effectiveIds[1] || null];
+      let leaderIds: (string | null)[] = [
+        effectiveIds[0] || null,
+        effectiveIds[1] || null,
+        effectiveIds[2] || null,
+      ];
       // 인식 실패 시: 원문을 정식 이름으로 정규화 시도 (별칭/공백 흡수). 매칭 실패하면 trim 원문.
       const fallbackNames: (string | null)[] = [
         cell(cols, "leader1") ? canonicalLeaderName(cell(cols, "leader1"), leaders) : null,
         cell(cols, "leader2") ? canonicalLeaderName(cell(cols, "leader2"), leaders) : null,
+        cell(cols, "leader3") ? canonicalLeaderName(cell(cols, "leader3"), leaders) : null,
       ];
       const leaderNames: (string | null)[] = leaderIds.map((id, i) =>
         id ? leaderById.get(id)?.name || null : fallbackNames[i]
@@ -1718,8 +1737,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       if (!usedDefault && leaderText && extracted.ids.length === 0 && leaderText.replace(LEADER_SPLIT_RE, "").length > 0) {
         errors.push({ field: "팀장", msg: `미등록 팀장: ${leaderText}` });
       }
-      if (effectiveIds.length >= 3) {
-        warnings.push({ field: "팀장", msg: `${effectiveIds.length}명 인식 — 앞 2명만 사용 (팀장3 미사용)` });
+      if (effectiveIds.length >= 4) {
+        warnings.push({ field: "팀장", msg: `${effectiveIds.length}명 인식 — 앞 3명만 사용 (팀장4 이상 미사용)` });
       }
       if (usedDefault) {
         warnings.push({ field: "팀장", msg: "기본 팀장 적용" });
@@ -1804,6 +1823,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     };
     const a = applyOne(r.leaderIds[0], r.leaders[0], ov.l1);
     const b = applyOne(r.leaderIds[1], r.leaders[1], ov.l2);
+    const c = applyOne(r.leaderIds[2], r.leaders[2], ov.l3);
     // 수도권/지방 override 반영 + 지역 경고
     const regionType: RegionType = regionOverrides[i] ?? r.regionType;
     const warnings = [...r.warnings];
@@ -1837,8 +1857,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       ...r,
       date,
       dateInputValue,
-      leaderIds: [a.id, b.id] as (string | null)[],
-      leaders: [a.name, b.name] as (string | null)[],
+      leaderIds: [a.id, b.id, c.id] as (string | null)[],
+      leaders: [a.name, b.name, c.name] as (string | null)[],
       regionType,
       twoPerson: twoOverrides[i] !== undefined ? twoOverrides[i] : r.twoPerson,
       split: splitOverrides[i] !== undefined ? splitOverrides[i] : r.split,
@@ -1985,6 +2005,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       company_name: r.company,
       leader1_id: r.leaderIds[0], leader1_name: r.leaders[0],
       leader2_id: r.leaderIds[1], leader2_name: r.leaders[1],
+      leader3_id: r.leaderIds[2], leader3_name: r.leaders[2],
       customer_name: r.customer || null,
       region: r.region || null,
       region_type: r.regionType === "unknown" ? null : r.regionType,
@@ -2320,6 +2341,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                       <TableHead className="whitespace-nowrap min-w-[140px]">업체</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">팀장1</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">팀장2</TableHead>
+                      <TableHead className="whitespace-nowrap min-w-[120px]">팀장3</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">고객명</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[120px]">배송지</TableHead>
                       <TableHead className="whitespace-nowrap min-w-[110px]">지역구분</TableHead>
@@ -2341,8 +2363,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                     {visible.map(({ row: r, i }, displayIdx) => {
                       const total = r.metro + r.noteAmt + r.regional;
                       const hasErr = r.errors.length > 0;
-                      const leaderCell = (slot: 0 | 1) => {
-                        const key = slot === 0 ? "l1" : "l2";
+                      const leaderCell = (slot: 0 | 1 | 2) => {
+                        const key = (slot === 0 ? "l1" : slot === 1 ? "l2" : "l3") as "l1" | "l2" | "l3";
                         const ovVal = leaderOverrides[i]?.[key];
                         const current = ovVal !== undefined ? ovVal : (r.leaderIds[slot] || "");
                         const unknown = !current && !!r.leaders[slot];
@@ -2423,6 +2445,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                           <TableCell className="min-w-[140px] whitespace-nowrap">{r.company || "-"}</TableCell>
                           <TableCell>{leaderCell(0)}</TableCell>
                           <TableCell>{leaderCell(1)}</TableCell>
+                          <TableCell>{leaderCell(2)}</TableCell>
                           <TableCell className="min-w-[120px] whitespace-nowrap">{r.customer || "-"}</TableCell>
                           <TableCell className="min-w-[120px] whitespace-nowrap">{r.region || "-"}</TableCell>
                           <TableCell className="min-w-[110px]">
