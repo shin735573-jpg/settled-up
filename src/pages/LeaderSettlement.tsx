@@ -872,6 +872,16 @@ export default function LeaderSettlement() {
                 <Stat label="계산후 지급금액" value={detailCalc.afterFees} />
                 <Stat label="공제총액" value={detailCalc.deduction} />
                 <Stat label="실지급액" value={detailCalc.net} highlight />
+                {detailLeader.issues_invoice && (
+                  <>
+                    <Stat label="부가세 (10%)" value={Math.round(detailCalc.net * 0.1)} />
+                    <Stat
+                      label="부가세포함 총합"
+                      value={detailCalc.net + Math.round(detailCalc.net * 0.1)}
+                      highlight
+                    />
+                  </>
+                )}
               </div>
             </div>
             {/* 우측: 배송한 업체 상위 7개 */}
