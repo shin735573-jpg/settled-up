@@ -14,6 +14,7 @@ import { ClipboardPaste, Trash2, Plus, X, CalendarIcon, Camera, Loader2, ScanSea
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { CompanyCombobox } from "@/components/CompanyCombobox";
+import { LeaderCombobox } from "@/components/LeaderCombobox";
 import { AmountTextInput } from "@/components/AmountTextInput";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -1379,20 +1380,12 @@ export default function Records() {
               return (
                 <div key={i} className="space-y-1">
                   <Label>팀장{i}{i === 1 ? " *" : ""}</Label>
-                  <Select
-                    value={bulkShared[key] || NONE}
-                    onValueChange={(v) => setBulkShared({ ...bulkShared, [key]: v === NONE ? "" : v })}
-                  >
-                    <SelectTrigger><SelectValue placeholder="선택 안 함" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>선택 안 함</SelectItem>
-                      {selectableLeaders.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>
-                          {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <LeaderCombobox
+                    leaders={selectableLeaders}
+                    value={bulkShared[key] || ""}
+                    onChange={(v) => setBulkShared({ ...bulkShared, [key]: v })}
+                    placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
+                  />
                 </div>
               );
             })}
@@ -1589,20 +1582,12 @@ export default function Records() {
               return (
                 <div key={i} className="space-y-1">
                   <Label>팀장{i + 1}</Label>
-                  <Select
-                    value={form[key] || NONE}
-                    onValueChange={(v) => setForm({ ...form, [key]: v === NONE ? "" : v })}
-                  >
-                    <SelectTrigger><SelectValue placeholder="선택 안 함" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>선택 안 함</SelectItem>
-                      {selectableLeaders.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>
-                          {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <LeaderCombobox
+                    leaders={selectableLeaders}
+                    value={form[key] || ""}
+                    onChange={(v) => setForm({ ...form, [key]: v })}
+                    placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
+                  />
                   {isCompanyRejected && (
                     <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                       해당 업체는 선택한 팀장을 거부팀장으로 등록한 업체입니다. (거부기사 표시 적용)
@@ -2842,25 +2827,16 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                         const current = ovVal !== undefined ? ovVal : (r.leaderIds[slot] || "");
                         const unknown = !current && !!r.leaders[slot];
                         return (
-                          <Select
-                            value={current || NONE}
-                            onValueChange={(v) => setLeaderOverrides((prev) => ({
+                          <LeaderCombobox
+                            leaders={selectableLeaders}
+                            value={current}
+                            onChange={(v) => setLeaderOverrides((prev) => ({
                               ...prev,
-                              [i]: { ...prev[i], [key]: v === NONE ? "" : v },
+                              [i]: { ...prev[i], [key]: v },
                             }))}
-                          >
-                            <SelectTrigger className={`h-7 text-xs min-w-[110px] ${unknown ? "border-destructive text-destructive" : ""}`}>
-                              <SelectValue placeholder={r.leaders[slot] || "선택 안 함"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>(빈칸)</SelectItem>
-                              {selectableLeaders.map((l) => (
-                                <SelectItem key={l.id} value={l.id}>
-                                  {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder={r.leaders[slot] || "팀장 입력"}
+                            className={unknown ? "[&_input]:border-destructive [&_input]:text-destructive" : ""}
+                          />
                         );
                       };
                       return (
