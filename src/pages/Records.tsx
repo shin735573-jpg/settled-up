@@ -1523,6 +1523,18 @@ export default function Records() {
                         </Select>
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
+                      <td className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => upd({ two_person: !r.two_person })}
+                          className={cn(
+                            "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
+                            r.two_person ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                          )}
+                        >
+                          {r.two_person ? "2인배송" : "—"}
+                        </button>
+                      </td>
                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} /></td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.metro_fee} onChange={(v) => upd({ metro_fee: v })} /></td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
