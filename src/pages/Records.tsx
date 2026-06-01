@@ -1418,15 +1418,30 @@ export default function Records() {
         </Button>
       </div>
 
-      <div className="space-y-4">
-      {bulkOpen && (
-        <Card className="p-4 md:p-6 space-y-4 border-primary/40">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">한 팀장 여러건 일괄 입력</h2>
-            <Button variant="ghost" size="icon" onClick={() => setBulkOpen(false)}>
-              <X className="h-4 w-4" />
+      <Card className="p-4 md:p-6 space-y-4 bg-muted/30">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">📋 기록입력</h2>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={bulkOpen ? "default" : "outline"}
+              onClick={() => setBulkOpen((v) => !v)}
+            >
+              여러건 {bulkOpen ? "▾" : "▸"}
+            </Button>
+            <Button
+              size="sm"
+              variant={formOpen ? "default" : "outline"}
+              onClick={() => setFormOpen((v) => !v)}
+            >
+              개별 {formOpen ? "▾" : "▸"}
             </Button>
           </div>
+        </div>
+
+      {bulkOpen && (
+        <Card className="p-4 md:p-6 space-y-4 border-primary/40">
+          <h3 className="text-base font-semibold border-l-4 border-primary pl-2">한 팀장 여러건 배송입력</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
