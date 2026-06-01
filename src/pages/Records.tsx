@@ -1322,14 +1322,23 @@ export default function Records() {
         </TabsList>
 
         <TabsContent value="input" className="space-y-4 mt-0">
-          <Button
-            size="lg"
-            variant="secondary"
-            className="h-14 text-base font-semibold w-full"
-            onClick={() => setBulkOpen((v) => !v)}
-          >
-            <Plus className="h-5 w-5 mr-2" /> 한 팀장 여러건 입력
-          </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button
+              size="lg"
+              className="h-14 text-base font-semibold"
+              onClick={() => { setForm(emptyForm()); setFormOpen((v) => !v); }}
+            >
+              <Plus className="h-5 w-5 mr-2" /> 새 배송 입력
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="h-14 text-base font-semibold"
+              onClick={() => setBulkOpen((v) => !v)}
+            >
+              <Plus className="h-5 w-5 mr-2" /> 한 팀장 여러건 입력
+            </Button>
+          </div>
 
       {bulkOpen && (
         <Card className="p-4 md:p-6 space-y-4 border-primary/40">
