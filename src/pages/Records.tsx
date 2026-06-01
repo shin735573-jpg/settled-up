@@ -821,6 +821,7 @@ export default function Records() {
   const [saving, setSaving] = useState(false);
   // 한 팀장 여러건 일괄 입력
   type BulkRow = {
+    company_id: string;
     customer_name: string;
     region: string;
     region_type: RegionType;
@@ -831,7 +832,8 @@ export default function Records() {
     regional_fee: string;
     cod_amount: string;
   };
-  const emptyBulkRow = (): BulkRow => ({
+  const emptyBulkRow = (companyId: string = ""): BulkRow => ({
+    company_id: companyId,
     customer_name: "",
     region: "",
     region_type: "unknown",
@@ -845,7 +847,7 @@ export default function Records() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkShared, setBulkShared] = useState({
     date: new Date().toISOString().slice(0, 10),
-    company_id: "",
+    default_company_id: "",
     leader1_id: "",
     leader2_id: "",
     leader3_id: "",
