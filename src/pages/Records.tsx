@@ -2240,7 +2240,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
               )}
               <div className="flex items-center justify-between">
                 <div className="text-sm">
-                  자동감지 <b>{effective.length}</b>건 · 미리보기 <b>{visible.length}</b>건 · 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
+                  붙여넣기 <b>{grid.length - headerInfo.dataStart}</b>행 · 자동감지 <b>{effective.length}</b>건 · 미리보기 <b>{visible.length}</b>건 · 오류 <span className="text-destructive font-semibold">{errorCount}</span>건
                 </div>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={skipErrors} onCheckedChange={(v) => setSkipErrors(!!v)} />
