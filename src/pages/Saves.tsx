@@ -1246,12 +1246,12 @@ function LeaderPreview({
   const l = data.leader;
   const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
 
-  // 총합배송비 = 수도권 + 비고 + 지방 (배송 기준 그대로)
-  const totalDelivery = data.metroSum + data.noteSum + data.regionalSum;
+  // 총합배송비 = 실지급액(payout) — 부가세 계산 기준과 100% 일치시켜
+  // "총합배송비 + 부가세 = 부가세포함총배송비" 등식이 항상 성립하도록 한다.
   const issuesInvoice = !!l.issues_invoice;
-  // 부가세는 저장된 정산값(payout 기준)과 100% 일치시킴 — 미리보기/저장 불일치 방지
   const vat = data.vat;
-  const totalWithVat = data.payoutWithVat;
+  const totalDelivery = data.payout;
+  const totalWithVat = issuesInvoice ? data.payout + vat : data.payout;
 
   // 기간 라벨: "기간: 2026년 05월 1~15일"
   const firstDate = data.rows[0]?.delivery.date ?? "";
@@ -1264,6 +1264,7 @@ function LeaderPreview({
     { label: "수도권배송비", value: data.metroSum },
     { label: "비고금액", value: data.noteSum },
     { label: "지방배송비", value: data.regionalSum },
+    { label: "수수료", value: data.feeTotal },
     { label: "착불", value: data.codSum },
     { label: "공제", value: data.deductionTotal },
     { label: "총합배송비", value: totalDelivery, emphasize: !issuesInvoice },
