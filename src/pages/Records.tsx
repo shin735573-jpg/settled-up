@@ -2167,7 +2167,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
             )}
             {defaultLeadersText.trim() && (
               <div className="flex items-center gap-2 flex-wrap text-xs">
-                {defaultLeaderInfo.ids.slice(0, 2).map((id, i) => {
+                {defaultLeaderInfo.ids.slice(0, 3).map((id, i) => {
                   const rec = leaderById.get(id);
                   return (
                     <Badge key={id} variant="secondary">
@@ -2180,7 +2180,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                 )}
                 {defaultLeaderInfo.tooMany && (
                   <Badge variant="destructive">
-                    {defaultLeaderInfo.ids.length}명 입력 — 앞 2명만 사용. 미리보기에서 확인하세요.
+                    {defaultLeaderInfo.ids.length}명 입력 — 앞 3명만 사용. 미리보기에서 확인하세요.
                   </Badge>
                 )}
                 {defaultLeaderInfo.unknown.map((u) => (
