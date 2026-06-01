@@ -36,11 +36,11 @@ describe("allocateRow", () => {
     expect(r[1].metro).toBe(40000);
   });
 
-  it("일반 + 팀장2 있음 + 2인배송 아니오: 팀장1 100%", () => {
+  it("일반 + 팀장1·2 모두 입력: 자동 50/50 분배", () => {
     const r = allocateRow(base({ leader2_id: "l2", metro_fee: 100000 }));
-    expect(r.length).toBe(1);
-    expect(r[0].leader_id).toBe("l1");
-    expect(r[0].metro).toBe(100000);
+    expect(r.length).toBe(2);
+    expect(r[0].metro).toBe(50000);
+    expect(r[1].metro).toBe(50000);
   });
 
   it("2인배송인데 팀장2 없음: 팀장1 100% (오류는 UI에서 차단)", () => {

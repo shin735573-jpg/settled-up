@@ -61,9 +61,9 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
     weights = [1, 0];
     reasons = ["일반 100%", ""];
   } else if (l1 && l2) {
-    // 일반 + 팀장2 있음 + 2인배송 아니오 → 기본은 팀장1 100%
-    weights = [1, 0];
-    reasons = ["일반 100%", ""];
+    // 일반 + 팀장1·2 모두 입력 → 자동 50/50 분배 (함께 배송한 것으로 간주)
+    weights = [0.5, 0.5];
+    reasons = ["함께배송 50%", "함께배송 50%"];
   }
 
   const ids: (string | null)[] = [l1, l2, l3];
