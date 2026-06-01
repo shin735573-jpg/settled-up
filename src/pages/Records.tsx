@@ -1302,13 +1302,214 @@ export default function Records() {
       </Card>
 
 
-      <Button
-        size="lg"
-        className="w-full h-14 text-base font-semibold"
-        onClick={() => { setForm(emptyForm()); setFormOpen(true); }}
-      >
-        <Plus className="h-5 w-5 mr-2" /> 새 배송 입력
-      </Button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Button
+          size="lg"
+          className="h-14 text-base font-semibold"
+          onClick={() => { setForm(emptyForm()); setFormOpen(true); }}
+        >
+          <Plus className="h-5 w-5 mr-2" /> 새 배송 입력
+        </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="h-14 text-base font-semibold"
+          onClick={() => setBulkOpen((v) => !v)}
+        >
+          <Plus className="h-5 w-5 mr-2" /> 한 팀장 여러건 입력
+        </Button>
+      </div>
+
+      {bulkOpen && (
+        <Card className="p-4 md:p-6 space-y-4 border-primary/40">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">한 팀장 여러건 일괄 입력</h2>
+            <Button variant="ghost" size="icon" onClick={() => setBulkOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <Label>날짜</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !bulkShared.date && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {bulkShared.date ? format(new Date(bulkShared.date + "T00:00:00"), "yyyy-MM-dd") : "날짜 선택"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={bulkShared.date ? new Date(bulkShared.date + "T00:00:00") : undefined}
+                    onSelect={(d) => d && setBulkShared({ ...bulkShared, date: format(d, "yyyy-MM-dd") })}
+                    locale={ko}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1">
+              <Label>업체</Label>
+              <CompanyCombobox
+                companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
+                value={bulkShared.company_id}
+                onChange={(v) => setBulkShared({ ...bulkShared, company_id: v })}
+                placeholder="업체명 입력"
+              />
+            </div>
+            {[1, 2, 3].map((i) => {
+              const key = (`leader${i}_id`) as "leader1_id" | "leader2_id" | "leader3_id";
+              return (
+                <div key={i} className="space-y-1">
+                  <Label>팀장{i}{i === 1 ? " *" : ""}</Label>
+                  <Select
+                    value={bulkShared[key] || NONE}
+                    onValueChange={(v) => setBulkShared({ ...bulkShared, [key]: v === NONE ? "" : v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="선택 안 함" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>선택 안 함</SelectItem>
+                      {selectableLeaders.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+            <div className="space-y-1">
+              <Label>2인배송</Label>
+              <Select
+                value={bulkShared.two_person ? "yes" : "no"}
+                onValueChange={(v) => setBulkShared({ ...bulkShared, two_person: v === "yes" })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no">아니오</SelectItem>
+                  <SelectItem value="yes">예</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>분할</Label>
+              <Select
+                value={bulkShared.split_type || "__none__"}
+                onValueChange={(v) => setBulkShared({ ...bulkShared, split_type: v === "__none__" ? "" : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="선택" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">(빈칸)</SelectItem>
+                  <SelectItem value="3분할">3분할</SelectItem>
+                  <SelectItem value="형주동석">형주동석</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 flex flex-col">
+              <Label>결제유무</Label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setBulkShared((s) => ({ ...s, paid: !s.paid }))}
+                className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer select-none"
+              >
+                <Checkbox checked={bulkShared.paid} tabIndex={-1} className="pointer-events-none" />
+                <span>{bulkShared.paid ? "결제완료" : "미결제"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto border rounded-md">
+            <table className="w-full text-xs">
+              <thead className="bg-muted">
+                <tr className="text-left">
+                  <th className="p-2 w-8">#</th>
+                  <th className="p-2 min-w-[110px]">고객명</th>
+                  <th className="p-2 min-w-[140px]">배송지</th>
+                  <th className="p-2 min-w-[100px]">지역구분</th>
+                  <th className="p-2 min-w-[180px]">품목</th>
+                  <th className="p-2 min-w-[120px]">비고</th>
+                  <th className="p-2 min-w-[100px]">수도권</th>
+                  <th className="p-2 min-w-[100px]">비고금액</th>
+                  <th className="p-2 min-w-[100px]">지방</th>
+                  <th className="p-2 min-w-[100px]">착불</th>
+                  <th className="p-2 min-w-[100px]">총액</th>
+                  <th className="p-2 w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {bulkRows.map((r, idx) => {
+                  const total = (parseNum(r.metro_fee) || 0) + (parseNum(r.note_amount) || 0) + (parseNum(r.regional_fee) || 0) + (parseNum(r.cod_amount) || 0);
+                  const upd = (patch: Partial<BulkRow>) =>
+                    setBulkRows((rows) => rows.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
+                  return (
+                    <tr key={idx} className="border-t">
+                      <td className="p-1 text-center text-muted-foreground">{idx + 1}</td>
+                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} /></td>
+                      <td className="p-1">
+                        <Input
+                          className="h-8"
+                          value={r.region}
+                          onChange={(e) => upd({ region: e.target.value, region_type: classifyRegion(e.target.value) })}
+                        />
+                      </td>
+                      <td className="p-1">
+                        <Select value={r.region_type} onValueChange={(v) => upd({ region_type: v as RegionType })}>
+                          <SelectTrigger className={cn("h-8", r.region_type === "unknown" && "border-destructive text-destructive")}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="metro">수도권</SelectItem>
+                            <SelectItem value="regional">지방</SelectItem>
+                            <SelectItem value="unknown">미분류</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
+                      <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} /></td>
+                      <td className="p-1"><Input className="h-8" inputMode="numeric" value={r.metro_fee} onChange={(e) => upd({ metro_fee: e.target.value })} /></td>
+                      <td className="p-1"><Input className="h-8" inputMode="numeric" value={r.note_amount} onChange={(e) => upd({ note_amount: e.target.value })} /></td>
+                      <td className="p-1"><Input className="h-8" inputMode="numeric" value={r.regional_fee} onChange={(e) => upd({ regional_fee: e.target.value })} /></td>
+                      <td className="p-1"><Input className="h-8" inputMode="numeric" value={r.cod_amount} onChange={(e) => upd({ cod_amount: e.target.value })} /></td>
+                      <td className="p-1 text-right font-semibold">{fmt(total)}</td>
+                      <td className="p-1 text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setBulkRows((rows) => (rows.length <= 1 ? rows : rows.filter((_, i) => i !== idx)))}
+                          disabled={bulkRows.length <= 1}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, emptyBulkRow()])}>
+              <Plus className="h-4 w-4 mr-1" /> 행 추가
+            </Button>
+            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, ...Array.from({ length: 5 }, emptyBulkRow)])}>
+              <Plus className="h-4 w-4 mr-1" /> 5행 추가
+            </Button>
+            <div className="flex-1" />
+            <span className="text-xs text-muted-foreground">총 {bulkRows.length}행</span>
+            <Button size="lg" onClick={bulkSaveAll} disabled={bulkSaving}>
+              {bulkSaving ? "저장 중…" : "모두 저장"}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {formOpen && (
         <Card className="p-4 md:p-6 space-y-4">
