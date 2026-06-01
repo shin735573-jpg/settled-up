@@ -899,7 +899,7 @@ export default function Records() {
     two_person: false,
     paid: false,
   });
-  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(true);
   const [bulkShared, setBulkShared] = useState(() => {
     const def = {
       date: new Date().toISOString().slice(0, 10),
