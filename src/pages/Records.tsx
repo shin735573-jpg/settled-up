@@ -821,6 +821,7 @@ export default function Records() {
   const [saving, setSaving] = useState(false);
   // 한 팀장 여러건 일괄 입력
   type BulkRow = {
+    company_id: string;
     customer_name: string;
     region: string;
     region_type: RegionType;
@@ -831,7 +832,8 @@ export default function Records() {
     regional_fee: string;
     cod_amount: string;
   };
-  const emptyBulkRow = (): BulkRow => ({
+  const emptyBulkRow = (companyId: string = ""): BulkRow => ({
+    company_id: companyId,
     customer_name: "",
     region: "",
     region_type: "unknown",
@@ -845,7 +847,7 @@ export default function Records() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkShared, setBulkShared] = useState({
     date: new Date().toISOString().slice(0, 10),
-    company_id: "",
+    default_company_id: "",
     leader1_id: "",
     leader2_id: "",
     leader3_id: "",
@@ -1134,14 +1136,13 @@ export default function Records() {
   const bulkSaveAll = async () => {
     if (!user) return;
     if (!bulkShared.date) { toast.error("날짜를 선택하세요"); return; }
-    const company = companies.find((c) => c.id === bulkShared.company_id);
-    if (!company) { toast.error("업체를 선택하세요"); return; }
     if (!bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
     if (bulkShared.two_person && !bulkShared.leader2_id) {
       toast.error("2인배송은 팀장2가 필요합니다.");
       return;
     }
     const rows = bulkRows.filter((r) =>
+      r.company_id ||
       r.customer_name.trim() ||
       r.region.trim() ||
       r.item.trim() ||
@@ -1151,13 +1152,20 @@ export default function Records() {
       parseNum(r.cod_amount),
     );
     if (rows.length === 0) { toast.error("입력된 행이 없습니다."); return; }
+    const missingCompanyIdx = rows.findIndex((r) => !r.company_id);
+    if (missingCompanyIdx >= 0) {
+      toast.error(`${missingCompanyIdx + 1}번 행의 업체를 선택하세요`);
+      return;
+    }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
-    const payloads = rows.map((r) => ({
-      user_id: user.id,
-      date: bulkShared.date,
-      company_id: bulkShared.company_id,
-      company_name: company.name,
-      leader1_id: bulkShared.leader1_id || null,
+    const payloads = rows.map((r) => {
+      const co = companies.find((c) => c.id === r.company_id);
+      return {
+        user_id: user.id,
+        date: bulkShared.date,
+        company_id: r.company_id,
+        company_name: co?.name || "",
+        leader1_id: bulkShared.leader1_id || null,
       leader1_name: leaderName(bulkShared.leader1_id),
       leader2_id: bulkShared.leader2_id || null,
       leader2_name: leaderName(bulkShared.leader2_id),
@@ -1176,13 +1184,15 @@ export default function Records() {
       paid: bulkShared.paid,
       two_person: bulkShared.two_person,
       is_missing: false,
-    }));
+      };
+    });
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`${rows.length}건 저장 완료`);
-    setBulkRows([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()]);
+    const dc = bulkShared.default_company_id;
+    setBulkRows([emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc)]);
     load();
   };
 
@@ -1355,12 +1365,12 @@ export default function Records() {
               </Popover>
             </div>
             <div className="space-y-1">
-              <Label>업체</Label>
+              <Label>기본 업체 (신규 행에 자동 적용)</Label>
               <CompanyCombobox
                 companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
-                value={bulkShared.company_id}
-                onChange={(v) => setBulkShared({ ...bulkShared, company_id: v })}
-                placeholder="업체명 입력"
+                value={bulkShared.default_company_id}
+                onChange={(v) => setBulkShared({ ...bulkShared, default_company_id: v })}
+                placeholder="(선택) 행마다 다르면 비워두세요"
               />
             </div>
             {[1, 2, 3].map((i) => {
@@ -1431,6 +1441,7 @@ export default function Records() {
               <thead className="bg-muted">
                 <tr className="text-left">
                   <th className="p-2 w-8">#</th>
+                  <th className="p-2 min-w-[140px]">업체 *</th>
                   <th className="p-2 min-w-[110px]">고객명</th>
                   <th className="p-2 min-w-[140px]">배송지</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
@@ -1452,6 +1463,14 @@ export default function Records() {
                   return (
                     <tr key={idx} className="border-t">
                       <td className="p-1 text-center text-muted-foreground">{idx + 1}</td>
+                      <td className="p-1">
+                        <CompanyCombobox
+                          companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
+                          value={r.company_id}
+                          onChange={(v) => upd({ company_id: v })}
+                          placeholder="업체"
+                        />
+                      </td>
                       <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} /></td>
                       <td className="p-1">
                         <Input
@@ -1496,10 +1515,10 @@ export default function Records() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, emptyBulkRow()])}>
+            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, emptyBulkRow(bulkShared.default_company_id)])}>
               <Plus className="h-4 w-4 mr-1" /> 행 추가
             </Button>
-            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, ...Array.from({ length: 5 }, emptyBulkRow)])}>
+            <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, ...Array.from({ length: 5 }, () => emptyBulkRow(bulkShared.default_company_id))])}>
               <Plus className="h-4 w-4 mr-1" /> 5행 추가
             </Button>
             <div className="flex-1" />
