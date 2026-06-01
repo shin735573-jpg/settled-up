@@ -1766,7 +1766,7 @@ export default function Records() {
 
         <TabsContent value="detail" className="space-y-4 mt-0">
           <Card className="p-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 items-end">
               <div className="space-y-1">
                 <Label className="text-xs">업체 검색</Label>
                 <Input
@@ -1791,15 +1791,46 @@ export default function Records() {
                   placeholder="예: 형주 / 동석 / 동선"
                 />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">날짜 검색</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !searchDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {searchDate ? format(searchDate, "yyyy-MM-dd") : "날짜 선택"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={searchDate}
+                      onSelect={setSearchDate}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => { setSearchCompany(""); setSearchCustomer(""); setSearchLeader(""); }}
+                  onClick={() => {
+                    setSearchCompany("");
+                    setSearchCustomer("");
+                    setSearchLeader("");
+                    setSearchDate(undefined);
+                  }}
                 >
                   초기화
                 </Button>
                 <div className="text-xs text-muted-foreground">
-                  {(searchCompany || searchCustomer || searchLeader)
+                  {(searchCompany || searchCustomer || searchLeader || searchDate)
                     ? `검색 결과 ${filteredRecords.length}건`
                     : `전체 ${records.length}건`}
                 </div>
