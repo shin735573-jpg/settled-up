@@ -1620,31 +1620,60 @@ export default function Records() {
                         </button>
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} /></td>
-                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.metro_fee} onChange={(v) => upd({ metro_fee: v })} /></td>
-                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
-                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.regional_fee} onChange={(v) => upd({ regional_fee: v })} /></td>
                       <td className="p-1">
                         <AmountTextInput
-                          className="h-8 text-right tabular-nums"
-                          value={r.cod_amount}
-                          onChange={(v) => upd({ cod_amount: v })}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const nextIdx = idx + 1;
-                              const focusNext = () => {
-                                const el = bulkCompanyRefs.current[nextIdx];
-                                if (el) { el.focus(); el.select?.(); }
-                              };
-                              if (nextIdx >= bulkRows.length) {
-                                setBulkRows((rows) => [...rows, emptyBulkRow(bulkShared.default_company_id)]);
-                                setTimeout(focusNext, 0);
-                              } else {
-                                focusNext();
-                              }
-                            }
+                          className={cn(
+                            "h-8 text-right tabular-nums",
+                            r.region_type === "unknown" && "border-destructive"
+                          )}
+                          value={r.region_type === "regional" ? r.regional_fee : r.metro_fee}
+                          onChange={(v) => {
+                            if (r.region_type === "regional") upd({ regional_fee: v, metro_fee: "" });
+                            else upd({ metro_fee: v, regional_fee: "" });
                           }}
+                          disabled={r.region_type === "unknown"}
+                          placeholder={r.region_type === "unknown" ? "지역 먼저" : ""}
                         />
+                      </td>
+                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
+                      <td className="p-1">
+                        {(() => {
+                          const rowCompany = r.company_id ? companiesById.get(r.company_id) : null;
+                          const rowHasCod = rowCompany?.has_cod !== false;
+                          if (!rowHasCod) {
+                            return <div className="h-8 flex items-center justify-center text-[11px] text-muted-foreground">착불 미지원</div>;
+                          }
+                          const cur = parseNum(r.cod_amount) || 0;
+                          return (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    "h-8 w-full rounded-md border text-xs tabular-nums px-2",
+                                    cur > 0 ? "bg-primary/10 border-primary font-semibold" : "bg-background text-muted-foreground"
+                                  )}
+                                >
+                                  {cur > 0 ? `${cur.toLocaleString()}원` : "착불 선택"}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[420px] p-3" align="start">
+                                <div className="space-y-2">
+                                  <div className="text-xs text-muted-foreground">착불 금액 선택 (1만~30만)</div>
+                                  <CodPicker value={r.cod_amount} onChange={(v) => upd({ cod_amount: v })} />
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-xs">직접 입력</Label>
+                                    <AmountTextInput
+                                      className="h-8 text-right tabular-nums flex-1"
+                                      value={r.cod_amount}
+                                      onChange={(v) => upd({ cod_amount: v })}
+                                    />
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          );
+                        })()}
                       </td>
                       <td className="p-1 text-center">
                         <button
@@ -1659,7 +1688,18 @@ export default function Records() {
                         </button>
                       </td>
                       <td className="p-1">
-                        <Select value={r.region_type} onValueChange={(v) => upd({ region_type: v as RegionType })}>
+                        <Select
+                          value={r.region_type}
+                          onValueChange={(v) => {
+                            const next = v as RegionType;
+                            // 배송비 값을 새 지역구분 칸으로 자동 이동
+                            const fee = r.metro_fee || r.regional_fee || "";
+                            const patch: Partial<BulkRow> = { region_type: next, metro_fee: "", regional_fee: "" };
+                            if (next === "metro") patch.metro_fee = fee;
+                            else if (next === "regional") patch.regional_fee = fee;
+                            upd(patch);
+                          }}
+                        >
                           <SelectTrigger className={cn("h-8", r.region_type === "unknown" && "border-destructive text-destructive")}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="metro">수도권</SelectItem>
