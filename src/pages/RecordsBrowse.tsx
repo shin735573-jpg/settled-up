@@ -9,10 +9,38 @@ import { X, Search, Building2, Users, Maximize2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { allocateRow } from "@/lib/splitAllocation";
 
 type Company = { id: string; name: string; active: boolean };
 type Leader = { id: string; name: string; active: boolean };
 type Delivery = any;
+
+/**
+ * 팀장 패널/상세에서 해당 팀장이 실제로 받는 몫(분할 반영)을 계산.
+ * 일반 팀장1만: 100%, 2인배송 또는 팀장1·2 동시 입력: 50/50,
+ * 3분할: 2/3 + 1/3, 형주동석: 50/50, 3인배송: 1/3씩.
+ */
+const shareForLeader = (r: any, leaderId: string) => {
+  const shares = allocateRow({
+    leader1_id: r.leader1_id ?? null,
+    leader2_id: r.leader2_id ?? null,
+    leader3_id: r.leader3_id ?? null,
+    split_type: r.split_type ?? null,
+    two_person: !!r.two_person,
+    metro_fee: Number(r.metro_fee || 0),
+    note_amount: Number(r.note_amount || 0),
+    regional_fee: Number(r.regional_fee || 0),
+    cod_amount: Number(r.cod_amount || 0),
+  });
+  const s = shares.find((x) => x.leader_id === leaderId);
+  return {
+    metro: s?.metro ?? 0,
+    note: s?.note_amount ?? 0,
+    regional: s?.regional ?? 0,
+    cod: s?.cod ?? 0,
+    weight: s?.weight ?? 0,
+  };
+};
 
 type Sel =
   | { kind: "company"; id: string; name: string }
