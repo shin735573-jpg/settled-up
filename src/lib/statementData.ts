@@ -324,6 +324,25 @@ export function buildCompanyStatements(
           `${first.date} ${first.item}: 수도권/지방 배송비(${Math.round(ignoredFee).toLocaleString()})는 업체 청구 시 무시되고 비고금액만 합산됩니다`,
         );
       }
+      // 팀장 등장 순서대로 수집 (중복 제거). 최초 2명만 업체 청구서 팀장 칸에,
+      // 나머지는 비고에 자동 추가.
+      const leaderNames: string[] = [];
+      const seen = new Set<string>();
+      const pushLeader = (n: string) => {
+        const t = (n || "").trim();
+        if (!t || seen.has(t)) return;
+        seen.add(t);
+        leaderNames.push(t);
+      };
+      for (const r of bucket) {
+        pushLeader(r.display_leader1);
+        pushLeader(r.display_leader2);
+      }
+      const primary = leaderNames[0] || "";
+      const secondary = leaderNames[1] || "";
+      const extras = leaderNames.slice(2);
+      const extraNote = extras.length > 0 ? `추가팀장: ${extras.join(", ")}` : "";
+      const mergedNote = [first.note, extraNote].filter((x) => x && String(x).trim()).join(" / ");
       collapsed.push({
         ...first,
         metro_fee: 0,
@@ -333,6 +352,9 @@ export function buildCompanyStatements(
         paid,
         delivery_fee: noteSum,
         customer_name: first.customer_name || first.item || "",
+        display_leader1: primary,
+        display_leader2: secondary,
+        note: mergedNote || first.note,
       });
     }
     // 원본 rows 자리 교체

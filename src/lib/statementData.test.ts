@@ -66,6 +66,11 @@ describe("행사철수 특수일 처리", () => {
     expect(special[0].metro_fee).toBe(0);
     expect(special[0].regional_fee).toBe(0);
     expect(special[0].delivery_fee).toBe(45000);
+    // 최초 2명만 팀장 칸, 나머지는 비고에
+    expect(special[0].display_leader1).toBe("A팀장");
+    expect(special[0].display_leader2).toBe("B팀장");
+    expect(special[0].note).toContain("C팀장");
+    expect(special[0].note).toContain("추가팀장");
     // 일반 행은 그대로
     expect(stmt.rows.filter((r) => r.item === "일반")).toHaveLength(1);
     // 총액 = 행사철수 45,000 + 일반 5,000
