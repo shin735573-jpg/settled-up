@@ -1891,6 +1891,18 @@ export default function Records() {
           </div>
         </Card>
       )}
+      </div>
+
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "input" | "detail")} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 h-12">
+          <TabsTrigger value="input" className="text-base font-semibold">기록입력</TabsTrigger>
+          <TabsTrigger value="detail" className="text-base font-semibold">
+            배송내용 상세 ({records.length}건)
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="input" className="mt-0">
+          <p className="text-sm text-muted-foreground">위 입력 영역을 사용하세요.</p>
         </TabsContent>
 
         <TabsContent value="detail" className="space-y-4 mt-0">
