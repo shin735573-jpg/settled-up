@@ -1588,6 +1588,57 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       .map((l) => l.split("\t").map((c) => c.trim()));
   }, [text]);
 
+  // 표 형태 텍스트를 컬럼 너비에 맞춰 공백 패딩 — 한글/전각문자는 2칸으로 계산해
+  // 모노폰트에서 엑셀 원본과 동일한 시각적 정렬을 보장한다.
+  // 구분자는 그대로 탭(\t)으로 유지하므로 파서(grid)에는 영향이 없다.
+  const alignTabular = (raw: string): string => {
+    const src = raw.replace(/\r/g, "");
+    if (!src.includes("\t")) return src; // 탭이 없으면 정렬할 표가 아님
+    const lines = src.split("\n");
+    const rows = lines.map((l) => l.split("\t"));
+    const cols = rows.reduce((m, r) => Math.max(m, r.length), 0);
+    const dispWidth = (s: string) => {
+      let w = 0;
+      for (const ch of s) {
+        const code = ch.codePointAt(0) ?? 0;
+        // 한글, CJK, 전각 기호는 2칸
+        if (
+          (code >= 0x1100 && code <= 0x115f) ||
+          (code >= 0x2e80 && code <= 0x9fff) ||
+          (code >= 0xa960 && code <= 0xa97f) ||
+          (code >= 0xac00 && code <= 0xd7a3) ||
+          (code >= 0xf900 && code <= 0xfaff) ||
+          (code >= 0xfe30 && code <= 0xfe4f) ||
+          (code >= 0xff00 && code <= 0xff60) ||
+          (code >= 0xffe0 && code <= 0xffe6)
+        ) w += 2;
+        else w += 1;
+      }
+      return w;
+    };
+    const widths: number[] = [];
+    for (let c = 0; c < cols; c++) {
+      let max = 0;
+      for (const r of rows) {
+        const cell = (r[c] ?? "").trim();
+        const w = dispWidth(cell);
+        if (w > max) max = w;
+      }
+      widths[c] = max;
+    }
+    const padded = rows.map((r) =>
+      r
+        .map((cell, i) => {
+          const v = (cell ?? "").trim();
+          if (i === r.length - 1) return v; // 마지막 셀은 패딩 불필요
+          const pad = Math.max(0, widths[i] - dispWidth(v));
+          return v + " ".repeat(pad);
+        })
+        .join("\t"),
+    );
+    return padded.join("\n");
+  };
+
   // 헤더 자동 탐색: 첫 ~30행 중 표준 별칭 매칭 점수가 가장 높은 행을 헤더로 채택 (점수 ≥ 2 필요)
   const headerInfo = useMemo(() => {
     if (grid.length === 0) return { hasHeader: false, headers: [] as string[], dataStart: 0 };
@@ -2154,6 +2205,19 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onPaste={(e) => {
+                const cd = e.clipboardData;
+                if (!cd) return;
+                const raw = cd.getData("text/plain");
+                if (!raw || !raw.includes("\t")) return; // 탭이 없으면 기본 동작
+                e.preventDefault();
+                const ta = e.currentTarget as HTMLTextAreaElement;
+                const start = ta.selectionStart ?? text.length;
+                const end = ta.selectionEnd ?? text.length;
+                const merged = text.slice(0, start) + raw + text.slice(end);
+                // 붙여넣은 결과 전체를 컬럼 정렬해 엑셀 원본과 동일한 시각 배치 보장
+                setText(alignTabular(merged));
+              }}
               placeholder="엑셀에서 헤더 포함 여러 행/열을 복사해 붙여넣으세요 (Ctrl+V)"
               rows={8}
               wrap="off"
