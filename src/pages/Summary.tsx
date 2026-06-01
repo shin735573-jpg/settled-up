@@ -365,6 +365,50 @@ export default function Summary() {
         </TabsList>
         <TabsContent value={period} className="space-y-4">
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
+
+      {/* 상단 통계 바 + 검수 버튼 */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="font-semibold text-base">기간 통계</div>
+          <div className="flex items-center gap-2">
+            {diagMsg && (
+              <span className={diagMsg.startsWith("정상") ? "text-sm text-primary" : "text-sm text-destructive"}>
+                {diagMsg}
+              </span>
+            )}
+            <Button size="sm" variant="outline" onClick={runInspection}>검수</Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">업체 총건수 (행=1건)</div>
+            <div className="text-xl font-bold num">{topStats.companyRowCount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">금액 {fmt(topStats.companyTotal)} · 비중 100%</div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">팀장 행기준 총건수</div>
+            <div className="text-xl font-bold num">{topStats.leaderRowCount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {topStats.companyRowCount === topStats.leaderRowCount ? "업체 건수와 일치" : "업체 건수와 불일치"}
+            </div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">팀장 각자 건수 합</div>
+            <div className="text-xl font-bold num">{topStats.leaderIndividualCount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              실수령 합 {fmt(topStats.leaderPayoutTotal)} · 비중 100%
+            </div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">여러명이 함께한 건수</div>
+            <div className="text-xl font-bold num">{topStats.multiLeaderRowCount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              전체 대비 {topStats.companyRowCount > 0 ? ((topStats.multiLeaderRowCount / topStats.companyRowCount) * 100).toFixed(1) : "0.0"}%
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div className="font-semibold text-base">
