@@ -1653,7 +1653,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     for (let i = 0; i < Math.min(auto.length, colCount); i++) arr[i] = auto[i];
     // 헤더 없을 때 기존 순서로 기본 매핑 (있는 만큼만)
     if (!headerInfo.hasHeader && colCount >= 14) {
-      const fallback: FieldKey[] = ["date","company","leader1","leader2","leader3","customer","region","item","note","metro","noteAmt","regional","cod","split","paid","twoPerson"];
+      // 팀장3은 헤더가 명시된 경우에만 매핑한다. (헤더 없는 데이터에 leader3를 끼워넣으면
+      // 5번째 컬럼부터 한 칸씩 밀려서 고객명/배송지/날짜 등이 팀장3 칸으로 들어가는 오정렬 발생)
+      const fallback: FieldKey[] = ["date","company","leader1","leader2","customer","region","item","note","metro","noteAmt","regional","cod","split","paid","twoPerson"];
       for (let i = 0; i < fallback.length; i++) if (!arr[i]) arr[i] = fallback[i];
     }
     setMapping(arr);
