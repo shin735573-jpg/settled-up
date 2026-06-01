@@ -2873,6 +2873,17 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                                 onChange={(e) => setDateOverrides((p) => ({ ...p, [i]: e.target.value }))}
                                 placeholder={r.autoDate || "YYYY-MM-DD"}
                                 className={cn("h-7 text-xs w-[110px]", !r.date && "border-destructive text-destructive")}
+                                ref={(el) => { dateInputRefs.current[displayIdx] = el; }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    const next = dateInputRefs.current[displayIdx + 1];
+                                    if (next) {
+                                      next.focus();
+                                      next.select();
+                                    }
+                                  }
+                                }}
                               />
                               <Popover>
                                 <PopoverTrigger asChild>
