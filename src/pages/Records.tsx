@@ -2270,6 +2270,56 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
             />
           </div>
 
+          <div className="border rounded p-3 space-y-2 bg-muted/20">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <Label className="text-sm font-semibold">주문 메모 자동 분석 (선택)</Label>
+              <span className="text-[11px] text-muted-foreground">
+                고객명/주소/품목/배송일/배송비/연락처 등을 자유 형식으로 붙여넣으면 자동 추출 → 위 붙여넣기 칸에 추가됩니다.
+              </span>
+            </div>
+            <Textarea
+              value={memoText}
+              onChange={(e) => { setMemoText(e.target.value); setMemoError(null); }}
+              placeholder={`예시)
+일산메종드르블랑
+고객명:문지연
+연락처:010-0000-0000
+주소:대구광역시 동구 ...
+모델:세라믹 식탁
+배송비 12만원 고객님착불
+배송일:6월5일(금)`}
+              rows={6}
+              className="text-xs"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="default"
+                className="h-7 text-xs"
+                onClick={() => {
+                  const kv = parseOrderMemoToKV(memoText);
+                  if (!kv) { setMemoError("분석할 내용을 찾지 못했습니다."); return; }
+                  setText((prev) => (prev && prev.trim() ? prev.replace(/\s+$/,"") + "\n\n" + kv : kv));
+                  setMemoText("");
+                  setMemoError(null);
+                }}
+                disabled={!memoText.trim()}
+              >
+                분석하여 추가
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => { setMemoText(""); setMemoError(null); }}
+                disabled={!memoText}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />지우기
+              </Button>
+              {memoError && <span className="text-[11px] text-destructive">{memoError}</span>}
+            </div>
+          </div>
+
           {grid.length > 0 && (
             <div className="border rounded p-3 space-y-2">
               <div className="text-sm font-semibold">
