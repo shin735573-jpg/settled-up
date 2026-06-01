@@ -819,6 +819,46 @@ export default function Records() {
   const [formOpen, setFormOpen] = useState(true);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
+  // 한 팀장 여러건 일괄 입력
+  type BulkRow = {
+    customer_name: string;
+    region: string;
+    region_type: RegionType;
+    item: string;
+    note: string;
+    metro_fee: string;
+    note_amount: string;
+    regional_fee: string;
+    cod_amount: string;
+  };
+  const emptyBulkRow = (): BulkRow => ({
+    customer_name: "",
+    region: "",
+    region_type: "unknown",
+    item: "",
+    note: "",
+    metro_fee: "",
+    note_amount: "",
+    regional_fee: "",
+    cod_amount: "",
+  });
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkShared, setBulkShared] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    company_id: "",
+    leader1_id: "",
+    leader2_id: "",
+    leader3_id: "",
+    two_person: false,
+    split_type: "",
+    paid: false,
+  });
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([
+    emptyBulkRow(),
+    emptyBulkRow(),
+    emptyBulkRow(),
+  ]);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
