@@ -36,6 +36,7 @@ import {
   mergeResults,
   type CheckResult,
 } from "@/lib/statementValidation";
+import { validateSettlementInvariants } from "@/lib/settlementInvariants";
 import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
