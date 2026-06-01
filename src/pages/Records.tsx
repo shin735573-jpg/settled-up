@@ -1670,6 +1670,30 @@ export default function Records() {
                   />
                 </PopoverContent>
               </Popover>
+              <div className="flex flex-wrap gap-1 pt-1">
+                {[
+                  { label: "오늘", offset: 0 },
+                  { label: "어제", offset: -1 },
+                  { label: "그저께", offset: -2 },
+                ].map((q) => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + q.offset);
+                  const iso = format(d, "yyyy-MM-dd");
+                  const active = form.date === iso;
+                  return (
+                    <Button
+                      key={q.label}
+                      type="button"
+                      size="sm"
+                      variant={active ? "default" : "outline"}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setForm({ ...form, date: iso })}
+                    >
+                      {q.label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-1">
