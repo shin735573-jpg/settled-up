@@ -42,7 +42,8 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
 
   const filtered = useMemo(() => {
     const q = norm(query);
-    if (!q) return companies.slice(0, 50);
+    // 선택된 값과 동일한 텍스트면 전체 목록을 보여주어 방향키 탐색 가능
+    if (!q || (selected && norm(selected.name) === q)) return companies.slice(0, 50);
     // 시작 일치 우선, 그 다음 포함
     const starts: ComboCompany[] = [];
     const includes: ComboCompany[] = [];
@@ -52,7 +53,7 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
       (n.startsWith(q) ? starts : includes).push(c);
     }
     return [...starts, ...includes].slice(0, 50);
-  }, [companies, query]);
+  }, [companies, query, selected?.id]);
 
   useEffect(() => {
     if (hi >= filtered.length) setHi(0);
@@ -106,7 +107,12 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
         ref={inputRef}
         value={query}
         placeholder={placeholder ?? "업체명 입력 (부분검색·↑↓ 선택)"}
-        onFocus={() => { setOpen(true); setHi(0); }}
+        onFocus={(e) => {
+          setOpen(true);
+          const idx = selected ? filtered.findIndex((c) => c.id === selected.id) : -1;
+          setHi(idx >= 0 ? idx : 0);
+          e.currentTarget.select();
+        }}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
