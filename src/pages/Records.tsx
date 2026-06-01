@@ -1682,9 +1682,12 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     };
 
     return dataRows.map((cols) => {
-      if (isSkippablePasteRow(cols)) return null;
       const errors: RowError[] = [];
       const warnings: RowError[] = [];
+      // 노이즈로 의심되는 행(합계/구분선/안내문 등)도 누락 없이 표시.
+      // 사용자가 확인 후 직접 제외할 수 있도록 경고만 부여.
+      const looksNoisy = isSkippablePasteRow(cols);
+      if (looksNoisy) warnings.push({ field: "행", msg: "노이즈 의심 — 확인 필요" });
 
       const rawDate = cell(cols, "date");
       const autoDate = parseDate(rawDate, defaultMonth);
@@ -1768,9 +1771,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       if (customer) signals++;
       if (item) signals++;
       if (metro + noteAmt + regional + cod > 0) signals++;
-      // 자동감지된 행은 모두 미리보기에 표시 (오류/경고는 컬럼으로 안내).
-      // 단, 아무 신호도 없는 완전 빈 행만 제외.
-      if (signals < 1) return null;
+      // 100건 붙여넣으면 100건이 그대로 잡히도록, 빈 신호 행도 누락하지 않고
+      // 오류로 표시하여 사용자가 확인/제외할 수 있게 한다.
+      if (signals < 1) errors.push({ field: "행", msg: "유효 데이터 없음" });
 
       // 신호가 충분한데 날짜만 없으면 위 lastDate가 fill-down 처리됨 (이미 위에서 적용)
 
