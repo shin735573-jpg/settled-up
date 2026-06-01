@@ -39,6 +39,7 @@ import {
 } from "@/lib/recordValidation";
 import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
 import OcrCheckPanel, { type ExtractedRow } from "@/components/OcrCheckPanel";
+import { isSkippablePasteRow, parsePastedTableText } from "@/lib/pasteGrid";
 
 type Company = {
   id: string;
