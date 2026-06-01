@@ -141,6 +141,7 @@ export function validateRow(
   };
   const l1 = checkLeader(r.leader1_id, r.leader1_name, "팀장1");
   const l2 = r.leader2_id || r.leader2_name ? checkLeader(r.leader2_id, r.leader2_name, "팀장2") : null;
+  const l3 = r.leader3_id || r.leader3_name ? checkLeader(r.leader3_id ?? null, r.leader3_name ?? null, "팀장3") : null;
 
   // 6. 지역구분
   if (r.region && r.region_type && ctx.classifyRegion) {
@@ -183,7 +184,7 @@ export function validateRow(
   // 10. 거부팀장 검사
   const rejectedList = ctx.rejectedLeadersOfCompany?.(r.company_id) || [];
   const rejectedSet = new Set(rejectedList);
-  [l1, l2].forEach((lx, i) => {
+  [l1, l2, l3].forEach((lx, i) => {
     if (!lx) return;
     if (lx.is_rejected || rejectedSet.has(lx.id)) {
       const hasAlias = !!(lx as any).aliases?.[0];
@@ -198,7 +199,7 @@ export function validateRow(
   if (r.date) {
     const hqOff = ctx.holidays.find((h) => h.scope === "hq" && h.date === r.date);
     if (hqOff) push("error", "holiday.hq", `본사 휴무일 (${r.date})`, "날짜");
-    [l1, l2].forEach((lx, i) => {
+    [l1, l2, l3].forEach((lx, i) => {
       if (!lx) return;
       const off = ctx.holidays.find(
         (h) => h.scope === "leader" && h.date === r.date && h.team_leader_id === lx.id);
@@ -253,7 +254,7 @@ export function validateSettleRedirect(
 
   rows.forEach((r, i) => {
     const rowLabel = labelOf ? labelOf(r, i) : `행 ${i + 1}`;
-    const ids = [r.leader1_id, r.leader2_id].filter(Boolean) as string[];
+    const ids = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean) as string[];
     const involved = ids.find((id) => redirectIds.has(id));
     if (!involved) return;
     const L = byId.get(involved)!;
@@ -264,6 +265,7 @@ export function validateSettleRedirect(
       {
         leader1_id: r.leader1_id,
         leader2_id: r.leader2_id,
+        leader3_id: r.leader3_id ?? null,
         split_type: r.split_type,
         two_person: r.two_person ?? false,
         metro_fee: isNumLike(r.metro_fee).n,
