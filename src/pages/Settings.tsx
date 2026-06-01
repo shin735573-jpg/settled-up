@@ -86,6 +86,7 @@ export default function Settings() {
             <TabsTrigger value="companies">업체관리</TabsTrigger>
             <TabsTrigger value="leaders">팀장관리</TabsTrigger>
             <TabsTrigger value="common-deductions">공통공제관리</TabsTrigger>
+            <TabsTrigger value="special-items">특수일 품목</TabsTrigger>
             <TabsTrigger value="region">지역분류</TabsTrigger>
             <TabsTrigger value="share">앱 공유</TabsTrigger>
           </TabsList>
@@ -94,6 +95,7 @@ export default function Settings() {
         <TabsContent value="companies"><CompaniesTab /></TabsContent>
         <TabsContent value="leaders"><LeadersTab /></TabsContent>
         <TabsContent value="common-deductions"><CommonDeductionsTab /></TabsContent>
+        <TabsContent value="special-items"><SpecialItemsTab /></TabsContent>
         <TabsContent value="region"><RegionKeywordsTab /></TabsContent>
         <TabsContent value="share"><ShareAppTab /></TabsContent>
       </Tabs>
