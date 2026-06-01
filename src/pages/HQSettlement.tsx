@@ -665,31 +665,9 @@ export default function HQSettlement() {
         </div>
       </Card>
 
-      {/* 상단: 본사 총매출 + 본사 수익 요약 + 적재비 입력 */}
+      {/* 상단: 본사 수익 요약 + 적재비 입력 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="p-0 overflow-hidden">
-          <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 총매출</div>
-          <div className="divide-y text-sm">
-            <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">본사직영 배송비</span>
-              <span className="font-medium">{fmt(hqDirectFee)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">적재비 (청구분)</span>
-              <span className="font-medium">{fmt(loadingBilled)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-2">
-              <span className="text-muted-foreground">수수료</span>
-              <span className="font-medium">{fmt(leaderCommissionTotal)}</span>
-            </div>
-            <div className="flex justify-between px-4 py-3 bg-muted/30">
-              <span className="font-semibold">본사 총매출</span>
-              <span className="font-bold text-destructive">{fmt(grossSales)}</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-0 overflow-hidden">
+        <Card className="p-0 overflow-hidden lg:col-start-2">
           <div className="px-4 py-3 border-b font-semibold bg-muted/40">본사 수익 요약</div>
           <div className="divide-y text-sm">
             <div className="flex justify-between px-4 py-2">
