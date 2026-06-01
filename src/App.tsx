@@ -11,6 +11,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Records from "./pages/Records";
+import RecordsBrowse from "./pages/RecordsBrowse";
 import MobileHome from "./pages/MobileHome";
 import CompanySettlement from "./pages/CompanySettlement";
 import LeaderSettlement from "./pages/LeaderSettlement";
@@ -39,6 +40,7 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<MobileHome />} />
               <Route path="/records" element={<Records />} />
+              <Route path="/records-browse" element={<RecordsBrowse />} />
               <Route path="/company-settlement" element={<CompanySettlement />} />
               <Route path="/leader-settlement" element={<LeaderSettlement />} />
               <Route path="/summary" element={<Summary />} />
