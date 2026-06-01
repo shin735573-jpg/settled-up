@@ -1896,6 +1896,23 @@ export default function Records() {
               <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
             </div>
 
+            <div className="space-y-1 sm:col-span-2 lg:col-span-4">
+              <Label>
+                착불 선택
+                <span className="ml-2 text-xs text-muted-foreground">
+                  (비고에 "착불 7만원" 같이 적지 말고 여기서 선택하세요 · 1만~30만)
+                </span>
+              </Label>
+              {formHasCod ? (
+                <CodPicker
+                  value={form.cod_amount}
+                  onChange={(v) => setForm({ ...form, cod_amount: v })}
+                />
+              ) : (
+                <div className="text-[11px] text-muted-foreground">착불 미지원 업체</div>
+              )}
+            </div>
+
             <div className="space-y-1">
               <Label>
                 배송비
