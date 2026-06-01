@@ -43,7 +43,7 @@ export function LeaderCombobox({ leaders, value, onChange, placeholder, classNam
 
   const filtered = useMemo(() => {
     const q = norm(query);
-    if (!q) return leaders.slice(0, 100);
+    if (!q || (selected && norm(selected.name) === q)) return leaders.slice(0, 100);
     const starts: ComboLeader[] = [];
     const includes: ComboLeader[] = [];
     for (const l of leaders) {
@@ -53,7 +53,7 @@ export function LeaderCombobox({ leaders, value, onChange, placeholder, classNam
       (n.startsWith(q) ? starts : includes).push(l);
     }
     return [...starts, ...includes].slice(0, 100);
-  }, [leaders, query]);
+  }, [leaders, query, selected?.id]);
 
   useEffect(() => {
     if (hi >= filtered.length) setHi(0);
@@ -105,7 +105,12 @@ export function LeaderCombobox({ leaders, value, onChange, placeholder, classNam
       <Input
         value={query}
         placeholder={placeholder ?? "팀장명 입력 (부분검색·↑↓ 선택)"}
-        onFocus={() => { setOpen(true); setHi(0); }}
+        onFocus={(e) => {
+          setOpen(true);
+          const idx = selected ? options.findIndex((l) => l && l.id === selected.id) : -1;
+          setHi(idx >= 0 ? idx : 0);
+          e.currentTarget.select();
+        }}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
