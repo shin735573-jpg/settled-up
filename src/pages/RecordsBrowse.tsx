@@ -526,20 +526,27 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
               <th className="p-2 whitespace-nowrap">고객</th>
               <th className="p-2 whitespace-nowrap">배송지</th>
               <th className="p-2 whitespace-nowrap">품목</th>
-              <th className="p-2 text-right whitespace-nowrap">수도권</th>
-              <th className="p-2 text-right whitespace-nowrap">지방</th>
-              <th className="p-2 text-right whitespace-nowrap">기록</th>
+              {sel.kind === "leader" ? (
+                <th className="p-2 text-right whitespace-nowrap">배송비</th>
+              ) : (
+                <>
+                  <th className="p-2 text-right whitespace-nowrap">수도권</th>
+                  <th className="p-2 text-right whitespace-nowrap">지방</th>
+                  <th className="p-2 text-right whitespace-nowrap">기록</th>
+                </>
+              )}
               <th className="p-2 text-right whitespace-nowrap">착불</th>
-              <th className="p-2 whitespace-nowrap">비고</th>
+              {sel.kind !== "leader" && <th className="p-2 whitespace-nowrap">비고</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
+              <tr><td colSpan={sel.kind === "leader" ? 7 : 10} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
             ) : records.length === 0 ? (
-              <tr><td colSpan={10} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
+              <tr><td colSpan={sel.kind === "leader" ? 7 : 10} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
             ) : records.map((r) => {
               const leadersTxt = [r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join("·");
+              const feeSum = Number(r.metro_fee || 0) + Number(r.regional_fee || 0) + Number(r.note_amount || 0);
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
                   <td className="p-2 whitespace-nowrap">{r.date}</td>
@@ -547,11 +554,19 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[180px] truncate" title={r.region || ""}>{r.region || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[220px] truncate" title={r.item || ""}>{r.item || "-"}</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(Number(r.metro_fee || 0))}</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(Number(r.regional_fee || 0))}</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(Number(r.note_amount || 0))}</td>
+                  {sel.kind === "leader" ? (
+                    <td className="p-2 text-right tabular-nums">{fmt(feeSum)}</td>
+                  ) : (
+                    <>
+                      <td className="p-2 text-right tabular-nums">{fmt(Number(r.metro_fee || 0))}</td>
+                      <td className="p-2 text-right tabular-nums">{fmt(Number(r.regional_fee || 0))}</td>
+                      <td className="p-2 text-right tabular-nums">{fmt(Number(r.note_amount || 0))}</td>
+                    </>
+                  )}
                   <td className="p-2 text-right tabular-nums">{fmt(Number(r.cod_amount || 0))}</td>
-                  <td className="p-2 whitespace-nowrap max-w-[160px] truncate" title={r.note || ""}>{r.note || ""}</td>
+                  {sel.kind !== "leader" && (
+                    <td className="p-2 whitespace-nowrap max-w-[160px] truncate" title={r.note || ""}>{r.note || ""}</td>
+                  )}
                 </tr>
               );
             })}
