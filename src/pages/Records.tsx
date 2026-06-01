@@ -2072,17 +2072,21 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     if (!userId || registering) return;
     if (!text.trim()) return;
     const newC = unregisteredCompanies.filter((n) => !autoRegisteredRef.current.c.has(n));
-    // 팀장은 자동등록하지 않음 — Settings 또는 수동 "팀장 자동등록" 버튼으로만 등록
-    if (newC.length === 0) return;
+    const newL = unregisteredLeaders.filter((n) => !autoRegisteredRef.current.l.has(n));
+    if (newC.length === 0 && newL.length === 0) return;
     const t = setTimeout(async () => {
       if (newC.length > 0) {
         newC.forEach((n) => autoRegisteredRef.current.c.add(n));
         await registerCompanies();
       }
+      if (newL.length > 0) {
+        newL.forEach((n) => autoRegisteredRef.current.l.add(n));
+        await registerLeaders();
+      }
     }, 600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unregisteredCompanies, userId, text, registering]);
+  }, [unregisteredCompanies, unregisteredLeaders, userId, text, registering]);
 
   const save = async () => {
     if (!userId) return;
