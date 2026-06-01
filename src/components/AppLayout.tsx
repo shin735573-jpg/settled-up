@@ -1,12 +1,13 @@
 import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save } from "lucide-react";
+import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save, Search } from "lucide-react";
 import { useEffect } from "react";
 import { maybeRunDailyBackup } from "@/lib/excelBackup";
 
 const nav = [
   { to: "/records", label: "기록입력", icon: FileSpreadsheet },
+  { to: "/records-browse", label: "배송내역 조회", icon: Search },
   { to: "/company-settlement", label: "업체정산", icon: Building2 },
   { to: "/leader-settlement", label: "팀장정산", icon: Users },
   { to: "/hq-settlement", label: "본사정산", icon: Landmark },
