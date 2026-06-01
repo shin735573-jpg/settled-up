@@ -820,7 +820,7 @@ export default function LeaderSettlement() {
                         )}
                       </div>
                     ),
-                    afterFees: fmt(m.afterFees),
+                    afterFees: <span className="text-red-500 font-medium">{fmt(m.afterFees)}</span>,
                     detail: (
                       <span className="text-primary text-xs hover:underline">상세보기</span>
                     ),
