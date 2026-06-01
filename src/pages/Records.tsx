@@ -928,6 +928,17 @@ export default function Records() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filterMonth]);
 
+  // 입력 중 내용 자동 저장 (페이지 이동/메뉴 전환 시 보존)
+  useEffect(() => {
+    try { localStorage.setItem("records.form.draft", JSON.stringify(form)); } catch { /* noop */ }
+  }, [form]);
+  useEffect(() => {
+    try { localStorage.setItem("records.bulk.shared.draft", JSON.stringify(bulkShared)); } catch { /* noop */ }
+  }, [bulkShared]);
+  useEffect(() => {
+    try { localStorage.setItem("records.bulk.rows.draft", JSON.stringify(bulkRows)); } catch { /* noop */ }
+  }, [bulkRows]);
+
   const removeRow = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
     await supabase.from("deliveries").delete().eq("id", id);
