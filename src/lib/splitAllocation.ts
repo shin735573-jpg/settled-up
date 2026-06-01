@@ -29,6 +29,21 @@ export type LeaderShare = {
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
 
+const distributeWon = (amount: unknown, weights: number[]): number[] => {
+  const total = Math.round(n(amount));
+  if (total === 0) return weights.map(() => 0);
+  const raw = weights.map((w) => total * w);
+  const base = raw.map((v) => Math.floor(v));
+  let remainder = total - base.reduce((s, v) => s + v, 0);
+  const order = raw
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (let p = 0; p < order.length && remainder > 0; p += 1, remainder -= 1) {
+    base[order[p].i] += 1;
+  }
+  return base;
+};
+
 export type ShindongseokOptions = {
   shindongseokId?: string | null;
   ganghyungjuId?: string | null;
@@ -67,6 +82,10 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
   }
 
   const ids: (string | null)[] = [l1, l2, l3];
+  const metroParts = distributeWon(r.metro_fee, weights);
+  const noteParts = distributeWon(r.note_amount, weights);
+  const regionalParts = distributeWon(r.regional_fee, weights);
+  const codParts = distributeWon(r.cod_amount, weights);
   const initial: LeaderShare[] = [];
   ids.forEach((id, i) => {
     const w = weights[i] ?? 0;
@@ -74,10 +93,10 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
     initial.push({
       leader_id: id,
       weight: w,
-      metro: n(r.metro_fee) * w,
-      note_amount: n(r.note_amount) * w,
-      regional: n(r.regional_fee) * w,
-      cod: n(r.cod_amount) * w,
+      metro: metroParts[i] ?? 0,
+      note_amount: noteParts[i] ?? 0,
+      regional: regionalParts[i] ?? 0,
+      cod: codParts[i] ?? 0,
       count: 1,
       reason: reasons[i] ?? "",
     });
@@ -111,23 +130,26 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
 
   initial.forEach((s) => {
     if (!teamIds.has(s.leader_id)) { add(s); return; }
-    const half = (k: number) => k / 2;
+    const [metroA, metroB] = distributeWon(s.metro, [0.5, 0.5]);
+    const [noteA, noteB] = distributeWon(s.note_amount, [0.5, 0.5]);
+    const [regionalA, regionalB] = distributeWon(s.regional, [0.5, 0.5]);
+    const [codA, codB] = distributeWon(s.cod, [0.5, 0.5]);
     const pct = Math.round(s.weight * 50);
     const who = s.leader_id === shindongseokId ? "신동석" : "강형주";
     const reason = `${who} 몫 재분배 ${pct}%`;
     add({
       leader_id: ganghyungjuId,
       weight: s.weight / 2,
-      metro: half(s.metro), note_amount: half(s.note_amount),
-      regional: half(s.regional), cod: half(s.cod),
+      metro: metroA, note_amount: noteA,
+      regional: regionalA, cod: codA,
       count: 1,
       reason,
     });
     add({
       leader_id: shindongseokId,
       weight: s.weight / 2,
-      metro: half(s.metro), note_amount: half(s.note_amount),
-      regional: half(s.regional), cod: half(s.cod),
+      metro: metroB, note_amount: noteB,
+      regional: regionalB, cod: codB,
       count: 1,
       reason,
     });
