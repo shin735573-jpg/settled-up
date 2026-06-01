@@ -1662,13 +1662,22 @@ export default function Records() {
                               <PopoverContent className="w-[420px] p-3" align="start">
                                 <div className="space-y-2">
                                   <div className="text-xs text-muted-foreground">착불 금액 선택 (1만~30만)</div>
-                                  <CodPicker value={r.cod_amount} onChange={(v) => upd({ cod_amount: v })} />
+                                  <CodPicker
+                                    value={r.cod_amount}
+                                    onChange={(v) => {
+                                      const amt = parseNum(v) || 0;
+                                      upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                    }}
+                                  />
                                   <div className="flex items-center gap-2">
                                     <Label className="text-xs">직접 입력</Label>
                                     <AmountTextInput
                                       className="h-8 text-right tabular-nums flex-1"
                                       value={r.cod_amount}
-                                      onChange={(v) => upd({ cod_amount: v })}
+                                      onChange={(v) => {
+                                        const amt = parseNum(v) || 0;
+                                        upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                      }}
                                     />
                                   </div>
                                 </div>
