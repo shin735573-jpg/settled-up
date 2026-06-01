@@ -455,6 +455,20 @@ export default function HQSettlement() {
   );
   const yearGrossSales = yearCompanyDeliveryTotal + yearLoadingTotal;
 
+  // ── 월별 매출 (1~12월): 업체 총배송비 / 적재비 / 합계
+  const yearMonthly = useMemo(() => {
+    const arr = Array.from({ length: 12 }, () => ({ company: 0, loading: 0 }));
+    for (const r of yearRows) {
+      const m = Number((r.date || "").slice(5, 7));
+      if (!m || m < 1 || m > 12) continue;
+      const amt = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+      const isLoading = ((r.item as string) || "").trim() === "적재비";
+      if (isLoading) arr[m - 1].loading += amt;
+      else arr[m - 1].company += amt;
+    }
+    return arr;
+  }, [yearRows]);
+
   // ── 매출 / 수익
   // 본사 수익 = 신동석 + 삼호 + 적재비(청구분만) + 수수료
   const grossSales = hqDirectFee + loadingBilled + leaderCommissionTotal;
@@ -617,6 +631,37 @@ export default function HQSettlement() {
             <span className="font-semibold">본사 총매출</span>
             <span className="font-bold text-destructive">{fmt(yearGrossSales)}</span>
           </div>
+        </div>
+        <div className="border-t overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/30">
+              <tr className="text-muted-foreground">
+                <th className="text-left px-3 py-2 font-medium">월</th>
+                <th className="text-right px-3 py-2 font-medium">업체 총배송비</th>
+                <th className="text-right px-3 py-2 font-medium">적재비</th>
+                <th className="text-right px-3 py-2 font-medium">합계</th>
+              </tr>
+            </thead>
+            <tbody>
+              {yearMonthly.map((m, i) => {
+                const sum = m.company + m.loading;
+                return (
+                  <tr key={i} className="border-t">
+                    <td className="px-3 py-1.5">{i + 1}월</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{fmt(m.company)}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{fmt(m.loading)}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums font-medium">{fmt(sum)}</td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t bg-muted/40 font-semibold">
+                <td className="px-3 py-2">연간 합계</td>
+                <td className="px-3 py-2 text-right tabular-nums">{fmt(yearCompanyDeliveryTotal)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{fmt(yearLoadingTotal)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-destructive">{fmt(yearGrossSales)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </Card>
 
