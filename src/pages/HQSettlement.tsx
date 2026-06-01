@@ -704,7 +704,7 @@ export default function HQSettlement() {
           </div>
         </Card>
 
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden lg:col-start-3">
           <div className="px-4 py-3 border-b font-semibold flex items-center gap-2">
             적재비 입력
             <span className="text-xs text-muted-foreground">청구 {fmt(loadingBilled)} · 미청구 {fmt(loadingUnbilled)} · 합계 {fmt(loadingTotal)}</span>
