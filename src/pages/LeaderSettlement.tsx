@@ -25,7 +25,7 @@ type Period = "all" | "first" | "second" | "month";
 // ===== 팀장정산 전체 목록 컬럼 정의 (헤더/바디 단일 소스) =====
 type LeaderColKey =
   | "name" | "count" | "metro" | "note" | "regional"
-  | "cod" | "deduction" | "total" | "detail";
+  | "cod" | "deduction" | "total" | "afterFees" | "detail";
 
 type LeaderCol = {
   key: LeaderColKey;
@@ -43,6 +43,7 @@ const LEADER_COLUMNS: LeaderCol[] = [
   { key: "cod",        label: "착불합계",     width: 140, align: "center" },
   { key: "deduction",  label: "공제총액",     width: 140, align: "center" },
   { key: "total",      label: "총합배송비",   width: 160, align: "center" },
+  { key: "afterFees",  label: "수수료제외금액", width: 160, align: "center" },
   { key: "detail",     label: "상세보기",     width: 120, align: "center" },
 ];
 const LEADER_TABLE_MIN_WIDTH = LEADER_COLUMNS.reduce((s, c) => s + c.width, 0);
