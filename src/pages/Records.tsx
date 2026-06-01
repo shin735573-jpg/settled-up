@@ -1593,7 +1593,12 @@ export default function Records() {
                         <CompanyCombobox
                           companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
                           value={r.company_id}
-                          onChange={(v) => upd({ company_id: v })}
+                          onChange={(v) => {
+                            const newCompany = v ? companiesById.get(v) : null;
+                            const patch: Partial<BulkRow> = { company_id: v };
+                            if (newCompany && newCompany.has_cod === false) patch.cod_amount = "";
+                            upd(patch);
+                          }}
                           placeholder="업체"
                           inputRef={(el) => { bulkCompanyRefs.current[idx] = el; }}
                         />
