@@ -49,6 +49,7 @@ type Company = {
   id: string;
   name: string;
   active: boolean;
+  has_cod?: boolean;
   rejected_leader_id?: string | null;
   rejected_leader_id_2?: string | null;
   rejected_leader_id_3?: string | null;
@@ -913,7 +914,7 @@ export default function Records() {
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
-      supabase.from("companies").select("id,name,active,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
+      supabase.from("companies").select("id,name,active,has_cod,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
       supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active,aliases,settle_to_id").order("name"),
       supabase.from("holidays").select("date,scope,team_leader_id,active").eq("active", true),
     ]);
