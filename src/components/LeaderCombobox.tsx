@@ -105,6 +105,9 @@ export function LeaderCombobox({ leaders, value, onChange, placeholder, classNam
       <Input
         value={query}
         placeholder={placeholder ?? "팀장명 입력 (부분검색·↑↓ 선택)"}
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
         onFocus={(e) => {
           setOpen(true);
           const idx = selected ? options.findIndex((l) => l && l.id === selected.id) : -1;
