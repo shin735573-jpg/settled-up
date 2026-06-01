@@ -2154,19 +2154,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              onPaste={(e) => {
-                const cd = e.clipboardData;
-                if (!cd) return;
-                const raw = cd.getData("text/plain");
-                if (!raw || !raw.includes("\t")) return; // 탭이 없으면 기본 동작
-                e.preventDefault();
-                const ta = e.currentTarget as HTMLTextAreaElement;
-                const start = ta.selectionStart ?? text.length;
-                const end = ta.selectionEnd ?? text.length;
-                const merged = text.slice(0, start) + raw + text.slice(end);
-                // 붙여넣은 결과 전체를 컬럼 정렬해 엑셀 원본과 동일한 시각 배치 보장
-                setText(alignTabular(merged));
-              }}
               placeholder="엑셀에서 헤더 포함 여러 행/열을 복사해 붙여넣으세요 (Ctrl+V)"
               rows={8}
               wrap="off"
