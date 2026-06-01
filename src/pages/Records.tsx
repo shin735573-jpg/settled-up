@@ -1468,6 +1468,7 @@ export default function Records() {
                           value={r.company_id}
                           onChange={(v) => upd({ company_id: v })}
                           placeholder="업체"
+                          inputRef={(el) => { bulkCompanyRefs.current[idx] = el; }}
                         />
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} /></td>
@@ -1493,7 +1494,29 @@ export default function Records() {
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.metro_fee} onChange={(v) => upd({ metro_fee: v })} /></td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.regional_fee} onChange={(v) => upd({ regional_fee: v })} /></td>
-                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.cod_amount} onChange={(v) => upd({ cod_amount: v })} /></td>
+                      <td className="p-1">
+                        <AmountTextInput
+                          className="h-8 text-right tabular-nums"
+                          value={r.cod_amount}
+                          onChange={(v) => upd({ cod_amount: v })}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const nextIdx = idx + 1;
+                              const focusNext = () => {
+                                const el = bulkCompanyRefs.current[nextIdx];
+                                if (el) { el.focus(); el.select?.(); }
+                              };
+                              if (nextIdx >= bulkRows.length) {
+                                setBulkRows((rows) => [...rows, emptyBulkRow(bulkShared.default_company_id)]);
+                                setTimeout(focusNext, 0);
+                              } else {
+                                focusNext();
+                              }
+                            }
+                          }}
+                        />
+                      </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
                       <td className="p-1 text-center">
                         <Button
