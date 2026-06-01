@@ -68,8 +68,8 @@ const FIELD_DEFS: { key: FieldKey; label: string; aliases: string[]; required?: 
   { key: "leader2",  label: "팀장2",                       aliases: ["팀장2","기사2","배송팀장2","leader2"] },
   { key: "leader3",  label: "팀장3",                       aliases: ["팀장3","기사3","배송팀장3","leader3"] },
   { key: "customer", label: "고객명",                       aliases: ["고객명","고객","성명","이름","성함","받는분","수령인","customer"] },
-  { key: "region",   label: "배송지",                       aliases: ["배송지","지역","배송지역","지역명","region"] },
-  { key: "item",     label: "품목",                         aliases: ["품목","상품","제품","품명","내용","item"] },
+  { key: "region",   label: "배송지",                       aliases: ["배송지","지역","배송지역","지역명","주소","배송주소","region","address"] },
+  { key: "item",     label: "품목",                         aliases: ["품목","상품","제품","품명","내용","모델","모델명","item","model"] },
   { key: "note",     label: "비고",                         aliases: ["비고","메모","특이사항","참고","note"] },
   { key: "metro",    label: "수도권배송비",                  aliases: ["수도권배송비","수도권","수도권비","수도권 배송비","금액","배송비","요금"] },
   { key: "noteAmt",  label: "비고금액",                     aliases: ["비고금액","비고비","추가금","추가비","기타금액"] },
@@ -125,6 +125,104 @@ function tryParseKeyValueText(raw: string): string[][] | null {
   const header = keyOrder;
   const rows = parsedBlocks.map((rec) => header.map((h) => rec[h] ?? ""));
   return [header, ...rows];
+}
+
+/**
+ * 주문 메모(자유 형식) 텍스트에서 고객명/주소/품목/날짜/배송비/착불/연락처 등을
+ * 추출하여 "키:값" 블록 형태의 문자열로 반환. 기존 KV 파서에 그대로 전달 가능.
+ * 예) "일산메종드르블랑\n고객명:문지연\n주소:대구...\n모델:식탁\n배송비 12만원 고객님착불\n배송일:6월5일(금)"
+ */
+function parseOrderMemoToKV(raw: string): string | null {
+  const text = (raw || "").replace(/\r/g, "").trim();
+  if (!text) return null;
+  const rawLines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (!rawLines.length) return null;
+
+  const out: Record<string, string> = {};
+  const extraNotes: string[] = [];
+  let firstFreeLine = "";
+
+  // 한국어 날짜 "6월5일", "6/5", "06-05" → 올해 기준 YYYY-MM-DD
+  const toIsoDate = (v: string): string | null => {
+    const s = v.replace(/\s+/g, "");
+    let m = s.match(/(\d{1,2})월\s*(\d{1,2})일?/);
+    if (!m) m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})/);
+    if (!m) {
+      const iso = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+      if (iso) {
+        const y = iso[1], mm = iso[2].padStart(2, "0"), dd = iso[3].padStart(2, "0");
+        return `${y}-${mm}-${dd}`;
+      }
+      return null;
+    }
+    const y = new Date().getFullYear();
+    const mm = m[1].padStart(2, "0");
+    const dd = m[2].padStart(2, "0");
+    return `${y}-${mm}-${dd}`;
+  };
+
+  const KV_RE = /^([^:：]+)\s*[:：]\s*(.*)$/;
+  const NUM_KO = /(\d+(?:[\.,]\d+)?)\s*만\s*원?/;
+
+  for (const rawLine of rawLines) {
+    // 강조 마커(**, *) 제거
+    const line = rawLine.replace(/^\*+\s*/, "").replace(/\s*\*+$/, "").trim();
+    if (!line) continue;
+
+    const m = line.match(KV_RE);
+    if (m) {
+      const key = m[1].trim();
+      const val = m[2].trim();
+      const k = normalizeHeader(key);
+      if (["고객명","고객","성명","이름","성함","받는분","수령인"].some((a) => normalizeHeader(a) === k)) {
+        out["고객명"] = val;
+      } else if (["주소","배송지","배송주소","지역","지역명","address"].some((a) => normalizeHeader(a) === k)) {
+        out["배송지"] = val;
+      } else if (["모델","모델명","품목","상품","제품","품명","내용"].some((a) => normalizeHeader(a) === k)) {
+        out["품목"] = val;
+      } else if (["배송일","날짜","일자","출고일"].some((a) => normalizeHeader(a) === k)) {
+        out["날짜"] = toIsoDate(val) || val;
+      } else if (["업체","업체명","거래처","상호","회사","회사명"].some((a) => normalizeHeader(a) === k)) {
+        out["업체"] = val;
+      } else if (["연락처","전화","전화번호","휴대폰","핸드폰","phone","tel"].some((a) => normalizeHeader(a) === k)) {
+        extraNotes.push(`연락처: ${val}`);
+      } else {
+        extraNotes.push(`${key}: ${val}`);
+      }
+      continue;
+    }
+
+    // 콜론 없는 자유 라인
+    // 배송비 + 만원 + 착불 → 착불 금액
+    const feeKo = line.match(NUM_KO);
+    const isFeeLine = /배송비|운임|요금/.test(line);
+    const isCod = /착불|현장수령|현장지급/.test(line);
+    if (feeKo && (isFeeLine || isCod)) {
+      const won = Math.round(parseFloat(feeKo[1].replace(/,/g, "")) * 10000);
+      if (isCod) out["착불"] = String(won);
+      else out["수도권배송비"] = String(won);
+      // 원본 메모도 비고에 남김
+      extraNotes.push(line);
+      continue;
+    }
+    // 첫 자유 라인은 업체명 후보로 사용
+    if (!firstFreeLine) {
+      firstFreeLine = line;
+      continue;
+    }
+    extraNotes.push(line);
+  }
+
+  if (firstFreeLine && !out["업체"]) out["업체"] = firstFreeLine;
+  if (extraNotes.length) out["비고"] = extraNotes.join(" / ");
+
+  // 필드가 아무것도 추출되지 않으면 실패
+  if (Object.keys(out).length === 0) return null;
+
+  // KV 블록 문자열로 직렬화
+  return Object.entries(out)
+    .map(([k, v]) => `${k}:${v}`)
+    .join("\n");
 }
 
 function autoMapHeaders(headers: string[]): (FieldKey | null)[] {
@@ -1445,6 +1543,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
   open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; defaultMonth?: string; onSaved: () => void; onReload: () => void | Promise<void>;
 }) {
   const [text, setText] = useState("");
+  // 주문 메모 자유 입력 (자동 분석 → 붙여넣기 칸에 KV 블록으로 추가)
+  const [memoText, setMemoText] = useState("");
+  const [memoError, setMemoError] = useState<string | null>(null);
   const [skipErrors, setSkipErrors] = useState(false);
   const [saving, setSaving] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -2167,6 +2268,56 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
               wrap="off"
               className="paste-area font-mono text-xs whitespace-pre overflow-x-auto"
             />
+          </div>
+
+          <div className="border rounded p-3 space-y-2 bg-muted/20">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <Label className="text-sm font-semibold">주문 메모 자동 분석 (선택)</Label>
+              <span className="text-[11px] text-muted-foreground">
+                고객명/주소/품목/배송일/배송비/연락처 등을 자유 형식으로 붙여넣으면 자동 추출 → 위 붙여넣기 칸에 추가됩니다.
+              </span>
+            </div>
+            <Textarea
+              value={memoText}
+              onChange={(e) => { setMemoText(e.target.value); setMemoError(null); }}
+              placeholder={`예시)
+일산메종드르블랑
+고객명:문지연
+연락처:010-0000-0000
+주소:대구광역시 동구 ...
+모델:세라믹 식탁
+배송비 12만원 고객님착불
+배송일:6월5일(금)`}
+              rows={6}
+              className="text-xs"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="default"
+                className="h-7 text-xs"
+                onClick={() => {
+                  const kv = parseOrderMemoToKV(memoText);
+                  if (!kv) { setMemoError("분석할 내용을 찾지 못했습니다."); return; }
+                  setText((prev) => (prev && prev.trim() ? prev.replace(/\s+$/,"") + "\n\n" + kv : kv));
+                  setMemoText("");
+                  setMemoError(null);
+                }}
+                disabled={!memoText.trim()}
+              >
+                분석하여 추가
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={() => { setMemoText(""); setMemoError(null); }}
+                disabled={!memoText}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />지우기
+              </Button>
+              {memoError && <span className="text-[11px] text-destructive">{memoError}</span>}
+            </div>
           </div>
 
           {grid.length > 0 && (
