@@ -66,9 +66,10 @@ describe("행사철수 특수일 처리", () => {
     expect(special[0].metro_fee).toBe(0);
     expect(special[0].regional_fee).toBe(0);
     expect(special[0].delivery_fee).toBe(45000);
-    // 최초 2명만 팀장 칸, 나머지는 비고에
+    // 최초 2명만 팀장 칸, 나머지는 비고에 (트리오 팀이 아니므로 팀장3 비어있음)
     expect(special[0].display_leader1).toBe("A팀장");
     expect(special[0].display_leader2).toBe("B팀장");
+    expect(special[0].display_leader3).toBe("");
     expect(special[0].note).toContain("C팀장");
     expect(special[0].note).toContain("추가팀장");
     // 일반 행은 그대로
@@ -126,5 +127,27 @@ describe("행사철수 특수일 처리", () => {
     expect(stmt.rows[0].note ?? "").not.toContain("강형주");
     expect(stmt.rows[0].note ?? "").not.toContain("신동석");
     expect(stmt.rows[0].note ?? "").not.toContain("삼호도");
+  });
+
+  it("오동선/오은규/김용익 트리오 팀은 팀장3 칸까지 자동 채워짐", () => {
+    const leaders = [
+      mkLeader("L1", "오동선"),
+      mkLeader("L2", "오은규"),
+      mkLeader("L3", "김용익"),
+    ];
+    const deliveries: StmtDelivery[] = [
+      mkRow({ item: "행사철수", leader1_id: "L1", leader1_name: "오동선", note_amount: 10000 }),
+      mkRow({ item: "행사철수", leader1_id: "L2", leader1_name: "오은규", note_amount: 20000 }),
+      mkRow({ item: "행사철수", leader1_id: "L3", leader1_name: "김용익", note_amount: 30000 }),
+    ];
+    const [stmt] = buildCompanyStatements(deliveries, [company], leaders, "h1");
+    expect(stmt.rows).toHaveLength(1);
+    const row = stmt.rows[0];
+    expect(row.note_amount).toBe(60000);
+    // 팀장1/2/3 모두 채워짐 (슬래시 합치기 아님)
+    expect([row.display_leader1, row.display_leader2, row.display_leader3].sort())
+      .toEqual(["김용익", "오동선", "오은규"].sort());
+    // 비고에 추가팀장 텍스트 없음
+    expect(row.note ?? "").not.toContain("추가팀장");
   });
 });
