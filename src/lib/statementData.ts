@@ -538,5 +538,6 @@ export function detectSpecialLeaderIds(leaders: { id: string; name: string }[]) 
     ganghyungjuId: find("강형주"),
     oeunkyuId: find("오은규"),
     odongseonId: find("오동선"),
+    kimyongikId: find("김용익"),
   };
 }
