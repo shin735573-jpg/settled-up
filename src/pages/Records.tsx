@@ -1689,7 +1689,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       raw: extracted.raw,
       rawTokens,
       unknown,
-      tooMany: extracted.ids.length >= 3,
+      tooMany: extracted.ids.length >= 4,
     };
   }, [defaultLeadersText, leaderIndex]);
 
