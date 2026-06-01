@@ -863,6 +863,7 @@ export default function Records() {
     emptyBulkRow(),
   ]);
   const [bulkSaving, setBulkSaving] = useState(false);
+  const bulkCompanyRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
