@@ -167,7 +167,7 @@ export default function HQSettlement() {
       const yEnd = `${year + 1}-01-01`;
       const { data } = await supabase
         .from("deliveries")
-        .select("date,item,metro_fee,note_amount,regional_fee,company_id")
+        .select("*")
         .gte("date", yStart).lt("date", yEnd);
       setYearRows(data || []);
     })();
