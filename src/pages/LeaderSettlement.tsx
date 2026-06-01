@@ -537,7 +537,8 @@ export default function LeaderSettlement() {
     const trashAuto = !detailLeader ? 0 : trashCostAutoFor(detailLeader.id);
     const commonTotal = commonBase + trashAuto;
     const deduction = commonTotal + indivTotal;
-    const net = afterFees - cod - deduction;
+    // 정산금은 음수 불가 — 마스터/저장 화면과 동일하게 0 으로 클램프
+    const net = Math.max(0, afterFees - cod - deduction);
     return { metro, noteAmt, regional, cod, total, fees, afterFees, deduction, net, mergedTotal, mergedCount, indivTotal, commonTotal, count };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailRows, detailLeader, mergedIdSet, detailDeductions, detailCommonEdits, activeCommonDeductions, commonOverrides, commonKeysJoined]);
@@ -790,8 +791,9 @@ export default function LeaderSettlement() {
               <tbody className="[&_tr:last-child]:border-0">
                 {masterRows.map((m) => {
                   const issuesInvoice = !!m.leader.issues_invoice;
-                  const vat = issuesInvoice ? Math.round(m.total * 0.1) : 0;
-                  const totalWithVat = m.total + vat;
+                  // 부가세는 실지급액(net) 기준 10% — 정산서 저장본과 100% 동일
+                  const vat = issuesInvoice ? Math.round(m.net * 0.1) : 0;
+                  const totalWithVat = m.net + vat;
                   const cells: Record<LeaderColKey, React.ReactNode> = {
                     name: (
                       <button className="text-primary hover:underline font-medium">
@@ -809,7 +811,7 @@ export default function LeaderSettlement() {
                         <span className="font-bold">{fmt(m.total)}</span>
                         {issuesInvoice && (
                           <span className="text-[11px] text-muted-foreground">
-                            +VAT {fmt(vat)} = <b className="text-primary">{fmt(totalWithVat)}</b>
+                            실지급+VAT {fmt(vat)} = <b className="text-primary">{fmt(totalWithVat)}</b>
                           </span>
                         )}
                       </div>

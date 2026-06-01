@@ -396,7 +396,9 @@ export function buildLeaderStatements(
     const afterFee = realFee - feeTotal;
     const ded = computeLeaderDeductions(leader.id, deductionCtx, leader);
     const deductionTotal = ded.total;
-    const payout = afterFee - codSum - deductionTotal;
+    // 정산금은 음수 불가 — 0 으로 클램프 (LeaderSettlement 마스터 화면과 동일 정책)
+    const payout = Math.max(0, afterFee - codSum - deductionTotal);
+    // 부가세는 실지급액(payout) 기준 10%. 청구액과 100% 일치하도록 통일.
     const vat = leader.issues_invoice ? Math.round(payout * 0.1) : 0;
     const payoutWithVat = leader.issues_invoice ? payout + vat : 0;
 
