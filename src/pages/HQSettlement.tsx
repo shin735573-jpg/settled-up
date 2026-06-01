@@ -633,21 +633,7 @@ export default function HQSettlement() {
             기간 선택과 무관하게 항상 연간 합계로 표시
           </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x text-sm">
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-muted-foreground">업체 총배송비</span>
-            <span className="font-medium">{fmt(yearCompanyDeliveryTotal)}</span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-muted-foreground">적재비</span>
-            <span className="font-medium">{fmt(yearLoadingTotal)}</span>
-          </div>
-          <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
-            <span className="font-semibold">본사 총매출</span>
-            <span className="font-bold text-destructive">{fmt(yearGrossSales)}</span>
-          </div>
-        </div>
-        <div className="border-t overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-muted/30">
               <tr className="text-muted-foreground">
@@ -669,24 +655,44 @@ export default function HQSettlement() {
                   </tr>
                 );
               })}
-              <tr className="border-t bg-muted/30">
-                <td colSpan={4} className="px-3 py-2 font-semibold text-muted-foreground">업체별 배송비</td>
-              </tr>
-              {yearCompanyDeliveryFees.map((c) => (
-                <tr key={c.cid} className="border-t">
-                  <td className="px-3 py-1.5 text-muted-foreground">{c.name}</td>
-                  <td colSpan={3} className="px-3 py-1.5 text-right tabular-nums font-medium">{fmt(c.amt)}</td>
-                </tr>
-              ))}
-              <tr className="border-t bg-muted/40 font-semibold">
-                <td className="px-3 py-2">업체 배송비 합계</td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmt(yearCompanyDeliveryTotal)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmt(yearLoadingTotal)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-destructive">{fmt(yearGrossSales)}</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        {/* 12월 아래: 업체총배송비 / 적재비 / 본사총매출 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x text-sm border-t">
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-muted-foreground">업체 총배송비</span>
+            <span className="font-medium text-destructive">{fmt(yearCompanyDeliveryTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-muted-foreground">적재비</span>
+            <span className="font-medium text-destructive">{fmt(yearLoadingTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+            <span className="font-semibold">본사 총매출</span>
+            <span className="font-bold text-destructive">{fmt(yearGrossSales)}</span>
+          </div>
+        </div>
+        {/* 업체별 배송비 (참고) */}
+        {yearCompanyDeliveryFees.length > 0 && (
+          <div className="border-t overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/30">
+                <tr className="text-muted-foreground">
+                  <th className="text-left px-3 py-2 font-medium" colSpan={2}>업체별 배송비 (연간)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {yearCompanyDeliveryFees.map((c) => (
+                  <tr key={c.cid} className="border-t">
+                    <td className="px-3 py-1.5 text-muted-foreground">{c.name}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums font-medium">{fmt(c.amt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {/* 상단: 본사 수익 요약 + 적재비 입력 */}
