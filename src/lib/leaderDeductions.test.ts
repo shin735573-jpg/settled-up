@@ -130,9 +130,9 @@ describe("팀장 공제 회귀 테스트", () => {
     expect(stmts[0].deductionTotal).toBe(0);
   });
 
-  it("실지급액 = 계산후 - 착불 - 공제 (회귀 보장)", () => {
+  it("실지급액 = max(0, 계산후 - 착불 - 공제) (회귀 보장)", () => {
     const stmts = buildLeaderStatements(deliveries, [normal], "h1", opts, ctx());
     const s = stmts.find((x) => x.leader.id === "L1")!;
-    expect(s.payout).toBe(s.afterFee - s.codSum - s.deductionTotal);
+    expect(s.payout).toBe(Math.max(0, s.afterFee - s.codSum - s.deductionTotal));
   });
 });
