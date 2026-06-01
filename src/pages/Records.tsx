@@ -49,6 +49,7 @@ type Company = {
   id: string;
   name: string;
   active: boolean;
+  has_cod?: boolean;
   rejected_leader_id?: string | null;
   rejected_leader_id_2?: string | null;
   rejected_leader_id_3?: string | null;
@@ -801,6 +802,44 @@ function RecordsTable({
   );
 }
 
+// 착불 빠른선택 금액 리스트 (1만 ~ 30만, 1만원 단위)
+const COD_AMOUNTS = Array.from({ length: 30 }, (_, i) => (i + 1) * 10000);
+
+function CodPicker({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  const cur = parseNum(value) || 0;
+  return (
+    <div className={cn("grid grid-cols-10 gap-1", className)}>
+      {COD_AMOUNTS.map((amt) => {
+        const active = cur === amt;
+        return (
+          <button
+            key={amt}
+            type="button"
+            onClick={() => onChange(active ? "" : String(amt))}
+            className={cn(
+              "h-8 text-xs rounded border tabular-nums select-none",
+              active
+                ? "bg-primary text-primary-foreground border-primary font-semibold"
+                : "bg-background hover:bg-muted"
+            )}
+            title={`${amt.toLocaleString()}원`}
+          >
+            {amt / 10000}만
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Records() {
   const { user } = useAuth();
   // 사용자 지정 수도권 키워드 캐시 동기화
@@ -913,7 +952,7 @@ export default function Records() {
 
   const load = async () => {
     const [{ data: c }, { data: l }, { data: h }] = await Promise.all([
-      supabase.from("companies").select("id,name,active,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
+      supabase.from("companies").select("id,name,active,has_cod,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
       supabase.from("team_leaders").select("id,name,is_rejected,is_virtual,active,aliases,settle_to_id").order("name"),
       supabase.from("holidays").select("date,scope,team_leader_id,active").eq("active", true),
     ]);
@@ -960,6 +999,20 @@ export default function Records() {
   };
 
   const activeCompanies = useMemo(() => companies.filter((c) => c.active), [companies]);
+  const companiesById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
+  const formCompany = form.company_id ? companiesById.get(form.company_id) : null;
+  const formHasCod = formCompany?.has_cod !== false; // 미등록은 기본 표시
+
+  // 지역구분이 바뀌면 배송비 값을 해당 칸으로 자동 이동 (단일 입력 보장)
+  useEffect(() => {
+    if (form.region_type === "metro" && form.regional_fee && !form.metro_fee) {
+      setForm((f) => ({ ...f, metro_fee: f.regional_fee, regional_fee: "" }));
+    } else if (form.region_type === "regional" && form.metro_fee && !form.regional_fee) {
+      setForm((f) => ({ ...f, regional_fee: f.metro_fee, metro_fee: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.region_type]);
+
   // 거부기사도 선택 가능 (저장 시 별칭 적용 — 경고만 표시)
   const selectableLeaders = useMemo(() => leaders.filter((l) => l.active), [leaders]);
 
@@ -1346,38 +1399,33 @@ export default function Records() {
           </Button>
         )}
         <Button onClick={() => setPasteOpen(true)} className="shrink-0"><ClipboardPaste className="h-4 w-4 mr-1" />엑셀 붙여넣기</Button>
+        <Button
+          className="shrink-0"
+          onClick={() => {
+            setForm(emptyForm());
+            setFormOpen((v) => {
+              const next = !v;
+              if (next) setBulkOpen(false);
+              return next;
+            });
+          }}
+        >
+          <Plus className="h-4 w-4 mr-1" /> 새 배송 입력
+        </Button>
+        <Button
+          variant="secondary"
+          className="shrink-0"
+          onClick={() => setBulkOpen((v) => {
+            const next = !v;
+            if (next) setFormOpen(false);
+            return next;
+          })}
+        >
+          <Plus className="h-4 w-4 mr-1" /> 여러건 입력
+        </Button>
       </div>
 
       <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              size="lg"
-              className="h-14 text-base font-semibold"
-              onClick={() => {
-                setForm(emptyForm());
-                setFormOpen((v) => {
-                  const next = !v;
-                  if (next) setBulkOpen(false);
-                  return next;
-                });
-              }}
-            >
-              <Plus className="h-5 w-5 mr-2" /> 새 배송 입력
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="h-14 text-base font-semibold"
-              onClick={() => setBulkOpen((v) => {
-                const next = !v;
-                if (next) setFormOpen(false);
-                return next;
-              })}
-            >
-              <Plus className="h-5 w-5 mr-2" /> 한 팀장 여러건 입력
-            </Button>
-          </div>
-
       {bulkOpen && (
         <Card className="p-4 md:p-6 space-y-4 border-primary/40">
           <div className="flex items-center justify-between">
@@ -1502,10 +1550,9 @@ export default function Records() {
                   <th className="p-2 min-w-[180px]">품목</th>
                   <th className="p-2 min-w-[100px]">2인배송</th>
                   <th className="p-2 min-w-[120px]">비고</th>
-                  <th className="p-2 min-w-[100px]">수도권</th>
+                  <th className="p-2 min-w-[120px]">배송비</th>
                   <th className="p-2 min-w-[100px]">비고금액</th>
-                  <th className="p-2 min-w-[100px]">지방</th>
-                  <th className="p-2 min-w-[100px]">착불</th>
+                  <th className="p-2 min-w-[120px]">착불</th>
                   <th className="p-2 min-w-[90px]">선결제</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
                   <th className="p-2 min-w-[100px]">총액</th>
@@ -1546,7 +1593,12 @@ export default function Records() {
                         <CompanyCombobox
                           companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
                           value={r.company_id}
-                          onChange={(v) => upd({ company_id: v })}
+                          onChange={(v) => {
+                            const newCompany = v ? companiesById.get(v) : null;
+                            const patch: Partial<BulkRow> = { company_id: v };
+                            if (newCompany && newCompany.has_cod === false) patch.cod_amount = "";
+                            upd(patch);
+                          }}
                           placeholder="업체"
                           inputRef={(el) => { bulkCompanyRefs.current[idx] = el; }}
                         />
@@ -1556,7 +1608,16 @@ export default function Records() {
                         <Input
                           className="h-8"
                           value={r.region}
-                          onChange={(e) => upd({ region: e.target.value, region_type: classifyRegion(e.target.value) })}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            const next = classifyRegion(v);
+                            const fee = r.metro_fee || r.regional_fee || "";
+                            const patch: Partial<BulkRow> = { region: v, region_type: next, metro_fee: "", regional_fee: "" };
+                            if (next === "metro") patch.metro_fee = fee;
+                            else if (next === "regional") patch.regional_fee = fee;
+                            else { patch.metro_fee = r.metro_fee; patch.regional_fee = r.regional_fee; }
+                            upd(patch);
+                          }}
                         />
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
@@ -1573,31 +1634,60 @@ export default function Records() {
                         </button>
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} /></td>
-                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.metro_fee} onChange={(v) => upd({ metro_fee: v })} /></td>
-                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
-                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.regional_fee} onChange={(v) => upd({ regional_fee: v })} /></td>
                       <td className="p-1">
                         <AmountTextInput
-                          className="h-8 text-right tabular-nums"
-                          value={r.cod_amount}
-                          onChange={(v) => upd({ cod_amount: v })}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const nextIdx = idx + 1;
-                              const focusNext = () => {
-                                const el = bulkCompanyRefs.current[nextIdx];
-                                if (el) { el.focus(); el.select?.(); }
-                              };
-                              if (nextIdx >= bulkRows.length) {
-                                setBulkRows((rows) => [...rows, emptyBulkRow(bulkShared.default_company_id)]);
-                                setTimeout(focusNext, 0);
-                              } else {
-                                focusNext();
-                              }
-                            }
+                          className={cn(
+                            "h-8 text-right tabular-nums",
+                            r.region_type === "unknown" && "border-destructive"
+                          )}
+                          value={r.region_type === "regional" ? r.regional_fee : r.metro_fee}
+                          onChange={(v) => {
+                            if (r.region_type === "regional") upd({ regional_fee: v, metro_fee: "" });
+                            else upd({ metro_fee: v, regional_fee: "" });
                           }}
+                          disabled={r.region_type === "unknown"}
+                          placeholder={r.region_type === "unknown" ? "지역 먼저" : ""}
                         />
+                      </td>
+                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
+                      <td className="p-1">
+                        {(() => {
+                          const rowCompany = r.company_id ? companiesById.get(r.company_id) : null;
+                          const rowHasCod = rowCompany?.has_cod !== false;
+                          if (!rowHasCod) {
+                            return <div className="h-8 flex items-center justify-center text-[11px] text-muted-foreground">착불 미지원</div>;
+                          }
+                          const cur = parseNum(r.cod_amount) || 0;
+                          return (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    "h-8 w-full rounded-md border text-xs tabular-nums px-2",
+                                    cur > 0 ? "bg-primary/10 border-primary font-semibold" : "bg-background text-muted-foreground"
+                                  )}
+                                >
+                                  {cur > 0 ? `${cur.toLocaleString()}원` : "착불 선택"}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[420px] p-3" align="start">
+                                <div className="space-y-2">
+                                  <div className="text-xs text-muted-foreground">착불 금액 선택 (1만~30만)</div>
+                                  <CodPicker value={r.cod_amount} onChange={(v) => upd({ cod_amount: v })} />
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-xs">직접 입력</Label>
+                                    <AmountTextInput
+                                      className="h-8 text-right tabular-nums flex-1"
+                                      value={r.cod_amount}
+                                      onChange={(v) => upd({ cod_amount: v })}
+                                    />
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          );
+                        })()}
                       </td>
                       <td className="p-1 text-center">
                         <button
@@ -1612,7 +1702,18 @@ export default function Records() {
                         </button>
                       </td>
                       <td className="p-1">
-                        <Select value={r.region_type} onValueChange={(v) => upd({ region_type: v as RegionType })}>
+                        <Select
+                          value={r.region_type}
+                          onValueChange={(v) => {
+                            const next = v as RegionType;
+                            // 배송비 값을 새 지역구분 칸으로 자동 이동
+                            const fee = r.metro_fee || r.regional_fee || "";
+                            const patch: Partial<BulkRow> = { region_type: next, metro_fee: "", regional_fee: "" };
+                            if (next === "metro") patch.metro_fee = fee;
+                            else if (next === "regional") patch.regional_fee = fee;
+                            upd(patch);
+                          }}
+                        >
                           <SelectTrigger className={cn("h-8", r.region_type === "unknown" && "border-destructive text-destructive")}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="metro">수도권</SelectItem>
@@ -1723,7 +1824,14 @@ export default function Records() {
               <CompanyCombobox
                 companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
                 value={form.company_id}
-                onChange={(v) => setForm({ ...form, company_id: v })}
+                onChange={(v) => {
+                  const newCompany = v ? companiesById.get(v) : null;
+                  setForm((f) => ({
+                    ...f,
+                    company_id: v,
+                    cod_amount: newCompany && newCompany.has_cod === false ? "" : f.cod_amount,
+                  }));
+                }}
                 placeholder="업체명 입력 (부분검색·↑↓ 선택)"
               />
             </div>
@@ -1811,20 +1919,51 @@ export default function Records() {
             </div>
 
             <div className="space-y-1">
-              <Label>수도권배송비</Label>
-              <AmountTextInput className="text-right tabular-nums" value={form.metro_fee} onChange={(v) => setForm({ ...form, metro_fee: v })} />
+              <Label>
+                배송비
+                {form.region_type === "metro" && <span className="ml-1 text-xs text-muted-foreground">(수도권)</span>}
+                {form.region_type === "regional" && <span className="ml-1 text-xs text-muted-foreground">(지방)</span>}
+              </Label>
+              <AmountTextInput
+                className="text-right tabular-nums"
+                value={form.region_type === "regional" ? form.regional_fee : form.metro_fee}
+                onChange={(v) => {
+                  if (form.region_type === "regional") {
+                    setForm({ ...form, regional_fee: v, metro_fee: "" });
+                  } else if (form.region_type === "metro") {
+                    setForm({ ...form, metro_fee: v, regional_fee: "" });
+                  } else {
+                    // 지역구분 미선택 — 임시로 수도권 칸에 저장. UI에서 경고 표시.
+                    setForm({ ...form, metro_fee: v, regional_fee: "" });
+                  }
+                }}
+                disabled={form.region_type === "unknown"}
+              />
+              {form.region_type === "unknown" && (
+                <div className="text-[11px] text-destructive">지역구분을 먼저 선택하세요 (수도권/지방).</div>
+              )}
             </div>
             <div className="space-y-1">
               <Label>비고금액</Label>
               <AmountTextInput className="text-right tabular-nums" value={form.note_amount} onChange={(v) => setForm({ ...form, note_amount: v })} />
             </div>
-            <div className="space-y-1">
-              <Label>지방배송비</Label>
-              <AmountTextInput className="text-right tabular-nums" value={form.regional_fee} onChange={(v) => setForm({ ...form, regional_fee: v })} />
-            </div>
-            <div className="space-y-1">
+            <div className={cn("space-y-1", formHasCod ? "sm:col-span-2 lg:col-span-2" : "")}>
               <Label>착불</Label>
-              <AmountTextInput className="text-right tabular-nums" value={form.cod_amount} onChange={(v) => setForm({ ...form, cod_amount: v })} />
+              {formHasCod ? (
+                <div className="space-y-2">
+                  <AmountTextInput
+                    className="text-right tabular-nums"
+                    value={form.cod_amount}
+                    onChange={(v) => setForm({ ...form, cod_amount: v })}
+                  />
+                  <CodPicker
+                    value={form.cod_amount}
+                    onChange={(v) => setForm({ ...form, cod_amount: v })}
+                  />
+                </div>
+              ) : (
+                <Input value="착불 미지원 업체" disabled className="bg-muted text-muted-foreground" />
+              )}
             </div>
 
             <div className="space-y-1">
