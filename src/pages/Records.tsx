@@ -1330,7 +1330,14 @@ export default function Records() {
             <Button
               size="lg"
               className="h-14 text-base font-semibold"
-              onClick={() => { setForm(emptyForm()); setFormOpen((v) => !v); }}
+              onClick={() => {
+                setForm(emptyForm());
+                setFormOpen((v) => {
+                  const next = !v;
+                  if (next) setBulkOpen(false);
+                  return next;
+                });
+              }}
             >
               <Plus className="h-5 w-5 mr-2" /> 새 배송 입력
             </Button>
@@ -1338,7 +1345,11 @@ export default function Records() {
               size="lg"
               variant="secondary"
               className="h-14 text-base font-semibold"
-              onClick={() => setBulkOpen((v) => !v)}
+              onClick={() => setBulkOpen((v) => {
+                const next = !v;
+                if (next) setFormOpen(false);
+                return next;
+              })}
             >
               <Plus className="h-5 w-5 mr-2" /> 한 팀장 여러건 입력
             </Button>
