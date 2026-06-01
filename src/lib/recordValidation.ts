@@ -2,6 +2,7 @@
 // React/Supabase 의존성 없음 — 테스트 가능
 
 import { allocateRow } from "./splitAllocation";
+import { isSpecialOneTimeItem } from "./statementData";
 
 export type Severity = "error" | "warning";
 
@@ -108,6 +109,16 @@ export function validateRow(
   //    음수 등 비정상 합계를 추가로 확인.
   const sum = nums["metro_fee"] + nums["note_amount"] + nums["regional_fee"];
   if (sum < 0) push("error", "amount.total.negative", `배송비총액 음수: ${sum}`, "배송비총액");
+
+  // 3-1. 행사철수 등 특수일: 수도권/지방 배송비는 업체 청구에서 무시됨
+  if (isSpecialOneTimeItem(r.item) && (nums["metro_fee"] > 0 || nums["regional_fee"] > 0)) {
+    push(
+      "warning",
+      "special.fee.ignored",
+      `${r.item}: 수도권/지방 배송비는 업체 청구 시 무시되고 비고금액만 합산됩니다`,
+      "배송비총액",
+    );
+  }
 
   // 4. 업체 등록 검사
   if (r.company_id) {
