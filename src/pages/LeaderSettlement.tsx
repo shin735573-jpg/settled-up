@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
-import { totalDeliveryFee } from "@/lib/totalFee";
+import { totalLeaderSettlementDeliveryFee } from "@/lib/totalFee";
+import { isLeaderSettlementExcludedItem } from "@/lib/itemRules";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -251,6 +252,7 @@ export default function LeaderSettlement() {
   const rawTotalsFor = (lid: string) => {
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0;
     rows.forEach((r) => {
+      if (isLeaderSettlementExcludedItem(r.item)) return;
       const shares = allocateRow({
         leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
         split_type: r.split_type, two_person: r.two_person,
@@ -364,6 +366,7 @@ export default function LeaderSettlement() {
     metro: number; noteAmt: number; regional: number; cod: number; count: number;
     weight: number; reasons: string[];
   } | null => {
+    if (isLeaderSettlementExcludedItem(r.item)) return null;
     const targets = targetSetFor(settlingLid);
     const shares = allocateRow({
       leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
@@ -443,8 +446,8 @@ export default function LeaderSettlement() {
       totalCount += m.count;
       totalCod += m.cod;
     });
-    // 총배송비 = 공통 헬퍼 사용 — 업체정산 화면과 항상 동일
-    const companyTotalFee = totalDeliveryFee(rows);
+    // 총배송비 = 팀장정산 기준 공통 헬퍼 사용 — 적재비 같은 별도 매출 품목 제외
+    const companyTotalFee = totalLeaderSettlementDeliveryFee(rows);
     const totalFee = companyTotalFee;
     return {
       totalLeaders: masterRows.length,
