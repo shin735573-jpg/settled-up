@@ -613,13 +613,13 @@ export default function Saves() {
             <Input
               type="month"
               value={month}
-              onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }}
+              onChange={(e) => { setMonth(e.target.value); }}
               className="w-[160px]"
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">기간</Label>
-            <Select value={period} onValueChange={(v) => { setPeriod(v as PeriodKey); if (autoPeriod) toggleAutoPeriod(false); }}>
+            <Select value={period} onValueChange={(v) => { setPeriod(v as PeriodKey); }}>
               <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="h1">1~15일</SelectItem>
