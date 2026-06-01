@@ -279,7 +279,7 @@ export default function RecordsBrowse() {
                   {detail.kind === "company" ? <Building2 className="h-4 w-4" /> : <Users className="h-4 w-4" />}
                   <span>{detail.name}</span>
                   <Badge variant="outline">{detail.kind === "company" ? "업체" : "팀장"}</Badge>
-                  <span className="text-xs text-muted-foreground ml-auto">{filterMonth}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{rangeLabel}{dailyFilter ? ` · ${dailyFilter}` : ""}</span>
                 </span>
               )}
             </DialogTitle>
