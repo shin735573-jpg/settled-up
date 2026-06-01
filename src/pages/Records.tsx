@@ -1131,6 +1131,61 @@ export default function Records() {
     await removeRow(form.id);
   };
 
+  const bulkSaveAll = async () => {
+    if (!user) return;
+    if (!bulkShared.date) { toast.error("날짜를 선택하세요"); return; }
+    const company = companies.find((c) => c.id === bulkShared.company_id);
+    if (!company) { toast.error("업체를 선택하세요"); return; }
+    if (!bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
+    if (bulkShared.two_person && !bulkShared.leader2_id) {
+      toast.error("2인배송은 팀장2가 필요합니다.");
+      return;
+    }
+    const rows = bulkRows.filter((r) =>
+      r.customer_name.trim() ||
+      r.region.trim() ||
+      r.item.trim() ||
+      parseNum(r.metro_fee) ||
+      parseNum(r.regional_fee) ||
+      parseNum(r.note_amount) ||
+      parseNum(r.cod_amount),
+    );
+    if (rows.length === 0) { toast.error("입력된 행이 없습니다."); return; }
+    const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
+    const payloads = rows.map((r) => ({
+      user_id: user.id,
+      date: bulkShared.date,
+      company_id: bulkShared.company_id,
+      company_name: company.name,
+      leader1_id: bulkShared.leader1_id || null,
+      leader1_name: leaderName(bulkShared.leader1_id),
+      leader2_id: bulkShared.leader2_id || null,
+      leader2_name: leaderName(bulkShared.leader2_id),
+      leader3_id: bulkShared.leader3_id || null,
+      leader3_name: leaderName(bulkShared.leader3_id),
+      customer_name: r.customer_name.trim() || null,
+      region: r.region.trim() || null,
+      region_type: r.region_type === "unknown" ? null : r.region_type,
+      item: r.item || null,
+      note: r.note || null,
+      metro_fee: parseNum(r.metro_fee) || 0,
+      note_amount: parseNum(r.note_amount) || 0,
+      regional_fee: parseNum(r.regional_fee) || 0,
+      cod_amount: parseNum(r.cod_amount) || 0,
+      split_type: bulkShared.split_type || null,
+      paid: bulkShared.paid,
+      two_person: bulkShared.two_person,
+      is_missing: false,
+    }));
+    setBulkSaving(true);
+    const { error } = await supabase.from("deliveries").insert(payloads);
+    setBulkSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${rows.length}건 저장 완료`);
+    setBulkRows([emptyBulkRow(), emptyBulkRow(), emptyBulkRow()]);
+    load();
+  };
+
   // 종합 오류 검사 실행
   const runValidation = () => {
     const ctx: ValidationContext = {
