@@ -939,10 +939,12 @@ export default function Records() {
     const qc = norm(searchCompany);
     const qcu = norm(searchCustomer);
     const ql = norm(searchLeader);
-    if (!qc && !qcu && !ql) return records;
+    const qd = searchDate ? format(searchDate, "yyyy-MM-dd") : "";
+    if (!qc && !qcu && !ql && !qd) return records;
     // 팀장 검색은 별칭→정식 매핑 후 비교 (입력값 자체도 부분일치 허용)
     const canonLeader = ql ? norm(canonicalLeaderName(searchLeader, leaders)) : "";
     return records.filter((r: any) => {
+      if (qd && r.date !== qd) return false;
       if (qc && !norm(r.company_name).includes(qc)) return false;
       if (qcu && !norm(r.customer_name).includes(qcu)) return false;
       if (ql) {
@@ -965,7 +967,7 @@ export default function Records() {
       }
       return true;
     });
-  }, [records, searchCompany, searchCustomer, searchLeader, leaders, leadersById]);
+  }, [records, searchCompany, searchCustomer, searchLeader, searchDate, leaders, leadersById]);
 
   const displayLeaderById = (id: string | null, fallback: string | null): string => {
     if (id) {
