@@ -442,13 +442,18 @@ function PanelCard({
   const totals = useMemo(() => {
     let metro = 0, note = 0, regional = 0, cod = 0;
     for (const r of records) {
-      metro += Number(r.metro_fee || 0);
-      note += Number(r.note_amount || 0);
-      regional += Number(r.regional_fee || 0);
-      cod += Number(r.cod_amount || 0);
+      if (sel.kind === "leader") {
+        const s = shareForLeader(r, sel.id);
+        metro += s.metro; note += s.note; regional += s.regional; cod += s.cod;
+      } else {
+        metro += Number(r.metro_fee || 0);
+        note += Number(r.note_amount || 0);
+        regional += Number(r.regional_fee || 0);
+        cod += Number(r.cod_amount || 0);
+      }
     }
     return { metro, note, regional, cod, sum: metro + note + regional };
-  }, [records]);
+  }, [records, sel]);
 
   return (
     <Card className="flex flex-col overflow-hidden">
@@ -494,8 +499,13 @@ function PanelCard({
             ) : records.length === 0 ? (
               <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
             ) : records.map((r) => {
-              const fee = Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
               const leadersTxt = [r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join("·");
+              const s = sel.kind === "leader" ? shareForLeader(r, sel.id) : null;
+              const fee = s
+                ? s.metro + s.note + s.regional
+                : Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
+              const codShown = s ? s.cod : Number(r.cod_amount || 0);
+              const isSplit = !!s && s.weight > 0 && s.weight < 1;
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
                   <td className="p-2 whitespace-nowrap">{r.date}</td>
@@ -504,8 +514,13 @@ function PanelCard({
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[140px] truncate" title={r.region || ""}>{r.region || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[200px] truncate" title={r.item || ""}>{r.item || "-"}</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(fee)}</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(Number(r.cod_amount || 0))}</td>
+                  <td className="p-2 text-right tabular-nums">
+                    {fmt(fee)}
+                    {isSplit && (
+                      <span className="ml-1 text-[10px] text-muted-foreground">({Math.round((s!.weight) * 100)}%)</span>
+                    )}
+                  </td>
+                  <td className="p-2 text-right tabular-nums">{fmt(codShown)}</td>
                 </tr>
               );
             })}
