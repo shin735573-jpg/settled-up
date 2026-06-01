@@ -1689,7 +1689,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       raw: extracted.raw,
       rawTokens,
       unknown,
-      tooMany: extracted.ids.length >= 3,
+      tooMany: extracted.ids.length >= 4,
     };
   }, [defaultLeadersText, leaderIndex]);
 
@@ -1730,8 +1730,8 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     if (!titleText) return null;
     const ex = extractLeaders(titleText, leaderIndex);
     if (ex.ids.length === 0) return null;
-    const names = ex.ids.slice(0, 2).map((id) => leaderById.get(id)?.name || "").filter(Boolean);
-    return { ids: ex.ids.slice(0, 2), names, raw: titleText };
+    const names = ex.ids.slice(0, 3).map((id) => leaderById.get(id)?.name || "").filter(Boolean);
+    return { ids: ex.ids.slice(0, 3), names, raw: titleText };
   }, [grid, headerInfo, leaderIndex, leaderById]);
 
   useEffect(() => {
@@ -2167,7 +2167,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
             )}
             {defaultLeadersText.trim() && (
               <div className="flex items-center gap-2 flex-wrap text-xs">
-                {defaultLeaderInfo.ids.slice(0, 2).map((id, i) => {
+                {defaultLeaderInfo.ids.slice(0, 3).map((id, i) => {
                   const rec = leaderById.get(id);
                   return (
                     <Badge key={id} variant="secondary">
@@ -2180,7 +2180,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
                 )}
                 {defaultLeaderInfo.tooMany && (
                   <Badge variant="destructive">
-                    {defaultLeaderInfo.ids.length}명 입력 — 앞 2명만 사용. 미리보기에서 확인하세요.
+                    {defaultLeaderInfo.ids.length}명 입력 — 앞 3명만 사용. 미리보기에서 확인하세요.
                   </Badge>
                 )}
                 {defaultLeaderInfo.unknown.map((u) => (
