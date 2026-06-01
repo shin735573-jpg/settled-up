@@ -2208,7 +2208,8 @@ export default function Records() {
               );
             })()}
           </Card>
-      </div>
+      </TabsContent>
+      </Tabs>
 
       <PasteDialog
         open={pasteOpen}
