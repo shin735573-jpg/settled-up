@@ -1165,8 +1165,8 @@ export default function Records() {
               />
             </div>
 
-            {[0, 1].map((i) => {
-              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id";
+            {[0, 1, 2].map((i) => {
+              const key = (`leader${i + 1}_id`) as "leader1_id" | "leader2_id" | "leader3_id";
               const selCompany = companies.find((c) => c.id === form.company_id);
               const rejectedIds = selCompany
                 ? [selCompany.rejected_leader_id, selCompany.rejected_leader_id_2, selCompany.rejected_leader_id_3].filter(Boolean) as string[]
