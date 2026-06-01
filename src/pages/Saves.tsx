@@ -450,6 +450,15 @@ export default function Saves() {
         ),
       );
     }
+    // 전 데이터셋 불변식 검사 — 5대 영역 (분류/착불/분배/합계/공제) 100% 점검
+    // scope 와 무관하게 항상 실행하여 어떤 저장 흐름에서도 빠짐없이 차단한다.
+    results.push(
+      validateSettlementInvariants(deliveries, companyStmts, leaderStmts, {
+        shindongseokId: special.shindongseokId,
+        ganghyungjuId: special.ganghyungjuId,
+        deductionCtx,
+      }),
+    );
     return mergeResults(...results);
   }
 
