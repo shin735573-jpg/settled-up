@@ -724,7 +724,7 @@ export default function LeaderSettlement() {
         <PrintButton documentTitle={`팀장정산_${month}`} />
         <input
           type="month" value={month}
-          onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }}
+          onChange={(e) => { setMonth(e.target.value); }}
           disabled={period === "all"} className="border rounded px-3 py-2"
         />
         <div className="flex gap-1">
@@ -735,7 +735,7 @@ export default function LeaderSettlement() {
             ["month", "월전체"],
           ] as [Period, string][]).map(([p, label]) => (
             <Button key={p} size="sm" variant={period === p ? "default" : "outline"}
-              onClick={() => { setPeriod(p); if (autoPeriod) toggleAutoPeriod(false); }}>
+              onClick={() => { setPeriod(p); }}>
               {label}
             </Button>
           ))}

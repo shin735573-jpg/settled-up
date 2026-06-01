@@ -399,7 +399,7 @@ export default function CompanySettlement() {
         <input
           type="month"
           value={month}
-          onChange={(e) => { setMonth(e.target.value); if (autoPeriod) toggleAutoPeriod(false); }}
+          onChange={(e) => { setMonth(e.target.value); }}
           disabled={period === "all"}
           className="border rounded px-3 py-2"
         />
@@ -414,7 +414,7 @@ export default function CompanySettlement() {
               key={p}
               size="sm"
               variant={period === p ? "default" : "outline"}
-              onClick={() => { setPeriod(p); if (autoPeriod) toggleAutoPeriod(false); }}
+              onClick={() => { setPeriod(p); }}
             >
               {label}
             </Button>
