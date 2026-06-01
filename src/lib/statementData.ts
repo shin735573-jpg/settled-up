@@ -158,6 +158,7 @@ export type AggregateOptions = {
   ganghyungjuId?: string | null;
   oeunkyuId?: string | null;
   odongseonId?: string | null;
+  kimyongikId?: string | null;
   /** 오은규 특수정산 적용 여부 (회사설정) — true면 오은규 건을 오동선에게 합산 */
   oeunkyuSpecial: boolean;
 };
@@ -426,7 +427,8 @@ export function buildLeaderStatements(
   deductionCtx?: DeductionContext,
 ): LeaderStmtData[] {
   const byId = new Map(leaders.map((l) => [l.id, l]));
-  const { shindongseokId, ganghyungjuId, oeunkyuId } = opts;
+  const { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId } = opts;
+  const kimyongikId = (opts as { kimyongikId?: string | null }).kimyongikId ?? null;
 
   // 정산기사 = 표시 대상 팀장
   const targets = leaders.filter((l) => isCountableLeader(l));
@@ -449,7 +451,7 @@ export function buildLeaderStatements(
           regional_fee: Number(d.regional_fee),
           cod_amount: Number(d.cod_amount),
         },
-        { shindongseokId, ganghyungjuId },
+        { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId },
       );
       const resolved = shares
         .map((s) => ({ share: s, target: resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>) }))
@@ -536,5 +538,6 @@ export function detectSpecialLeaderIds(leaders: { id: string; name: string }[]) 
     ganghyungjuId: find("강형주"),
     oeunkyuId: find("오은규"),
     odongseonId: find("오동선"),
+    kimyongikId: find("김용익"),
   };
 }

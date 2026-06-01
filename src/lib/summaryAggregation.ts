@@ -76,7 +76,13 @@ export function aggregateSummary(
   companies: SummaryCompany[],
   leaders: SummaryLeader[],
   period: Period,
-  opts: { shindongseokId?: string | null; ganghyungjuId?: string | null } = {},
+  opts: {
+    shindongseokId?: string | null;
+    ganghyungjuId?: string | null;
+    oeunkyuId?: string | null;
+    odongseonId?: string | null;
+    kimyongikId?: string | null;
+  } = {},
 ): AggregateResult {
   const byId = new Map(leaders.map((l) => [l.id, l]));
   const periodRows = rows.filter((r) => inPeriod(r.date, period));

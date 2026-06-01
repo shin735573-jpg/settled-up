@@ -47,6 +47,10 @@ const distributeWon = (amount: unknown, weights: number[]): number[] => {
 export type ShindongseokOptions = {
   shindongseokId?: string | null;
   ganghyungjuId?: string | null;
+  /** 오은규 단독 배송(오동선·김용익이 함께 없는 경우)을 오동선으로 합산 정산 */
+  oeunkyuId?: string | null;
+  odongseonId?: string | null;
+  kimyongikId?: string | null;
 };
 
 /** 행에 대한 팀장별 분배 결과 (weight + 금액 배분). */
@@ -107,13 +111,14 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
   // 단, 형주동석 분할로 강형주+신동석이 직접 50:50으로 배정된 경우에만 건너뜀.
   // (형주동석 split이지만 한 명만 입력된 행은 정상 재분배해야 두 사람 건수/금액이 같아짐.)
   const { shindongseokId, ganghyungjuId } = opts;
-  if (!shindongseokId || !ganghyungjuId) return initial;
-  if (split === "형주동석" && l1 && l2) {
-    const ids = new Set([l1, l2]);
-    if (ids.has(shindongseokId) && ids.has(ganghyungjuId)) return initial;
-  }
-
-  const teamIds = new Set([shindongseokId, ganghyungjuId]);
+  const skipTeamRedist =
+    !shindongseokId || !ganghyungjuId ||
+    (split === "형주동석" && !!l1 && !!l2 &&
+      new Set([l1, l2]).has(shindongseokId) &&
+      new Set([l1, l2]).has(ganghyungjuId));
+  const teamIds = new Set(
+    [shindongseokId, ganghyungjuId].filter(Boolean) as string[],
+  );
   const merged = new Map<string, LeaderShare>();
   const add = (s: LeaderShare) => {
     const cur = merged.get(s.leader_id);
@@ -129,7 +134,7 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
   };
 
   initial.forEach((s) => {
-    if (!teamIds.has(s.leader_id)) { add(s); return; }
+    if (skipTeamRedist || !teamIds.has(s.leader_id)) { add(s); return; }
     const [metroA, metroB] = distributeWon(s.metro, [0.5, 0.5]);
     const [noteA, noteB] = distributeWon(s.note_amount, [0.5, 0.5]);
     const [regionalA, regionalB] = distributeWon(s.regional, [0.5, 0.5]);
@@ -138,7 +143,7 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
     const who = s.leader_id === shindongseokId ? "신동석" : "강형주";
     const reason = `${who} 몫 재분배 ${pct}%`;
     add({
-      leader_id: ganghyungjuId,
+      leader_id: ganghyungjuId as string,
       weight: s.weight / 2,
       metro: metroA, note_amount: noteA,
       regional: regionalA, cod: codA,
@@ -146,7 +151,7 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
       reason,
     });
     add({
-      leader_id: shindongseokId,
+      leader_id: shindongseokId as string,
       weight: s.weight / 2,
       metro: metroB, note_amount: noteB,
       regional: regionalB, cod: codB,
@@ -154,7 +159,42 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
       reason,
     });
   });
-  return Array.from(merged.values());
+  const afterTeam = Array.from(merged.values());
+
+  // 오은규 단독 → 오동선 정산: 행에 오동선/김용익이 모두 없을 때만 오은규 몫을 오동선으로 합산.
+  // (오동선+김용익 50/50, 오동선+오은규+김용익 3분의1씩 규칙과 양립하도록 단독 케이스만 처리)
+  const { oeunkyuId, odongseonId, kimyongikId } = opts;
+  if (!oeunkyuId || !odongseonId) return afterTeam;
+  const rowLeaderIds = new Set([l1, l2, l3].filter(Boolean) as string[]);
+  const hasOdongseon = rowLeaderIds.has(odongseonId);
+  const hasKim = !!kimyongikId && rowLeaderIds.has(kimyongikId);
+  if (hasOdongseon || hasKim) return afterTeam;
+  const oeunkyuShare = afterTeam.find((s) => s.leader_id === oeunkyuId);
+  if (!oeunkyuShare) return afterTeam;
+  const others = afterTeam.filter((s) => s.leader_id !== oeunkyuId);
+  const existing = others.find((s) => s.leader_id === odongseonId);
+  const reason = "오은규 단독 → 오동선 정산";
+  if (existing) {
+    existing.weight += oeunkyuShare.weight;
+    existing.metro += oeunkyuShare.metro;
+    existing.note_amount += oeunkyuShare.note_amount;
+    existing.regional += oeunkyuShare.regional;
+    existing.cod += oeunkyuShare.cod;
+    existing.count = 1;
+    existing.reason = reason;
+  } else {
+    others.push({
+      leader_id: odongseonId,
+      weight: oeunkyuShare.weight,
+      metro: oeunkyuShare.metro,
+      note_amount: oeunkyuShare.note_amount,
+      regional: oeunkyuShare.regional,
+      cod: oeunkyuShare.cod,
+      count: 1,
+      reason,
+    });
+  }
+  return others;
 }
 
 /** 팀장별 건별 수수료 (비고금액은 제외). region_type을 알 수 없으면 0. */

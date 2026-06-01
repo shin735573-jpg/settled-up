@@ -114,6 +114,9 @@ export default function Summary() {
   };
   const shindongseokId = findId(["신동석", "동석"]);
   const ganghyungjuId = findId(["강형주", "형주"]);
+  const oeunkyuId = findId(["오은규"]);
+  const odongseonId = findId(["오동선"]);
+  const kimyongikId = findId(["김용익"]);
 
   const byId = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
 
@@ -143,7 +146,7 @@ export default function Summary() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      }, { shindongseokId, ganghyungjuId });
+      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
         .filter((s) => isCountable(byId.get(s.target)));
