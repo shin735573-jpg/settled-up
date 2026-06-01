@@ -52,6 +52,7 @@ type Leader = {
   settle_to_id: string | null; fee_rate_metro: number; fee_rate_regional: number;
   deduction_amount: number; trash_cost: number;
   settle_status?: "included" | "excluded" | null;
+  issues_invoice?: boolean | null;
 };
 type Delivery = {
   id: string; date: string; company_id: string | null; company_name: string;
@@ -788,6 +789,9 @@ export default function LeaderSettlement() {
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {masterRows.map((m) => {
+                  const issuesInvoice = !!m.leader.issues_invoice;
+                  const vat = issuesInvoice ? Math.round(m.total * 0.1) : 0;
+                  const totalWithVat = m.total + vat;
                   const cells: Record<LeaderColKey, React.ReactNode> = {
                     name: (
                       <button className="text-primary hover:underline font-medium">
@@ -800,7 +804,16 @@ export default function LeaderSettlement() {
                     regional: fmt(m.regional),
                     cod: fmt(m.cod),
                     deduction: fmt(m.deduction),
-                    total: <span className="font-bold">{fmt(m.total)}</span>,
+                    total: (
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-bold">{fmt(m.total)}</span>
+                        {issuesInvoice && (
+                          <span className="text-[11px] text-muted-foreground">
+                            +VAT {fmt(vat)} = <b className="text-primary">{fmt(totalWithVat)}</b>
+                          </span>
+                        )}
+                      </div>
+                    ),
                     detail: (
                       <span className="text-primary text-xs hover:underline">상세보기</span>
                     ),
@@ -871,6 +884,16 @@ export default function LeaderSettlement() {
                 <Stat label="계산후 지급금액" value={detailCalc.afterFees} />
                 <Stat label="공제총액" value={detailCalc.deduction} />
                 <Stat label="실지급액" value={detailCalc.net} highlight />
+                {detailLeader.issues_invoice && (
+                  <>
+                    <Stat label="부가세 (10%)" value={Math.round(detailCalc.net * 0.1)} />
+                    <Stat
+                      label="부가세포함 총합"
+                      value={detailCalc.net + Math.round(detailCalc.net * 0.1)}
+                      highlight
+                    />
+                  </>
+                )}
               </div>
             </div>
             {/* 우측: 배송한 업체 상위 7개 */}
