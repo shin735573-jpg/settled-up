@@ -861,6 +861,10 @@ export default function Records() {
     emptyBulkRow(),
     emptyBulkRow(),
     emptyBulkRow(),
+    emptyBulkRow(),
+    emptyBulkRow(),
+    emptyBulkRow(),
+    emptyBulkRow(),
   ]);
   const [bulkSaving, setBulkSaving] = useState(false);
   const bulkCompanyRefs = useRef<Array<HTMLInputElement | null>>([]);
