@@ -823,7 +823,13 @@ export default function Records() {
   const [formOpen, setFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"input" | "detail">("input");
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
-  const [form, setForm] = useState<FormState>(emptyForm());
+  const [form, setForm] = useState<FormState>(() => {
+    try {
+      const raw = localStorage.getItem("records.form.draft");
+      if (raw) return { ...emptyForm(), ...JSON.parse(raw) } as FormState;
+    } catch { /* noop */ }
+    return emptyForm();
+  });
   const [saving, setSaving] = useState(false);
   // 한 팀장 여러건 일괄 입력
   type BulkRow = {
@@ -855,25 +861,38 @@ export default function Records() {
     paid: false,
   });
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkShared, setBulkShared] = useState({
-    date: new Date().toISOString().slice(0, 10),
-    default_company_id: "",
-    leader1_id: "",
-    leader2_id: "",
-    leader3_id: "",
-    two_person: false,
-    split_type: "",
-    paid: false,
+  const [bulkShared, setBulkShared] = useState(() => {
+    const def = {
+      date: new Date().toISOString().slice(0, 10),
+      default_company_id: "",
+      leader1_id: "",
+      leader2_id: "",
+      leader3_id: "",
+      two_person: false,
+      split_type: "",
+      paid: false,
+    };
+    try {
+      const raw = localStorage.getItem("records.bulk.shared.draft");
+      if (raw) return { ...def, ...JSON.parse(raw) };
+    } catch { /* noop */ }
+    return def;
   });
-  const [bulkRows, setBulkRows] = useState<BulkRow[]>([
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-    emptyBulkRow(),
-  ]);
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>(() => {
+    try {
+      const raw = localStorage.getItem("records.bulk.rows.draft");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((r: any) => ({ ...emptyBulkRow(), ...r })) as BulkRow[];
+        }
+      }
+    } catch { /* noop */ }
+    return [
+      emptyBulkRow(), emptyBulkRow(), emptyBulkRow(),
+      emptyBulkRow(), emptyBulkRow(), emptyBulkRow(), emptyBulkRow(),
+    ];
+  });
   const [bulkSaving, setBulkSaving] = useState(false);
   const bulkCompanyRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
