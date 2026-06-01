@@ -1582,20 +1582,12 @@ export default function Records() {
               return (
                 <div key={i} className="space-y-1">
                   <Label>팀장{i + 1}</Label>
-                  <Select
-                    value={form[key] || NONE}
-                    onValueChange={(v) => setForm({ ...form, [key]: v === NONE ? "" : v })}
-                  >
-                    <SelectTrigger><SelectValue placeholder="선택 안 함" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>선택 안 함</SelectItem>
-                      {selectableLeaders.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>
-                          {l.name}{l.is_rejected ? " (거부기사·별칭표시)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <LeaderCombobox
+                    leaders={selectableLeaders}
+                    value={form[key] || ""}
+                    onChange={(v) => setForm({ ...form, [key]: v })}
+                    placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
+                  />
                   {isCompanyRejected && (
                     <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                       해당 업체는 선택한 팀장을 거부팀장으로 등록한 업체입니다. (거부기사 표시 적용)
