@@ -481,6 +481,8 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r, { expanded }) => (
       <div className={`whitespace-pre-wrap break-words text-center ${expanded ? "" : "line-clamp-3"}`}>{r.item || "-"}</div>
     ) },
+  { key: "two_person", label: "2인배송", width: 100, cellCls: "text-center whitespace-nowrap font-medium",
+    render: (r) => r.two_person ? "2인배송" : "" },
   { key: "note", label: "비고", width: 200, headerCls: "text-center", cellCls: "align-middle text-center",
     render: (r) => <div className="whitespace-pre-wrap break-words text-center">{r.note || "-"}</div> },
   { key: "metro_fee", label: "수도권배송비", width: 140, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums",
@@ -493,8 +495,6 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r) => fmt(r.cod_amount) },
   { key: "total", label: "배송비총액", width: 140, headerCls: "text-center", cellCls: "text-center whitespace-nowrap tabular-nums font-semibold",
     render: (_r, { total }) => fmt(total) },
-  { key: "two_person", label: "2인배송", width: 100, cellCls: "text-center whitespace-nowrap",
-    render: (r) => r.two_person ? "예" : "아니오" },
   { key: "split", label: "분할", width: 110, cellCls: "text-center whitespace-nowrap",
     render: (r) => r.split_type || "" },
   { key: "paid", label: "결제유무", width: 120, cellCls: "text-center whitespace-nowrap",
