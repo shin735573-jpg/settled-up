@@ -596,6 +596,30 @@ export default function HQSettlement() {
 
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
+      {/* 본사 연간 총매출 — 12개월 누계, 기간 선택 무관 */}
+      <Card className="p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b font-semibold bg-muted/40 flex items-center justify-between">
+          <span>본사 총매출 ({yearLabel}년 1~12월 합계)</span>
+          <span className="text-xs text-muted-foreground font-normal">
+            기간 선택과 무관하게 항상 연간 합계로 표시
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x text-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-muted-foreground">업체 총배송비</span>
+            <span className="font-medium">{fmt(yearCompanyDeliveryTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-muted-foreground">적재비</span>
+            <span className="font-medium">{fmt(yearLoadingTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+            <span className="font-semibold">본사 총매출</span>
+            <span className="font-bold text-destructive">{fmt(yearGrossSales)}</span>
+          </div>
+        </div>
+      </Card>
+
       {/* 상단: 본사 수익 요약 + 적재비 입력 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-0 overflow-hidden">
