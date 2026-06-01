@@ -802,6 +802,44 @@ function RecordsTable({
   );
 }
 
+// 착불 빠른선택 금액 리스트 (1만 ~ 30만, 1만원 단위)
+const COD_AMOUNTS = Array.from({ length: 30 }, (_, i) => (i + 1) * 10000);
+
+function CodPicker({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  const cur = parseNum(value) || 0;
+  return (
+    <div className={cn("grid grid-cols-10 gap-1", className)}>
+      {COD_AMOUNTS.map((amt) => {
+        const active = cur === amt;
+        return (
+          <button
+            key={amt}
+            type="button"
+            onClick={() => onChange(active ? "" : String(amt))}
+            className={cn(
+              "h-8 text-xs rounded border tabular-nums select-none",
+              active
+                ? "bg-primary text-primary-foreground border-primary font-semibold"
+                : "bg-background hover:bg-muted"
+            )}
+            title={`${amt.toLocaleString()}원`}
+          >
+            {amt / 10000}만
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Records() {
   const { user } = useAuth();
   // 사용자 지정 수도권 키워드 캐시 동기화
