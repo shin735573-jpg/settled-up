@@ -158,6 +158,7 @@ export type AggregateOptions = {
   ganghyungjuId?: string | null;
   oeunkyuId?: string | null;
   odongseonId?: string | null;
+  kimyongikId?: string | null;
   /** 오은규 특수정산 적용 여부 (회사설정) — true면 오은규 건을 오동선에게 합산 */
   oeunkyuSpecial: boolean;
 };
