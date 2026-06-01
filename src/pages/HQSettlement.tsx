@@ -122,6 +122,7 @@ export default function HQSettlement() {
     setPeriod((prev) => (prev === cur.half ? prev : cur.half));
   });
   const [rows, setRows] = useState<Delivery[]>([]);
+  const [yearRows, setYearRows] = useState<Delivery[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -154,6 +155,21 @@ export default function HQSettlement() {
       setRows(d || []);
       setCompanies((c as Company[]) || []);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
+    })();
+  }, [month, refreshKey]);
+
+  // 연간(12개월) 매출 요약용 — 기간 선택과 무관하게 항상 표시
+  useEffect(() => {
+    (async () => {
+      const year = Number(month.slice(0, 4));
+      if (!year) return;
+      const yStart = `${year}-01-01`;
+      const yEnd = `${year + 1}-01-01`;
+      const { data } = await supabase
+        .from("deliveries")
+        .select("date,item,metro_fee,note_amount,regional_fee,company_id")
+        .gte("date", yStart).lt("date", yEnd);
+      setYearRows(data || []);
     })();
   }, [month, refreshKey]);
 
@@ -421,6 +437,24 @@ export default function HQSettlement() {
     }, 0,
   );
 
+  // ── 연간(12개월) 총매출 — 기간/월 선택과 무관하게 항상 표시
+  const yearLabel = month.slice(0, 4);
+  const yearCompanyDeliveryTotal = useMemo(
+    () => yearRows.reduce((s, r) => {
+      if (((r.item as string) || "").trim() === "적재비") return s;
+      return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+    }, 0),
+    [yearRows],
+  );
+  const yearLoadingTotal = useMemo(
+    () => yearRows.reduce((s, r) => {
+      if (((r.item as string) || "").trim() !== "적재비") return s;
+      return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
+    }, 0),
+    [yearRows],
+  );
+  const yearGrossSales = yearCompanyDeliveryTotal + yearLoadingTotal;
+
   // ── 매출 / 수익
   // 본사 수익 = 신동석 + 삼호 + 적재비(청구분만) + 수수료
   const grossSales = hqDirectFee + loadingBilled + leaderCommissionTotal;
@@ -561,6 +595,30 @@ export default function HQSettlement() {
       </div>
 
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
+
+      {/* 본사 연간 총매출 — 12개월 누계, 기간 선택 무관 */}
+      <Card className="p-0 overflow-hidden">
+        <div className="px-4 py-3 border-b font-semibold bg-muted/40 flex items-center justify-between">
+          <span>본사 총매출 ({yearLabel}년 1~12월 합계)</span>
+          <span className="text-xs text-muted-foreground font-normal">
+            기간 선택과 무관하게 항상 연간 합계로 표시
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x text-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-muted-foreground">업체 총배송비</span>
+            <span className="font-medium">{fmt(yearCompanyDeliveryTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-muted-foreground">적재비</span>
+            <span className="font-medium">{fmt(yearLoadingTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 bg-muted/30">
+            <span className="font-semibold">본사 총매출</span>
+            <span className="font-bold text-destructive">{fmt(yearGrossSales)}</span>
+          </div>
+        </div>
+      </Card>
 
       {/* 상단: 본사 수익 요약 + 적재비 입력 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
