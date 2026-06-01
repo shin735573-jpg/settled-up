@@ -621,6 +621,7 @@ export default function CompanySettlement() {
                 <TableHead>업체</TableHead>
                 <TableHead>팀장1</TableHead>
                 <TableHead>팀장2</TableHead>
+                <TableHead>팀장3</TableHead>
                 <TableHead>고객명</TableHead>
                 <TableHead>품목</TableHead>
                 <TableHead>비고</TableHead>
@@ -635,6 +636,7 @@ export default function CompanySettlement() {
                   <TableCell>{r.company_name}</TableCell>
                   <TableCell>{displayLeaderName(r.leader1_id, r.leader1_name)}</TableCell>
                   <TableCell>{displayLeaderName(r.leader2_id, r.leader2_name)}</TableCell>
+                  <TableCell>{displayLeaderName(r.leader3_id, r.leader3_name)}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell className="align-top min-w-[160px] max-w-[320px] whitespace-pre-wrap break-words">{r.item || "-"}</TableCell>
                   <TableCell className="align-top max-w-[240px] whitespace-pre-wrap break-words">{r.note || "-"}</TableCell>
@@ -643,7 +645,7 @@ export default function CompanySettlement() {
                 </TableRow>
               ))}
               {detailRows.length === 0 && (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">데이터 없음</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
