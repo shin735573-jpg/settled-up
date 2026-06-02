@@ -106,6 +106,7 @@ export type Database = {
       }
       deliveries: {
         Row: {
+          alba_deduction: number
           cod_amount: number
           company_id: string | null
           company_name: string
@@ -139,6 +140,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          alba_deduction?: number
           cod_amount?: number
           company_id?: string | null
           company_name: string
@@ -172,6 +174,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          alba_deduction?: number
           cod_amount?: number
           company_id?: string | null
           company_name?: string
