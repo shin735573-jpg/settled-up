@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -122,6 +123,10 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   const [askAmount, setAskAmount] = useState<MergeMode | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 좌우 비교 패널에서 사용자가 개별 닫기한 의심 행 id 목록
+  const [hiddenSuspectIds, setHiddenSuspectIds] = useState<Set<string>>(new Set());
+  // 좌우 비교에서 현재 "포커스" 된 패널 id (강조 표시용). null 이면 기준 패널.
+  const [focusPanelId, setFocusPanelId] = useState<string | null>(null);
 
   // 기준이 바뀌면 상태 초기화
   useEffect(() => {
@@ -133,6 +138,8 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     setManualTotal(String(feeTotal(base) || ""));
     setCompanionReason(base.companion_reason || "");
     setTab("exact");
+    setHiddenSuspectIds(new Set());
+    setFocusPanelId(null);
   }, [base?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const suspects = useMemo(() => {
