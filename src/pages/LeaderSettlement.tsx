@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
-import { totalLeaderSettlementDeliveryFee } from "@/lib/totalFee";
+import { totalLeaderSettlementDeliveryFee, computeCompanyBilledByCompany } from "@/lib/totalFee";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -147,6 +147,8 @@ export default function LeaderSettlement() {
   const [rows, setRows] = useState<Delivery[]>([]);
   const [companies, setCompanies] = useState<Array<{
     id: string; name: string; issues_invoice: boolean;
+    vat_included: boolean;
+    settlement_cycle: string;
     rejected_leader_id: string | null;
     rejected_leader_id_2: string | null;
     rejected_leader_id_3: string | null;
@@ -185,7 +187,7 @@ export default function LeaderSettlement() {
       const [{ data: l }, { data: cd }, { data: co }] = await Promise.all([
         supabase.from("team_leaders").select("*").order("name"),
         supabase.from("common_deductions").select("id,label,amount,active").order("sort_order"),
-        supabase.from("companies").select("id,name,issues_invoice,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
+        supabase.from("companies").select("id,name,issues_invoice,vat_included,settlement_cycle,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
       ]);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
       setCommonDeductions((cd as CommonDeduction[]) || []);
@@ -641,14 +643,22 @@ export default function LeaderSettlement() {
     // 총배송비 = 팀장정산 기준 공통 헬퍼 사용 — 적재비 같은 별도 매출 품목 제외
     const companyTotalFee = totalLeaderSettlementDeliveryFee(rows, virtualIds);
     const totalFee = companyTotalFee;
+    // 업체청구금액 = 실제로 각 업체에 청구된 금액의 합 (재방문 2차+/적재 제외 행 제외,
+    //   미수금 - 착불 상계 + 부가세). 정산용 내부 계산값(totalLeaderSettlementDeliveryFee)과 분리.
+    const billedByCompany = computeCompanyBilledByCompany(rows, companies, virtualIds);
+    const actualCompanyBilledTotal = Array.from(billedByCompany.values())
+      .reduce((s, v) => s + (v.billed || 0), 0);
     return {
       totalLeaders: masterRows.length,
       totalCount,
       totalCod,
       totalFee,
       companyTotalFee,
+      actualCompanyBilledTotal,
+      billedByCompany,
     };
-  }, [masterRows, rows]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [masterRows, rows, companies]);
 
   // ===== 헤더-셀 컬럼 위치 검증 (개발용) =====
   useEffect(() => {
@@ -744,18 +754,20 @@ export default function LeaderSettlement() {
   // 상세화면 업체별 요약 (기준서: 업체명/건수/수도권/비고/지방/실지급배송비/착불/수수료/계산후 지급금액)
   const detailByCompany = useMemo(() => {
     if (!leaderId) return [] as Array<{
-      company: string; count: number; metro: number; noteAmt: number; regional: number;
+      company: string; companyId?: string; count: number; metro: number; noteAmt: number; regional: number;
       total: number; cod: number; fees: number; afterFees: number;
+      // 실제 업체 청구금액 (VAT 포함) — 정산용 계산값과 분리
+      actualBilled: number;
     }>;
     const map = new Map<string, {
-      company: string; count: number; metro: number; noteAmt: number; regional: number;
+      company: string; companyId?: string; count: number; metro: number; noteAmt: number; regional: number;
       cod: number; fees: number;
     }>();
     detailRows.forEach((r) => {
       const share = shareForSettling(r, leaderId);
       if (!share) return;
       const key = r.company_name || "(미지정)";
-      const cur = map.get(key) || { company: key, count: 0, metro: 0, noteAmt: 0, regional: 0, cod: 0, fees: 0 };
+      const cur = map.get(key) || { company: key, companyId: r.company_id ?? undefined, count: 0, metro: 0, noteAmt: 0, regional: 0, cod: 0, fees: 0 };
       cur.count += share.count;
       cur.metro += share.metro;
       cur.noteAmt += share.noteAmt;
@@ -764,14 +776,16 @@ export default function LeaderSettlement() {
       cur.fees += feeForRowSettling(r, leaderId);
       map.set(key, cur);
     });
+    const billedMap = topSummary.billedByCompany;
     return Array.from(map.values())
       .map((v) => {
         const total = v.metro + v.noteAmt + v.regional;
-        return { ...v, total, afterFees: total - v.fees };
+        const billed = v.companyId ? (billedMap.get(v.companyId)?.billed ?? 0) : 0;
+        return { ...v, total, afterFees: total - v.fees, actualBilled: billed };
       })
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => b.actualBilled - a.actualBilled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailRows, leaderId, leaders]);
+  }, [detailRows, leaderId, leaders, topSummary.billedByCompany]);
 
   // 상세 진입 시 개별공제 로드
   useEffect(() => {
@@ -972,8 +986,8 @@ export default function LeaderSettlement() {
           <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
           <LeaderSummaryCard label="총배송건수" value={topSummary.totalCount.toLocaleString()} />
           <LeaderSummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
-          <LeaderSummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
-          <LeaderSummaryCard label="업체총배송비" value={fmt(topSummary.companyTotalFee)} bold red />
+          <LeaderSummaryCard label="총배송비(정산용)" value={fmt(topSummary.totalFee)} bold />
+          <LeaderSummaryCard label="업체청구금액(실제)" value={fmt(topSummary.actualCompanyBilledTotal)} bold red />
         </div>
       )}
 
@@ -1151,7 +1165,7 @@ export default function LeaderSettlement() {
                     <tr className="border-b">
                       <th className="text-left px-2 py-2 font-medium text-muted-foreground">업체명</th>
                       <th className="text-center px-2 py-2 font-medium text-muted-foreground w-20">건수</th>
-                      <th className="text-right px-2 py-2 font-medium text-muted-foreground w-32">배송비합</th>
+                      <th className="text-right px-2 py-2 font-medium text-muted-foreground w-32" title="실제 업체에 청구된 금액 (VAT 포함)">업체청구금액</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1159,7 +1173,7 @@ export default function LeaderSettlement() {
                       <tr key={c.company} className="border-b last:border-0">
                         <td className="px-2 py-2 truncate max-w-[180px]">{c.company}</td>
                         <td className="px-2 py-2 text-center">{c.count.toLocaleString()}</td>
-                        <td className="px-2 py-2 text-right font-semibold">{fmt(c.total)}</td>
+                        <td className="px-2 py-2 text-right font-semibold">{fmt(c.actualBilled)}</td>
                       </tr>
                     ))}
                     {detailByCompany.length === 0 && (
