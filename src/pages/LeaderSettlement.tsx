@@ -65,6 +65,7 @@ type Delivery = {
   leader1_id: string | null; leader1_name: string | null;
   leader2_id: string | null; leader2_name: string | null;
   leader3_id: string | null; leader3_name: string | null;
+  virtual_leader_id?: string | null; virtual_leader_name?: string | null;
 };
 type CommonDeduction = { id: string; label: string; amount: number; active: boolean };
 type LeaderPeriodDeduction = {
