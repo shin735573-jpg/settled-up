@@ -345,6 +345,7 @@ type FormState = {
   leader1_id: string;
   leader2_id: string;
   leader3_id: string;
+  virtual_leader_id: string;
   customer_name: string;
   region: string;
   region_type: RegionType;
@@ -375,6 +376,7 @@ const emptyForm = (): FormState => ({
   leader1_id: "",
   leader2_id: "",
   leader3_id: "",
+  virtual_leader_id: "",
   customer_name: "",
   region: "",
   region_type: "unknown",
