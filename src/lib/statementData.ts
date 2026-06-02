@@ -283,6 +283,13 @@ export function buildCompanyStatements(
     const warnings: string[] = [];
     const errors: string[] = [];
 
+    // 업체 청구서 팀장칸에서 숨길 팀장 이름 (금액은 그대로 청구됨, 이름만 비표시)
+    const HIDDEN_COMPANY_LEADERS = new Set([
+      "강형주", "신동석", "형주", "동석", "삼호도", "호도",
+    ]);
+    const isHiddenLeaderName = (n: string | null | undefined) =>
+      !!n && HIDDEN_COMPANY_LEADERS.has(String(n).trim());
+
     // 재방문 그룹의 "기준 날짜" = 그룹 내 가장 빠른 날짜(=1차 방문).
     // 2차 방문이 다른 정산주기에 있더라도 1차 기준일이 현 주기에 속하면
     // 같이 끌어와 합산 청구한다.
@@ -313,6 +320,8 @@ export function buildCompanyStatements(
           const lead0 = byId.get(id);
           // 가상팀장(예: 혼자 간 2인배송용)은 업체 청구서에 표기되지 않음
           if (lead0?.is_virtual) return "";
+          // 숨김팀장(강형주/신동석/삼호도 등) — 업체 청구서에 이름 미표시
+          if (isHiddenLeaderName(lead0?.name) || isHiddenLeaderName(name)) return "";
           if (!rejectIds.has(id)) return byId.get(id)?.name ?? name ?? "";
           const lead = byId.get(id);
           const alias = lead?.aliases?.[0];
@@ -320,6 +329,7 @@ export function buildCompanyStatements(
             errors.push(`거부팀장 "${lead?.name ?? name}" 별칭 미설정 — 업체 제출 불가`);
             return lead?.name ?? name ?? "";
           }
+          if (isHiddenLeaderName(alias)) return "";
           return alias;
         };
         rows.push({
