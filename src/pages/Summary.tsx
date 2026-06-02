@@ -202,6 +202,11 @@ export default function Summary() {
 
   const validRows = useMemo(() => allocations.filter((a) => a.hasValid), [allocations]);
 
+  const mismatchTrace = useMemo(
+    () => traceSummaryMismatch(allocations as Parameters<typeof traceSummaryMismatch>[0], companies),
+    [allocations, companies],
+  );
+
   // 업체 요약: 활성 업체, 행의 유효성으로 일치 보장
   const companyAgg = useMemo(() => {
     const visible = companies.filter((c) => c.active);
