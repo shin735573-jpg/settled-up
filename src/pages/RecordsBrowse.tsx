@@ -83,6 +83,7 @@ export default function RecordsBrowse() {
   });
   const [rangeEnd, setRangeEnd] = useState<string>(() => todayStr());
   const [dailyFilter, setDailyFilter] = useState<string>(""); // 패널 내부 추가 일자 필터 (YYYY-MM-DD)
+  const [typeFilter, setTypeFilter] = useState<"all" | "virtual" | "revisit">("all");
   const [slots, setSlots] = useState<(Sel | null)[]>(() => Array(SLOT_COUNT).fill(null));
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<Sel | null>(null);
@@ -134,6 +135,16 @@ export default function RecordsBrowse() {
 
   const recordsFor = (sel: Sel): Delivery[] => {
     let base = records;
+    const virtualIdsAll = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+    const isVirtualRow = (r: Delivery): boolean => {
+      if (r.virtual_leader_id) return true;
+      return [r.leader1_id, r.leader2_id, r.leader3_id].some(
+        (id) => !!id && virtualIdsAll.has(id),
+      );
+    };
+    const isRevisitRow = (r: Delivery): boolean => !!r.revisit_group_id;
+    if (typeFilter === "virtual") base = base.filter(isVirtualRow);
+    else if (typeFilter === "revisit") base = base.filter(isRevisitRow);
     if (sel.kind === "company") {
       base = base.filter((r) => r.company_id === sel.id);
       // 업체 관점: 방문 횟수는 모두 카운트해서 표시하되, 청구금액은 1차만 (2차+ 행은 금액 0 처리)
@@ -154,7 +165,7 @@ export default function RecordsBrowse() {
     const includeOeunkyu = !!odongseonId && !!oeunkyuId && sel.id === odongseonId;
     const targetIds = new Set<string>([sel.id]);
     if (includeOeunkyu && oeunkyuId) targetIds.add(oeunkyuId);
-    const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+    const virtualIds = virtualIdsAll;
     const revisitOverride = computeRevisitRedistribution(records, virtualIds);
 
     // 행 기준으로 "이 팀장이 가상기사 자리에 들어와 있는지" 판단.
@@ -285,6 +296,29 @@ export default function RecordsBrowse() {
 
           <div className="flex-1" />
           <div className="text-xs text-muted-foreground">조회 범위: <span className="font-semibold">{rangeLabel}</span></div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1 pt-2 border-t">
+          <span className="text-xs text-muted-foreground mr-1">유형 필터:</span>
+          {([
+            { v: "all", label: "전체" },
+            { v: "virtual", label: "가상기사 건만" },
+            { v: "revisit", label: "재방문 건만" },
+          ] as const).map((opt) => (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => setTypeFilter(opt.v)}
+              className={cn(
+                "text-xs px-2 py-1 rounded border",
+                typeFilter === opt.v
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-accent",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
         {rangeMode !== "day" && availableDates.length > 0 && (
