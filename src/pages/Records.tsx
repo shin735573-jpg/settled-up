@@ -2426,13 +2426,43 @@ export default function Records() {
                           type="button"
                          onClick={() => {
                            if (isFollowup) return;
-                           const next = !r.revisit_required;
-                           upd({ revisit_required: next });
-                           // 재방문 체크 시 → 같은 고객/지역의 과거 원본 배송을 즉시 검색해 보여줌
-                           if (next) {
-                             detectedKeyRef.current.clear();
-                             detectRevisitForRow(idx);
-                           }
+                            // 재방문 요청 = 다음 차수 추가.
+                            // - 비재방문 1차 행이면 같은 고객/지역의 과거 배송을 먼저 검색하여
+                            //   매칭 다이얼로그로 안내. 후보가 없으면 곧바로 +2차 잠금행 자동 생성.
+                            // - 이미 그룹에 속한 행이면 곧바로 +(N+1)차 잠금행 추가.
+                            const cur = bulkRows[idx];
+                            const alreadyGrouped = !!cur.revisit_group_local || !!cur.revisit_group_id_existing;
+                            if (!alreadyGrouped) {
+                              detectedKeyRef.current.clear();
+                              detectRevisitForRow(idx);
+                            }
+                            setBulkRows((rows) => {
+                              const nx = [...rows];
+                              const c = rows[idx];
+                              const curVisitNo = Number(c.revisit_visit_no) || 1;
+                              const nextVisitNo = curVisitNo + 1;
+                              const groupLocal = c.revisit_group_local || (
+                                (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+                                  ? (crypto as any).randomUUID()
+                                  : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+                              );
+                              nx[idx] = {
+                                ...c,
+                                revisit_required: true,
+                                revisit_group_local: groupLocal,
+                                revisit_visit_no: curVisitNo,
+                              };
+                              const nextLocked: BulkRow = {
+                                ...c,
+                                revisit_required: true,
+                                revisit_done: false,
+                                revisit_group_local: groupLocal,
+                                revisit_visit_no: nextVisitNo,
+                                revisit_locked: true,
+                              };
+                              nx.splice(idx + 1, 0, nextLocked);
+                              return nx;
+                            });
                          }}
                           disabled={isFollowup}
                           className={cn(
@@ -2440,58 +2470,26 @@ export default function Records() {
                             r.revisit_required ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
                             isFollowup && "opacity-50 cursor-not-allowed"
                           )}
-                          title="저장 시 같은 내용의 2차 방문 행이 함께 생성됩니다 (업체 청구는 1건으로 합산)"
+                          title="클릭 시 같은 내용의 다음 차수 행이 바로 아래에 자동 생성됩니다 (2차·3차·… 무제한 체이닝, 업체 청구는 1건으로 합산)"
                         >
-                           {isFollowup ? `${visitNo}차` : (r.revisit_required ? "요청" : "—")}
+                           {isFollowup ? `${visitNo}차` : (r.revisit_required ? `+${visitNo + 1}차` : "요청")}
                         </button>
                       </td>
                       <td className="p-1 text-center">
                         <button
                           type="button"
                           onClick={() => {
-                            // 재방문 진행 클릭 시:
-                            // - 현재 행은 그대로 N차배송(예: 1차배송)으로 유지됨.
-                            // - 바로 아래에 같은 내용의 다음 차수(N+1) "잠금 복제본"이 자동 생성됨.
-                            //   복제본은 금액/비고만 수정 가능, 나머지는 모두 잠김.
-                            // 활성 행이 이미 잠금 행이어도 그 위에 새 차수를 더 만들 수 있어야 하므로 허용.
-                            setBulkRows((rows) => {
-                              const next = [...rows];
-                              const cur = rows[idx];
-                              const curVisitNo = Number(cur.revisit_visit_no) || 1;
-                              const nextVisitNo = curVisitNo + 1;
-                              const groupLocal = cur.revisit_group_local || (
-                                (typeof crypto !== "undefined" && (crypto as any).randomUUID)
-                                  ? (crypto as any).randomUUID()
-                                  : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-                              );
-                              // 현재 행: 1차(또는 현재 차수)로 그대로 유지. 그룹/요청 표시만 보장.
-                              next[idx] = {
-                                ...cur,
-                                revisit_required: true,
-                                revisit_group_local: groupLocal,
-                                revisit_visit_no: curVisitNo,
-                              };
-                              // 바로 아래: 다음 차수의 잠금 복제본 (내용 자동 생성, 금액/비고만 수정 가능)
-                              const nextLocked: BulkRow = {
-                                ...cur,
-                                revisit_required: true,
-                                revisit_done: false,
-                                revisit_group_local: groupLocal,
-                                revisit_visit_no: nextVisitNo,
-                                revisit_locked: true,
-                              };
-                              next.splice(idx + 1, 0, nextLocked);
-                              return next;
-                            });
+                            // 재방문 진행 = 현재 차수의 완료 여부 토글.
+                            upd({ revisit_done: !r.revisit_done });
                           }}
                           disabled={false}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
                             r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
                           )}
-                          title="클릭 시 같은 내용의 다음 차수 행이 바로 아래에 복제 생성됩니다 (2차·3차·… 무제한 체이닝)"
+                          title="현재 차수의 완료 여부를 토글합니다. 추가 방문이 필요하면 왼쪽 '재방문 요청' 버튼으로 다음 차수를 생성하세요."
                         >
-                          {r.revisit_done ? "완료" : `+${visitNo + 1}차`}
+                          {r.revisit_done ? "완료" : "미완료"}
                         </button>
                       </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
