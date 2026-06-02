@@ -66,6 +66,9 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
   // 가상기사는 분배 대상이 아님 — null 처리로 무시.
   // (1) is_virtual=true 팀장, (2) 이 행의 virtual_leader_id로 입력된 팀장 모두 제외.
   const rowVirtualId = r.virtual_leader_id || null;
+  if (rowVirtualId || [r.leader1_id, r.leader2_id, r.leader3_id].some((id) => !!id && virtualSet.has(id))) {
+    return [];
+  }
   const stripV = (id: string | null | undefined): string | null => {
     if (!id) return null;
     if (virtualSet.has(id)) return null;
