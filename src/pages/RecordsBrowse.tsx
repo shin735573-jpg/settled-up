@@ -537,7 +537,8 @@ export default function RecordsBrowse() {
                     key={g.key}
                     className={cn(
                       "border rounded-md p-2 cursor-pointer hover:bg-accent",
-                      selectedGroupKey === g.key && "border-primary ring-1 ring-primary/30 bg-accent/50",
+                      selectedKeys.includes(g.key) && "border-primary ring-1 ring-primary/30 bg-accent/50",
+                      selectedGroupKey === g.key && "ring-2 ring-primary",
                     )}
                     onClick={() => togglePanel(g.key)}
                   >
