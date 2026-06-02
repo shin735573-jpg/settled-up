@@ -101,6 +101,9 @@ export default function Saves() {
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
+  const [companyQuery, setCompanyQuery] = useState<string>("");
+  const [leaderQuery, setLeaderQuery] = useState<string>("");
+  const normSearch = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
 
   async function reload() {
     if (!uid) return;
@@ -188,6 +191,21 @@ export default function Saves() {
 
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
+
+  const filteredCompanyStmts = useMemo(() => {
+    const q = normSearch(companyQuery);
+    if (!q) return companyStmts;
+    return companyStmts.filter((s) => normSearch(s.company.name).includes(q));
+  }, [companyStmts, companyQuery]);
+  const filteredLeaderStmts = useMemo(() => {
+    const q = normSearch(leaderQuery);
+    if (!q) return leaderStmts;
+    return leaderStmts.filter((s) => {
+      if (normSearch(s.leader.name).includes(q)) return true;
+      const aliases = (s.leader as { aliases?: string[] | null }).aliases ?? [];
+      return aliases.some((a) => normSearch(a).includes(q));
+    });
+  }, [leaderStmts, leaderQuery]);
 
   // ─── PNG 렌더 대상 노드 보관 (숨겨진 영역) ─────────────
   const exportRoot = useRef<HTMLDivElement>(null);
@@ -796,14 +814,22 @@ export default function Saves() {
           <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
             <Card className="p-3">
               <div className="mb-2 text-sm font-semibold">업체 목록</div>
+              <Input
+                value={companyQuery}
+                onChange={(e) => setCompanyQuery(e.target.value)}
+                placeholder="업체명 검색"
+                className="mb-2 h-8 text-sm"
+              />
               <ScrollArea className="h-[520px]">
                 <div className="space-y-1 pr-2">
-                  {companyStmts.length === 0 && (
+                  {filteredCompanyStmts.length === 0 && (
                     <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-                      해당 기간 정산 대상 업체가 없습니다.
+                      {companyStmts.length === 0
+                        ? "해당 기간 정산 대상 업체가 없습니다."
+                        : "검색 결과가 없습니다."}
                     </p>
                   )}
-                  {companyStmts.map((s) => {
+                  {filteredCompanyStmts.map((s) => {
                     const active = s.company.id === selectedCompanyId;
                     const noClaim = s.finalClaim <= 0;
                     return (
@@ -854,14 +880,22 @@ export default function Saves() {
           <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
             <Card className="p-3">
               <div className="mb-2 text-sm font-semibold">팀장 목록</div>
+              <Input
+                value={leaderQuery}
+                onChange={(e) => setLeaderQuery(e.target.value)}
+                placeholder="팀장명/별칭 검색"
+                className="mb-2 h-8 text-sm"
+              />
               <ScrollArea className="h-[520px]">
                 <div className="space-y-1 pr-2">
-                  {leaderStmts.length === 0 && (
+                  {filteredLeaderStmts.length === 0 && (
                     <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-                      해당 기간 정산 대상 팀장이 없습니다.
+                      {leaderStmts.length === 0
+                        ? "해당 기간 정산 대상 팀장이 없습니다."
+                        : "검색 결과가 없습니다."}
                     </p>
                   )}
-                  {leaderStmts.map((s) => {
+                  {filteredLeaderStmts.map((s) => {
                     const active = s.leader.id === selectedLeaderId;
                     const empty = s.deliveryCount === 0;
                     return (
