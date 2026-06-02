@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LeaderCombobox, type ComboLeader } from "@/components/LeaderCombobox";
+import { type ComboLeader } from "@/components/LeaderCombobox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -71,32 +71,31 @@ export function RevisitShareDialog({
 
   useEffect(() => {
     if (!open || !first) return;
-    if (first.revisit_manual_shares && first.revisit_manual_shares.length > 0) {
-      setRows(
-        first.revisit_manual_shares.map((s) => ({
-          leader_id: s.leader_id,
-          leader_name: s.leader_name || "",
-          amount: Number(s.amount) || 0,
-        })),
-      );
-      return;
-    }
-    // 프리필: 그룹 등장 팀장 + 1차 팀장1 전액
-    const seen = new Set<string>();
-    const prefill: RevisitShare[] = [];
-    const candidates = [
+    // 1차 배송 팀장만 분배 대상 — 복제/추가/추가팀장 없음
+    const firstLeaders: Array<{ id: string | null; name: string | null }> = [
       { id: first.leader1_id, name: first.leader1_name },
       { id: first.leader2_id, name: first.leader2_name },
       { id: first.leader3_id, name: first.leader3_name },
-      ...extraLeaders,
     ];
-    candidates.forEach((c) => {
+    const seen = new Set<string>();
+    const base: RevisitShare[] = [];
+    firstLeaders.forEach((c) => {
       if (!c.id || seen.has(c.id)) return;
       seen.add(c.id);
-      prefill.push({ leader_id: c.id, leader_name: c.name || "", amount: 0 });
+      base.push({ leader_id: c.id, leader_name: c.name || "", amount: 0 });
     });
-    if (prefill.length > 0) prefill[0].amount = baseTotal;
-    setRows(prefill);
+    // 저장된 수기분배가 있으면 1차 팀장에 한해 금액 복원
+    if (first.revisit_manual_shares && first.revisit_manual_shares.length > 0) {
+      const savedMap = new Map(
+        first.revisit_manual_shares.map((s) => [s.leader_id, Number(s.amount) || 0]),
+      );
+      base.forEach((r) => {
+        if (savedMap.has(r.leader_id)) r.amount = savedMap.get(r.leader_id) || 0;
+      });
+    } else if (base.length > 0) {
+      base[0].amount = baseTotal;
+    }
+    setRows(base);
   }, [open, first?.id]);
 
   const sumEntered = useMemo(
@@ -111,11 +110,6 @@ export function RevisitShareDialog({
 
   const updateRow = (idx: number, patch: Partial<RevisitShare>) =>
     setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-
-  const addRow = () =>
-    setRows((rs) => [...rs, { leader_id: "", leader_name: "", amount: 0 }]);
-  const removeRow = (idx: number) =>
-    setRows((rs) => rs.filter((_, i) => i !== idx));
 
   const distributeEqually = () => {
     const valid = rows.filter((r) => r.leader_id);
@@ -221,19 +215,16 @@ export function RevisitShareDialog({
             </Button>
           </div>
           <div className="space-y-2">
+            {rows.length === 0 && (
+              <div className="text-sm text-muted-foreground">
+                1차 배송에 팀장이 지정되어 있지 않습니다.
+              </div>
+            )}
             {rows.map((r, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="flex-1">
-                  <LeaderCombobox
-                    leaders={leaders}
-                    value={r.leader_id}
-                    onChange={(id) => {
-                      const lead = leaders.find((l) => l.id === id);
-                      updateRow(i, { leader_id: id, leader_name: lead?.name || "" });
-                    }}
-                    placeholder="팀장 선택"
-                    allowEmpty={false}
-                  />
+              <div key={r.leader_id || i} className="flex items-center gap-2">
+                <div className="flex-1 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                  {r.leader_name || "(이름 없음)"}
+                  <span className="ml-2 text-xs text-muted-foreground">1차 팀장</span>
                 </div>
                 <Input
                   type="number"
@@ -247,15 +238,16 @@ export function RevisitShareDialog({
                   size="sm"
                   variant="ghost"
                   onClick={() => assignRemainingTo(i)}
-                  disabled={remaining === 0 || !r.leader_id}
+                  disabled={remaining === 0}
                   title="남은 금액을 이 팀장에게 배정"
                 >
                   잔액
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => removeRow(i)}>삭제</Button>
               </div>
             ))}
-            <Button size="sm" variant="outline" onClick={addRow}>+ 팀장 추가</Button>
+            <div className="text-xs text-muted-foreground">
+              ※ 1차 배송에 등록된 팀장만 분배 대상입니다. 새 팀장 추가/복제는 불가.
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2 text-sm border-t pt-3">
             <div className="rounded-md border p-2 text-center">
