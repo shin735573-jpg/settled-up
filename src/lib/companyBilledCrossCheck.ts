@@ -166,10 +166,13 @@ export function crossCheckCompanyBilled(
     }
 
     // B) 정산주기 불일치
+    //   - biweekly 업체 × "월전체(all)" 보기 → 업체정산서 전체 제외 (그대로)
+    //   - monthly 업체 × h1/h2 보기 → 이제 해당 보름의 행이 있으면 발행되므로
+    //     "전체 제외" 사유에서 빠짐. 행이 있는데도 0원이라면 다른 사유(특수일/재방문 등)
+    //     로 잡혀야 정상.
     if (cInfo && cInfo.active) {
       const cycleSkippedAll =
-        (period === "all" && cInfo.settlement_cycle !== "monthly") ||
-        (period !== "all" && cInfo.settlement_cycle === "monthly");
+        period === "all" && cInfo.settlement_cycle !== "monthly";
       if (cycleSkippedAll) {
         reasons.push({
           code: "cycle",
