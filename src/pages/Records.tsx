@@ -4662,6 +4662,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     ];
     const ok = await confirmSave({ title: "붙여넣기 저장 확인", summary });
     if (!ok) return;
+    // 저장 직전 중복 검사 (단건 저장과 동일 기준)
+    const dupOk = await confirmBulkDuplicates(rows as DupDelivery[]);
+    if (!dupOk) return;
     setSaving(true);
     const { error } = await supabase.from("deliveries").insert(rows);
     setSaving(false);
