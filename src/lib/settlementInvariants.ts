@@ -34,6 +34,7 @@ const num = (v: unknown) => Number(v ?? 0) || 0;
 export type InvariantOptions = {
   shindongseokId?: string | null;
   ganghyungjuId?: string | null;
+  virtualIds?: Set<string> | string[] | null;
   /** 공제 정합성 검사 컨텍스트 (없으면 공제 검사 생략) */
   deductionCtx?: DeductionContext;
   /** 총합 허용 오차 (원) — 분배 반올림 누적 보정용 */
@@ -73,7 +74,7 @@ export function validateSettlementInvariants(
   // — 가중치 합 ≤ 1, 금액 분배가 원본과 정확히 일치
   // (강형주/신동석 재분배 후의 결과로 점검)
   for (const d of deliveries) {
-    if (isVirtualSettlementRow(d)) continue;
+    if (isVirtualSettlementRow(d, opts.virtualIds)) continue;
     if (!d.leader1_id) continue; // 팀장 미입력 행은 건너뜀
     const shares = allocateRow(
       {
@@ -113,7 +114,7 @@ export function validateSettlementInvariants(
   // 업체별 원본 cod 합 == companyStmt.codTotal
   const codByCompany = new Map<string, number>();
   for (const d of deliveries) {
-    if (isVirtualSettlementRow(d)) continue;
+    if (isVirtualSettlementRow(d, opts.virtualIds)) continue;
     const key = d.company_id || `name:${d.company_name ?? ""}`;
     codByCompany.set(key, (codByCompany.get(key) ?? 0) + num(d.cod_amount));
   }
@@ -134,7 +135,7 @@ export function validateSettlementInvariants(
   let expectedLeaderFee = 0;
   let expectedLeaderCod = 0;
   for (const d of deliveries) {
-    if (isLeaderSettlementExcludedItem(d.item) || isVirtualSettlementRow(d)) continue;
+    if (isLeaderSettlementExcludedItem(d.item) || isVirtualSettlementRow(d, opts.virtualIds)) continue;
     expectedLeaderFee += num(d.metro_fee) + num(d.note_amount) + num(d.regional_fee);
     expectedLeaderCod += num(d.cod_amount);
   }

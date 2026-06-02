@@ -474,6 +474,7 @@ export default function Saves() {
       validateSettlementInvariants(deliveries, companyStmts, leaderStmts, {
         shindongseokId: special.shindongseokId,
         ganghyungjuId: special.ganghyungjuId,
+        virtualIds: new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id)),
         deductionCtx,
       }),
     );
