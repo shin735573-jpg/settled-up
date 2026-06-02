@@ -259,6 +259,45 @@ export type Database = {
           },
         ]
       }
+      delivery_merge_log: {
+        Row: {
+          base_after: Json
+          base_before: Json
+          base_row_id: string
+          created_at: string
+          id: string
+          merge_action: string
+          merged_at: string
+          merged_rows: Json
+          reverted_at: string | null
+          user_id: string
+        }
+        Insert: {
+          base_after: Json
+          base_before: Json
+          base_row_id: string
+          created_at?: string
+          id?: string
+          merge_action: string
+          merged_at?: string
+          merged_rows?: Json
+          reverted_at?: string | null
+          user_id: string
+        }
+        Update: {
+          base_after?: Json
+          base_before?: Json
+          base_row_id?: string
+          created_at?: string
+          id?: string
+          merge_action?: string
+          merged_at?: string
+          merged_rows?: Json
+          reverted_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       holidays: {
         Row: {
           active: boolean
