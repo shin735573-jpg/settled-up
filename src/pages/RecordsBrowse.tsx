@@ -452,6 +452,8 @@ function PanelCard({
     return { metro, note, regional, cod, sum: metro + note + regional };
   }, [records]);
 
+  const revisitOrd = useMemo(() => buildRevisitOrdinalMap(records), [records]);
+
   return (
     <Card className="flex flex-col overflow-hidden">
       <div className={cn(
@@ -504,12 +506,19 @@ function PanelCard({
                     <div className="flex items-center gap-1">
                       <span>{r.date}</span>
                       {r.revisit_group_id && (
-                        <Badge
-                          variant={Number(r.revisit_visit_no) === 2 ? "default" : "secondary"}
-                          className="text-[10px] px-1.5 py-0 leading-4"
-                        >
-                          재방문 {Number(r.revisit_visit_no) === 2 ? "2차" : "1차"}
-                        </Badge>
+                        <>
+                          <Badge
+                            variant={Number(r.revisit_visit_no) === 2 ? "default" : "secondary"}
+                            className="text-[10px] px-1.5 py-0 leading-4"
+                          >
+                            재방문 {Number(r.revisit_visit_no) === 2 ? "2차" : "1차"}
+                          </Badge>
+                          {revisitOrd.get(r.revisit_group_id) && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 leading-4">
+                              {revisitOrd.get(r.revisit_group_id)}회
+                            </Badge>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
