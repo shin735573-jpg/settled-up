@@ -143,6 +143,8 @@ export default function HQSettlement() {
 
   const [leaderFilter, setLeaderFilter] = useState<"all" | "settled" | "pending">("all");
   const [companyFilter, setCompanyFilter] = useState<"all" | "paid" | "unpaid">("all");
+  const [leaderSearch, setLeaderSearch] = useState("");
+  const [companySearch, setCompanySearch] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -538,19 +540,25 @@ export default function HQSettlement() {
 
   // 업체정산관리 요약
   const filteredCompanies = useMemo(() => {
+    const q = companySearch.trim().toLowerCase();
     return companyDetails.map((c) => {
       const status = companyStatus[c.id] ?? "unpaid";
       return { ...c, status };
-    }).filter((c) => companyFilter === "all" ? true : c.status === companyFilter);
-  }, [companyDetails, companyStatus, companyFilter]);
+    })
+      .filter((c) => companyFilter === "all" ? true : c.status === companyFilter)
+      .filter((c) => !q || (c.name || "").toLowerCase().includes(q));
+  }, [companyDetails, companyStatus, companyFilter, companySearch]);
 
   // 팀장정산관리 필터링
   const filteredLeaders = useMemo(() => {
+    const q = leaderSearch.trim().toLowerCase();
     return leaderDetails.map((l) => {
       const status = leaderStatus[l.id] ?? "pending";
       return { ...l, status };
-    }).filter((l) => leaderFilter === "all" ? true : l.status === leaderFilter);
-  }, [leaderDetails, leaderStatus, leaderFilter]);
+    })
+      .filter((l) => leaderFilter === "all" ? true : l.status === leaderFilter)
+      .filter((l) => !q || (l.name || "").toLowerCase().includes(q));
+  }, [leaderDetails, leaderStatus, leaderFilter, leaderSearch]);
 
   // 적재비 추가
   const addLoading = () => setLoadingCosts((p) => [...p, {
@@ -963,9 +971,15 @@ export default function HQSettlement() {
 
         {/* 팀장정산관리 */}
         <Card className="overflow-hidden">
-          <div className="px-4 py-3 border-b font-semibold flex items-center gap-2">
+          <div className="px-4 py-3 border-b font-semibold flex flex-wrap items-center gap-2">
             팀장정산관리
-            <Tabs value={leaderFilter} onValueChange={(v) => setLeaderFilter(v as any)} className="ml-auto">
+            <Input
+              value={leaderSearch}
+              onChange={(e) => setLeaderSearch(e.target.value)}
+              placeholder="팀장명 검색"
+              className="h-8 w-40 text-xs ml-auto"
+            />
+            <Tabs value={leaderFilter} onValueChange={(v) => setLeaderFilter(v as any)}>
               <TabsList className="h-8">
                 <TabsTrigger value="all" className="text-xs">전체</TabsTrigger>
                 <TabsTrigger value="settled" className="text-xs">정산완료</TabsTrigger>
@@ -1018,9 +1032,15 @@ export default function HQSettlement() {
 
         {/* 업체정산관리 */}
         <Card className="overflow-hidden">
-          <div className="px-4 py-3 border-b font-semibold flex items-center gap-2">
+          <div className="px-4 py-3 border-b font-semibold flex flex-wrap items-center gap-2">
             업체정산관리
-            <Tabs value={companyFilter} onValueChange={(v) => setCompanyFilter(v as any)} className="ml-auto">
+            <Input
+              value={companySearch}
+              onChange={(e) => setCompanySearch(e.target.value)}
+              placeholder="업체명 검색"
+              className="h-8 w-40 text-xs ml-auto"
+            />
+            <Tabs value={companyFilter} onValueChange={(v) => setCompanyFilter(v as any)}>
               <TabsList className="h-8">
                 <TabsTrigger value="all" className="text-xs">전체</TabsTrigger>
                 <TabsTrigger value="paid" className="text-xs">결제완료</TabsTrigger>

@@ -143,6 +143,7 @@ export default function LeaderSettlement() {
     rejected_leader_id_3: string | null;
   }>>([]);
   const [leaderId, setLeaderId] = useState<string>("");
+  const [leaderSearch, setLeaderSearch] = useState("");
   const [commonDeductions, setCommonDeductions] = useState<CommonDeduction[]>([]);
   const [periodDeductions, setPeriodDeductions] = useState<LeaderPeriodDeduction[]>([]);
   const [detailDeductions, setDetailDeductions] = useState<LeaderPeriodDeduction[]>([]);
@@ -795,7 +796,20 @@ export default function LeaderSettlement() {
 
       {!leaderId && (
         <Card className="p-4">
-          <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div className="text-sm text-muted-foreground">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={leaderSearch}
+                onChange={(e) => setLeaderSearch(e.target.value)}
+                placeholder="팀장명 검색 (별칭 가능)"
+                className="h-8 w-56 text-xs"
+              />
+              {leaderSearch && (
+                <Button size="sm" variant="ghost" onClick={() => setLeaderSearch("")}>지우기</Button>
+              )}
+            </div>
+          </div>
           {leaderColAlignError && (
             <div className="mb-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive font-medium">
               팀장정산 목록의 헤더와 데이터 컬럼 위치가 일치하지 않습니다.
@@ -824,7 +838,17 @@ export default function LeaderSettlement() {
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
-                {masterRows.map((m) => {
+                {(() => {
+                  const q = leaderSearch.trim().toLowerCase();
+                  const visible = q
+                    ? masterRows.filter((m) => {
+                        const nm = (getDisplayName(m.leader, leaders) || "").toLowerCase();
+                        const al = ((m.leader.aliases as string[] | undefined) || [])
+                          .map((a) => (a || "").toLowerCase());
+                        return nm.includes(q) || al.some((a) => a.includes(q));
+                      })
+                    : masterRows;
+                  return visible.map((m) => {
                   const issuesInvoice = !!m.leader.issues_invoice;
                   // 부가세는 실지급액(net) 기준 10% — 정산서 저장본과 100% 동일
                   const vat = issuesInvoice ? Math.round(m.net * 0.1) : 0;
@@ -872,7 +896,8 @@ export default function LeaderSettlement() {
                       ))}
                     </tr>
                   );
-                })}
+                });
+                })()}
                 {masterRows.length === 0 && (
                   <tr className="border-b">
                     <td
