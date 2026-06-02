@@ -1661,18 +1661,21 @@ export default function Records() {
     };
     let preExact = 0;
     let preSuspect = 0;
+    let preExactRows: any[] = [];
     try {
       const { data: existingPre } = await supabase
         .from("deliveries")
-        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note,user_id,created_at,updated_at")
         .eq("date", form.date)
         .eq("company_id", form.company_id);
       const pool = (existingPre || []) as DupDelivery[];
-      preExact = findExactDuplicates(candPre, pool).length;
+      const exRows = findExactDuplicates(candPre, pool);
+      preExact = exRows.length;
+      preExactRows = exRows;
       preSuspect = findSuspectDuplicates(candPre, pool).length;
     } catch { /* 검색 실패는 진행 */ }
     if (preExact > 0) {
-      toast.error(`이미 동일한 기록이 등록되어 있습니다 (완전 중복 ${preExact}건). 저장이 차단되었습니다.`);
+      await showConflictReview(preExactRows, candPre, "저장 전 검사");
       return;
     }
     const summary = [
