@@ -2811,7 +2811,7 @@ export default function Records() {
                 onBlur={() => verifyRevisitForForm({ silent: true })}
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
               <Label>배송지</Label>
               <Input
                 value={form.region}
@@ -2833,6 +2833,47 @@ export default function Records() {
               {form.region && isDongOnly(form.region.trim()) && classifyRegion(form.region.trim()) !== "metro" && (
                 <div className="text-[11px] text-amber-700">
                   '{form.region.trim()}'은(는) 동 이름만 입력되어 자동 분류가 어렵습니다. 수도권/지방을 선택하세요.
+                </div>
+              )}
+              {formRevisitOpen && formRevisitCandidates.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover text-popover-foreground border rounded-md shadow-lg max-h-80 overflow-auto">
+                  <div className="px-3 py-2 text-[11px] text-muted-foreground border-b flex items-center justify-between bg-muted/40">
+                    <span>매칭된 과거 배송 {formRevisitCandidates.length}건 — 선택 시 다음 차수로 자동 채움</span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => { setFormRevisitOpen(false); setFormRevisitCandidates([]); }}
+                    >
+                      닫기
+                    </button>
+                  </div>
+                  <ul className="divide-y">
+                    {formRevisitCandidates.map((r) => {
+                      const amt =
+                        Number(r.metro_fee || 0) + Number(r.regional_fee || 0) +
+                        Number(r.note_amount || 0) + Number(r.cod_amount || 0);
+                      const leaders = [r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join("·");
+                      const visitTag = r.revisit_group_id ? `${r.revisit_visit_no || 1}차` : "단건";
+                      return (
+                        <li key={r.id}>
+                          <button
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-accent text-xs grid grid-cols-[80px_1fr_auto] gap-2 items-center"
+                            onMouseDown={(e) => { e.preventDefault(); confirmDetectedRevisit(r); }}
+                          >
+                            <span className="text-muted-foreground tabular-nums">{r.date}</span>
+                            <span className="truncate">
+                              <span className="font-medium">{r.company_name}</span>
+                              {r.customer_name ? ` · ${r.customer_name}` : ""}
+                              {r.region ? ` · ${r.region}` : ""}
+                              {leaders ? ` · ${leaders}` : ""}
+                            </span>
+                            <span className="tabular-nums text-muted-foreground">{visitTag} · {fmt(amt)}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               )}
             </div>
