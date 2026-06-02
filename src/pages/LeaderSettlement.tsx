@@ -688,6 +688,12 @@ export default function LeaderSettlement() {
     return crossCheckCompanyBilled(stmtDeliveries, stmtCompanies, stmtLeaders, period, virtualIds);
   }, [rows, companies, leaders, period, virtualIds]);
   const lastWarnedDiffRef = useRef<number | null>(null);
+
+  // 총배송비(정산용) vs 업체청구금액(실제) 차이의 100% 원인 분해
+  const totalVsBilled = useMemo(
+    () => crossCheckTotalVsBilled(rows, companies, virtualIds),
+    [rows, companies, virtualIds],
+  );
   useEffect(() => {
     if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
       toast.error(totalFeeCheck.message ?? "총배송비 검증 실패");
