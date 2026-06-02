@@ -1772,6 +1772,16 @@ export default function Records() {
                        }}
                      >
                       <td className="p-1 text-center text-muted-foreground">{idx + 1}</td>
+                      <td className="p-1 text-center">
+                        {r.revisit_group_local ? (
+                          <span className={cn(
+                            "inline-block text-[10px] px-1.5 py-0.5 rounded font-semibold",
+                            isSecond ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                          )}>
+                            재방문{isSecond ? "2차" : "1차"}
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="p-1">
                         {isSecond ? (
                           <Input
