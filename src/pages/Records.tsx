@@ -2000,6 +2000,9 @@ export default function Records() {
             <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, ...Array.from({ length: 5 }, () => emptyBulkRow(bulkShared.default_company_id))])}>
               <Plus className="h-4 w-4 mr-1" /> 5행 추가
             </Button>
+            <Button variant="secondary" onClick={openRevisitPicker} title="이미 저장된 1차 배송을 골라 2차 행을 자동 생성합니다">
+              재방문 완료 등록 (저장된 1차 가져오기)
+            </Button>
             <div className="flex-1" />
             <span className="text-xs text-muted-foreground">총 {bulkRows.length}행</span>
             <Button size="lg" onClick={bulkSaveAll} disabled={bulkSaving}>
