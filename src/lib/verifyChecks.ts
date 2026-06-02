@@ -66,6 +66,45 @@ export const displayCustomerName = (s: unknown) => {
 const deliveryBaseAmount = (d: StmtDelivery) =>
   Number(d.metro_fee || 0) + Number(d.regional_fee || 0) + Number(d.note_amount || 0);
 
+function leaderShareTotalForRow(
+  d: StmtDelivery,
+  byId: Map<string, StmtLeader>,
+  virtualIds: Set<string>,
+  special: ReturnType<typeof detectSpecialLeaderIds>,
+  oeunkyuSpecial: boolean,
+): number {
+  // 팀장이 전혀 입력되지 않은 행은 allocateRow 가 빈 배열을 돌려준다 →
+  // 업체 합계엔 들어 있는데 팀장 합계엔 빠져 100% 차이 발생.
+  // 동일한 모집단을 유지하기 위해 미배정 행도 전체 fee 를 그대로 합산한다.
+  if (!d.leader1_id) return deliveryBaseAmount(d);
+  const shares = allocateRow(
+    {
+      leader1_id: d.leader1_id,
+      leader2_id: d.leader2_id,
+      leader3_id: d.leader3_id,
+      split_type: d.split_type,
+      two_person: d.two_person ?? false,
+      metro_fee: Number(d.metro_fee || 0),
+      note_amount: Number(d.note_amount || 0),
+      regional_fee: Number(d.regional_fee || 0),
+      cod_amount: Number(d.cod_amount || 0),
+      virtual_leader_id: d.virtual_leader_id ?? null,
+    },
+    {
+      shindongseokId: special.shindongseokId,
+      ganghyungjuId: special.ganghyungjuId,
+      oeunkyuId: oeunkyuSpecial ? special.oeunkyuId : null,
+      odongseonId: oeunkyuSpecial ? special.odongseonId : null,
+      kimyongikId: special.kimyongikId,
+      virtualIds,
+    },
+  );
+  return shares.reduce((rowSum, s) => {
+    resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>);
+    return rowSum + Number(s.metro || 0) + Number(s.regional || 0) + Number(s.note_amount || 0);
+  }, 0);
+}
+
 function computeLeaderDeliveryOriginalTotal(
   deliveries: StmtDelivery[],
   leaders: StmtLeader[],
@@ -74,47 +113,38 @@ function computeLeaderDeliveryOriginalTotal(
 ) {
   const byId = new Map(leaders.map((l) => [l.id, l]));
   const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+  return deliveries.reduce(
+    (sum, d) => sum + leaderShareTotalForRow(d, byId, virtualIds, special, oeunkyuSpecial),
+    0,
+  );
+}
 
-  return deliveries.reduce((sum, d) => {
-    // 팀장이 전혀 입력되지 않은 행은 allocateRow 가 빈 배열을 돌려준다 →
-    // 업체 합계엔 들어 있는데 팀장 합계엔 빠져 100% 차이 발생.
-    // 동일한 모집단을 유지하기 위해 미배정 행도 전체 fee 를 그대로 합산한다.
-    if (!d.leader1_id) {
-      return sum + deliveryBaseAmount(d);
+/** 업체측 행별 fee 와 팀장 분배 합이 다른 행을 추출 (진단용) */
+function diffRowsByLeaderShare(
+  deliveries: StmtDelivery[],
+  leaders: StmtLeader[],
+  special: ReturnType<typeof detectSpecialLeaderIds>,
+  oeunkyuSpecial: boolean,
+) {
+  const byId = new Map(leaders.map((l) => [l.id, l]));
+  const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+  const out: { id: string; date: string; company: string | null; customer: string | null; diff: number }[] = [];
+  for (const d of deliveries) {
+    const company = deliveryBaseAmount(d);
+    const leader = leaderShareTotalForRow(d, byId, virtualIds, special, oeunkyuSpecial);
+    const diff = company - leader;
+    if (Math.abs(diff) > 0) {
+      out.push({
+        id: d.id,
+        date: d.date,
+        company: d.company_name ?? null,
+        customer: d.customer_name ?? null,
+        diff,
+      });
     }
-    const shares = allocateRow(
-      {
-        leader1_id: d.leader1_id,
-        leader2_id: d.leader2_id,
-        leader3_id: d.leader3_id,
-        split_type: d.split_type,
-        two_person: d.two_person ?? false,
-        metro_fee: Number(d.metro_fee || 0),
-        note_amount: Number(d.note_amount || 0),
-        regional_fee: Number(d.regional_fee || 0),
-        cod_amount: Number(d.cod_amount || 0),
-        virtual_leader_id: d.virtual_leader_id ?? null,
-      },
-      {
-        shindongseokId: special.shindongseokId,
-        ganghyungjuId: special.ganghyungjuId,
-        oeunkyuId: oeunkyuSpecial ? special.oeunkyuId : null,
-        odongseonId: oeunkyuSpecial ? special.odongseonId : null,
-        kimyongikId: special.kimyongikId,
-        virtualIds,
-      },
-    );
-
-    // 검산은 "원본 배송원금이 어디로 갔는가" 를 본다 →
-    // 거부기사/가상기사/정산제외/대납(settle_to) 팀장의 몫도 모두 포함해야
-    // 업체 합계와 동일 모집단이 된다. settle_to_id 체인은 resolveSettleId 로 흡수.
-    const rowTotal = shares.reduce((rowSum, s) => {
-      // resolve 만 호출(귀속 확인용) — 결과 필터 없이 무조건 합산
-      resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>);
-      return rowSum + Number(s.metro || 0) + Number(s.regional || 0) + Number(s.note_amount || 0);
-    }, 0);
-    return sum + rowTotal;
-  }, 0);
+  }
+  out.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+  return out;
 }
 
 export function runVerify(input: VerifyInput): VerifyResult {
