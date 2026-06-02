@@ -1464,8 +1464,8 @@ export default function Records() {
       leader2_name: leaderName(bulkShared.leader2_id),
       leader3_id: bulkShared.leader3_id || null,
       leader3_name: leaderName(bulkShared.leader3_id),
-      virtual_leader_id: r.virtual_leader_id || null,
-      virtual_leader_name: leaderName(r.virtual_leader_id || ""),
+      virtual_leader_id: (r.virtual_leader_id || bulkShared.virtual_leader_id) || null,
+      virtual_leader_name: leaderName(r.virtual_leader_id || bulkShared.virtual_leader_id || ""),
       customer_name: lockedExisting ? (source?.customer_name || r.customer_name.trim() || null) : (r.customer_name.trim() || null),
       region: lockedExisting ? (source?.region || r.region.trim() || null) : (r.region.trim() || null),
       region_type: lockedExisting ? ((source?.region_type || r.region_type) === "unknown" ? null : (source?.region_type || r.region_type)) : (r.region_type === "unknown" ? null : r.region_type),
@@ -2014,6 +2014,19 @@ export default function Records() {
                     }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
+                  {i === 1 && (
+                    <div className="pt-1">
+                      <Label className="text-[10px] text-muted-foreground">가상기사 (정산X)</Label>
+                      <div className="scale-95 origin-left">
+                        <LeaderCombobox
+                          leaders={selectableLeaders}
+                          value={bulkShared.virtual_leader_id || ""}
+                          onChange={(v) => setBulkShared({ ...bulkShared, virtual_leader_id: v })}
+                          placeholder="가상기사 선택"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2055,7 +2068,6 @@ export default function Records() {
                   <th className="p-2 min-w-[140px]">배송지</th>
                   <th className="p-2 min-w-[180px]">품목</th>
                   <th className="p-2 min-w-[100px]">2인배송</th>
-                  <th className="p-2 min-w-[110px]">가상기사</th>
                   <th className="p-2 min-w-[120px]">비고</th>
                   <th className="p-2 min-w-[120px]">배송비</th>
                   <th className="p-2 min-w-[100px]">비고금액</th>
@@ -2210,14 +2222,6 @@ export default function Records() {
                         >
                           {r.two_person ? "2인배송" : "—"}
                         </button>
-                      </td>
-                      <td className="p-1">
-                        <LeaderCombobox
-                          leaders={selectableLeaders}
-                          value={r.virtual_leader_id || ""}
-                          onChange={(v) => { if (!isFollowup) upd({ virtual_leader_id: v }); }}
-                          placeholder="가상기사 (정산X)"
-                        />
                       </td>
                        <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} disabled={isFollowup} /></td>
                       <td className="p-1">
