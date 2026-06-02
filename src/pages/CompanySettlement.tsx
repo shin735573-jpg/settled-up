@@ -529,6 +529,21 @@ export default function CompanySettlement() {
           업체정산 통합식 {totalFeeCheck.unified.toLocaleString()}원 vs
           팀장정산식 {totalFeeCheck.leaderStyle.toLocaleString()}원
           (차이 {totalFeeCheck.diff.toLocaleString()}원). 두 화면의 총배송비가 일치하지 않습니다.
+          <div className="mt-2 grid gap-1 text-xs">
+            {totalFeeCheck.categories.map((c) => (
+              <div key={c.label} className="flex items-center justify-between gap-2">
+                <span>
+                  {c.label} — {c.count}건 / {c.amount.toLocaleString()}원
+                  <span className="ml-1 text-muted-foreground">
+                    (통합식: {c.includedInUnified ? "포함" : "제외"} · 팀장정산식: {c.includedInLeaderStyle ? "포함" : "제외"})
+                  </span>
+                </span>
+                <span className={c.contribution !== 0 ? "font-semibold" : "text-muted-foreground"}>
+                  차이 영향 {c.contribution > 0 ? "+" : ""}{c.contribution.toLocaleString()}원
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
