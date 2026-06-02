@@ -438,6 +438,51 @@ export default function Saves() {
   const [pendingPartial, setPendingPartial] = useState<null | { fn: () => void; count: number; label: string }>(null);
   const [checkTitle, setCheckTitle] = useState<string>("");
 
+  // ─── 합계 검증 이력 (v1/v2/v3 …) ──────────────────────────
+  const [audits, setAudits] = useState<AuditEntry[]>([]);
+  const [auditOpen, setAuditOpen] = useState(false);
+  useEffect(() => {
+    setAudits(getValidationAudits(month, period));
+  }, [month, period]);
+
+  /**
+   * 저장 / 재생성 완료 직후 합계 검증을 자동으로 다시 실행하고 v1/v2/v3 비교 기록을 남긴다.
+   * 직전 버전과 경고/오류 차이(해소·신규)는 모듈에서 자동 계산된다.
+   */
+  function recordAuditAfter(scope: AuditScope, title: string, regenerate: boolean): AuditEntry | null {
+    try {
+      const after = runChecksFor("both-all");
+      const entry = appendValidationAudit({
+        month, period, scope, title, regenerate,
+        errors: after.errors,
+        warnings: after.warnings,
+      });
+      setAudits(getValidationAudits(month, period));
+      const summary = summarizeAudit(entry);
+      if (entry.version === 1) {
+        toast({ title: `검증 기록 v1 — ${title}`, description: summary });
+      } else if (entry.resolvedWarnings.length + entry.resolvedErrors.length > 0 && entry.newWarnings.length + entry.newErrors.length === 0) {
+        toast({
+          title: `검증 v${entry.version} — 해소 ${entry.resolvedWarnings.length + entry.resolvedErrors.length}건`,
+          description: summary,
+        });
+      } else if (entry.newWarnings.length + entry.newErrors.length > 0) {
+        toast({
+          title: `검증 v${entry.version} — 신규 ${entry.newWarnings.length + entry.newErrors.length}건`,
+          description: summary,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `검증 v${entry.version} — 변동 없음`, description: summary });
+      }
+      return entry;
+    } catch (e) {
+      // 검증 기록 실패는 저장 성공 자체를 막지 않는다.
+      console.warn("validation audit failed", e);
+      return null;
+    }
+  }
+
   /**
    * scope:
    *  - "company-one" / "company-all"
