@@ -253,6 +253,10 @@ export default function LeaderSettlement() {
     [leaders],
   );
   const sdsOpts = { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds };
+  const settlementRows = useMemo(
+    () => rows.filter((r) => !isVirtualSettlementRow(r, virtualIds)),
+    [rows, virtualIds],
+  );
   const isHyungjuDongseokLeader = (lid: string): boolean => lid === shindongseokId || lid === ganghyungjuId;
   const commonDefaultAmountFor = (lid: string, cd: CommonDeduction): number => {
     // 강형주/신동석은 한 팀 재분배 대상이므로 쓰레기비용 공통공제 50,000원을 기본 고정하지 않는다.
@@ -346,12 +350,12 @@ export default function LeaderSettlement() {
   // 자동검증 (내부 관점)
   const audit = useMemo(
     () => auditDeliveries({
-      deliveries: rows as any,
+      deliveries: settlementRows as any,
       companies,
       leaders,
       mode: "internal",
     }),
-    [rows, companies, leaders],
+    [settlementRows, companies, leaders],
   );
 
   const rootRef = useRef<HTMLDivElement>(null);

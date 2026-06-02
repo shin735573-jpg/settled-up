@@ -343,12 +343,12 @@ export default function Summary() {
   // 자동검증 (내부 관점)
   const audit = useMemo(
     () => auditDeliveries({
-      deliveries: periodRows,
+      deliveries: settlementPeriodRows,
       companies,
       leaders,
       mode: "internal",
     }),
-    [periodRows, companies, leaders],
+    [settlementPeriodRows, companies, leaders],
   );
 
   const rootRef = useRef<HTMLDivElement>(null);
