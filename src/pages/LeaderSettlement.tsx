@@ -202,10 +202,24 @@ export default function LeaderSettlement() {
       let q = supabase.from("deliveries").select("*").order("date");
       if (range.start) q = q.gte("date", range.start);
       if (range.end) q = q.lt("date", range.end);
-      const { data } = await q;
-      setRows((data as Delivery[]) || []);
+      const [{ data }, { data: ovData }] = await Promise.all([
+        q,
+        supabase
+          .from("deliveries")
+          .select("*")
+          .ilike("missing_reason", `${__settleOverridePrefix(month)}%`),
+      ]);
+      const periodKey: "h1" | "h2" | "all" =
+        period === "first" ? "h1" : period === "second" ? "h2" : "all";
+      const merged = new Map<string, Delivery>();
+      for (const d of (data as Delivery[]) || []) merged.set((d as { id: string }).id, d);
+      for (const d of (ovData as Delivery[]) || []) merged.set((d as { id: string }).id, d);
+      const filtered = Array.from(merged.values())
+        .filter((d) => __isInEffectivePeriod(d as { date?: string; missing_reason?: string | null }, month, periodKey))
+        .map((d) => __withEffectiveDate(d as { date?: string; missing_reason?: string | null }) as Delivery);
+      setRows(filtered);
     })();
-  }, [range.start, range.end]);
+  }, [range.start, range.end, month, period]);
 
   // 현 기간의 모든 팀장 개별공제 (마스터 합계용)
   useEffect(() => {
