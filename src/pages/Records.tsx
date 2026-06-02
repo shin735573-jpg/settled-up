@@ -1640,7 +1640,9 @@ export default function Records() {
     });
     if (!ok) return;
     setSaving(true);
-    // 저장 직전 중복 검사 (단건) — 정확/의심 중복이 발견되면 사용자 confirm
+    // 저장 직전 중복 검사 (단건)
+    //  - 완전 중복: 저장 차단
+    //  - 유사 중복: 사용자 확인 후 진행
     try {
       const cand: DupDelivery = {
         id: form.id,
@@ -1648,6 +1650,7 @@ export default function Records() {
         company_id: form.company_id,
         company_name: company.name,
         customer_name: form.customer_name,
+        region: form.region || null,
         item: form.item,
         metro_fee: metroN,
         note_amount: parseNum(form.note_amount) || 0,
@@ -1656,18 +1659,28 @@ export default function Records() {
         leader1_id: form.leader1_id || null,
         leader2_id: form.leader2_id || null,
         split_type: form.split_type || null,
+        two_person: !!form.two_person,
         paid: form.paid,
         note: form.note || null,
       };
       const { data: existing } = await supabase
         .from("deliveries")
-        .select("id,date,company_id,company_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,paid,note")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
         .eq("date", form.date)
         .eq("company_id", form.company_id);
-      const ex = findExactDuplicates(cand, (existing || []) as DupDelivery[]);
-      const sus = findSuspectDuplicates(cand, (existing || []) as DupDelivery[]);
-      if (hasAnyDuplicates(ex, sus)) {
-        if (!confirm(formatDuplicateConfirm(ex, sus))) {
+      const pool = (existing || []) as DupDelivery[];
+      const ex = findExactDuplicates(cand, pool);
+      const sus = findSuspectDuplicates(cand, pool);
+      if (ex.length > 0) {
+        toast.error(`이미 동일한 기록이 등록되어 있습니다 (완전 중복 ${ex.length}건). 저장이 차단되었습니다.`);
+        setSaving(false);
+        return;
+      }
+      if (sus.length > 0) {
+        if (!confirm(
+          `유사한 기록이 ${sus.length}건 존재합니다. 저장 전 확인하세요.\n\n` +
+          formatDuplicateConfirm([], sus),
+        )) {
           setSaving(false);
           return;
         }
@@ -1691,7 +1704,7 @@ export default function Records() {
       }
     }
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyInsertError(error) || error.message); return; }
     // 다음 차수 자동 생성 로직 제거 — 다음 차수는 사용자가 직접 등록.
     toast.success(form.id ? "수정 완료" : "저장 완료");
     setForm(emptyForm());
