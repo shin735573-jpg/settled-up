@@ -2033,6 +2033,7 @@ export default function Records() {
                   <th className="p-2 min-w-[140px]">배송지</th>
                   <th className="p-2 min-w-[180px]">품목</th>
                   <th className="p-2 min-w-[100px]">2인배송</th>
+                  <th className="p-2 min-w-[110px]">가상기사</th>
                   <th className="p-2 min-w-[120px]">비고</th>
                   <th className="p-2 min-w-[120px]">배송비</th>
                   <th className="p-2 min-w-[100px]">비고금액</th>
