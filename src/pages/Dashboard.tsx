@@ -2,17 +2,30 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { fmt } from "@/lib/format";
+import { checkBilledVsTotalFee, type BilledVsTotalFeeResult } from "@/lib/billedVsTotalFeeCheck";
+import { BilledVsTotalFeeBanner } from "@/components/BilledVsTotalFeeBanner";
 
 export default function Dashboard() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [stats, setStats] = useState({ count: 0, total: 0, companies: 0, leaders: 0 });
+  const [check, setCheck] = useState<BilledVsTotalFeeResult | null>(null);
 
   useEffect(() => {
     (async () => {
       const start = month + "-01";
       const next = new Date(month + "-01"); next.setMonth(next.getMonth() + 1);
       const end = next.toISOString().slice(0, 10);
-      const { data } = await supabase.from("deliveries").select("metro_fee,note_amount,regional_fee,company_id,leader1_id").gte("date", start).lt("date", end);
+      const [{ data }, { data: companies }, { data: leaders }] = await Promise.all([
+        supabase
+          .from("deliveries")
+          .select(
+            "id,date,company_id,company_name,leader1_id,metro_fee,note_amount,regional_fee,cod_amount,paid,item,two_person,virtual_leader_id,virtual_leader_name,revisit_group_id,revisit_visit_no",
+          )
+          .gte("date", start)
+          .lt("date", end),
+        supabase.from("companies").select("id,name,issues_invoice,vat_included,active"),
+        supabase.from("team_leaders").select("id,is_virtual"),
+      ]);
       const rows = data || [];
       const total = rows.reduce((s, r) => s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee), 0);
       setStats({
@@ -21,6 +34,8 @@ export default function Dashboard() {
         companies: new Set(rows.map((r) => r.company_id).filter(Boolean)).size,
         leaders: new Set(rows.map((r) => r.leader1_id).filter(Boolean)).size,
       });
+      const virtualIds = new Set((leaders || []).filter((l) => l.is_virtual).map((l) => l.id));
+      setCheck(checkBilledVsTotalFee(rows, companies || [], virtualIds));
     })();
   }, [month]);
 
@@ -30,6 +45,7 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">대시보드</h1>
         <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="border rounded px-3 py-2" />
       </div>
+      {check && <BilledVsTotalFeeBanner result={check} />}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="p-4"><div className="text-sm text-muted-foreground">총 건수</div><div className="text-2xl font-bold num">{stats.count}</div></Card>
         <Card className="p-4"><div className="text-sm text-muted-foreground">총 배송비</div><div className="text-2xl font-bold num">{fmt(stats.total)}</div></Card>
