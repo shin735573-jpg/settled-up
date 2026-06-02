@@ -1464,6 +1464,8 @@ export default function Records() {
 
   // URL ?edit={id} 로 진입한 경우 해당 행을 자동으로 폼에 로드
   const editParam = searchParams.get("edit");
+  const [editHighlight, setEditHighlight] = useState(false);
+  const editFormRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!editParam) return;
     let cancelled = false;
@@ -1479,6 +1481,12 @@ export default function Records() {
       } else {
         editRow(data as Delivery);
         toast.success("배송내역을 편집 모드로 불러왔습니다");
+        // 폼이 마운트된 다음 프레임에 스크롤 + 강조 효과
+        setTimeout(() => {
+          editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          setEditHighlight(true);
+          window.setTimeout(() => setEditHighlight(false), 2500);
+        }, 50);
       }
       const next = new URLSearchParams(searchParams);
       next.delete("edit");
@@ -3516,7 +3524,12 @@ export default function Records() {
       </TabsContent>
 
       <TabsContent value="form" className="mt-0">
-        <Card className="p-4 md:p-6 space-y-4">
+        <Card
+          ref={editFormRef as unknown as React.RefObject<HTMLDivElement>}
+          className={`p-4 md:p-6 space-y-4 transition-all duration-500 ${
+            editHighlight ? "ring-4 ring-primary ring-offset-2 shadow-lg" : ""
+          }`}
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               {form.id ? "배송 수정" : (form.is_missing ? "누락분 추가" : "새 배송 입력")}
