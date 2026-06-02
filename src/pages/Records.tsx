@@ -904,6 +904,8 @@ export default function Records() {
     paid: boolean;
     revisit_required: boolean;
     revisit_done: boolean;
+    revisit_group_local: string;
+    revisit_visit_no: 1 | 2;
   };
   const emptyBulkRow = (companyId: string = ""): BulkRow => ({
     company_id: companyId,
