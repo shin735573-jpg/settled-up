@@ -139,17 +139,42 @@ export function validateSettlementInvariants(
   const leaderCodTotal = leaderStmts.reduce((s, l) => s + num(l.codSum), 0);
 
   // ─────────────── 4) 본사 ↔ 팀장 합계 정합성 ───────────────
-  // 기준 = 업체 정산서(청구서)에 실제로 들어간 행만 집계.
-  // (raw deliveries 는 정산주기/재방문/가상기사 필터 전 데이터라서 단순 합산하면 false-positive 가 난다.)
-  // 업체 청구서에 들어간 행 중 "팀장 정산 제외품목(행사철수 등)" 을 빼면 팀장 실지급 기대치가 된다.
+  // 기준은 "팀장 정산이 실제로 끌어가는 행" 과 동일하게 계산해야 한다.
+  //   · 업체 정산주기(monthly/biweekly) 차이로 companyStmts 에는 빠지는 업체가 있을 수 있으므로
+  //     deliveries 를 기준으로 다시 계산한다.
+  //   · 단, 팀장 정산 기간(period) · 제외품목 · 가상기사 규칙은 동일하게 적용.
+  //   · 재방문 그룹은 1차 행 금액만 합산(2차 이후는 1차 금액 내부 재분배라서 총합 변화 없음).
+  //     1차 날짜 기준으로 period 게이트한다.
+  const leaderPeriod: Period | null = (leaderStmts[0]?.period ?? null) as Period | null;
   let expectedLeaderFee = 0;
   let expectedLeaderCod = 0;
-  for (const cs of companyStmts) {
-    for (const row of cs.rows) {
-      if (isLeaderSettlementExcludedItem(row.item)) continue;
-      if (isVirtualSettlementRow(row, opts.virtualIds)) continue;
-      expectedLeaderFee += num(row.metro_fee) + num(row.note_amount) + num(row.regional_fee);
-      expectedLeaderCod += num(row.cod_amount);
+  if (leaderPeriod) {
+    // revisit 그룹별로 1차(가장 빠른 날짜) 행 한 건만 합산
+    const revisitFirst = new Map<string, StmtDelivery>();
+    for (const d of deliveries) {
+      const gid = (d as { revisit_group_id?: string | null }).revisit_group_id;
+      if (!gid) continue;
+      const cur = revisitFirst.get(gid);
+      if (!cur) { revisitFirst.set(gid, d); continue; }
+      const curVisit = Number((cur as { revisit_visit_no?: number | null }).revisit_visit_no ?? 1);
+      const dVisit = Number((d as { revisit_visit_no?: number | null }).revisit_visit_no ?? 1);
+      if (dVisit < curVisit) revisitFirst.set(gid, d);
+      else if (dVisit === curVisit && (d.date ?? "") < (cur.date ?? "")) revisitFirst.set(gid, d);
+    }
+    for (const d of deliveries) {
+      if (isLeaderSettlementExcludedItem(d.item)) continue;
+      if (!d.two_person && isVirtualSettlementRow(d, opts.virtualIds)) continue;
+      const gid = (d as { revisit_group_id?: string | null }).revisit_group_id;
+      if (gid) {
+        // 1차 행만 카운트, period 게이트는 1차 날짜 기준
+        const first = revisitFirst.get(gid);
+        if (!first || first !== d) continue;
+        if (!inPeriod(first.date, leaderPeriod)) continue;
+      } else {
+        if (!inPeriod(d.date, leaderPeriod)) continue;
+      }
+      expectedLeaderFee += num(d.metro_fee) + num(d.note_amount) + num(d.regional_fee);
+      expectedLeaderCod += num(d.cod_amount);
     }
   }
   const leaderFeeTotal = leaderStmts.reduce((s, l) => s + num(l.realFee), 0);
