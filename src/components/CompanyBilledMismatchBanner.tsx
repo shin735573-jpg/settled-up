@@ -3,6 +3,64 @@ import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronRight, Download, ExternalLink } from "lucide-react";
 import type { CompanyBilledCrossCheck, CompanyBilledDiff } from "@/lib/companyBilledCrossCheck";
 
+const csvEscape = (v: unknown): string => {
+  const s = v == null ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const toCsv = (rows: (string | number)[][]): string =>
+  rows.map((r) => r.map(csvEscape).join(",")).join("\n");
+
+function downloadCsv(csv: string, filename: string) {
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function buildSummaryCsv(result: CompanyBilledCrossCheck): string {
+  const head = [
+    "업체명", "팀장정산식 최종", "업체정산서식 최종", "차이",
+    "항목", "팀장정산식", "업체정산서식", "항목차이", "메모",
+  ];
+  const rows: (string | number)[][] = [head];
+  for (const co of result.perCompany) {
+    for (const c of co.components) {
+      rows.push([
+        co.companyName, co.leaderSide, co.companySide, co.diff,
+        c.label, c.leader, c.company, c.diff, c.hint ?? "",
+      ]);
+    }
+  }
+  return toCsv(rows);
+}
+
+function buildDetailCsv(result: CompanyBilledCrossCheck): string {
+  const head = [
+    "업체명", "원인코드", "원인", "영향금액",
+    "행ID", "날짜", "고객명", "품목", "팀장1",
+    "수도권", "비고", "지방", "착불", "행합계", "행메모",
+  ];
+  const rows: (string | number)[][] = [head];
+  for (const co of result.perCompany) {
+    for (const r of co.reasons) {
+      if (r.rows.length === 0) {
+        rows.push([co.companyName, r.code, r.label, r.amount, "", "", "", "", "", "", "", "", "", "", ""]);
+        continue;
+      }
+      for (const row of r.rows) {
+        rows.push([
+          co.companyName, r.code, r.label, r.amount,
+          row.id ?? "", row.date ?? "", row.customer_name ?? "", row.item ?? "", row.leader1_name ?? "",
+          row.metro, row.note, row.regional, row.cod, row.fee, row.note_label,
+        ]);
+      }
+    }
+  }
+  return toCsv(rows);
+}
+
 /**
  * 팀장정산 "업체청구금액(실제)" vs 업체정산서 청구금액 100% 일치 추적 배너.
  * 업체별로 어떤 규칙 때문에 차이가 났는지, 그리고 어떤 행이 영향을 줬는지를 보여준다.
