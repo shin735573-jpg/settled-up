@@ -2766,7 +2766,11 @@ export default function Records() {
 
             <div className="space-y-1">
               <Label>고객명</Label>
-              <Input value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} />
+              <Input
+                value={form.customer_name}
+                onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
+                onBlur={() => verifyRevisitForForm({ silent: true })}
+              />
             </div>
             <div className="space-y-1">
               <Label>배송지</Label>
@@ -2778,10 +2782,12 @@ export default function Records() {
                 }}
                 onBlur={(e) => {
                   const v = (e.target.value || "").trim();
-                  if (!v) return;
-                  // "동" 단독 입력이며 키워드에 미등록 → 사용자 선택 요청
-                  if (isDongOnly(v) && classifyRegion(v) !== "metro") {
-                    setDongPrompt(v);
+                  if (v) {
+                    if (isDongOnly(v) && classifyRegion(v) !== "metro") {
+                      setDongPrompt(v);
+                    }
+                    // 자동 재방문 매칭(고객/지역 입력 완료 시점)
+                    verifyRevisitForForm({ silent: true });
                   }
                 }}
               />
