@@ -902,6 +902,8 @@ export default function Records() {
     cod_amount: string;
     two_person: boolean;
     paid: boolean;
+    revisit_required: boolean;
+    revisit_done: boolean;
   };
   const emptyBulkRow = (companyId: string = ""): BulkRow => ({
     company_id: companyId,
@@ -916,6 +918,8 @@ export default function Records() {
     cod_amount: "",
     two_person: false,
     paid: false,
+    revisit_required: false,
+    revisit_done: false,
   });
   const [bulkOpen, setBulkOpen] = useState(true);
   const [bulkShared, setBulkShared] = useState(() => {
@@ -1296,9 +1300,13 @@ export default function Records() {
       return;
     }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
-    const payloads = rows.map((r) => {
+    const makeUuid = () =>
+      (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+        ? (crypto as any).randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const payloads = rows.flatMap((r) => {
       const co = companies.find((c) => c.id === r.company_id);
-      return {
+      const base = {
         user_id: user.id,
         date: bulkShared.date,
         company_id: r.company_id,
@@ -1323,6 +1331,14 @@ export default function Records() {
       two_person: r.two_person,
       is_missing: false,
       };
+      if (r.revisit_required) {
+        const groupId = makeUuid();
+        return [
+          { ...base, revisit_group_id: groupId, revisit_visit_no: 1, revisit_required: true, revisit_done: r.revisit_done },
+          { ...base, revisit_group_id: groupId, revisit_visit_no: 2, revisit_required: true, revisit_done: false },
+        ];
+      }
+      return [base];
     });
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
@@ -1572,6 +1588,8 @@ export default function Records() {
                   <th className="p-2 min-w-[120px]">착불</th>
                   <th className="p-2 min-w-[90px]">선결제</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
+                  <th className="p-2 min-w-[90px]">재방문필요</th>
+                  <th className="p-2 min-w-[90px]">재방문진행</th>
                   <th className="p-2 min-w-[100px]">총액</th>
                   <th className="p-2 w-12"></th>
                 </tr>
@@ -1758,6 +1776,31 @@ export default function Records() {
                           </SelectContent>
                         </Select>
                       </td>
+                      <td className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => upd({ revisit_required: !r.revisit_required })}
+                          className={cn(
+                            "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
+                            r.revisit_required ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                          )}
+                          title="저장 시 같은 내용의 2차 방문 행이 함께 생성됩니다 (업체 청구는 1건으로 합산)"
+                        >
+                          {r.revisit_required ? "예정" : "—"}
+                        </button>
+                      </td>
+                      <td className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => upd({ revisit_done: !r.revisit_done })}
+                          className={cn(
+                            "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
+                            r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                          )}
+                        >
+                          {r.revisit_done ? "완료" : "—"}
+                        </button>
+                      </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
                       <td className="p-1 text-center">
                         <Button
@@ -1774,6 +1817,28 @@ export default function Records() {
                   );
                 })}
               </tbody>
+              <tfoot className="bg-muted/50 font-semibold">
+                <tr className="border-t">
+                  <td className="p-2 text-right" colSpan={7}>합계</td>
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.metro_fee) || 0) + (parseNum(r.regional_fee) || 0), 0))}
+                  </td>
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.note_amount) || 0), 0))}
+                  </td>
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.cod_amount) || 0), 0))}
+                  </td>
+                  <td colSpan={4} />
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce(
+                      (s, r) => s + (parseNum(r.metro_fee) || 0) + (parseNum(r.note_amount) || 0) + (parseNum(r.regional_fee) || 0) + (parseNum(r.cod_amount) || 0),
+                      0,
+                    ))}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
             </table>
           </div>
 
