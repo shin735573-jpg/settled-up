@@ -1402,6 +1402,12 @@ export default function Records() {
       paid: lockedExisting ? !!(source?.paid ?? r.paid_existing) : (r.paid || bulkShared.paid),
       two_person: lockedExisting ? !!(source?.two_person ?? r.two_person_existing) : r.two_person,
       is_missing: false,
+      // 배열 insert에서 일부 행만 이 필드를 가질 경우 PostgREST가 누락된 행에 NULL을 보내
+      // NOT NULL 제약을 위반하므로 모든 행에 기본값을 명시.
+      revisit_group_id: null as string | null,
+      revisit_visit_no: 1,
+      revisit_required: false,
+      revisit_done: false,
       };
       // 완료 클릭으로 묶인 1차/2차 행은 그대로 각각 저장 (같은 group_id 공유)
       if (r.revisit_group_local) {
