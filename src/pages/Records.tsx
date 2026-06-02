@@ -1865,15 +1865,15 @@ export default function Records() {
       };
       const { data: existing } = await supabase
         .from("deliveries")
-        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note,user_id,created_at,updated_at")
         .eq("date", form.date)
         .eq("company_id", form.company_id);
       const pool = (existing || []) as DupDelivery[];
       const ex = findExactDuplicates(cand, pool);
       const sus = findSuspectDuplicates(cand, pool);
       if (ex.length > 0) {
-        toast.error(`이미 동일한 기록이 등록되어 있습니다 (완전 중복 ${ex.length}건). 저장이 차단되었습니다.`);
         setSaving(false);
+        await showConflictReview(ex as any[], cand, "최종 저장 직전 재검사");
         return;
       }
       if (sus.length > 0) {
