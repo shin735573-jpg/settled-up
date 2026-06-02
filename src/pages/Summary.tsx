@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 import { computeRevisitRedistribution } from "@/lib/revisitRedistribute";
+import { traceSummaryMismatch } from "@/lib/summaryMismatchTrace";
+import { SummaryMismatchPanel } from "@/components/SummaryMismatchPanel";
 
 type Delivery = any;
 type Company = {
@@ -199,6 +201,11 @@ export default function Summary() {
   }, [settlementPeriodRows, leaders, byId, shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds]);
 
   const validRows = useMemo(() => allocations.filter((a) => a.hasValid), [allocations]);
+
+  const mismatchTrace = useMemo(
+    () => traceSummaryMismatch(allocations as Parameters<typeof traceSummaryMismatch>[0], companies),
+    [allocations, companies],
+  );
 
   // 업체 요약: 활성 업체, 행의 유효성으로 일치 보장
   const companyAgg = useMemo(() => {
@@ -417,6 +424,7 @@ export default function Summary() {
         </TabsList>
         <TabsContent value={period} className="space-y-4">
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
+      <SummaryMismatchPanel trace={mismatchTrace} />
 
       {/* 상단 통계 바 + 검수 버튼 */}
       <Card className="p-4">
