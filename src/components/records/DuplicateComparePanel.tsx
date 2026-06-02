@@ -164,18 +164,34 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   useEffect(() => {
     if (mergeMode !== "two_person" && mergeMode !== "companion") return;
     if (!edited) return;
-    if (nrm(edited.leader2_id)) return; // 이미 있으면 보존
-    const pool: Row[] = selectedSuspects.length > 0
-      ? selectedSuspects
-      : ([...suspects.exact, ...suspects.similar] as Row[]);
-    const cand = pool
-      .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
-      .find((c) => nrm(c.id) && c.id !== edited.leader1_id);
+    // 1) leader1이 비어 있으면 base 또는 의심행에서 보충 (덮어쓰기 금지, 비었을 때만)
+    if (!nrm(edited.leader1_id)) {
+      const p1: Row[] = [base as Row, ...selectedSuspects, ...(suspects.exact as Row[]), ...(suspects.similar as Row[]), ...(suspects.noteSimilar as Row[])];
+      const c1 = p1.map((s) => ({ id: s?.leader1_id, name: s?.leader1_name })).find((c) => nrm(c?.id));
+      if (c1?.id) {
+        setEdited((e) => e ? { ...e, leader1_id: c1.id!, leader1_name: c1.name ?? e.leader1_name ?? null } : e);
+        return;
+      }
+    }
+    // 2) leader2가 비어 있으면 의심행/기존 모든 풀에서 base.leader1과 다른 값으로 채움
+    if (nrm(edited.leader2_id)) return;
+    const pool: Row[] = [
+      ...selectedSuspects,
+      ...(suspects.exact as Row[]),
+      ...(suspects.similar as Row[]),
+      ...(suspects.noteSimilar as Row[]),
+    ];
+    // 후보: leader1 / leader2 모두 검사
+    const candidates = pool.flatMap((s) => ([
+      { id: s.leader1_id, name: s.leader1_name },
+      { id: s.leader2_id, name: s.leader2_name },
+    ]));
+    const cand = candidates.find((c) => nrm(c.id) && c.id !== edited.leader1_id);
     if (cand?.id) {
-      setEdited((e) => e ? { ...e, leader2_id: cand.id, leader2_name: cand.name ?? null } : e);
+      setEdited((e) => e ? { ...e, leader2_id: cand.id!, leader2_name: cand.name ?? null } : e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mergeMode, selectedSuspectIds, suspects.exact.length, suspects.similar.length]);
+  }, [mergeMode, selectedSuspectIds, suspects.exact.length, suspects.similar.length, suspects.noteSimilar.length, edited?.leader1_id, edited?.leader2_id]);
 
   // 합산 미리보기
   const autoSum = useMemo(() => {
@@ -206,14 +222,28 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
           two_person: mode === "two_person" ? true : false,
           companion: mode === "companion" ? true : !!e.companion && mode !== "two_person" ? e.companion : false,
         };
+        // leader1 자동 보충 (비어 있을 때만; 기존 값 절대 덮어쓰지 않음)
+        if (!nrm(next.leader1_id)) {
+          const p1: Row[] = [base as Row, ...selectedSuspects, ...(suspects.exact as Row[]), ...(suspects.similar as Row[]), ...(suspects.noteSimilar as Row[])];
+          const c1 = p1.map((s) => ({ id: s?.leader1_id, name: s?.leader1_name })).find((c) => nrm(c?.id));
+          if (c1?.id) {
+            next.leader1_id = c1.id;
+            next.leader1_name = c1.name ?? null;
+          }
+        }
         // leader2 자동 채움 (비어 있을 때만; 기존 값은 보존)
         if (!nrm(next.leader2_id)) {
-          const pool: Row[] = selectedSuspects.length > 0
-            ? selectedSuspects
-            : ([...suspects.exact, ...suspects.similar] as Row[]);
-          const cand = pool
-            .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
-            .find((c) => nrm(c.id) && c.id !== next.leader1_id);
+          const pool: Row[] = [
+            ...selectedSuspects,
+            ...(suspects.exact as Row[]),
+            ...(suspects.similar as Row[]),
+            ...(suspects.noteSimilar as Row[]),
+          ];
+          const candidates = pool.flatMap((s) => ([
+            { id: s.leader1_id, name: s.leader1_name },
+            { id: s.leader2_id, name: s.leader2_name },
+          ]));
+          const cand = candidates.find((c) => nrm(c.id) && c.id !== next.leader1_id);
           if (cand?.id) {
             next.leader2_id = cand.id;
             next.leader2_name = cand.name ?? null;
