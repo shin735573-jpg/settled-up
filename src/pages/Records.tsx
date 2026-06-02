@@ -1039,6 +1039,16 @@ export default function Records() {
     return emptyForm();
   });
   const [saving, setSaving] = useState(false);
+  // 두 팀장 통합 저장 — 마지막 확인 다이얼로그 (최종 청구금액만 확인)
+  const [integrationConfirm, setIntegrationConfirm] = useState<{
+    totalAmt: number;
+    l1Name: string;
+    l2Name: string;
+    splitMode: "half" | "third";
+    resolve: (v: { ok: boolean; newTotal: number } | null) => void;
+  } | null>(null);
+  const [intEditAmt, setIntEditAmt] = useState<string>("");
+  const [intEditing, setIntEditing] = useState(false);
   // 단건 폼: 중복 체크 결과 ('idle' | 'none' | 'suspect' | 'exact')
   const [formDupCheck, setFormDupCheck] = useState<{
     status: "idle" | "none" | "suspect" | "exact";
@@ -1701,7 +1711,7 @@ export default function Records() {
         if (!confirm(`경고 ${warns.length}건:\n${warns.map((w) => `- ${w.message}`).join("\n")}\n\n그대로 저장할까요?`)) return;
       }
     }
-    const metroN = parseNum(form.metro_fee) || 0;
+    let metroN = parseNum(form.metro_fee) || 0;
     const regionalN = parseNum(form.regional_fee) || 0;
     if (!form.region) {
       if (!confirm("배송지가 비어있습니다. 그대로 저장할까요?")) return;
@@ -1888,14 +1898,37 @@ export default function Records() {
         value: "업체 청구는 1차만, 2차 금액은 팀장 정산 분배에만 반영",
       });
     }
-    const ok = await confirmSave({
-      title: form.id ? "수정 전 최종 검토" : "저장 전 최종 검토",
-      summary,
-      confirmLabel: form.id ? "최종 저장" : "최종 저장",
-      description: "입력한 내용이 맞는지 다시 확인해주세요. 중복 의심 여부를 다시 검사했습니다. 이상이 없으면 최종 저장하세요.",
-      cancelLabel: "다시 수정 / 취소",
-    });
-    if (!ok) return;
+    // 두 팀장 통합(2인배송/반반/형주동석/3분할 + 팀장1·팀장2 자동 50:50 등) 의 경우에는
+    // 상세 검토 다이얼로그 대신 "최종 청구금액"만 재확인하는 간단 다이얼로그를 띄운다.
+    const isTwoLeaderIntegration =
+      !!form.leader1_id && !!form.leader2_id && !form.leader3_id && !form.virtual_leader_id;
+    if (isTwoLeaderIntegration) {
+      const l1Name = leaderName(form.leader1_id) || "팀장1";
+      const l2Name = leaderName(form.leader2_id) || "팀장2";
+      const splitMode: "half" | "third" =
+        form.split_type === "3분할" ? "third" : "half";
+      const res = await new Promise<{ ok: boolean; newTotal: number } | null>((resolve) => {
+        setIntEditAmt(String(totalAmt));
+        setIntEditing(false);
+        setIntegrationConfirm({ totalAmt, l1Name, l2Name, splitMode, resolve });
+      });
+      if (!res || !res.ok) return;
+      if (res.newTotal !== totalAmt) {
+        const diff = res.newTotal - totalAmt;
+        // 금액 차이는 수도권배송비(metro_fee) 항목에 반영 — 다른 항목(비고/지방/착불)은 유지
+        metroN = Math.max(0, metroN + diff);
+        payload.metro_fee = metroN;
+      }
+    } else {
+      const ok = await confirmSave({
+        title: form.id ? "수정 전 최종 검토" : "저장 전 최종 검토",
+        summary,
+        confirmLabel: "최종 저장",
+        description: "입력한 내용이 맞는지 다시 확인해주세요. 중복 의심 여부를 다시 검사했습니다. 이상이 없으면 최종 저장하세요.",
+        cancelLabel: "다시 수정 / 취소",
+      });
+      if (!ok) return;
+    }
     if (saving) return; // 더블탭 방지: 이미 저장 중이면 무시
     setSaving(true);
     // 저장 직전 중복 검사 (단건)
@@ -2749,6 +2782,92 @@ export default function Records() {
   return (
     <div className="space-y-4" ref={recordsRootRef}>
       {saveConfirmDialog}
+      {/* 두 팀장 통합 — 최종 청구금액만 확인하는 간단 다이얼로그 */}
+      <Dialog
+        open={!!integrationConfirm}
+        onOpenChange={(o) => {
+          if (!o && integrationConfirm) {
+            integrationConfirm.resolve({ ok: false, newTotal: integrationConfirm.totalAmt });
+            setIntegrationConfirm(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>두 팀장 배송으로 처리됩니다</DialogTitle>
+          </DialogHeader>
+          {integrationConfirm && (() => {
+            const ic = integrationConfirm;
+            const cur = parseNum(intEditAmt) || 0;
+            const s1 = ic.splitMode === "third"
+              ? Math.round(cur * 2 / 3)
+              : Math.round(cur / 2);
+            const s2 = cur - s1;
+            return (
+              <div className="space-y-3 text-sm">
+                <p className="text-muted-foreground">
+                  최종 청구금액이 맞는지만 확인해주세요. 팀장1·팀장2 자동 반영, 정산금은 자동 계산됩니다.
+                </p>
+                <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">최종 청구금액</span>
+                    {intEditing ? (
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        autoFocus
+                        value={intEditAmt}
+                        onChange={(e) => setIntEditAmt(e.target.value)}
+                        className="w-40 text-right tabular-nums"
+                      />
+                    ) : (
+                      <span className="font-semibold text-base tabular-nums">
+                        {fmt(cur)}원
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{ic.l1Name} 정산금</span>
+                    <span className="font-medium tabular-nums">{fmt(s1)}원</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{ic.l2Name} 정산금</span>
+                    <span className="font-medium tabular-nums">{fmt(s2)}원</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!integrationConfirm) return;
+                integrationConfirm.resolve({ ok: false, newTotal: integrationConfirm.totalAmt });
+                setIntegrationConfirm(null);
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIntEditing((v) => !v)}
+            >
+              {intEditing ? "수정 완료" : "청구금액 수정"}
+            </Button>
+            <Button
+              onClick={() => {
+                if (!integrationConfirm) return;
+                const newTotal = parseNum(intEditAmt) || 0;
+                integrationConfirm.resolve({ ok: true, newTotal });
+                setIntegrationConfirm(null);
+              }}
+            >
+              최종 저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <FirstTimeSetupAlert companyCount={companies.length} leaderCount={leaders.length} />
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">기록입력</h1>
