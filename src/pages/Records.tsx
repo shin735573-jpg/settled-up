@@ -1288,6 +1288,7 @@ export default function Records() {
       missing_reason: form.is_missing ? (form.missing_reason || null) : null,
       revisit_required: form.revisit_required,
       revisit_done: form.revisit_done,
+      alba_deduction: parseNum(form.alba_deduction) || 0,
       revisit_group_id: form.revisit_group_id,
       revisit_visit_no: form.revisit_visit_no || 1,
     };
