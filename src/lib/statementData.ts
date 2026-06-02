@@ -42,6 +42,8 @@ export type StmtDelivery = {
   revisit_group_id?: string | null;
   revisit_visit_no?: number | null;
   alba_deduction?: number | null;
+  revisit_manual_shares?: Array<{ leader_id: string; leader_name?: string | null; amount: number }> | null;
+  revisit_distributed?: boolean | null;
 };
 
 export type StmtCompany = {
