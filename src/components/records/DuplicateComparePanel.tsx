@@ -175,33 +175,35 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
 
   function applyMergeMode(mode: MergeMode) {
     setMergeMode(mode);
-    // 2인배송 통합: 사용자가 별도 입력 없이 두 가지가 자동 반영됨.
-    //  - two_person = true
-    //  - leader2 비어있으면 선택된 의심 행의 leader1 중 base.leader1과 다른 것으로 자동 채움
-    //  - split_type 비어있으면 "반반"
-    if (mode === "two_person") {
+    // 통합 모드(동행/2인배송) 공통: 팀장2 보존 + 자동 채움.
+    //  - 이미 leader2가 있으면 절대 덮어쓰지 않음
+    //  - 비어 있으면 선택된 의심행, 그 다음 표시 중인 의심행의 leader1 중
+    //    base.leader1과 다른 것으로 자동 채움
+    //  - leader2_name도 함께 채워야 통합 후 화면/저장에 보임
+    if (mode === "two_person" || mode === "companion") {
       setEdited((e) => {
         if (!e) return e;
-        const next: Row = { ...e, two_person: true, companion: false };
+        const next: Row = {
+          ...e,
+          two_person: mode === "two_person" ? true : false,
+          companion: mode === "companion" ? true : !!e.companion && mode !== "two_person" ? e.companion : false,
+        };
+        // leader2 자동 채움 (비어 있을 때만; 기존 값은 보존)
         if (!nrm(next.leader2_id)) {
-          // 선택된 의심행이 없으면 표시 중인 모든 의심행에서 자동 추론
           const pool: Row[] = selectedSuspects.length > 0
             ? selectedSuspects
             : ([...suspects.exact, ...suspects.similar] as Row[]);
-          const candidates = pool
+          const cand = pool
             .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
-            .filter((c) => nrm(c.id) && c.id !== next.leader1_id);
-          if (candidates[0]?.id) {
-            next.leader2_id = candidates[0].id;
-            next.leader2_name = candidates[0].name ?? next.leader2_name ?? null;
+            .find((c) => nrm(c.id) && c.id !== next.leader1_id);
+          if (cand?.id) {
+            next.leader2_id = cand.id;
+            next.leader2_name = cand.name ?? null;
           }
         }
-        if (!nrm(next.split_type)) next.split_type = "반반";
+        if (mode === "two_person" && !nrm(next.split_type)) next.split_type = "반반";
         return next;
       });
-    }
-    if (mode === "companion") {
-      setEdited((e) => e ? { ...e, companion: true, two_person: false } : e);
     }
     if (mode === "companion" || mode === "two_person") {
       // 기본은 자동 합산. 사용자가 청구금액을 바꾸고 싶을 때만 수동 선택.
