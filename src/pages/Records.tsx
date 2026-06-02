@@ -2504,6 +2504,30 @@ export default function Records() {
             <Button variant="secondary" onClick={openRevisitPicker} title="이미 저장된 1차 배송을 골라 2차 행을 자동 생성합니다">
               재방문 완료 등록 (저장된 1차 가져오기)
             </Button>
+            <Button
+              variant="ghost"
+              onClick={async () => {
+                const ok = await confirmSave({
+                  title: "입력 내용 초기화",
+                  summary: [
+                    { label: "현재 행 수", value: `${bulkRows.length}행` },
+                    { label: "동작", value: "모든 입력 행을 빈 행으로 초기화" },
+                  ],
+                  confirmLabel: "초기화",
+                });
+                if (!ok) return;
+                const dc = bulkShared.default_company_id;
+                setBulkRows([
+                  emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc),
+                  emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc),
+                ]);
+                try { localStorage.removeItem("records.bulk.rows.draft"); } catch { /* noop */ }
+                toast.success("입력 내용이 초기화되었습니다");
+              }}
+              title="입력 중인 모든 행을 비웁니다"
+            >
+              <X className="h-4 w-4 mr-1" /> 초기화
+            </Button>
             <div className="flex-1" />
             <span className="text-xs text-muted-foreground">총 {bulkRows.length}행</span>
             <Button size="lg" onClick={bulkSaveAll} disabled={bulkSaving}>
