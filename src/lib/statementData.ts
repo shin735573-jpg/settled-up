@@ -306,6 +306,53 @@ export function buildCompanyStatements(
     // 행사철수 등 특수일 품목 — 같은 날짜 행들을 1건으로 합산 (업체 청구만)
     // 합산 금액 = 같은 날짜 모든 팀장 행의 비고금액 합. 수도권/지방 배송비는 0 처리.
     const collapsed: CompanyStmtRow[] = [];
+    // 1) 재방문 그룹(revisit_group_id) 합산 — 1차+2차 금액 합산, 날짜=가장 빠른 날(1차), 팀장칸=1차 행 기준.
+    //    팀장 정산은 buildLeaderStatements에서 행별 그대로 처리됨.
+    {
+      const revisitBuckets = new Map<string, CompanyStmtRow[]>();
+      const passthrough: CompanyStmtRow[] = [];
+      for (const r of rows) {
+        const gid = (r as StmtDelivery).revisit_group_id;
+        if (gid) {
+          const bucket = revisitBuckets.get(gid);
+          if (bucket) bucket.push(r);
+          else revisitBuckets.set(gid, [r]);
+        } else {
+          passthrough.push(r);
+        }
+      }
+      for (const [, bucket] of revisitBuckets) {
+        // visit_no 오름차순(1차→2차)으로 정렬 후, 1차 행을 기준 행으로 사용
+        const sorted = [...bucket].sort((a, b) => {
+          const va = Number((a as StmtDelivery).revisit_visit_no ?? 1);
+          const vb = Number((b as StmtDelivery).revisit_visit_no ?? 1);
+          if (va !== vb) return va - vb;
+          return (a.date || "").localeCompare(b.date || "");
+        });
+        const base = sorted[0];
+        const metroSum = bucket.reduce((s, r) => s + Number(r.metro_fee), 0);
+        const noteSum = bucket.reduce((s, r) => s + Number(r.note_amount), 0);
+        const regionalSum = bucket.reduce((s, r) => s + Number(r.regional_fee), 0);
+        const codSum = bucket.reduce((s, r) => s + Number(r.cod_amount), 0);
+        const paidAll = bucket.every((r) => r.paid);
+        const earliest = bucket.reduce(
+          (acc, r) => (!acc || (r.date && r.date < acc) ? r.date : acc),
+          "" as string,
+        );
+        passthrough.push({
+          ...base,
+          date: earliest || base.date,
+          metro_fee: metroSum,
+          note_amount: noteSum,
+          regional_fee: regionalSum,
+          cod_amount: codSum,
+          paid: paidAll,
+          delivery_fee: metroSum + noteSum + regionalSum,
+        });
+      }
+      rows.length = 0;
+      rows.push(...passthrough);
+    }
     const specialBuckets = new Map<string, CompanyStmtRow[]>();
     for (const r of rows) {
       if (isSpecialOneTimeItem(r.item)) {
