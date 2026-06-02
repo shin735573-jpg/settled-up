@@ -109,9 +109,16 @@ export default function RecordsBrowse() {
     if (sel.kind === "company") {
       base = base.filter((r) => r.company_id === sel.id);
     } else {
-      base = base.filter(
-        (r) => r.leader1_id === sel.id || r.leader2_id === sel.id || r.leader3_id === sel.id,
-      );
+      // 오은규 배송은 오동선으로 합산 정산되므로, 오동선 상세에 오은규 행도 포함해서 표시.
+      const odongseonId = leaders.find((l) => l.name.trim() === "오동선")?.id ?? null;
+      const oeunkyuId = leaders.find((l) => l.name.trim() === "오은규")?.id ?? null;
+      const includeOeunkyu = !!odongseonId && !!oeunkyuId && sel.id === odongseonId;
+      base = base.filter((r) => {
+        const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
+        if (ids.includes(sel.id)) return true;
+        if (includeOeunkyu && ids.includes(oeunkyuId)) return true;
+        return false;
+      });
     }
     if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
     return base;
