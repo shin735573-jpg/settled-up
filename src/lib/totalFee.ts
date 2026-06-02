@@ -29,6 +29,48 @@ export const totalLeaderSettlementDeliveryFee = (
   rows.reduce((s, r) => s + (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds) ? 0 : rowDeliveryFee(r)), 0);
 
 /**
+ * 두 화면(업체정산/팀장정산)의 "총배송비" 카드가 100% 동일하게 나오도록 통일된 합산기.
+ *  - 적재비 등 정산제외 품목 제외
+ *  - 가상기사 단독 행 제외 (2인배송 행은 포함)
+ *  - 재방문 그룹은 1차 행만 합산 (2차+ 제외)
+ *
+ * 호출측은 화면별로 가공한 rows 가 아니라, 동일한 원본 rows 를 그대로 넘기면 된다.
+ */
+type UnifiedRow = DeliveryLike & {
+  two_person?: boolean | null;
+  revisit_group_id?: string | null;
+  date?: string | null;
+  revisit_visit_no?: number | string | null;
+};
+
+export const totalUnifiedDeliveryFee = (
+  rows: UnifiedRow[],
+  virtualIds?: Set<string> | string[] | null,
+): number => {
+  // 재방문 그룹의 1차(가장 빠른 날짜) 행 id 집합
+  const earliest = new Map<string, { date: string; rowRef: UnifiedRow }>();
+  for (const r of rows) {
+    const gid = r.revisit_group_id;
+    if (!gid) continue;
+    const dt = String(r.date || "");
+    const cur = earliest.get(gid);
+    if (!cur || (dt && dt < cur.date)) earliest.set(gid, { date: dt, rowRef: r });
+  }
+  let sum = 0;
+  for (const r of rows) {
+    if (isLeaderSettlementExcludedItem(r.item)) continue;
+    if (!r.two_person && isVirtualSettlementRow(r, virtualIds)) continue;
+    const gid = r.revisit_group_id;
+    if (gid) {
+      const first = earliest.get(gid);
+      if (!first || first.rowRef !== r) continue; // 1차 행이 아니면 제외
+    }
+    sum += rowDeliveryFee(r);
+  }
+  return sum;
+};
+
+/**
  * 실제 업체에 청구된 금액(업체별) — 정산용 내부 계산값과 분리해서 표시할 때 사용.
  *
  * 계산 기준 (statementData.buildCompanyStatements 와 동일한 원칙):
