@@ -656,11 +656,11 @@ function PanelCard({
                       <span className="inline-flex items-center gap-1">
                         <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
                         {leadersTxt || "-"}
+                        {hasVirtual && (
+                          <span className="text-[9px] text-amber-700 font-medium ml-0.5">(가상)</span>
+                        )}
                       </span>
                     </td>
-                  )}
-                  {sel.kind === "leader" && hasVirtual && (
-                    null
                   )}
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[140px] truncate" title={r.region || ""}>{r.region || "-"}</td>
