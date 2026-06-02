@@ -1889,8 +1889,8 @@ export default function Records() {
                                   const gid = r.revisit_group_local;
                                   if (!gid) return;
                                   setBulkRows((rows) => {
-                                    // 같은 로컬 그룹의 후속(2차 이상) 행 모두 제거, 1차 행은 재방문 표시 해제
-                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && (Number(x.revisit_visit_no) || 1) > 1));
+                                    // 같은 로컬 그룹의 잠금 행(이전 차수) 모두 제거, 활성 행은 재방문 표시 해제 후 1차로 되돌림
+                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && x.revisit_locked));
                                     return filtered.map((x) => {
                                       if (x.revisit_group_local !== gid) return x;
                                       const { revisit_group_local, revisit_group_id_existing, revisit_source_id_existing,
