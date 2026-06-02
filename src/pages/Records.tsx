@@ -63,6 +63,38 @@ import {
 import { AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+function FirstTimeSetupAlert({
+  companyCount, leaderCount,
+}: { companyCount: number; leaderCount: number }) {
+  const navigate = useNavigate();
+  if (companyCount > 0 && leaderCount > 0) return null;
+  return (
+    <Card className="p-3 border-orange-400/60 bg-orange-50 dark:bg-orange-950/30">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
+        <div className="flex-1 text-sm space-y-1">
+          <div className="font-semibold text-orange-700 dark:text-orange-300">
+            기록입력을 시작하기 전에 설정이 필요합니다
+          </div>
+          {companyCount === 0 && (
+            <div className="text-xs text-muted-foreground">
+              • 업체가 하나도 없습니다. <b>업체가 없으면 기록 저장을 진행할 수 없습니다.</b>
+            </div>
+          )}
+          {leaderCount === 0 && (
+            <div className="text-xs text-muted-foreground">
+              • 팀장이 하나도 없습니다. <b>팀장이 없으면 자동 분류와 팀장 정산 확인이 제한됩니다.</b>
+            </div>
+          )}
+        </div>
+        <Button size="sm" variant="default" onClick={() => navigate("/settings")}>
+          설정으로 이동
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 type Company = {
   id: string;
   name: string;
