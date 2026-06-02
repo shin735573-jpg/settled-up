@@ -79,11 +79,11 @@ describe("행사철수 특수일 처리", () => {
     expect(stmt.feeTotal).toBe(50000);
   });
 
-  it("다른 날짜의 행사철수는 별도로 합산", () => {
+  it("다른 고객명의 행사철수는 별도로 합산 (날짜와 무관)", () => {
     const leaders = [mkLeader("L1", "A")];
     const deliveries: StmtDelivery[] = [
-      mkRow({ date: "2026-06-05", item: "행사철수", note_amount: 10000, leader1_id: "L1" }),
-      mkRow({ date: "2026-06-07", item: "행사철수", note_amount: 30000, leader1_id: "L1" }),
+      mkRow({ date: "2026-06-05", item: "행사철수", note_amount: 10000, leader1_id: "L1", customer_name: "행사A" }),
+      mkRow({ date: "2026-06-07", item: "행사철수", note_amount: 30000, leader1_id: "L1", customer_name: "행사B" }),
     ];
     const [stmt] = buildCompanyStatements(deliveries, [company], leaders, "h1");
     const special = stmt.rows.filter((r) => r.item === "행사철수");
