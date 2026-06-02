@@ -1971,6 +1971,17 @@ export default function Records() {
                     }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
+                  {i === 1 && (
+                    <div className="mt-1 space-y-0.5">
+                      <Label className="text-[11px] text-muted-foreground">가상기사 (정산 제외 · 업체 미표시)</Label>
+                      <LeaderCombobox
+                        leaders={selectableLeaders}
+                        value={(bulkShared as any).virtual_leader_id || ""}
+                        onChange={(v) => setBulkShared({ ...bulkShared, virtual_leader_id: v } as any)}
+                        placeholder="(선택)"
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
