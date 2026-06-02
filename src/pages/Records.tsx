@@ -1634,16 +1634,21 @@ export default function Records() {
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
     if (error) { toast.error(error.message); return; }
-    // 저장된 1차에 2차 후속 등록한 경우 → 해당 1차의 revisit_done=true 로 표시
-    const existingGroupIds = Array.from(
-      new Set(rows.map((r) => r.revisit_group_id_existing).filter(Boolean) as string[]),
-    );
-    if (existingGroupIds.length > 0) {
+    // 저장된 그룹의 이전 차수들은 모두 처리 완료(revisit_done=true)로 표시.
+    // 새로 들어간 행의 visit_no 미만 차수를 그룹별로 일괄 업데이트.
+    const byGroupMaxV = new Map<string, number>();
+    rows.forEach((r) => {
+      const gid = r.revisit_group_id_existing;
+      if (!gid) return;
+      const v = Number(r.revisit_visit_no || 2);
+      byGroupMaxV.set(gid, Math.max(byGroupMaxV.get(gid) ?? 0, v));
+    });
+    for (const [gid, maxV] of byGroupMaxV.entries()) {
       await supabase
         .from("deliveries")
         .update({ revisit_done: true })
-        .in("revisit_group_id", existingGroupIds)
-        .eq("revisit_visit_no", 1);
+        .eq("revisit_group_id", gid)
+        .lt("revisit_visit_no", maxV);
     }
     toast.success(`${rows.length}건 저장 완료`);
     const dc = bulkShared.default_company_id;
