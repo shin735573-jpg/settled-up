@@ -905,7 +905,7 @@ export default function Records() {
     revisit_required: boolean;
     revisit_done: boolean;
     revisit_group_local: string;
-    revisit_visit_no: 1 | 2;
+    revisit_visit_no: number;
     revisit_group_id_existing?: string;
     revisit_source_id_existing?: string;
     date_existing?: string;
