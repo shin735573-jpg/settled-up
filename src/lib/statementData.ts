@@ -418,17 +418,49 @@ export function buildCompanyStatements(
       rows.push(...passthrough);
     }
     const specialBuckets = new Map<string, CompanyStmtRow[]>();
+    // 1) 별칭이 아닌 정상 특수일 행을 먼저 버킷에 넣어 "기준 날짜" 집합을 만든다.
+    //    (예: 행사철수 행들)
+    const aliasedRows: CompanyStmtRow[] = [];
     for (const r of rows) {
-      if (isSpecialOneTimeItem(r.item)) {
-        // 별칭(행사상차 → 행사철수)은 동일 날짜에 같은 버킷으로 합산
-        const canonical = normalizeSpecialItemForCompany(r.item);
-        const key = `${r.date}|${canonical}`;
-        const bucket = specialBuckets.get(key);
-        if (bucket) bucket.push(r);
-        else specialBuckets.set(key, [r]);
-      } else {
+      if (!isSpecialOneTimeItem(r.item)) {
         collapsed.push(r);
+        continue;
       }
+      const raw = String(r.item ?? "").replace(/\s+/g, "").trim();
+      const isAlias = Object.prototype.hasOwnProperty.call(
+        { "행사상차": 1 } as Record<string, number>,
+        raw,
+      );
+      if (isAlias) {
+        aliasedRows.push(r);
+        continue;
+      }
+      const canonical = normalizeSpecialItemForCompany(r.item);
+      const key = `${r.date}|${canonical}`;
+      const bucket = specialBuckets.get(key);
+      if (bucket) bucket.push(r);
+      else specialBuckets.set(key, [r]);
+    }
+    // 2) 별칭 행(행사상차 등)은 같은 정규화 품목의 "가장 가까운 날짜" 버킷으로 합산.
+    //    상차일과 철수일이 다르더라도 같은 행사철수 청구로 묶기 위함.
+    //    가까운 철수 버킷이 없으면 자기 날짜로 새 버킷 생성.
+    for (const r of aliasedRows) {
+      const canonical = normalizeSpecialItemForCompany(r.item);
+      const sameItemDates = Array.from(specialBuckets.keys())
+        .filter((k) => k.endsWith(`|${canonical}`))
+        .map((k) => k.split("|")[0]);
+      let chosen: string | null = null;
+      if (sameItemDates.length > 0) {
+        let bestDiff = Infinity;
+        for (const d of sameItemDates) {
+          const diff = Math.abs(new Date(d).getTime() - new Date(r.date).getTime());
+          if (diff < bestDiff) { bestDiff = diff; chosen = d; }
+        }
+      }
+      const key = `${chosen ?? r.date}|${canonical}`;
+      const bucket = specialBuckets.get(key);
+      if (bucket) bucket.push(r);
+      else specialBuckets.set(key, [r]);
     }
     for (const [bkey, bucket] of specialBuckets) {
       const first = bucket[0];
