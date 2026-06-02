@@ -1176,6 +1176,9 @@ export default function Records() {
   const formHasCod = formCompany?.has_cod !== false; // 미등록은 기본 표시
   // 단일폼이 재방문 2차+ 행: 1차 정보(업체/고객/지역/지역구분/품목)는 잠금.
   const isFollowupForm = Boolean(form.revisit_group_id) && Number(form.revisit_visit_no || 1) > 1;
+  // 재방문 1차 행: metro/regional 배송비는 자동 분배 대상이므로 수동 수정 금지.
+  // (2차 행 금액이 1차에서 자동 차감됨 — 1차 금액 수정 시 분배 일관성이 깨짐)
+  const isRevisitPrimaryForm = Boolean(form.revisit_group_id) && Number(form.revisit_visit_no || 1) === 1;
 
   // 지역구분이 바뀌면 배송비 값을 해당 칸으로 자동 이동 (단일 입력 보장)
   useEffect(() => {
@@ -3150,6 +3153,7 @@ export default function Records() {
                 배송비
                 {form.region_type === "metro" && <span className="ml-1 text-xs text-muted-foreground">(수도권)</span>}
                 {form.region_type === "regional" && <span className="ml-1 text-xs text-muted-foreground">(지방)</span>}
+                {isRevisitPrimaryForm && <span className="ml-1 text-[10px] text-amber-600">(재방문 1차 — 자동 분배)</span>}
               </Label>
               <AmountTextInput
                 className="text-right tabular-nums"
@@ -3164,10 +3168,14 @@ export default function Records() {
                     setForm({ ...form, metro_fee: v, regional_fee: "" });
                   }
                 }}
-                disabled={form.region_type === "unknown"}
+                disabled={form.region_type === "unknown" || isRevisitPrimaryForm}
+                title={isRevisitPrimaryForm ? "재방문 1차 배송비는 자동 분배 대상입니다. 2차 행 금액으로 차감됩니다." : undefined}
               />
               {form.region_type === "unknown" && (
                 <div className="text-[11px] text-destructive">지역구분을 먼저 선택하세요 (수도권/지방).</div>
+              )}
+              {isRevisitPrimaryForm && (
+                <div className="text-[11px] text-amber-600">재방문 1차 — 배송비 자동 분배 적용 (수동 수정 금지)</div>
               )}
             </div>
             <div className="space-y-1">
