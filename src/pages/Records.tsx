@@ -1344,8 +1344,12 @@ export default function Records() {
       };
       // 완료 클릭으로 묶인 1차/2차 행은 그대로 각각 저장 (같은 group_id 공유)
       if (r.revisit_group_local) {
+        // 이미 DB에 저장된 1차의 group_id가 있으면 그것을 사용 (저장된 1차에 2차 후속 등록 케이스)
         let gid = groupIdMap.get(r.revisit_group_local);
-        if (!gid) { gid = makeUuid(); groupIdMap.set(r.revisit_group_local, gid); }
+        if (!gid) {
+          gid = r.revisit_group_id_existing || makeUuid();
+          groupIdMap.set(r.revisit_group_local, gid);
+        }
         return [{
           ...base,
           revisit_group_id: gid,
