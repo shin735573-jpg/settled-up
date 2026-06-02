@@ -286,6 +286,17 @@ export function RevisitShareDialog({
             </div>
           </div>
         </div>
+        {baseTotal > 0 && !exactMatch && (
+          <div
+            role="alert"
+            className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            <span className="font-semibold">저장 불가:</span>{" "}
+            1차 청구금액({baseTotal.toLocaleString()}원)과 팀장 분배 합계({sumEntered.toLocaleString()}원)가
+            일치하지 않습니다. 차액 {Math.abs(remaining).toLocaleString()}원
+            {overBudget ? " 초과" : " 부족"} — 합계를 정확히 맞춰주세요.
+          </div>
+        )}
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>취소</Button>
           <Button onClick={save} disabled={saving || (baseTotal > 0 && !exactMatch)}>
