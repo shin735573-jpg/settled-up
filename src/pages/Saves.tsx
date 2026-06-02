@@ -109,6 +109,9 @@ export default function Saves() {
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"company" | "leader">("company");
+  const visiblePreviewRef = useRef<HTMLDivElement | null>(null);
+  const [highlightRowId, setHighlightRowId] = useState<string | null>(null);
   const [companyQuery, setCompanyQuery] = useState<string>("");
   const [leaderQuery, setLeaderQuery] = useState<string>("");
   const normSearch = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
