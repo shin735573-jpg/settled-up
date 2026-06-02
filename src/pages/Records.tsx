@@ -1865,7 +1865,7 @@ export default function Records() {
                                 "text-[10px] px-1.5 py-0.5 rounded font-semibold",
                                 isFollowup ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
                               )}>
-                                {isFollowup ? `${visitNo}차배송` : "방문1차"}
+                                {isFollowup ? `${visitNo}차배송` : "1차배송"}
                               </span>
                               {isFollowup && r.date_existing && (
                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
