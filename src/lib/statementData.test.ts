@@ -160,7 +160,7 @@ describe("행사철수 특수일 처리", () => {
       mkRow({ item: "적재비", leader1_id: null, leader1_name: null, note_amount: 50000 }),
     ];
     const [stmt] = buildLeaderStatements(deliveries, leaders, "h1", { oeunkyuSpecial: true });
-    expect(stmt.rows).toHaveLength(1);
+    expect(stmt.rows).toHaveLength(2);
     expect(stmt.realFee).toBe(60000);
   });
 
