@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import type { TotalCrossCheck, CategoryBreakdown } from "@/lib/totalFeeCrossCheck";
 
 /**
@@ -19,6 +19,7 @@ export function TotalFeeMismatchBanner({
   leaderLabel?: string;
 }) {
   const [active, setActive] = useState<CategoryBreakdown | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
   if (result.ok) return null;
 
@@ -31,29 +32,80 @@ export function TotalFeeMismatchBanner({
         <div className="mt-2 grid gap-1 text-xs">
           {result.categories.map((c) => {
             const clickable = c.count > 0;
+            const isOpen = !!expanded[c.label];
             return (
-              <button
-                key={c.label}
-                type="button"
-                disabled={!clickable}
-                onClick={() => clickable && setActive(c)}
-                className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-left ${
-                  clickable
-                    ? "hover:bg-destructive/20 cursor-pointer"
-                    : "opacity-60 cursor-default"
-                }`}
-              >
-                <span>
-                  {c.label} — {c.count}건 / {c.amount.toLocaleString()}원
-                  <span className="ml-1 text-muted-foreground">
-                    ({unifiedLabel}: {c.includedInUnified ? "포함" : "제외"} · {leaderLabel}: {c.includedInLeaderStyle ? "포함" : "제외"})
+              <div key={c.label} className="rounded border border-destructive/30">
+                <div className="flex items-center justify-between gap-2 px-2 py-1">
+                  <button
+                    type="button"
+                    disabled={!clickable}
+                    onClick={() =>
+                      clickable && setExpanded((p) => ({ ...p, [c.label]: !p[c.label] }))
+                    }
+                    className={`flex flex-1 items-center gap-1 text-left ${
+                      clickable ? "cursor-pointer hover:opacity-80" : "opacity-60 cursor-default"
+                    }`}
+                  >
+                    {clickable ? (
+                      isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />
+                    ) : (
+                      <span className="w-3.5" />
+                    )}
+                    <span>
+                      {c.label} — {c.count}건 / {c.amount.toLocaleString()}원
+                      <span className="ml-1 text-muted-foreground">
+                        ({unifiedLabel}: {c.includedInUnified ? "포함" : "제외"} · {leaderLabel}: {c.includedInLeaderStyle ? "포함" : "제외"})
+                      </span>
+                    </span>
+                  </button>
+                  <span className="flex items-center gap-2">
+                    <span className={c.contribution !== 0 ? "font-semibold" : "text-muted-foreground"}>
+                      차이 영향 {c.contribution > 0 ? "+" : ""}{c.contribution.toLocaleString()}원
+                    </span>
+                    {clickable && (
+                      <button
+                        type="button"
+                        onClick={() => setActive(c)}
+                        className="underline hover:opacity-80"
+                      >
+                        전체보기
+                      </button>
+                    )}
                   </span>
-                </span>
-                <span className={c.contribution !== 0 ? "font-semibold" : "text-muted-foreground"}>
-                  차이 영향 {c.contribution > 0 ? "+" : ""}{c.contribution.toLocaleString()}원
-                  {clickable && <span className="ml-2 underline">자세히</span>}
-                </span>
-              </button>
+                </div>
+                {isOpen && clickable && (
+                  <div className="border-t border-destructive/20 bg-background/40 px-2 py-1 text-foreground">
+                    {c.rows.length === 0 ? (
+                      <div className="py-1 text-muted-foreground">행 없음</div>
+                    ) : (
+                      <ul className="divide-y divide-border">
+                        {c.rows.slice(0, 20).map((r, i) => (
+                          <li
+                            key={r.id ?? i}
+                            className={`flex items-center justify-between gap-2 py-1 ${
+                              r.id ? "cursor-pointer hover:bg-muted/50" : ""
+                            }`}
+                            onClick={() => r.id && navigate(`/records?edit=${r.id}`)}
+                          >
+                            <span className="truncate">
+                              {r.date ?? "-"} · {r.company_name ?? "-"} · {r.item ?? "-"} · {r.leader1_name ?? "-"}
+                            </span>
+                            <span className="flex items-center gap-2 whitespace-nowrap">
+                              <span className="tabular-nums">{r.fee.toLocaleString()}원</span>
+                              {r.id && <ExternalLink className="h-3 w-3" />}
+                            </span>
+                          </li>
+                        ))}
+                        {c.rows.length > 20 && (
+                          <li className="py-1 text-muted-foreground">
+                            …외 {c.rows.length - 20}건. 전체보기를 눌러 다이얼로그에서 확인하세요.
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
