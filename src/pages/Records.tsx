@@ -1837,7 +1837,7 @@ export default function Records() {
   // 감지된 후보 선택 → 항상 그룹의 최초 1차 배송을 가져와 잠금된 다음 차수 행을 자동 생성.
   const confirmDetectedRevisit = async (src: any) => {
     const idx = revisitDetectIdx;
-    const forForm = revisitDetectForForm;
+    const forForm = formRevisitOpen;
     if (idx == null && !forForm) return;
     let effectiveSrc = src;
     let nextVisitNo = 2;
