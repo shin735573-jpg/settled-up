@@ -1038,6 +1038,15 @@ export default function Records() {
     return emptyForm();
   });
   const [saving, setSaving] = useState(false);
+  // 단건 폼: 중복 체크 결과 ('idle' | 'none' | 'suspect' | 'exact')
+  const [formDupCheck, setFormDupCheck] = useState<{
+    status: "idle" | "none" | "suspect" | "exact";
+    exact: number;
+    suspect: number;
+    matches: string[];
+    checkedAt?: string;
+  }>({ status: "idle", exact: 0, suspect: 0, matches: [] });
+  const [formDupChecking, setFormDupChecking] = useState(false);
   // 한 팀장 여러건 일괄 입력
   type BulkRow = {
     company_id: string;
