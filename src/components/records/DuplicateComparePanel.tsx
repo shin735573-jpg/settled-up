@@ -225,7 +225,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     }
     setSaving(true);
     try {
-      const update: Record<string, unknown> = {
+      const update = {
         date: edited.date,
         company_id: edited.company_id ?? null,
         company_name: edited.company_name ?? null,
@@ -244,7 +244,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
         note_amount: n(edited.note_amount),
         cod_amount: n(edited.cod_amount),
         paid: !!edited.paid,
-      };
+      } as never;
       // 기존 row update — 절대 insert 하지 않음
       const { error } = await supabase.from("deliveries").update(update).eq("id", base.id);
       if (error) {
