@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
+import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -34,24 +35,24 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth" element={<RouteErrorBoundary routeName="Auth"><Auth /></RouteErrorBoundary>} />
+            <Route path="/forgot-password" element={<RouteErrorBoundary routeName="ForgotPassword"><ForgotPassword /></RouteErrorBoundary>} />
+            <Route path="/reset-password" element={<RouteErrorBoundary routeName="ResetPassword"><ResetPassword /></RouteErrorBoundary>} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/" element={<MobileHome />} />
-              <Route path="/records" element={<Records />} />
-              <Route path="/records-browse" element={<RecordsBrowse />} />
-              <Route path="/company-settlement" element={<CompanySettlement />} />
-              <Route path="/leader-settlement" element={<LeaderSettlement />} />
-              <Route path="/summary" element={<Summary />} />
-              <Route path="/hq-settlement" element={<HQSettlement />} />
-              <Route path="/holidays" element={<Holidays />} />
-              <Route path="/saves" element={<Saves />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/spec-tests" element={<SpecTests />} />
-              <Route path="/ocr-test" element={<OcrTest />} />
+              <Route path="/" element={<RouteErrorBoundary routeName="MobileHome (/)"><MobileHome /></RouteErrorBoundary>} />
+              <Route path="/records" element={<RouteErrorBoundary routeName="Records (/records)"><Records /></RouteErrorBoundary>} />
+              <Route path="/records-browse" element={<RouteErrorBoundary routeName="RecordsBrowse (/records-browse)"><RecordsBrowse /></RouteErrorBoundary>} />
+              <Route path="/company-settlement" element={<RouteErrorBoundary routeName="CompanySettlement (/company-settlement)"><CompanySettlement /></RouteErrorBoundary>} />
+              <Route path="/leader-settlement" element={<RouteErrorBoundary routeName="LeaderSettlement (/leader-settlement)"><LeaderSettlement /></RouteErrorBoundary>} />
+              <Route path="/summary" element={<RouteErrorBoundary routeName="Summary (/summary)"><Summary /></RouteErrorBoundary>} />
+              <Route path="/hq-settlement" element={<RouteErrorBoundary routeName="HQSettlement (/hq-settlement)"><HQSettlement /></RouteErrorBoundary>} />
+              <Route path="/holidays" element={<RouteErrorBoundary routeName="Holidays (/holidays)"><Holidays /></RouteErrorBoundary>} />
+              <Route path="/saves" element={<RouteErrorBoundary routeName="Saves (/saves)"><Saves /></RouteErrorBoundary>} />
+              <Route path="/settings" element={<RouteErrorBoundary routeName="Settings (/settings)"><Settings /></RouteErrorBoundary>} />
+              <Route path="/spec-tests" element={<RouteErrorBoundary routeName="SpecTests (/spec-tests)"><SpecTests /></RouteErrorBoundary>} />
+              <Route path="/ocr-test" element={<RouteErrorBoundary routeName="OcrTest (/ocr-test)"><OcrTest /></RouteErrorBoundary>} />
             </Route>
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<RouteErrorBoundary routeName="NotFound"><NotFound /></RouteErrorBoundary>} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
