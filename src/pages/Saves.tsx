@@ -983,7 +983,7 @@ export default function Saves() {
               </ScrollArea>
             </Card>
 
-            <Card className="p-4">
+            <Card className="p-4" ref={tab === "company" ? visiblePreviewRef : undefined}>
               {selectedCompany ? (
                 <CompanyPreview data={selectedCompany} />
               ) : (
@@ -1049,7 +1049,7 @@ export default function Saves() {
               </ScrollArea>
             </Card>
 
-            <Card className="p-4">
+            <Card className="p-4" ref={tab === "leader" ? visiblePreviewRef : undefined}>
               {selectedLeader ? (
                 <LeaderPreview data={selectedLeader} virtualLeaderMap={virtualLeaderMap} />
               ) : (
