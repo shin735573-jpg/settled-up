@@ -1774,9 +1774,15 @@ export default function Records() {
     }
     const row = build2ndBulkRowFromSrc(firstRow);
     row.revisit_visit_no = nextVisit;
+    // 복제 행을 잠그지 않고 활성 입력 행으로 추가 — 1차 정보는 인덱스 컬럼에 함께 표시.
+    row.revisit_locked = false;
+    row.metro_fee = "";
+    row.note_amount = "";
+    row.regional_fee = "";
+    row.cod_amount = "";
     setBulkRows((rows) => [...rows, row]);
     setRevisitPickerOpen(false);
-    toast.success(`${firstRow.company_name} ${firstRow.customer_name || ""} ${nextVisit}차 행 추가됨`);
+    toast.success(`${firstRow.company_name} ${firstRow.customer_name || ""} ${nextVisit}차 행 추가됨 — 1차 정보가 함께 표시됩니다`);
   };
 
   // 입력 중인 행의 customer/region 으로 과거 배송 매칭 조회
