@@ -480,7 +480,14 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
   { key: "company", label: "업체", width: 120, cellCls: "whitespace-nowrap",
     render: (r) => r.company_name },
   { key: "leader1", label: "팀장1", width: 110, cellCls: "whitespace-nowrap",
-    render: (r, { displayLeaderById }) => displayLeaderById(r.leader1_id, r.leader1_name) },
+    render: (r, { displayLeaderById }) => (
+      <div>
+        <div>{displayLeaderById(r.leader1_id, r.leader1_name)}</div>
+        {r.virtual_leader_name && (
+          <div className="text-[10px] text-muted-foreground">가상: {r.virtual_leader_name}</div>
+        )}
+      </div>
+    ) },
   { key: "leader2", label: "팀장2", width: 110, cellCls: "whitespace-nowrap",
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader2_id, r.leader2_name) },
   { key: "leader3", label: "팀장3", width: 110, cellCls: "whitespace-nowrap",
