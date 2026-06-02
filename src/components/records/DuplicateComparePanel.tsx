@@ -808,8 +808,9 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                 if (mergeMode === "companion" || mergeMode === "two_person") {
                   setFinalAmountInput(String(feeTotal(edited) || 0));
                   setEditingFinalAmount(false);
+                  // Radix Dialog 중첩 전환 충돌을 피하기 위해 한 프레임 분리
                   setReviewOpen(false);
-                  setAmountConfirmOpen(true);
+                  setTimeout(() => setAmountConfirmOpen(true), 80);
                 } else {
                   void save();
                 }
