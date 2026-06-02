@@ -1,71 +1,100 @@
-# 기록입력 중복 체크/방지 기능 강화
 
-## 범위
-- 기록입력 화면(`src/pages/Records.tsx`)의 단건 입력 폼, "모두 저장"(다행 그리드), 엑셀 붙여넣기 다이얼로그 모두 대상
-- `src/lib/duplicateCheck.ts` 보강 (필드 추가: 배송지/2일배송)
-- DB: `deliveries.dedupe_key` 컬럼 + 유니크 인덱스 추가, 기존 데이터 백필
-- 기존 정산/검산/팀장정산 로직, 재방문/공제 기준은 변경하지 않음
+# 배송내역 비교·통합 워크플로우 (RecordsBrowse 전면 개편)
 
-## 1. 중복 키 정의 (정정 사항)
-사용자 요구의 "배송지"는 현재 스키마에 없습니다. `deliveries` 테이블 기준 가장 가까운 필드는 `region`(또는 `region_type`)이며, "2일배송"은 `two_person`이 아닌 별도 필드가 없으므로 `two_person`을 그대로 사용합니다. (실제 컬럼 매핑)
+기존 기록입력(/records)·정산·검산·재방문 로직은 절대 변경하지 않습니다. 이 작업은 **분류/태깅/그룹 정리**만 수행하며, 정산 계산식·재방문 기준·공제 기준은 그대로 둡니다.
 
-- 완전 중복 키: `date`, `company_id`, `customer_name`, `region`, `item`, `leader1_id`, `leader2_id`, `metro_fee`, `note_amount`, `regional_fee`, `cod_amount`, `two_person`, `split_type`, `paid`
-- 유사 중복 키: `date`, `company_id`, `customer_name`, `region`, `item`
+## 1. DB 변경 (migration 1건)
 
-`duplicateCheck.ts`에 `region`, `two_person` 비교 추가. (현재 `note` 필드 비교는 완전 중복 기준에서 제거 — 사용자 요구에 비고는 빠져 있음)
+```text
+ALTER TABLE deliveries
+  ADD COLUMN companion boolean NOT NULL DEFAULT false,
+  ADD COLUMN companion_reason text;
+```
 
-## 2. DB 변경
-새 마이그레이션:
-- `deliveries.dedupe_key text` 추가
-- 트리거: insert/update 시 `dedupe_key`를 정규화 문자열로 자동 생성
-  - 형식: `date|company_id|lower(trim(customer_name))|lower(trim(region))|lower(trim(item))|leader1_id|leader2_id|metro_fee|note_amount|regional_fee|cod_amount|two_person|coalesce(split_type,'')|paid`
-- 기존 데이터 백필 (트리거가 update에서 동작하도록 `UPDATE deliveries SET dedupe_key = NULL`)
-- `CREATE UNIQUE INDEX deliveries_user_dedupe_key_uidx ON deliveries (user_id, dedupe_key) WHERE dedupe_key IS NOT NULL`
-- 만약 기존에 이미 중복 row가 있으면 인덱스 생성이 실패하므로, 사전 진단 SELECT 결과 안내 후 user_id별 중복은 가장 오래된 row만 유지하고 dedupe_key를 비워두는 방식 (안전을 위해 삭제는 하지 않음, 대신 dedupe_key NULL → unique 검사 제외)
+- 기존 dedupe_key 트리거에 `companion` 포함하도록 `compute_delivery_dedupe_key` 갱신
+- 기존 unique index는 그대로 활용 (dedupe_key 재계산만 트리거)
 
-## 3. UI 변경 (`Records.tsx`)
+## 2. 새 헬퍼 라이브러리 (`src/lib/recordGrouping.ts` + 테스트)
 
-### 단건 입력 폼 상단
-- "오류 검사" 버튼 옆에 **[중복 체크]** 버튼 추가
-- 결과 요약 박스 (폼 상단):
-  - 빨간 박스: "이미 동일한 기록이 등록되어 있습니다 · 완전 중복 N건" + 매치 ID/날짜/업체/고객 표시
-  - 노란 박스: "유사한 기록이 존재합니다. 저장 전 확인하세요 · 유사 중복 N건"
-  - 초록 박스: "중복 없음"
-- 저장 버튼 동작:
-  - 완전 중복이 있으면 **저장 차단** (toast: "완전 중복이 있어 저장할 수 없습니다")
-  - 유사 중복은 기존 confirm 다이얼로그 유지하되 한글 메시지 강화
-- 저장 중 `saving=true`로 버튼 disable (이미 구현됨, 유지)
-- 수정 모드: `form.id`가 있으면 update (현재 로직 유지), 자기 자신은 중복 비교 제외 (이미 `sameId`로 구현됨)
+순수 함수만, 정산 로직 import 금지.
 
-### 엑셀 붙여넣기 다이얼로그
-- 저장 직전 요약 박스 추가:
-  - "총 N건 · 신규 저장 N건 · 완전 중복 제외 N건 · 유사 중복 경고 N건"
-- 완전 중복 행은 자동으로 제외하고 저장, 유사 중복은 confirm 후 진행
-- DB unique 제약 위반 시 한국어 에러 toast: "동일 내용이 이미 등록되어 있어 일부 건이 저장되지 않았습니다"
+- `groupByLooseKey(rows)` — `날짜|고객|배송지|품목` 기준 그룹화 (2건 이상만)
+- `classifyGroupRow(row, group)` — 각 행에 상태 라벨 부여:
+  - `normal` / `exact_duplicate` / `suspect_duplicate` / `leader2_missing` / `two_person_mismatch` / `companion_needed`
+- `recommendAction(group)` — `merge_companion` / `merge_two_person` / `keep_separate` / `dedupe` 중 1개 추천
+- `validateMergePlan(plan)` — 저장 전 최종 검증 (2인배송인데 팀장2 없음, 반반인데 팀장2 없음 등)
 
-### "모두 저장" (그리드)
-- 동일하게 요약 박스 + 완전 중복 제외 로직 적용
+## 3. 화면: `/records-browse` 전면 개편 (`src/pages/RecordsBrowse.tsx`)
 
-## 4. 헬퍼 추가
-- `duplicateCheck.ts`에 `summarizeBulk(candidates, existing)` 추가 → `{total, newCount, exactDupCount, suspectCount, newRows, exactDupRows}` 반환
-- 모든 저장 경로에서 이 함수를 호출하도록 통일
+기존 6슬롯 비교 UI는 제거하고 좌우 2패널로 교체.
 
-## 5. 백필/진단
-- 마이그레이션 안에 백필 포함
-- 별도 안내: 진단용 SELECT는 마이그레이션 실행 후 안내 (사용자가 직접 확인 가능)
+```text
+┌─ 상단 툴바 ──────────────────────────────────────────────┐
+│ [월선택] [검색] [필터: 상태/유형] [중복체크] [일괄작업 ▾] │
+└──────────────────────────────────────────────────────────┘
+┌──── 좌측 패널 ────────┐ ┌──── 우측 패널 ───────────────┐
+│ 그룹/단건 리스트       │ │ 선택 그룹의 행들을 가로 비교   │
+│ ☐ 2025-05-12 홍길동   │ │ ┌──────┬──────┬──────┐       │
+│   강남 · 식탁 [3건]   │ │ │ 행1  │ 행2  │ 행3  │       │
+│   상태: 유사중복       │ │ │ 팀장1 강조 │ ...  │ ...  │       │
+│ ☐ ...                │ │ └──────┴──────┴──────┘       │
+│                      │ │ 문제 요약: 팀장2 누락 1건     │
+│                      │ │ 추천: 동행 통합               │
+│                      │ │ [동행통합][2인배송통합]       │
+│                      │ │ [별도유지][직접수정]          │
+└──────────────────────┘ └──────────────────────────────┘
+```
+
+좌측 리스트:
+- 그룹화된 묶음(2건+) 우선 + 단건은 접힘
+- 다중 체크박스, 상태 배지(색상 구분)
+
+우측 패널:
+- 가로 스크롤 비교 테이블 — 날짜/고객/배송지/품목/팀장1/팀장2/2인배송/동행/분할/수도권/지방/비고금액/착불/총액/상태
+- 행 간 값이 다른 셀은 노란 배경, 누락값은 빨간 배경
+- 액션 버튼: 동행통합 / 2인배송통합 / 별도유지 / 직접수정
+
+## 4. 액션 동작 (모두 UPDATE만)
+
+| 액션 | UPDATE 내용 |
+|---|---|
+| 동행 통합 | `companion=true`, `companion_reason`=입력값, `two_person=false` |
+| 2인배송 통합 | `two_person=true`, `leader2_id` 필수 채움 |
+| 별도 유지 | 변경 없음 (그룹에서만 제외 표시) |
+| 직접 수정 | 사용자가 폼에서 수정한 값만 UPDATE |
+| 중복 제거 | exact dup 중 하나 삭제(기록 입력 화면에서 했던 동일 confirm) |
+
+INSERT 경로 없음. 모든 변경은 `supabase.from("deliveries").update().eq("id", id)`.
+
+## 5. 일괄 처리 (상단 [일괄작업 ▾])
+
+선택된 그룹 전체에 대해:
+- 동행 통합 / 2인배송 통합 / 별도 유지 / 팀장2 일괄지정 / 분할 일괄지정
+
+**적용 전 미리보기 모달** 표시 (대상 그룹 수, 변경 필드 요약).
+
+## 6. 저장 전 최종 검토 모달
+
+[수정 적용] 클릭 시:
+- 동행 통합 N건 / 2인배송 통합 N건 / 별도 유지 N건 / 팀장2 추가 N건
+- 충돌/오류 목록 (validateMergePlan 결과)
+- [다시 검토] / [수정 적용] / [취소]
+
+저장 차단 조건:
+- 2인배송=true 인데 leader2_id 비어있음
+- split_type='반반' 인데 leader2_id 비어있음
+- 그룹 내 exact duplicate 남아 있음
+
+## 7. 변경하지 않는 것
+
+- `/records` (기록입력) 화면, 단건 저장/엑셀 붙여넣기 중복 로직
+- `Verify`, `LeaderSettlement`, `CompanySettlement`, `Summary` 등 모든 정산 화면
+- 재방문/공제/누락분 override 로직
+- 기존 dedupe_key unique index 자체 (트리거 함수만 companion 포함하도록 갱신)
 
 ## 변경 파일
-- `src/lib/duplicateCheck.ts` (+region/two_person, +summarizeBulk)
-- `src/lib/duplicateCheck.test.ts` (테스트 보강)
-- `src/pages/Records.tsx` (단건/엑셀/모두저장 UI 박스 + 차단 로직)
-- 신규 마이그레이션 (dedupe_key 컬럼·트리거·인덱스·백필)
 
-## 변경하지 않는 것
-- 정산/검산/재방문/공제 계산
-- 다른 페이지(CompanySettlement, LeaderSettlement, Verify 등)
-- `note` 필드 (요구사항에서 빠짐 — 비고가 달라도 같은 배송이면 중복으로 판정)
-
-## 확인 필요
-1. **"배송지" 필드 매핑**: `region`(서울/지방 등 분류)으로 매핑할까요, 아니면 따로 컬럼 추가가 필요한가요? (현재는 `region` 사용 가정)
-2. **"2일배송"**: `two_person`(2인배송) 필드를 의미한 것 맞나요?
-3. **기존 중복 데이터 처리**: 마이그레이션 실행 시 이미 같은 키의 row가 여러 개 있으면 인덱스 생성이 실패합니다. 가장 오래된 row만 dedupe_key를 채우고 나머지는 NULL로 두는 방식(데이터 보존)으로 진행해도 될까요?
+- `supabase/migrations/...` (companion 컬럼 + dedupe 함수 갱신) — migration
+- `src/lib/recordGrouping.ts` (신규) + `recordGrouping.test.ts`
+- `src/pages/RecordsBrowse.tsx` (전면 재작성)
+- `src/integrations/supabase/types.ts` 는 마이그레이션 후 자동 갱신
