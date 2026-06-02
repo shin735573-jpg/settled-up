@@ -408,7 +408,9 @@ export function buildCompanyStatements(
     const specialBuckets = new Map<string, CompanyStmtRow[]>();
     for (const r of rows) {
       if (isSpecialOneTimeItem(r.item)) {
-        const key = `${r.date}|${(r.item ?? "").trim()}`;
+        // 별칭(행사상차 → 행사철수)은 동일 날짜에 같은 버킷으로 합산
+        const canonical = normalizeSpecialItemForCompany(r.item);
+        const key = `${r.date}|${canonical}`;
         const bucket = specialBuckets.get(key);
         if (bucket) bucket.push(r);
         else specialBuckets.set(key, [r]);
@@ -416,8 +418,10 @@ export function buildCompanyStatements(
         collapsed.push(r);
       }
     }
-    for (const [, bucket] of specialBuckets) {
+    for (const [bkey, bucket] of specialBuckets) {
       const first = bucket[0];
+      // 표시용 품목명은 별칭 정규화 결과 (예: 행사상차도 업체 청구서에서는 "행사철수"로 표기)
+      const canonicalItem = bkey.split("|")[1] ?? (first.item ?? "");
       const noteSum = bucket.reduce((s, r) => s + Number(r.note_amount), 0);
       const codSum = bucket.reduce((s, r) => s + Number(r.cod_amount), 0);
       const paid = bucket.every((r) => r.paid);
@@ -464,13 +468,14 @@ export function buildCompanyStatements(
       const mergedNote = [first.note, extraNote].filter((x) => x && String(x).trim()).join(" / ");
       collapsed.push({
         ...first,
+        item: canonicalItem,
         metro_fee: 0,
         regional_fee: 0,
         note_amount: noteSum,
         cod_amount: codSum,
         paid,
         delivery_fee: noteSum,
-        customer_name: first.customer_name || first.item || "",
+        customer_name: first.customer_name || canonicalItem || "",
         display_leader1: primary,
         display_leader2: secondary,
         display_leader3: tertiary,
