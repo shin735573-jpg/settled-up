@@ -178,6 +178,10 @@ export default function HQSettlement() {
   const periodRows = useMemo(() => rows.filter((r) => inPeriod(r.date, period)), [rows, period]);
 
   const byId = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+  const virtualIds = useMemo(
+    () => new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id)),
+    [leaders],
+  );
   const findId = (names: string[]) => {
     for (const l of leaders) {
       const nm = (l.name || "").trim();
@@ -217,7 +221,7 @@ export default function HQSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId });
+      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
         .filter((s) => isCountable(byId.get(s.target)));
@@ -483,7 +487,7 @@ export default function HQSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId });
+      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
         .filter((s) => isCountable(byId.get(s.target)));

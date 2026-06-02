@@ -51,13 +51,22 @@ export type ShindongseokOptions = {
   oeunkyuId?: string | null;
   odongseonId?: string | null;
   kimyongikId?: string | null;
+  /** 가상기사 ID 목록 — 분배 대상에서 완전히 제외 (팀장2 자리 표시용일 뿐) */
+  virtualIds?: Set<string> | string[] | null;
 };
 
 /** 행에 대한 팀장별 분배 결과 (weight + 금액 배분). */
 export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): LeaderShare[] {
-  const l1 = r.leader1_id;
-  const l2 = r.leader2_id;
-  const l3 = r.leader3_id ?? null;
+  const virtualSet =
+    opts.virtualIds instanceof Set
+      ? opts.virtualIds
+      : new Set(opts.virtualIds || []);
+  // 가상기사는 분배 대상이 아님 — null 처리로 무시
+  const stripV = (id: string | null | undefined): string | null =>
+    id && virtualSet.has(id) ? null : (id ?? null);
+  const l1 = stripV(r.leader1_id);
+  const l2 = stripV(r.leader2_id);
+  const l3 = stripV(r.leader3_id);
   const split = (r.split_type || "").trim();
 
   let weights: number[] = [1, 0, 0];

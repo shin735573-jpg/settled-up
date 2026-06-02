@@ -85,6 +85,7 @@ export function aggregateSummary(
   } = {},
 ): AggregateResult {
   const byId = new Map(leaders.map((l) => [l.id, l]));
+  const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
   const periodRows = rows.filter((r) => inPeriod(r.date, period));
 
   const allocations = periodRows.map((r) => {
@@ -95,7 +96,7 @@ export function aggregateSummary(
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
       },
-      opts,
+      { ...opts, virtualIds },
     );
     const resolved = shares
       .map((s) => ({ ...s, target: resolveSettleId(s.leader_id, byId) }))

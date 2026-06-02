@@ -131,6 +131,9 @@ export function validateRow(
 
   // 5. 팀장 등록 검사 (팀장2 빈칸은 오류 아님)
   const leaderById = new Map(ctx.leaders.map((l) => [l.id, l] as const));
+  const virtualIds = new Set(
+    ctx.leaders.filter((l) => (l as { is_virtual?: boolean }).is_virtual).map((l) => l.id),
+  );
   const leaderByName = new Map(ctx.leaders.map((l) => [l.name.trim(), l] as const));
   const checkLeader = (idVal: string | null, nameVal: string | null, label: string) => {
     if (!idVal && !nameVal) return null;
@@ -251,6 +254,9 @@ export function validateSettleRedirect(
   // 2) 행 단위 — 귀속 대상 팀장이 포함된 행에서 합산 정합성
   const redirectIds = new Set(redirects.map((l) => l.id));
   const { ganghyungjuId, shindongseokId } = findTeamIds(ctx.leaders);
+  const virtualIds = new Set(
+    ctx.leaders.filter((l) => (l as { is_virtual?: boolean }).is_virtual).map((l) => l.id),
+  );
 
   rows.forEach((r, i) => {
     const rowLabel = labelOf ? labelOf(r, i) : `행 ${i + 1}`;
@@ -273,7 +279,7 @@ export function validateSettleRedirect(
         regional_fee: isNumLike(r.regional_fee).n,
         cod_amount: isNumLike(r.cod_amount).n,
       },
-      { ganghyungjuId, shindongseokId },
+      { ganghyungjuId, shindongseokId, virtualIds },
     );
 
     const lShare = shares.find((s) => s.leader_id === L.id);
@@ -466,6 +472,9 @@ export function validateTeamParity(
   if (!ganghyungjuId || !shindongseokId) return out;
 
   const leaderById = new Map(ctx.leaders.map((l) => [l.id, l] as const));
+  const virtualIds = new Set(
+    ctx.leaders.filter((l) => (l as { is_virtual?: boolean }).is_virtual).map((l) => l.id),
+  );
 
   let gCount = 0, sCount = 0;
   let gMetro = 0, sMetro = 0;
@@ -503,7 +512,7 @@ export function validateTeamParity(
         regional_fee: isNumLike(r.regional_fee).n,
         cod_amount: isNumLike(r.cod_amount).n,
       },
-      { ganghyungjuId, shindongseokId },
+      { ganghyungjuId, shindongseokId, virtualIds },
     );
 
     const g = shares.find((s) => s.leader_id === ganghyungjuId);

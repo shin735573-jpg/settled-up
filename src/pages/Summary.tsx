@@ -119,6 +119,10 @@ export default function Summary() {
   const kimyongikId = findId(["김용익"]);
 
   const byId = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+  const virtualIds = useMemo(
+    () => new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id)),
+    [leaders],
+  );
 
   // settle_to_id 체인 + 가상기사 자동 귀속(설정된 경우만)
   const resolveSettleId = (id: string): string => {
@@ -147,7 +151,7 @@ export default function Summary() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId });
+      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
         .filter((s) => isCountable(byId.get(s.target)));

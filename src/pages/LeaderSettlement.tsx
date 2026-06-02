@@ -247,7 +247,11 @@ export default function LeaderSettlement() {
   const oeunkyuId = useMemo(() => findLeaderIdByNames(["오은규"]), [leaders]);
   const odongseonId = useMemo(() => findLeaderIdByNames(["오동선"]), [leaders]);
   const kimyongikId = useMemo(() => findLeaderIdByNames(["김용익"]), [leaders]);
-  const sdsOpts = { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId };
+  const virtualIds = useMemo(
+    () => new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id)),
+    [leaders],
+  );
+  const sdsOpts = { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds };
   const isHyungjuDongseokLeader = (lid: string): boolean => lid === shindongseokId || lid === ganghyungjuId;
   const commonDefaultAmountFor = (lid: string, cd: CommonDeduction): number => {
     // 강형주/신동석은 한 팀 재분배 대상이므로 쓰레기비용 공통공제 50,000원을 기본 고정하지 않는다.
