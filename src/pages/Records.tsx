@@ -58,10 +58,47 @@ import {
   findSuspectDuplicates,
   formatDuplicateConfirm,
   hasAnyDuplicates,
+  findBulkDuplicates,
   type DupDelivery,
 } from "@/lib/duplicateCheck";
 import { AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+// 대량 저장(여러건 저장 / 엑셀 붙여넣기) 전에 후보 행들을 기존 DB와 비교해
+// 정확/의심 중복을 확인하고, 사용자 confirm을 받는다.
+// - true: 사용자가 진행 동의 (또는 중복 없음)
+// - false: 사용자가 취소
+async function confirmBulkDuplicates(
+  candidates: DupDelivery[],
+): Promise<boolean> {
+  try {
+    const pairs = Array.from(new Set(
+      candidates
+        .filter((c) => c.date && c.company_id)
+        .map((c) => `${c.date}|${c.company_id}`),
+    )).map((s) => {
+      const [date, company_id] = s.split("|");
+      return { date, company_id };
+    });
+    if (pairs.length === 0) return true;
+    const dates = Array.from(new Set(pairs.map((p) => p.date)));
+    const companyIds = Array.from(new Set(pairs.map((p) => p.company_id)));
+    const { data: existing } = await supabase
+      .from("deliveries")
+      .select("id,date,company_id,company_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,paid,note")
+      .in("date", dates)
+      .in("company_id", companyIds);
+    const pool = (existing || []).filter((e: any) =>
+      pairs.some((p) => p.date === e.date && p.company_id === e.company_id),
+    ) as DupDelivery[];
+    const { exact, suspect } = findBulkDuplicates(candidates, pool);
+    if (!hasAnyDuplicates(exact, suspect)) return true;
+    return confirm(formatDuplicateConfirm(exact, suspect));
+  } catch {
+    // 중복 검사 실패는 저장을 막지 않는다.
+    return true;
+  }
+}
 
 function FirstTimeSetupAlert({
   companyCount, leaderCount,
@@ -1866,6 +1903,9 @@ export default function Records() {
       },
     });
     if (!ok) return;
+    // 저장 직전 중복 검사 (단건 저장과 동일 기준)
+    const dupOk = await confirmBulkDuplicates(payloads as DupDelivery[]);
+    if (!dupOk) return;
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
@@ -4622,6 +4662,9 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     ];
     const ok = await confirmSave({ title: "붙여넣기 저장 확인", summary });
     if (!ok) return;
+    // 저장 직전 중복 검사 (단건 저장과 동일 기준)
+    const dupOk = await confirmBulkDuplicates(rows as DupDelivery[]);
+    if (!dupOk) return;
     setSaving(true);
     const { error } = await supabase.from("deliveries").insert(rows);
     setSaving(false);

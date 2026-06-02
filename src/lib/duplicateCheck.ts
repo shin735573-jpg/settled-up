@@ -124,3 +124,34 @@ export function hasAnyDuplicates(
 ): boolean {
   return exact.length > 0 || suspect.length > 0;
 }
+
+// 대량 저장(엑셀 붙여넣기/여러건 저장) 전 중복 검사.
+//  - 후보들끼리 서로 중복인 경우와 기존 데이터와의 중복을 함께 검사한다.
+//  - 결과는 후보별이 아닌, 전체에서 발생한 정확/의심 중복의 합쳐진 매치 리스트.
+//  - 중복 매치는 매치 id 기준으로 한 번만 카운트한다(같은 기존 행이 여러 후보와
+//    충돌해도 1건으로 표시).
+export function findBulkDuplicates(
+  candidates: DupDelivery[],
+  existing: DupDelivery[],
+): { exact: DuplicateMatch[]; suspect: DuplicateMatch[] } {
+  const exactMap = new Map<string, DuplicateMatch>();
+  const suspectMap = new Map<string, DuplicateMatch>();
+  const keyOf = (m: DuplicateMatch, i: number) =>
+    m.id || `${m.date}|${m.company}|${m.customer}|${m.item}|${m.fee}|${m.cod}|${i}`;
+  candidates.forEach((cand, idx) => {
+    // 기존 데이터 + 자기 자신을 제외한 다른 후보들과 비교
+    const others = candidates.filter((_, i) => i !== idx);
+    const pool = [...existing, ...others];
+    const ex = findExactDuplicates(cand, pool);
+    const sus = findSuspectDuplicates(cand, pool);
+    ex.forEach((m) => {
+      const k = keyOf(m, idx);
+      if (!exactMap.has(k)) exactMap.set(k, m);
+    });
+    sus.forEach((m) => {
+      const k = keyOf(m, idx);
+      if (!exactMap.has(k) && !suspectMap.has(k)) suspectMap.set(k, m);
+    });
+  });
+  return { exact: [...exactMap.values()], suspect: [...suspectMap.values()] };
+}
