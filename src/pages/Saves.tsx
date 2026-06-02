@@ -203,6 +203,38 @@ export default function Saves() {
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
 
+  // ─── 검사 결과 → 해당 정산서/행으로 이동 ────────────────
+  function jumpToFinding(locator: import("@/lib/statementValidation").FindingLocator) {
+    // 1) 다이얼로그 닫기
+    setCheckResult(null);
+    setPendingSave(null);
+    setPendingPartial(null);
+    // 2) 탭 + 선택 동기화
+    setTab(locator.kind);
+    if (locator.kind === "company") setSelectedCompanyId(locator.id);
+    else setSelectedLeaderId(locator.id);
+    // 3) 렌더 이후 스크롤/하이라이트
+    const tryScroll = (retries: number) => {
+      const root = visiblePreviewRef.current;
+      if (!root) {
+        if (retries > 0) setTimeout(() => tryScroll(retries - 1), 80);
+        return;
+      }
+      if (locator.rowId) {
+        const tr = root.querySelector<HTMLElement>(`[data-row-id="${locator.rowId}"]`);
+        if (tr) {
+          tr.scrollIntoView({ behavior: "smooth", block: "center" });
+          setHighlightRowId(locator.rowId);
+          window.setTimeout(() => setHighlightRowId(null), 3000);
+          return;
+        }
+        if (retries > 0) { setTimeout(() => tryScroll(retries - 1), 80); return; }
+      }
+      root.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    requestAnimationFrame(() => tryScroll(8));
+  }
+
   // 가상기사 id → 이름 매핑 — LeaderPreview 에서 동행팀장 표시 시 "가상" 뱃지를 붙이기 위해 사용.
   const virtualLeaderMap = useMemo(() => {
     const m = new Map<string, string>();
