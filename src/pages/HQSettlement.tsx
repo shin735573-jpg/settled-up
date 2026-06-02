@@ -624,7 +624,7 @@ export default function HQSettlement() {
       return;
     }
     const totalAmt = loadingCosts.reduce((s, lc) => s + Number(lc.amount || 0), 0);
-    const ok = await confirmSave({
+    const confirmed = await confirmSave({
       title: "전체 적재비 자동등록 확인",
       summary: [
         { label: "건수", value: `${loadingCosts.length}건` },
@@ -633,7 +633,7 @@ export default function HQSettlement() {
       ],
       confirmLabel: "전체 등록",
     });
-    if (!ok) return;
+    if (!confirmed) return;
     let ok = 0, skip = 0, fail = 0;
     const failReasons: string[] = [];
     for (const lc of loadingCosts) {
