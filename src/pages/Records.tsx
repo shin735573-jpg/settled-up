@@ -1447,7 +1447,7 @@ export default function Records() {
       company_id: src.company_id || "",
       customer_name: src.customer_name || "",
       region: src.region || "",
-      region_type: (src.region_type as RegionType) || "unknown",
+      region_type: (src.region_type as RegionType) || classifyRegion(src.region || ""),
       item: src.item || "",
       note: src.note || "",
       metro_fee: src.metro_fee ? String(src.metro_fee) : "",
