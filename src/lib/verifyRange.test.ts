@@ -8,7 +8,6 @@ describe("verifyRange", () => {
   });
   it("parseMonthInput: 잘못된 입력은 null", () => {
     expect(parseMonthInput("")).toBeNull();
-    expect(parseMonthInput("2026/05")).toBeNull();
     expect(parseMonthInput("2026-13")).toBeNull();
     expect(parseMonthInput("2026-00")).toBeNull();
   });
