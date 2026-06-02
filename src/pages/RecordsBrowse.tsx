@@ -1067,3 +1067,157 @@ function Stat({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+
+// 그룹 1개에 대한 요약 비교 패널 (좌→우 가로 배치용).
+// 표시: 날짜, 업체, 고객명, 배송지, 품목, 비고, 팀장1, 팀장2, 동행, 2인배송, 통합여부, 최종 청구금액, 팀장별 정산금, 상태.
+function GroupSummaryPanel({
+  group, onClose, onOpenDetail, onJumpToRecords,
+}: {
+  group: LooseGroup;
+  onClose: () => void;
+  onOpenDetail: (row: GroupRow) => void;
+  onJumpToRecords: (id: string) => void;
+}) {
+  // 그룹 대표값 (최신/최다 행 기준; 단순화: 첫 행)
+  const rep = group.rows[0] || ({} as GroupRow);
+  const num = (v: unknown) => Number(v ?? 0) || 0;
+  // 그룹 단위 합계 (최종 청구금액)
+  const billing = group.rows.reduce(
+    (s, r) => s + num(r.metro_fee) + num(r.regional_fee) + num(r.note_amount),
+    0,
+  );
+  // 통합여부: 동행 또는 2인배송으로 묶인 그룹
+  const isCompanion = group.rows.some((r) => !!r.companion);
+  const isTwoPerson = group.rows.some((r) => !!r.two_person);
+  const isMerged = isCompanion || isTwoPerson || group.rows.length > 1;
+  const mergedLabel = isCompanion
+    ? "동행 통합"
+    : isTwoPerson
+    ? "2인배송 통합"
+    : group.rows.length > 1
+    ? "동일 그룹 (미통합)"
+    : "단건";
+  // 팀장별 정산금 계산 — 그룹 안 행별로 누적
+  const settleMap = new Map<string, number>();
+  const nameOf = (id: string | null | undefined, name: string | null | undefined) =>
+    name || id || "?";
+  for (const r of group.rows) {
+    const b = num(r.metro_fee) + num(r.regional_fee) + num(r.note_amount);
+    const l1 = r.leader1_id || r.leader1_name || null;
+    const l2 = r.leader2_id || r.leader2_name || null;
+    const halfSplit =
+      !!l2 && (!!r.two_person || r.split_type === "반반" || r.split_type === "형주동석");
+    if (l1 && l2 && halfSplit) {
+      const s1 = Math.round(b / 2);
+      settleMap.set(nameOf(r.leader1_id, r.leader1_name), (settleMap.get(nameOf(r.leader1_id, r.leader1_name)) || 0) + s1);
+      settleMap.set(nameOf(r.leader2_id, r.leader2_name), (settleMap.get(nameOf(r.leader2_id, r.leader2_name)) || 0) + (b - s1));
+    } else if (l1) {
+      settleMap.set(nameOf(r.leader1_id, r.leader1_name), (settleMap.get(nameOf(r.leader1_id, r.leader1_name)) || 0) + b);
+    }
+  }
+  // 상태 태그 (그룹 전체)
+  const tagSet = new Set<RowStatus>();
+  for (const r of group.rows) classifyGroupRow(r, group.rows).forEach((t) => tagSet.add(t));
+
+  const Row = ({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) => (
+    <div className="flex items-start justify-between gap-2 py-1 border-b last:border-b-0">
+      <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
+      <span className={cn("text-xs text-right break-words", mono && "tabular-nums font-medium")}>
+        {value}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold truncate">{rep.company_name || "(업체 없음)"}</div>
+          <div className="text-[11px] text-muted-foreground truncate">
+            {String(rep.date || "").slice(0, 10)} · {group.rows.length}건
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 w-6 p-0 shrink-0"
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          title="이 패널 닫기"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="rounded-md border bg-muted/20 px-2">
+        <Row label="날짜" value={String(rep.date || "").slice(0, 10)} />
+        <Row label="업체" value={rep.company_name || "-"} />
+        <Row label="고객명" value={rep.customer_name || "-"} />
+        <Row label="배송지" value={rep.region || "-"} />
+        <Row label="품목" value={rep.item || "-"} />
+        <Row label="비고내용" value={rep.note || "-"} />
+        <Row label="팀장1" value={rep.leader1_name || "-"} />
+        <Row label="팀장2" value={rep.leader2_name || "-"} />
+        <Row label="동행여부" value={isCompanion ? "예" : "-"} />
+        <Row label="2인배송 여부" value={isTwoPerson ? "예" : "-"} />
+        <Row
+          label="통합여부"
+          value={
+            <span className={cn(
+              "inline-block text-[10px] px-1.5 py-0.5 rounded border",
+              isMerged ? "bg-violet-50 text-violet-700 border-violet-300" : "bg-muted text-muted-foreground",
+            )}>
+              {mergedLabel}
+            </span>
+          }
+        />
+        <Row label="최종 청구금액" value={`${fmt(billing)}원`} mono />
+        <Row
+          label="팀장별 정산금"
+          value={
+            settleMap.size === 0 ? "-" : (
+              <div className="flex flex-col gap-0.5 items-end">
+                {[...settleMap.entries()].map(([n, v]) => (
+                  <span key={n} className="tabular-nums">
+                    <span className="text-muted-foreground mr-1">{n}</span>
+                    {fmt(v)}원
+                  </span>
+                ))}
+              </div>
+            )
+          }
+        />
+        <Row
+          label="상태"
+          value={
+            tagSet.size === 0 ? "-" : (
+              <div className="flex flex-wrap gap-1 justify-end">
+                {[...tagSet].map((t) => (
+                  <span key={t} className={cn("text-[10px] px-1.5 py-0.5 rounded border", STATUS_COLOR[t])}>
+                    {statusLabel[t]}
+                  </span>
+                ))}
+              </div>
+            )
+          }
+        />
+      </div>
+      <div className="flex gap-1 pt-1">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs flex-1"
+          onClick={(e) => { e.stopPropagation(); onOpenDetail(rep); }}
+        >
+          <Pencil className="h-3 w-3 mr-1" /> 수정
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs flex-1"
+          onClick={(e) => { e.stopPropagation(); onJumpToRecords(rep.id); }}
+        >
+          기록입력 ↗
+        </Button>
+      </div>
+    </div>
+  );
+}
