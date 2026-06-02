@@ -1235,13 +1235,28 @@ export default function Records() {
       two_person: form.two_person,
       is_missing: form.is_missing,
       missing_reason: form.is_missing ? (form.missing_reason || null) : null,
+      revisit_required: form.revisit_required,
+      revisit_done: form.revisit_done,
+      revisit_group_id: form.revisit_group_id,
+      revisit_visit_no: form.revisit_visit_no || 1,
     };
     setSaving(true);
     let error;
     if (form.id) {
       ({ error } = await supabase.from("deliveries").update(payload).eq("id", form.id));
     } else {
-      ({ error } = await supabase.from("deliveries").insert(payload));
+      // 신규 저장 + "재방문 필요" 체크: 1차/2차 두 행을 같은 그룹으로 동시 저장
+      if (form.revisit_required && !form.revisit_group_id) {
+        const groupId =
+          (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+            ? (crypto as any).randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const first = { ...payload, revisit_group_id: groupId, revisit_visit_no: 1 };
+        const second = { ...payload, revisit_group_id: groupId, revisit_visit_no: 2, revisit_done: false };
+        ({ error } = await supabase.from("deliveries").insert([first, second]));
+      } else {
+        ({ error } = await supabase.from("deliveries").insert(payload));
+      }
     }
     setSaving(false);
     if (error) { toast.error(error.message); return; }
