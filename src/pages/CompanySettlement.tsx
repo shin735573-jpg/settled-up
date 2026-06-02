@@ -200,8 +200,11 @@ export default function CompanySettlement() {
   }, [company, allRows, leaders]);
 
   function detailRowsRaw() {
-    return company ? allRows.filter((r) => matchesCompany(r, company)) : [];
+    return company ? companyBillableRows.filter((r) => matchesCompany(r, company)) : [];
   }
+
+  // 업체 청구용 행: 재방문 그룹은 1차 행만 사용 (2차 이후 중복 청구 방지).
+  const companyBillableRows = useMemo(() => keepRevisitPrimaryOnly(allRows), [allRows]);
 
   // 업체별 요약 계산
   const summarize = (companyRows: any[], carryForCompany: any[]) => {
@@ -233,12 +236,12 @@ export default function CompanySettlement() {
   const companySummaries = useMemo(() => {
     return visibleCompanies
       .map((c) => {
-        const rs = allRows.filter((r) => matchesCompany(r, c));
+        const rs = companyBillableRows.filter((r) => matchesCompany(r, c));
         const cr = carryRows.filter((r) => matchesCompany(r, c));
         return { company: c, ...summarize(rs, cr) };
       })
       .sort((a, b) => b.count - a.count);
-  }, [visibleCompanies, allRows, carryRows]);
+  }, [visibleCompanies, companyBillableRows, carryRows]);
 
   // 자동검증 (업체 제출 관점)
   const audit = useMemo(
@@ -256,8 +259,8 @@ export default function CompanySettlement() {
   useArrowKeyNav(rootRef);
 
   const detailRows = useMemo(
-    () => (company ? allRows.filter((r) => matchesCompany(r, company)) : []),
-    [company, allRows]
+    () => (company ? companyBillableRows.filter((r) => matchesCompany(r, company)) : []),
+    [company, companyBillableRows]
   );
   const detailSummary = useMemo(() => {
     if (!company) return null;
@@ -276,7 +279,7 @@ export default function CompanySettlement() {
     const totalCompanies = visibleCompanies.length;
     const deliveringCompanyIds = new Set<string>();
     let totalDeliveries = 0, totalCod = 0;
-    allRows.forEach((r: any) => {
+    companyBillableRows.forEach((r: any) => {
       const matched = visibleCompanies.find((c) => matchesCompany(r, c));
       if (!matched) return;
       totalDeliveries += 1;
@@ -284,7 +287,7 @@ export default function CompanySettlement() {
       deliveringCompanyIds.add(matched.id);
     });
     // 총배송비는 공통 헬퍼 사용 — 팀장정산 화면과 항상 동일
-    const totalFee = totalDeliveryFee(allRows);
+    const totalFee = totalDeliveryFee(companyBillableRows);
     return {
       totalCompanies,
       deliveringCompanies: deliveringCompanyIds.size,
@@ -292,7 +295,7 @@ export default function CompanySettlement() {
       totalCod,
       totalFee,
     };
-  }, [visibleCompanies, allRows]);
+  }, [visibleCompanies, companyBillableRows]);
 
   // 컬럼 위치 검증: 헤더 컬럼 수와 데이터 셀 수가 일치하는지 + 순서가 정의와 일치하는지
   const [colAlignError, setColAlignError] = useState<string | null>(null);
