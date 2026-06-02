@@ -1953,13 +1953,14 @@ export default function Records() {
       },
     });
     if (!ok) return;
-    // 저장 직전 중복 검사 (단건 저장과 동일 기준)
-    const dupOk = await confirmBulkDuplicates(payloads as DupDelivery[]);
-    if (!dupOk) return;
+    // 저장 직전 중복 검사: 완전 중복은 자동 제외, 유사 중복은 confirm
+    const dupRes = await confirmBulkDuplicates(payloads as unknown as DupDelivery[]);
+    if (!dupRes.proceed) return;
+    const finalPayloads = dupRes.rowsToSave as unknown as typeof payloads;
     setBulkSaving(true);
-    const { error } = await supabase.from("deliveries").insert(payloads);
+    const { error } = await supabase.from("deliveries").insert(finalPayloads);
     setBulkSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyInsertError(error) || error.message); return; }
     // 저장된 그룹의 이전 차수들은 모두 처리 완료(revisit_done=true)로 표시.
     // 새로 들어간 행의 visit_no 미만 차수를 그룹별로 일괄 업데이트.
     const byGroupMaxV = new Map<string, number>();
