@@ -284,6 +284,27 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       toast.error("저장 전 오류를 먼저 해결해주세요.");
       return;
     }
+    // 최종 유효성 재확인 (자동 반영 후에도 누락된 부분이 없는지)
+    const finalErrors = validateMergePlan(plan);
+    const finalBlocking = finalErrors.filter((e) => e.level === "error");
+    if (finalBlocking.length > 0) {
+      toast.error(`저장 불가: ${finalBlocking[0].message}`);
+      return;
+    }
+    if (mergeMode === "two_person") {
+      if (!edited.two_person) {
+        toast.error("2인배송 통합인데 '2인배송 여부'가 꺼져 있습니다.");
+        return;
+      }
+      if (!nrm(edited.leader2_id)) {
+        toast.error("2인배송 통합인데 팀장2가 비어 있습니다. 의심행을 선택하거나 팀장2를 직접 지정하세요.");
+        return;
+      }
+    }
+    if (mergeMode === "companion" && !edited.companion) {
+      toast.error("동행 통합인데 '동행여부'가 꺼져 있습니다.");
+      return;
+    }
     setSaving(true);
     try {
       const update = {
@@ -407,6 +428,46 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                 </label>
               ))}
             </RadioGroup>
+            {mergeMode === "two_person" && (
+              <div className="mt-3 rounded-md border border-violet-300 bg-violet-50 p-2 text-xs text-violet-900">
+                <div className="font-medium mb-1">2인배송 통합 자동 반영 상태</div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={edited.two_person ? "default" : "destructive"}>
+                    2인배송 {edited.two_person ? "ON ✔" : "OFF ✗"}
+                  </Badge>
+                  <Badge variant={nrm(edited.leader2_id) ? "default" : "destructive"}>
+                    팀장2 {nrm(edited.leader2_id) ? `✔ ${edited.leader2_name || edited.leader2_id?.slice(0, 8)}` : "✗ 자동 추론 실패"}
+                  </Badge>
+                  <Badge variant={nrm(edited.split_type) === "반반" ? "default" : "secondary"}>
+                    분할 {nrm(edited.split_type) || "—"}
+                  </Badge>
+                  <Badge variant={amountMode ? "default" : "secondary"}>
+                    금액 {amountMode === "sum" ? "자동 합산 ✔" : amountMode === "manual" ? "직접입력" : "미선택"}
+                  </Badge>
+                </div>
+                {!nrm(edited.leader2_id) && (
+                  <div className="mt-2 text-[11px]">
+                    의심행에서 다른 팀장1을 찾지 못했습니다. 의심행을 선택하거나 위 "속성 확인/수정"에서 직접 팀장2를 지정해주세요.
+                  </div>
+                )}
+              </div>
+            )}
+            {mergeMode === "companion" && (
+              <div className="mt-3 rounded-md border border-sky-300 bg-sky-50 p-2 text-xs text-sky-900">
+                <div className="font-medium mb-1">동행 통합 자동 반영 상태</div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={edited.companion ? "default" : "destructive"}>
+                    동행 {edited.companion ? "ON ✔" : "OFF ✗"}
+                  </Badge>
+                  <Badge variant={!edited.two_person ? "default" : "secondary"}>
+                    2인배송 {edited.two_person ? "ON" : "OFF ✔"}
+                  </Badge>
+                  <Badge variant={amountMode ? "default" : "secondary"}>
+                    금액 {amountMode === "sum" ? "자동 합산 ✔" : amountMode === "manual" ? "직접입력" : "미선택"}
+                  </Badge>
+                </div>
+              </div>
+            )}
             {amountMode && (
               <div className="mt-3 text-xs text-muted-foreground">
                 금액 처리: <Badge variant="secondary">{amountMode === "sum" ? "자동 합산" : "직접입력"}</Badge>
