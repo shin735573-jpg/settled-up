@@ -539,7 +539,7 @@ export default function RecordsBrowse() {
                       "border rounded-md p-2 cursor-pointer hover:bg-accent",
                       selectedGroupKey === g.key && "border-primary ring-1 ring-primary/30 bg-accent/50",
                     )}
-                    onClick={() => setSelectedGroupKey(g.key)}
+                    onClick={() => togglePanel(g.key)}
                   >
                     <div className="flex items-start gap-2">
                       <Checkbox
