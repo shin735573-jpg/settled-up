@@ -39,6 +39,8 @@ export type StmtDelivery = {
   split_type: string | null;
   two_person: boolean | null;
   paid: boolean;
+  revisit_group_id?: string | null;
+  revisit_visit_no?: number | null;
 };
 
 export type StmtCompany = {
