@@ -73,6 +73,7 @@ function buildRevisitOrdinalMap(records: any[]): Map<string, number> {
 }
 
 export default function RecordsBrowse() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [records, setRecords] = useState<Delivery[]>([]);
