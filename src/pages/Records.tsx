@@ -1479,7 +1479,51 @@ export default function Records() {
       { label: "총액", value: `${fmt(totalAmt)}원` },
       ...(revisitGroups > 0 ? [{ label: "재방문", value: `${revisitGroups}그룹` }] : []),
     ];
-    const ok = await confirmSave({ title: "여러건 저장 확인", summary });
+    const detailRows = payloads.map((p: any) => {
+      const sum =
+        Number(p.metro_fee || 0) + Number(p.regional_fee || 0) +
+        Number(p.note_amount || 0) + Number(p.cod_amount || 0);
+      const flags: string[] = [];
+      if (p.revisit_required) flags.push(`재방문${p.revisit_visit_no || 1}차`);
+      if (p.two_person) flags.push("2인");
+      if (p.paid) flags.push("완료");
+      if (p.split_type) flags.push(p.split_type);
+      return {
+        date: p.date || "",
+        company: p.company_name || "",
+        customer: p.customer_name || "",
+        region: [p.region_type === "metro" ? "수도권" : p.region_type === "regional" ? "지방" : "", p.region].filter(Boolean).join(" "),
+        item: p.item || "",
+        note: p.note || "",
+        metro: p.metro_fee ? fmt(Number(p.metro_fee)) : "",
+        regional: p.regional_fee ? fmt(Number(p.regional_fee)) : "",
+        note_amt: p.note_amount ? fmt(Number(p.note_amount)) : "",
+        cod: p.cod_amount ? fmt(Number(p.cod_amount)) : "",
+        sum: sum ? fmt(sum) : "",
+        flags: flags.join(" · "),
+      };
+    });
+    const ok = await confirmSave({
+      title: "여러건 저장 확인",
+      summary,
+      details: {
+        columns: [
+          { key: "date", label: "날짜" },
+          { key: "company", label: "업체" },
+          { key: "customer", label: "고객" },
+          { key: "region", label: "지역" },
+          { key: "item", label: "품목" },
+          { key: "note", label: "비고" },
+          { key: "metro", label: "수도권", align: "right" },
+          { key: "regional", label: "지방", align: "right" },
+          { key: "note_amt", label: "비고액", align: "right" },
+          { key: "cod", label: "착불", align: "right" },
+          { key: "sum", label: "합계", align: "right" },
+          { key: "flags", label: "구분" },
+        ],
+        rows: detailRows,
+      },
+    });
     if (!ok) return;
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
