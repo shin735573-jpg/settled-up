@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, ExternalLink } from "lucide-react";
 import type { CompanyBilledCrossCheck, CompanyBilledDiff } from "@/lib/companyBilledCrossCheck";
 
 /**
@@ -15,9 +15,29 @@ export function CompanyBilledMismatchBanner({ result }: { result: CompanyBilledC
 
   return (
     <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
-      <strong>업체청구금액 불일치 추적 — </strong>
-      팀장정산 합계 {result.leaderTotal.toLocaleString()}원 vs 업체정산서 합계 {result.companyTotal.toLocaleString()}원
-      (차이 {result.diff.toLocaleString()}원). 업체를 펼치면 차이 원인과 영향 행을 확인할 수 있습니다.
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <strong>업체청구금액 불일치 추적 — </strong>
+          팀장정산 합계 {result.leaderTotal.toLocaleString()}원 vs 업체정산서 합계 {result.companyTotal.toLocaleString()}원
+          (차이 {result.diff.toLocaleString()}원). 업체를 펼치면 차이 원인과 영향 행을 확인할 수 있습니다.
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => downloadCsv(buildSummaryCsv(result), "company-billed-summary.csv")}
+            className="inline-flex items-center gap-1 rounded border border-destructive bg-background px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+          >
+            <Download className="h-3.5 w-3.5" /> 요약 CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadCsv(buildDetailCsv(result), "company-billed-detail.csv")}
+            className="inline-flex items-center gap-1 rounded border border-destructive bg-background px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+          >
+            <Download className="h-3.5 w-3.5" /> 상세 CSV (행 단위)
+          </button>
+        </div>
+      </div>
 
       <div className="mt-2 flex flex-col gap-1 text-xs">
         {result.perCompany.map((co) => (
