@@ -42,7 +42,7 @@ const monthEndExclusive = (m: string) => {
 
 const gridColsByCount = (n: number) => {
   if (n <= 1) return "grid-cols-1";
-  if (n === 2) return "grid-cols-1 lg:grid-cols-2";
+  if (n === 2) return "grid-cols-2";
   if (n === 3) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
   if (n === 4) return "grid-cols-1 md:grid-cols-2";
   return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"; // 5,6
