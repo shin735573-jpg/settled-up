@@ -576,12 +576,13 @@ export default function LeaderSettlement() {
       if (metro === 0 && noteAmt === 0 && regional === 0 && cod === 0) return null;
       return { metro, noteAmt, regional, cod, count: 1, weight: 1, reasons };
     }
+    const nr = normalizeLoadingFeeRowLeaders(r, samhoId);
     const shares = allocateRow({
-      leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
-      split_type: r.split_type, two_person: r.two_person,
+      leader1_id: nr.leader1_id, leader2_id: nr.leader2_id, leader3_id: nr.leader3_id,
+      split_type: nr.split_type, two_person: nr.two_person ?? false,
       metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
       regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
-      virtual_leader_id: r.virtual_leader_id ?? null,
+      virtual_leader_id: nr.virtual_leader_id ?? null,
     }, sdsOpts);
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0, weight = 0;
     const reasons: string[] = [];
