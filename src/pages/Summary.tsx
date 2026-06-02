@@ -119,6 +119,10 @@ export default function Summary() {
   const kimyongikId = findId(["김용익"]);
 
   const byId = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+  const virtualIds = useMemo(
+    () => new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id)),
+    [leaders],
+  );
 
   // settle_to_id 체인 + 가상기사 자동 귀속(설정된 경우만)
   const resolveSettleId = (id: string): string => {
