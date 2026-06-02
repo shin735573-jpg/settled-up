@@ -906,6 +906,7 @@ export default function Records() {
     revisit_done: boolean;
     revisit_group_local: string;
     revisit_visit_no: 1 | 2;
+    revisit_group_id_existing?: string;
   };
   const emptyBulkRow = (companyId: string = ""): BulkRow => ({
     company_id: companyId,
@@ -960,6 +961,10 @@ export default function Records() {
   });
   const [bulkSaving, setBulkSaving] = useState(false);
   const bulkCompanyRefs = useRef<Array<HTMLInputElement | null>>([]);
+  // 재방문 완료 등록 다이얼로그
+  const [revisitPickerOpen, setRevisitPickerOpen] = useState(false);
+  const [revisitCandidates, setRevisitCandidates] = useState<any[]>([]);
+  const [revisitLoading, setRevisitLoading] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
@@ -1339,8 +1344,12 @@ export default function Records() {
       };
       // 완료 클릭으로 묶인 1차/2차 행은 그대로 각각 저장 (같은 group_id 공유)
       if (r.revisit_group_local) {
+        // 이미 DB에 저장된 1차의 group_id가 있으면 그것을 사용 (저장된 1차에 2차 후속 등록 케이스)
         let gid = groupIdMap.get(r.revisit_group_local);
-        if (!gid) { gid = makeUuid(); groupIdMap.set(r.revisit_group_local, gid); }
+        if (!gid) {
+          gid = r.revisit_group_id_existing || makeUuid();
+          groupIdMap.set(r.revisit_group_local, gid);
+        }
         return [{
           ...base,
           revisit_group_id: gid,
@@ -1363,10 +1372,83 @@ export default function Records() {
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
     if (error) { toast.error(error.message); return; }
+    // 저장된 1차에 2차 후속 등록한 경우 → 해당 1차의 revisit_done=true 로 표시
+    const existingGroupIds = Array.from(
+      new Set(rows.map((r) => r.revisit_group_id_existing).filter(Boolean) as string[]),
+    );
+    if (existingGroupIds.length > 0) {
+      await supabase
+        .from("deliveries")
+        .update({ revisit_done: true })
+        .in("revisit_group_id", existingGroupIds)
+        .eq("revisit_visit_no", 1);
+    }
     toast.success(`${rows.length}건 저장 완료`);
     const dc = bulkShared.default_company_id;
     setBulkRows([emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc)]);
     load();
+  };
+
+  // 미완료 1차 배송 후보 조회 (재방문 완료 등록 다이얼로그)
+  const openRevisitPicker = async () => {
+    if (!user) return;
+    setRevisitPickerOpen(true);
+    setRevisitLoading(true);
+    const { data, error } = await supabase
+      .from("deliveries")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("revisit_required", true)
+      .eq("revisit_visit_no", 1)
+      .not("revisit_group_id", "is", null)
+      .order("date", { ascending: false })
+      .limit(500);
+    if (error) { toast.error(error.message); setRevisitLoading(false); return; }
+    const all = (data || []) as any[];
+    // 같은 group에 visit_no=2 가 이미 있는 그룹은 제외
+    const groupIds = all.map((r) => r.revisit_group_id);
+    let done = new Set<string>();
+    if (groupIds.length > 0) {
+      const { data: d2 } = await supabase
+        .from("deliveries")
+        .select("revisit_group_id")
+        .eq("user_id", user.id)
+        .eq("revisit_visit_no", 2)
+        .in("revisit_group_id", groupIds);
+      done = new Set((d2 || []).map((r: any) => r.revisit_group_id));
+    }
+    setRevisitCandidates(all.filter((r) => !done.has(r.revisit_group_id)));
+    setRevisitLoading(false);
+  };
+
+  // 후보 선택 → bulk 그리드에 잠금된 2차 행 추가
+  const addRevisitFromExisting = (src: any) => {
+    const localId =
+      (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+        ? (crypto as any).randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const clone: BulkRow = {
+      company_id: src.company_id || "",
+      customer_name: src.customer_name || "",
+      region: src.region || "",
+      region_type: (src.region_type as RegionType) || "unknown",
+      item: src.item || "",
+      note: src.note || "",
+      metro_fee: src.metro_fee ? String(src.metro_fee) : "",
+      note_amount: src.note_amount ? String(src.note_amount) : "",
+      regional_fee: src.regional_fee ? String(src.regional_fee) : "",
+      cod_amount: src.cod_amount ? String(src.cod_amount) : "",
+      two_person: !!src.two_person,
+      paid: !!src.paid,
+      revisit_required: true,
+      revisit_done: false,
+      revisit_group_local: localId,
+      revisit_visit_no: 2,
+      revisit_group_id_existing: src.revisit_group_id,
+    };
+    setBulkRows((rows) => [...rows, clone]);
+    setRevisitPickerOpen(false);
+    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행 추가됨`);
   };
 
   // 종합 오류 검사 실행
@@ -1917,6 +1999,9 @@ export default function Records() {
             </Button>
             <Button variant="outline" onClick={() => setBulkRows((rows) => [...rows, ...Array.from({ length: 5 }, () => emptyBulkRow(bulkShared.default_company_id))])}>
               <Plus className="h-4 w-4 mr-1" /> 5행 추가
+            </Button>
+            <Button variant="secondary" onClick={openRevisitPicker} title="이미 저장된 1차 배송을 골라 2차 행을 자동 생성합니다">
+              재방문 완료 등록 (저장된 1차 가져오기)
             </Button>
             <div className="flex-1" />
             <span className="text-xs text-muted-foreground">총 {bulkRows.length}행</span>
@@ -2514,6 +2599,64 @@ export default function Records() {
         onSaved={() => { setPasteOpen(false); load(); }}
         onReload={load}
       />
+      <Dialog open={revisitPickerOpen} onOpenChange={setRevisitPickerOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>재방문 완료 등록 — 저장된 1차 배송 선택</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="text-xs text-muted-foreground">
+              "재방문 필요"로 저장됐지만 아직 2차 입력이 없는 1차 배송 목록입니다. 한 건을 선택하면 같은 내용이 잠금된 2차 행으로 추가됩니다 (금액만 수정 가능).
+            </div>
+            <div className="max-h-[60vh] overflow-auto border rounded-md">
+              <table className="w-full text-xs">
+                <thead className="bg-muted sticky top-0">
+                  <tr className="text-left">
+                    <th className="p-2">날짜</th>
+                    <th className="p-2">업체</th>
+                    <th className="p-2">고객</th>
+                    <th className="p-2">지역</th>
+                    <th className="p-2">상품</th>
+                    <th className="p-2">팀장</th>
+                    <th className="p-2 text-right">금액</th>
+                    <th className="p-2 w-20"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revisitLoading && (
+                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
+                  )}
+                  {!revisitLoading && revisitCandidates.length === 0 && (
+                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">미완료 1차 배송이 없습니다.</td></tr>
+                  )}
+                  {!revisitLoading && revisitCandidates.map((r) => {
+                    const amt =
+                      Number(r.metro_fee || 0) + Number(r.regional_fee || 0) +
+                      Number(r.note_amount || 0) + Number(r.cod_amount || 0);
+                    return (
+                      <tr key={r.id} className="border-t hover:bg-muted/40">
+                        <td className="p-2 whitespace-nowrap">{r.date}</td>
+                        <td className="p-2">{r.company_name}</td>
+                        <td className="p-2">{r.customer_name || ""}</td>
+                        <td className="p-2">{r.region || ""}</td>
+                        <td className="p-2 max-w-[200px] truncate" title={r.item || ""}>{r.item || ""}</td>
+                        <td className="p-2">{[r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join(", ")}</td>
+                        <td className="p-2 text-right tabular-nums">{fmt(amt)}</td>
+                        <td className="p-2">
+                          <Button size="sm" onClick={() => addRevisitFromExisting(r)}>선택</Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevisitPickerOpen(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!dongPrompt} onOpenChange={(v) => !v && setDongPrompt(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
