@@ -1349,6 +1349,14 @@ export default function Records() {
     };
     // 로컬 그룹 ID(완료 클릭으로 묶인 1차/2차) → DB 그룹 UUID 매핑
     const groupIdMap = new Map<string, string>();
+    // 같은 로컬 그룹 내 최고 차수 — 그 미만은 모두 revisit_done=true
+    const maxVisitByGroup = new Map<string, number>();
+    for (const r of rows) {
+      if (!r.revisit_group_local) continue;
+      const v = Number(r.revisit_visit_no) || 1;
+      const cur = maxVisitByGroup.get(r.revisit_group_local) ?? 0;
+      if (v > cur) maxVisitByGroup.set(r.revisit_group_local, v);
+    }
     const payloads = rows.flatMap((r) => {
       const lockedExisting = Boolean(r.revisit_group_id_existing);
       const source = lockedExisting ? sourceById.get(r.revisit_source_id_existing || "") : null;
@@ -1388,12 +1396,15 @@ export default function Records() {
           gid = r.revisit_group_id_existing || makeUuid();
           groupIdMap.set(r.revisit_group_local, gid);
         }
+        const v = Number(r.revisit_visit_no) || 1;
+        const maxV = maxVisitByGroup.get(r.revisit_group_local) ?? v;
         return [{
           ...base,
           revisit_group_id: gid,
-          revisit_visit_no: r.revisit_visit_no,
+          revisit_visit_no: v,
           revisit_required: true,
-          revisit_done: r.revisit_visit_no === 1 ? true : false,
+          // 그룹 내 최고 차수 행은 아직 진행 중(done=false), 그 미만은 모두 완료(done=true)
+          revisit_done: v < maxV,
         }];
       }
       // 완료 클릭 없이 "예정"만 체크된 경우 → 동일 내용 2차 행 자동 생성
