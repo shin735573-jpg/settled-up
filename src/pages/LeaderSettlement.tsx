@@ -5,6 +5,8 @@ import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
 import { totalLeaderSettlementDeliveryFee, totalUnifiedDeliveryFee, computeCompanyBilledByCompany } from "@/lib/totalFee";
 import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
 import { TotalFeeMismatchBanner } from "@/components/TotalFeeMismatchBanner";
+import { crossCheckCompanyBilled } from "@/lib/companyBilledCrossCheck";
+import { CompanyBilledMismatchBanner } from "@/components/CompanyBilledMismatchBanner";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -151,6 +153,7 @@ export default function LeaderSettlement() {
     id: string; name: string; issues_invoice: boolean;
     vat_included: boolean;
     settlement_cycle: string;
+    active: boolean;
     rejected_leader_id: string | null;
     rejected_leader_id_2: string | null;
     rejected_leader_id_3: string | null;
@@ -189,7 +192,7 @@ export default function LeaderSettlement() {
       const [{ data: l }, { data: cd }, { data: co }] = await Promise.all([
         supabase.from("team_leaders").select("*").order("name"),
         supabase.from("common_deductions").select("id,label,amount,active").order("sort_order"),
-        supabase.from("companies").select("id,name,issues_invoice,vat_included,settlement_cycle,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
+        supabase.from("companies").select("id,name,active,issues_invoice,vat_included,settlement_cycle,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
       ]);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
       setCommonDeductions((cd as CommonDeduction[]) || []);
@@ -668,6 +671,20 @@ export default function LeaderSettlement() {
     () => crossCheckTotalFee(rows, virtualIds),
     [rows, virtualIds],
   );
+
+  // 업체청구금액(실제) 100% 추적: 업체정산서 청구금액과 100% 일치하는지 업체별로 검증
+  const companyBilledCheck = useMemo(() => {
+    const stmtCompanies = companies.map((c) => ({
+      ...c,
+      fee_rate_metro: 0,
+      fee_rate_regional: 0,
+      account_number: null,
+      has_cod: true,
+    })) as unknown as Parameters<typeof crossCheckCompanyBilled>[1];
+    const stmtLeaders = leaders as unknown as Parameters<typeof crossCheckCompanyBilled>[2];
+    const stmtDeliveries = rows as unknown as Parameters<typeof crossCheckCompanyBilled>[0];
+    return crossCheckCompanyBilled(stmtDeliveries, stmtCompanies, stmtLeaders, period, virtualIds);
+  }, [rows, companies, leaders, period, virtualIds]);
   const lastWarnedDiffRef = useRef<number | null>(null);
   useEffect(() => {
     if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
@@ -1000,6 +1017,8 @@ export default function LeaderSettlement() {
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
       <TotalFeeMismatchBanner result={totalFeeCheck} unifiedLabel="통합식" leaderLabel="팀장정산식" />
+
+      <CompanyBilledMismatchBanner result={companyBilledCheck} />
 
       {!leaderId && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
