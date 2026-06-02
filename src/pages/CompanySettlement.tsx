@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
-import { totalDeliveryFee } from "@/lib/totalFee";
+import { totalDeliveryFee, totalUnifiedDeliveryFee } from "@/lib/totalFee";
 import { matchesCompany } from "@/lib/companyMatch";
 import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolver";
 import { auditDeliveries } from "@/lib/liveAudit";
@@ -96,7 +96,7 @@ export default function CompanySettlement() {
     (async () => {
       const [{ data: c }, { data: l }] = await Promise.all([
         supabase.from("companies").select("*").eq("active", true).order("name"),
-        supabase.from("team_leaders").select("id,name,aliases,is_rejected,settle_to_id,region,fee_rate_metro,fee_rate_regional"),
+        supabase.from("team_leaders").select("id,name,aliases,is_rejected,is_virtual,settle_to_id,region,fee_rate_metro,fee_rate_regional"),
       ]);
       setCompanies(c || []);
       setLeaders(sortLeadersByFeeAsc(l || []));
