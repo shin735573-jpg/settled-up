@@ -453,6 +453,54 @@ export type Database = {
         }
         Relationships: []
       }
+      save_conflicts: {
+        Row: {
+          conflict_count: number
+          conflict_created_at: string | null
+          conflict_row_id: string | null
+          conflict_snapshot: Json
+          conflict_updated_at: string | null
+          conflict_user_id: string | null
+          context_label: string
+          created_at: string
+          current_snapshot: Json
+          diff_fields: string[]
+          id: string
+          occurred_at: string
+          user_id: string
+        }
+        Insert: {
+          conflict_count?: number
+          conflict_created_at?: string | null
+          conflict_row_id?: string | null
+          conflict_snapshot: Json
+          conflict_updated_at?: string | null
+          conflict_user_id?: string | null
+          context_label: string
+          created_at?: string
+          current_snapshot: Json
+          diff_fields?: string[]
+          id?: string
+          occurred_at?: string
+          user_id: string
+        }
+        Update: {
+          conflict_count?: number
+          conflict_created_at?: string | null
+          conflict_row_id?: string | null
+          conflict_snapshot?: Json
+          conflict_updated_at?: string | null
+          conflict_user_id?: string | null
+          context_label?: string
+          created_at?: string
+          current_snapshot?: Json
+          diff_fields?: string[]
+          id?: string
+          occurred_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       special_items: {
         Row: {
           active: boolean
