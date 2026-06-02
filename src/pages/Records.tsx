@@ -1039,6 +1039,16 @@ export default function Records() {
     return emptyForm();
   });
   const [saving, setSaving] = useState(false);
+  // 두 팀장 통합 저장 — 마지막 확인 다이얼로그 (최종 청구금액만 확인)
+  const [integrationConfirm, setIntegrationConfirm] = useState<{
+    totalAmt: number;
+    l1Name: string;
+    l2Name: string;
+    splitMode: "half" | "third" | "half";
+    resolve: (v: { ok: boolean; newTotal: number } | null) => void;
+  } | null>(null);
+  const [intEditAmt, setIntEditAmt] = useState<string>("");
+  const [intEditing, setIntEditing] = useState(false);
   // 단건 폼: 중복 체크 결과 ('idle' | 'none' | 'suspect' | 'exact')
   const [formDupCheck, setFormDupCheck] = useState<{
     status: "idle" | "none" | "suspect" | "exact";
