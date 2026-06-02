@@ -350,26 +350,12 @@ export function buildCompanyStatements(
           return (a.date || "").localeCompare(b.date || "");
         });
         const base = sorted[0];
-        // 업체 청구: 재방문 그룹은 1건으로 표시하되, 각 차수(팀장 개별) 청구액을 모두 합산해 청구.
-        // 예) 1차 팀장 1만원 + 2차 팀장 1만원 → 업체 청구 2만원 (한 건)
-        const metroSum = bucket.reduce((s, r) => s + Number(r.metro_fee), 0);
-        const noteSum = bucket.reduce((s, r) => s + Number(r.note_amount), 0);
-        const regionalSum = bucket.reduce((s, r) => s + Number(r.regional_fee), 0);
-        const codSum = bucket.reduce((s, r) => s + Number(r.cod_amount), 0);
-        const paidAll = bucket.every((r) => r.paid);
-        const earliest = bucket.reduce(
-          (acc, r) => (!acc || (r.date && r.date < acc) ? r.date : acc),
-          "" as string,
-        );
+        // 업체 청구: 재방문 그룹은 1차 행만 그대로 표시 (2차 이후는 업체에 청구하지 않음).
+        // 팀장 정산은 buildLeaderStatements에서 모든 차수가 그대로 반영됨.
         passthrough.push({
           ...base,
-          date: earliest || base.date,
-          metro_fee: metroSum,
-          note_amount: noteSum,
-          regional_fee: regionalSum,
-          cod_amount: codSum,
-          paid: paidAll,
-          delivery_fee: metroSum + noteSum + regionalSum,
+          delivery_fee:
+            Number(base.metro_fee) + Number(base.note_amount) + Number(base.regional_fee),
         });
       }
       rows.length = 0;
