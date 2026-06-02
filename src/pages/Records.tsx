@@ -1308,6 +1308,8 @@ export default function Records() {
       (typeof crypto !== "undefined" && (crypto as any).randomUUID)
         ? (crypto as any).randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    // 로컬 그룹 ID(완료 클릭으로 묶인 1차/2차) → DB 그룹 UUID 매핑
+    const groupIdMap = new Map<string, string>();
     const payloads = rows.flatMap((r) => {
       const co = companies.find((c) => c.id === r.company_id);
       const base = {
@@ -1335,10 +1337,23 @@ export default function Records() {
       two_person: r.two_person,
       is_missing: false,
       };
+      // 완료 클릭으로 묶인 1차/2차 행은 그대로 각각 저장 (같은 group_id 공유)
+      if (r.revisit_group_local) {
+        let gid = groupIdMap.get(r.revisit_group_local);
+        if (!gid) { gid = makeUuid(); groupIdMap.set(r.revisit_group_local, gid); }
+        return [{
+          ...base,
+          revisit_group_id: gid,
+          revisit_visit_no: r.revisit_visit_no,
+          revisit_required: true,
+          revisit_done: r.revisit_visit_no === 1 ? true : false,
+        }];
+      }
+      // 완료 클릭 없이 "예정"만 체크된 경우 → 동일 내용 2차 행 자동 생성
       if (r.revisit_required) {
         const groupId = makeUuid();
         return [
-          { ...base, revisit_group_id: groupId, revisit_visit_no: 1, revisit_required: true, revisit_done: r.revisit_done },
+          { ...base, revisit_group_id: groupId, revisit_visit_no: 1, revisit_required: true, revisit_done: false },
           { ...base, revisit_group_id: groupId, revisit_visit_no: 2, revisit_required: true, revisit_done: false },
         ];
       }
