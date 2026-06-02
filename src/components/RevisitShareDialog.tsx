@@ -103,7 +103,9 @@ export function RevisitShareDialog({
     () => rows.reduce((s, r) => s + (Number(r.amount) || 0), 0),
     [rows],
   );
-  const diff = baseTotal - sumEntered;
+  const remaining = baseTotal - sumEntered;
+  const overBudget = sumEntered > baseTotal;
+  const exactMatch = sumEntered === baseTotal;
 
   if (!first) return null;
 
@@ -114,6 +116,32 @@ export function RevisitShareDialog({
     setRows((rs) => [...rs, { leader_id: "", leader_name: "", amount: 0 }]);
   const removeRow = (idx: number) =>
     setRows((rs) => rs.filter((_, i) => i !== idx));
+
+  const distributeEqually = () => {
+    const valid = rows.filter((r) => r.leader_id);
+    if (valid.length === 0) {
+      toast.error("팀장을 먼저 선택해주세요");
+      return;
+    }
+    const per = Math.floor(baseTotal / valid.length);
+    const leftover = baseTotal - per * valid.length;
+    let assigned = 0;
+    setRows((rs) =>
+      rs.map((r) => {
+        if (!r.leader_id) return { ...r, amount: 0 };
+        assigned += 1;
+        return { ...r, amount: assigned === valid.length ? per + leftover : per };
+      }),
+    );
+  };
+
+  const assignRemainingTo = (idx: number) => {
+    setRows((rs) =>
+      rs.map((r, i) =>
+        i === idx ? { ...r, amount: Math.max(0, (Number(r.amount) || 0) + remaining) } : r,
+      ),
+    );
+  };
 
   const save = async () => {
     const cleaned = rows
@@ -126,6 +154,13 @@ export function RevisitShareDialog({
           amount: Math.round(Number(r.amount)),
         };
       });
+    if (cleaned.length > 0) {
+      const total = cleaned.reduce((s, r) => s + r.amount, 0);
+      if (total !== baseTotal) {
+        toast.error(`분배 합계(${total.toLocaleString()}원)가 1차 고정금액(${baseTotal.toLocaleString()}원)과 일치해야 합니다`);
+        return;
+      }
+    }
     setSaving(true);
     try {
       // 1차 행에 수기분배 저장
@@ -162,18 +197,28 @@ export function RevisitShareDialog({
         <DialogHeader>
           <DialogTitle>재방문 팀장 분배 입력</DialogTitle>
           <DialogDescription>
-            1차 배송비를 팀장별로 직접 분배합니다. 입력하지 않은 경우 1차 행의 팀장1에게 전액 귀속됩니다.
+            아래 1차 고정금액 범위 안에서 팀장별 정산 금액을 직접 입력합니다.
+            합계가 고정금액과 정확히 일치해야 저장됩니다.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="text-sm text-muted-foreground border rounded-md p-3 bg-muted/30">
-            <div>1차 날짜: <b>{first.date}</b></div>
-            <div>고객/지역: <b>{first.customer_name || "-"}</b> / {first.region || "-"}</div>
-            <div>1차 총액: <b>{baseTotal.toLocaleString()}원</b>
-              <span className="ml-2 text-xs">
+          <div className="rounded-md border bg-primary/5 p-4">
+            <div className="text-xs text-muted-foreground">1차 고정금액 (분배 한도)</div>
+            <div className="mt-1 text-3xl font-bold tabular-nums">
+              {baseTotal.toLocaleString()}<span className="text-base font-medium ml-1">원</span>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {first.date} · {first.customer_name || "-"} / {first.region || "-"}
+              <span className="ml-2">
                 (수도권 {Number(first.metro_fee).toLocaleString()} / 비고 {Number(first.note_amount).toLocaleString()} / 지방 {Number(first.regional_fee).toLocaleString()})
               </span>
             </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium">팀장별 분배</div>
+            <Button size="sm" variant="outline" onClick={distributeEqually}>
+              균등 분배
+            </Button>
           </div>
           <div className="space-y-2">
             {rows.map((r, i) => (
@@ -198,21 +243,46 @@ export function RevisitShareDialog({
                   placeholder="금액"
                 />
                 <span className="text-sm text-muted-foreground">원</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => assignRemainingTo(i)}
+                  disabled={remaining === 0 || !r.leader_id}
+                  title="남은 금액을 이 팀장에게 배정"
+                >
+                  잔액
+                </Button>
                 <Button size="sm" variant="ghost" onClick={() => removeRow(i)}>삭제</Button>
               </div>
             ))}
             <Button size="sm" variant="outline" onClick={addRow}>+ 팀장 추가</Button>
           </div>
-          <div className="flex items-center justify-end gap-4 text-sm border-t pt-2">
-            <span>입력 합계: <b>{sumEntered.toLocaleString()}원</b></span>
-            <span className={diff === 0 ? "text-muted-foreground" : "text-destructive"}>
-              차액: {diff.toLocaleString()}원
-            </span>
+          <div className="grid grid-cols-3 gap-2 text-sm border-t pt-3">
+            <div className="rounded-md border p-2 text-center">
+              <div className="text-xs text-muted-foreground">고정금액</div>
+              <div className="font-semibold tabular-nums">{baseTotal.toLocaleString()}원</div>
+            </div>
+            <div className="rounded-md border p-2 text-center">
+              <div className="text-xs text-muted-foreground">입력 합계</div>
+              <div className={`font-semibold tabular-nums ${overBudget ? "text-destructive" : ""}`}>
+                {sumEntered.toLocaleString()}원
+              </div>
+            </div>
+            <div className={`rounded-md border p-2 text-center ${exactMatch ? "bg-primary/10 border-primary/30" : overBudget ? "bg-destructive/10 border-destructive/30" : ""}`}>
+              <div className="text-xs text-muted-foreground">
+                {overBudget ? "초과" : "남은 금액"}
+              </div>
+              <div className={`font-semibold tabular-nums ${overBudget ? "text-destructive" : exactMatch ? "text-primary" : ""}`}>
+                {Math.abs(remaining).toLocaleString()}원
+              </div>
+            </div>
           </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>취소</Button>
-          <Button onClick={save} disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
+          <Button onClick={save} disabled={saving || (sumEntered > 0 && !exactMatch)}>
+            {saving ? "저장 중..." : "저장"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
