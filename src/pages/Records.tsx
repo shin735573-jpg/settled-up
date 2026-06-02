@@ -1963,10 +1963,9 @@ export default function Records() {
       }
     }
     const candidates = [...byGroup.values(), ...singles].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    setRevisitDetectCandidates(candidates);
-    setRevisitDetectIdx(null);
+    // 단일폼: 인라인 드롭다운으로 표시 (다이얼로그 X)
+    setFormRevisitCandidates(candidates);
     setFormRevisitOpen(true);
-    setRevisitDetectOpen(true);
   };
 
   // 종합 오류 검사 실행
