@@ -228,3 +228,63 @@ export function summarizeBulk(
     suspectMatches,
   };
 }
+
+// 관리자용: 로드된 배송 목록에서 "중복 의심" 그룹을 만든다.
+//  - 그룹 키: 날짜|업체|고객|배송지|품목|배송합계 (의심 중복 기준)
+//  - 2건 이상 모인 그룹만 반환
+//  - 그룹 안에서 "정확 중복"인 행과 그렇지 않은 "의심" 행을 함께 표시
+export type DuplicateGroup = {
+  key: string;
+  date: string;
+  company: string;
+  customer: string;
+  region: string;
+  item: string;
+  fee: number;
+  rows: DupDelivery[];
+  exactPairs: number; // 그룹 내에서 서로 완전 중복인 쌍 수
+};
+
+export function groupSuspectDuplicates(rows: DupDelivery[]): DuplicateGroup[] {
+  const map = new Map<string, DupDelivery[]>();
+  const keyOf = (r: DupDelivery) => [
+    String(r.date ?? "").slice(0, 10),
+    String(r.company_id ?? r.company_name ?? "").toLowerCase().trim(),
+    String(r.customer_name ?? "").trim(),
+    String(r.region ?? "").toLowerCase().trim(),
+    String(r.item ?? "").trim(),
+    num(r.metro_fee) + num(r.note_amount) + num(r.regional_fee),
+  ].join("|");
+  for (const r of rows) {
+    const k = keyOf(r);
+    const arr = map.get(k) || [];
+    arr.push(r);
+    map.set(k, arr);
+  }
+  const groups: DuplicateGroup[] = [];
+  for (const [key, rs] of map.entries()) {
+    if (rs.length < 2) continue;
+    // 정확 중복 쌍 수
+    let pairs = 0;
+    for (let i = 0; i < rs.length; i++) {
+      for (let j = i + 1; j < rs.length; j++) {
+        if (findExactDuplicates(rs[i], [rs[j]]).length > 0) pairs++;
+      }
+    }
+    const first = rs[0];
+    groups.push({
+      key,
+      date: String(first.date ?? "").slice(0, 10),
+      company: String(first.company_name ?? ""),
+      customer: String(first.customer_name ?? ""),
+      region: String(first.region ?? ""),
+      item: String(first.item ?? ""),
+      fee: num(first.metro_fee) + num(first.note_amount) + num(first.regional_fee),
+      rows: rs,
+      exactPairs: pairs,
+    });
+  }
+  // 정확중복 쌍 많은 순 → 날짜 내림차순
+  groups.sort((a, b) => b.exactPairs - a.exactPairs || b.date.localeCompare(a.date));
+  return groups;
+}
