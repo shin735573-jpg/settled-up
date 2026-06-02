@@ -983,6 +983,15 @@ export default function LeaderSettlement() {
 
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
 
+      {!totalFeeCheck.ok && (
+        <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <strong>총배송비 검증 실패 — </strong>
+          통합식 {totalFeeCheck.unified.toLocaleString()}원 vs
+          팀장정산식 {totalFeeCheck.leaderStyle.toLocaleString()}원
+          (차이 {totalFeeCheck.diff.toLocaleString()}원). 업체정산 화면과 합계가 일치하지 않습니다.
+        </div>
+      )}
+
       {!leaderId && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
