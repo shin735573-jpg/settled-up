@@ -601,6 +601,15 @@ export default function HQSettlement() {
     return { ok: true };
   };
   const handleAutoRegisterOne = async (lc: LoadingCost) => {
+    const co = companies.find((c) => c.id === lc.company_id);
+    const summary = [
+      { label: "업체", value: co?.name || "-" },
+      { label: "날짜", value: `${month}-${pad2(lc.day)}` },
+      { label: "항목", value: "적재비" },
+      { label: "금액", value: `${fmt(Number(lc.amount || 0))}원` },
+    ];
+    const ok = await confirmSave({ title: "적재비 자동등록 확인", summary, confirmLabel: "등록" });
+    if (!ok) return;
     const r = await autoRegisterLoading(lc);
     if (r.ok) {
       toast({ title: "자동등록 완료", description: `${companies.find((c) => c.id === lc.company_id)?.name ?? ""} · ${month}-${pad2(lc.day)} · ${fmt(lc.amount)}` });
@@ -614,6 +623,17 @@ export default function HQSettlement() {
       toast({ title: "등록할 적재비 없음", variant: "destructive" });
       return;
     }
+    const totalAmt = loadingCosts.reduce((s, lc) => s + Number(lc.amount || 0), 0);
+    const ok = await confirmSave({
+      title: "전체 적재비 자동등록 확인",
+      summary: [
+        { label: "건수", value: `${loadingCosts.length}건` },
+        { label: "월", value: month },
+        { label: "총액", value: `${fmt(totalAmt)}원` },
+      ],
+      confirmLabel: "전체 등록",
+    });
+    if (!ok) return;
     let ok = 0, skip = 0, fail = 0;
     const failReasons: string[] = [];
     for (const lc of loadingCosts) {
