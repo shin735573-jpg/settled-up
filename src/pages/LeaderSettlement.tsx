@@ -111,6 +111,7 @@ function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null 
 
 export default function LeaderSettlement() {
   const { user } = useAuth();
+  const { confirm: confirmSave, dialog: saveConfirmDialog } = useSaveConfirm();
   const initial = useMemo(() => getCurrentHalf(), []);
   const [month, setMonth] = useState(() => initial.month);
   const [period, setPeriod] = useState<Period>(initial.half === "h1" ? "first" : "second");
