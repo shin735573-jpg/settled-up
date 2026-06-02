@@ -4435,6 +4435,14 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
         <OcrCheckPanel max={10} onRegister={appendExtractedRows} />
       </DialogContent>
     </Dialog>
+    <RevisitShareDialog
+      open={revisitShareOpen}
+      onOpenChange={setRevisitShareOpen}
+      first={revisitShareFirst}
+      extraLeaders={revisitShareExtraLeaders}
+      leaders={selectableLeaders}
+      onSaved={loadAll}
+    />
     </>
   );
 }
