@@ -1359,6 +1359,9 @@ export default function Records() {
     if (form.is_missing && !form.missing_reason.trim()) {
       toast.error("누락 사유를 입력해주세요"); return;
     }
+    if (form.is_missing && !form.settle_month.trim()) {
+      toast.error("누락분은 정산 반영월을 선택해주세요"); return;
+    }
     // 누락분 모드에서는 저장 직전 자동 검사
     if (form.is_missing) {
       const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
