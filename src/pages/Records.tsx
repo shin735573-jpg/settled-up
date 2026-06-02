@@ -2599,6 +2599,64 @@ export default function Records() {
         onSaved={() => { setPasteOpen(false); load(); }}
         onReload={load}
       />
+      <Dialog open={revisitPickerOpen} onOpenChange={setRevisitPickerOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>재방문 완료 등록 — 저장된 1차 배송 선택</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="text-xs text-muted-foreground">
+              "재방문 필요"로 저장됐지만 아직 2차 입력이 없는 1차 배송 목록입니다. 한 건을 선택하면 같은 내용이 잠금된 2차 행으로 추가됩니다 (금액만 수정 가능).
+            </div>
+            <div className="max-h-[60vh] overflow-auto border rounded-md">
+              <table className="w-full text-xs">
+                <thead className="bg-muted sticky top-0">
+                  <tr className="text-left">
+                    <th className="p-2">날짜</th>
+                    <th className="p-2">업체</th>
+                    <th className="p-2">고객</th>
+                    <th className="p-2">지역</th>
+                    <th className="p-2">상품</th>
+                    <th className="p-2">팀장</th>
+                    <th className="p-2 text-right">금액</th>
+                    <th className="p-2 w-20"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revisitLoading && (
+                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
+                  )}
+                  {!revisitLoading && revisitCandidates.length === 0 && (
+                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">미완료 1차 배송이 없습니다.</td></tr>
+                  )}
+                  {!revisitLoading && revisitCandidates.map((r) => {
+                    const amt =
+                      Number(r.metro_fee || 0) + Number(r.regional_fee || 0) +
+                      Number(r.note_amount || 0) + Number(r.cod_amount || 0);
+                    return (
+                      <tr key={r.id} className="border-t hover:bg-muted/40">
+                        <td className="p-2 whitespace-nowrap">{r.date}</td>
+                        <td className="p-2">{r.company_name}</td>
+                        <td className="p-2">{r.customer_name || ""}</td>
+                        <td className="p-2">{r.region || ""}</td>
+                        <td className="p-2 max-w-[200px] truncate" title={r.item || ""}>{r.item || ""}</td>
+                        <td className="p-2">{[r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join(", ")}</td>
+                        <td className="p-2 text-right tabular-nums">{fmt(amt)}</td>
+                        <td className="p-2">
+                          <Button size="sm" onClick={() => addRevisitFromExisting(r)}>선택</Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevisitPickerOpen(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!dongPrompt} onOpenChange={(v) => !v && setDongPrompt(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
