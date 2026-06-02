@@ -1376,59 +1376,22 @@ export default function Records() {
     if (form.id) {
       ({ error } = await supabase.from("deliveries").update(payload).eq("id", form.id));
     } else {
-      // 신규 저장 + "재방문 필요" 체크: 1차/2차 두 행을 같은 그룹으로 동시 저장
+      // 신규 저장 + "재방문 필요" 체크: 1차만 저장하고 그룹 ID를 부여.
+      // 2차는 실제 재방문 시 사용자가 직접 입력(수정 가능) — 자동 복사 금지.
       if (form.revisit_required && !form.revisit_group_id) {
         const groupId =
           (typeof crypto !== "undefined" && (crypto as any).randomUUID)
             ? (crypto as any).randomUUID()
             : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const first = { ...payload, revisit_group_id: groupId, revisit_visit_no: 1, revisit_done: true, revisit_required: true };
-        const second = { ...payload, revisit_group_id: groupId, revisit_visit_no: 2, revisit_done: false };
-        ({ error } = await supabase.from("deliveries").insert([first, second]));
+        const first = { ...payload, revisit_group_id: groupId, revisit_visit_no: 1, revisit_done: false, revisit_required: true };
+        ({ error } = await supabase.from("deliveries").insert(first));
       } else {
         ({ error } = await supabase.from("deliveries").insert(payload));
       }
     }
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    // 기존 그룹의 행을 수정/저장하면서 "재방문 요청"이 켜져있으면 다음 차수 행을 자동 생성
-    // (예: 2차 행에서 재방문 요청 → 3차 자동 생성, 3차 → 4차 …)
-    if (form.revisit_required && form.revisit_group_id) {
-      const { data: groupRows } = await supabase
-        .from("deliveries")
-        .select("id,revisit_visit_no")
-        .eq("revisit_group_id", form.revisit_group_id);
-      const currentVisit = Number(form.revisit_visit_no || 1);
-      const maxV = (groupRows || []).reduce(
-        (m: number, g: any) => Math.max(m, Number(g.revisit_visit_no || 1)),
-        currentVisit,
-      );
-      // 현재 행이 최신 차수일 때만 다음 차수 자동 생성
-      if (currentVisit >= maxV) {
-        const nextVisit = maxV + 1;
-        const nextPayload = {
-          ...payload,
-          revisit_group_id: form.revisit_group_id,
-          revisit_visit_no: nextVisit,
-          revisit_required: true,
-          revisit_done: false,
-          // 금액은 새 차수에서 다시 입력하므로 초기화
-          metro_fee: 0,
-          note_amount: 0,
-          regional_fee: 0,
-          cod_amount: 0,
-        };
-        const { error: e2 } = await supabase.from("deliveries").insert(nextPayload);
-        if (e2) { toast.error(`${nextVisit}차 자동 생성 실패: ${e2.message}`); return; }
-        // 이전 차수는 모두 처리 완료로 표시
-        await supabase
-          .from("deliveries")
-          .update({ revisit_done: true })
-          .eq("revisit_group_id", form.revisit_group_id)
-          .lt("revisit_visit_no", nextVisit);
-        toast.success(`${nextVisit}차 행이 자동 생성되었습니다`);
-      }
-    }
+    // 다음 차수 자동 생성 로직 제거 — 다음 차수는 사용자가 직접 등록.
     toast.success(form.id ? "수정 완료" : "저장 완료");
     setForm(emptyForm());
     load();
