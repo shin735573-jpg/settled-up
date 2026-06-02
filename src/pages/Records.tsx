@@ -1836,7 +1836,8 @@ export default function Records() {
   // 감지된 후보 선택 → 항상 그룹의 최초 1차 배송을 가져와 잠금된 다음 차수 행을 자동 생성.
   const confirmDetectedRevisit = async (src: any) => {
     const idx = revisitDetectIdx;
-    if (idx == null) return;
+    const forForm = revisitDetectForForm;
+    if (idx == null && !forForm) return;
     let effectiveSrc = src;
     let nextVisitNo = 2;
     if (src.revisit_group_id) {
@@ -1869,19 +1870,43 @@ export default function Records() {
       if (error) { toast.error(`1차 표시 실패: ${error.message}`); return; }
       effectiveSrc = { ...src, revisit_group_id: newGid, revisit_required: true, revisit_done: true, revisit_visit_no: 1 };
     }
-    const clone = build2ndBulkRowFromSrc(effectiveSrc);
-    clone.revisit_visit_no = nextVisitNo;
-    // 현재 입력 행은 그대로 두고, 바로 아래에 잠금된 2차 행(원본 1차 내용 그대로, 금액만 수정 가능)을 자동 생성.
-    // 팀장이 1차와 달라도 _existing 필드에 보관되어 함께 표시됨.
-    setBulkRows((rows) => {
-      const next = [...rows];
-      next.splice(idx + 1, 0, clone);
-      return next;
-    });
+    if (forForm) {
+      // 단일폼: 폼을 다음 차수로 세팅 (1차 내용 그대로, 금액만 비워 새로 입력)
+      setForm((f) => ({
+        ...f,
+        company_id: effectiveSrc.company_id || f.company_id,
+        company_name: effectiveSrc.company_name || f.company_name,
+        customer_name: effectiveSrc.customer_name || f.customer_name,
+        region: effectiveSrc.region || f.region,
+        region_type: (effectiveSrc.region_type as RegionType) || f.region_type,
+        item: effectiveSrc.item || f.item,
+        leader1_id: effectiveSrc.leader1_id || f.leader1_id,
+        leader2_id: effectiveSrc.leader2_id || f.leader2_id,
+        leader3_id: effectiveSrc.leader3_id || f.leader3_id,
+        revisit_group_id: effectiveSrc.revisit_group_id,
+        revisit_visit_no: nextVisitNo,
+        revisit_required: true,
+        revisit_done: false,
+        metro_fee: "",
+        regional_fee: "",
+        note_amount: "",
+        cod_amount: "",
+      }));
+      toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차로 설정됨 (1차 내용 자동 채움)`);
+    } else if (idx != null) {
+      const clone = build2ndBulkRowFromSrc(effectiveSrc);
+      clone.revisit_visit_no = nextVisitNo;
+      setBulkRows((rows) => {
+        const next = [...rows];
+        next.splice(idx + 1, 0, clone);
+        return next;
+      });
+      toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차 행이 아래에 추가됨 (최초 1차 내용 그대로, 금액만 수정 가능)`);
+    }
     setRevisitDetectOpen(false);
     setRevisitDetectCandidates([]);
     setRevisitDetectIdx(null);
-    toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차 행이 아래에 추가됨 (최초 1차 내용 그대로, 금액만 수정 가능)`);
+    setRevisitDetectForForm(false);
   };
 
   // 단일폼 자동 매칭: 같은 키 반복 호출 방지용
