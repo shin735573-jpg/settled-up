@@ -266,6 +266,11 @@ export default function RecordsBrowse() {
     }
     setSaving(true);
     let ok = 0, fail = 0;
+    // 통합 이력용 — patch별 plan/그룹 매핑
+    const { recordMergeLog } = await import("@/lib/mergeLog");
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id ?? null;
+    const patchById = new Map(patches.map((p) => [p.id, p.patch]));
     for (const { id, patch } of patches) {
       const cleanPatch: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(patch)) {
@@ -290,6 +295,26 @@ export default function RecordsBrowse() {
     // 통합으로 합쳐진 나머지 행은 실제로 삭제 (1개 row만 남도록)
     let deleted = 0;
     if (deleteIds.length > 0) {
+      // 삭제 전에 통합 이력 저장
+      if (userId) {
+        for (const p of plan) {
+          if (p.action !== "merge_companion" && p.action !== "merge_two_person") continue;
+          const rows = groupsByKey.get(p.groupKey) ?? [];
+          const targets = rows.filter((r) => p.targetIds.includes(r.id));
+          if (targets.length < 2) continue;
+          const baseRow = targets[0];
+          const others = targets.slice(1);
+          const baseAfter = { ...baseRow, ...(patchById.get(baseRow.id) ?? {}) };
+          await recordMergeLog({
+            userId,
+            baseRowId: baseRow.id,
+            action: p.action,
+            baseBefore: baseRow as unknown as Record<string, unknown> & { id: string },
+            baseAfter: baseAfter as unknown as Record<string, unknown> & { id: string },
+            mergedRows: others as unknown as Array<Record<string, unknown> & { id: string }>,
+          });
+        }
+      }
       const { error: delErr } = await supabase
         .from("deliveries")
         .delete()
