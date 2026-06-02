@@ -44,12 +44,22 @@ function buildCsv(result: TotalVsBilledCheck): string {
 export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledCheck }) {
   const [open, setOpen] = useState(true);
   const [query, setQuery] = useState("");
+  const [preVat, setPreVat] = useState(false);
   const navigate = useNavigate();
 
   const hasComponents = result.components.some((c) => c.amount > 0);
   if (!hasComponents && result.diff === 0) return null;
 
-  const reconcileOk = Math.abs(result.reconstructed - result.diff) <= 1;
+  // preVat 모드: 부가세(vat_added)를 제거한 B (= B − VAT) 와 T 비교
+  const vatComp = result.components.find((c) => c.key === "vat_added");
+  const vatAmt = vatComp?.amount ?? 0;
+  const billedDisplay = preVat ? result.billedTotal - vatAmt : result.billedTotal;
+  const diffDisplay = result.totalFee - billedDisplay;
+  const componentsDisplay = preVat
+    ? result.components.filter((c) => c.key !== "vat_added")
+    : result.components;
+  const reconstructedDisplay = componentsDisplay.reduce((s, c) => s + c.signedAmount, 0);
+  const reconcileOk = Math.abs(reconstructedDisplay - diffDisplay) <= 1;
 
   return (
     <div className="rounded border border-amber-500 bg-amber-500/10 px-3 py-2 text-sm text-foreground">
@@ -61,26 +71,40 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
         <span className="flex items-center gap-1">
           {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           <strong className="text-amber-700 dark:text-amber-400">
-            총배송비 vs 업체청구금액 차이 100% 추적
+            총배송비 vs {preVat ? "업체청구(VAT제외)" : "업체청구금액"} 차이 100% 추적
           </strong>
           <span className="ml-2">
-            총배송비 {result.totalFee.toLocaleString()}원 − 업체청구 {result.billedTotal.toLocaleString()}원
+            총배송비 {result.totalFee.toLocaleString()}원 − {preVat ? "B−VAT" : "업체청구"} {billedDisplay.toLocaleString()}원
             {" = "}
-            <span className={result.diff !== 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>
-              {result.diff > 0 ? "+" : ""}{result.diff.toLocaleString()}원
+            <span className={diffDisplay !== 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>
+              {diffDisplay > 0 ? "+" : ""}{diffDisplay.toLocaleString()}원
             </span>
           </span>
         </span>
-        <span
-          onClick={(e) => { e.stopPropagation(); downloadCsv(buildCsv(result), "total-vs-billed.csv"); }}
-          className="inline-flex items-center gap-1 rounded border border-amber-500 bg-background px-2 py-1 text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer"
-        >
-          <Download className="h-3.5 w-3.5" /> CSV
+        <span className="flex items-center gap-2">
+          <span
+            onClick={(e) => { e.stopPropagation(); setPreVat((v) => !v); }}
+            className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs cursor-pointer ${preVat ? "border-amber-500 bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold" : "border-border bg-background text-muted-foreground hover:bg-muted/50"}`}
+            title="부가세(VAT) 가산 항목을 제외하고 T vs B−VAT 비교"
+          >
+            preVat {preVat ? "ON" : "OFF"}
+          </span>
+          <span
+            onClick={(e) => { e.stopPropagation(); downloadCsv(buildCsv(result), "total-vs-billed.csv"); }}
+            className="inline-flex items-center gap-1 rounded border border-amber-500 bg-background px-2 py-1 text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+          >
+            <Download className="h-3.5 w-3.5" /> CSV
+          </span>
         </span>
       </button>
 
       {open && (
         <div className="mt-2 space-y-3">
+          {preVat && (
+            <div className="text-xs text-muted-foreground">
+              preVat 모드: 부가세 가산({vatAmt.toLocaleString()}원, {vatComp?.rows.length ?? 0}건)을 제외한 업체청구(B−VAT)와 총배송비(T)를 비교합니다.
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
@@ -93,7 +117,7 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
                 </tr>
               </thead>
               <tbody>
-                {result.components.map((c) => {
+                {componentsDisplay.map((c) => {
                   const hot = c.amount > 0;
                   return (
                     <tr key={c.key} className="border-b border-border/40">
@@ -111,12 +135,12 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
                   <td className="px-1 py-1">분해 합 (T−B 재구성)</td>
                   <td className="px-1 py-1" />
                   <td className={`px-1 py-1 text-right tabular-nums ${reconcileOk ? "" : "text-destructive"}`}>
-                    {result.reconstructed > 0 ? "+" : ""}{result.reconstructed.toLocaleString()}
+                    {reconstructedDisplay > 0 ? "+" : ""}{reconstructedDisplay.toLocaleString()}
                   </td>
                   <td className="px-1 py-1 text-right tabular-nums" colSpan={2}>
                     {reconcileOk
                       ? "✓ 실제 차이와 일치 (100% 추적됨)"
-                      : `⚠ 실제 차이 ${result.diff.toLocaleString()}원과 ${(result.diff - result.reconstructed).toLocaleString()}원 불일치`}
+                      : `⚠ 실제 차이 ${diffDisplay.toLocaleString()}원과 ${(diffDisplay - reconstructedDisplay).toLocaleString()}원 불일치`}
                   </td>
                 </tr>
               </tbody>
@@ -132,7 +156,7 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
           />
 
           <div className="grid gap-2">
-            {result.components.filter((c) => c.amount > 0).map((c) => (
+            {componentsDisplay.filter((c) => c.amount > 0).map((c) => (
               <ComponentBlock key={c.key} label={c.label} hint={c.hint} rows={c.rows} query={query} onJump={(id) => navigate(`/records?edit=${id}`)} />
             ))}
           </div>
