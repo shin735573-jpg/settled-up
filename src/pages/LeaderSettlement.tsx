@@ -6,6 +6,7 @@ import { totalLeaderSettlementDeliveryFee, totalUnifiedDeliveryFee, computeCompa
 import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
 import { TotalFeeMismatchBanner } from "@/components/TotalFeeMismatchBanner";
 import { crossCheckCompanyBilled } from "@/lib/companyBilledCrossCheck";
+import { logTotalFeeMismatch } from "@/lib/totalFeeCrossCheck";
 import { CompanyBilledMismatchBanner } from "@/components/CompanyBilledMismatchBanner";
 import { crossCheckTotalVsBilled } from "@/lib/totalVsBilledCrossCheck";
 import { TotalVsBilledMismatchBanner } from "@/components/TotalVsBilledMismatchBanner";
@@ -697,6 +698,11 @@ export default function LeaderSettlement() {
   useEffect(() => {
     if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
       toast.error(totalFeeCheck.message ?? "총배송비 검증 실패");
+      logTotalFeeMismatch(totalFeeCheck, {
+        unifiedLabel: "통합식",
+        leaderLabel: "팀장정산식",
+        context: "LeaderSettlement",
+      });
       lastWarnedDiffRef.current = totalFeeCheck.diff;
     } else if (totalFeeCheck.ok) {
       lastWarnedDiffRef.current = null;
