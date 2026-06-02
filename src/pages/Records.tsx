@@ -1775,6 +1775,7 @@ export default function Records() {
                       <td className="p-1">
                         <Select
                           value={r.region_type}
+                          disabled={isSecond}
                           onValueChange={(v) => {
                             const next = v as RegionType;
                             // 배송비 값을 새 지역구분 칸으로 자동 이동
@@ -1796,42 +1797,66 @@ export default function Records() {
                       <td className="p-1 text-center">
                         <button
                           type="button"
-                          onClick={() => upd({ revisit_required: !r.revisit_required })}
+                          onClick={() => { if (!isSecond) upd({ revisit_required: !r.revisit_required }); }}
+                          disabled={isSecond}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
-                            r.revisit_required ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                            r.revisit_required ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
+                            isSecond && "opacity-50 cursor-not-allowed"
                           )}
                           title="저장 시 같은 내용의 2차 방문 행이 함께 생성됩니다 (업체 청구는 1건으로 합산)"
                         >
-                          {r.revisit_required ? "예정" : "—"}
+                          {isSecond ? "2차" : (r.revisit_required ? "예정" : "—")}
                         </button>
                       </td>
                       <td className="p-1 text-center">
                         <button
                           type="button"
                           onClick={() => {
-                            // 재방문 완료 클릭 시 → 현재 행 내용을 그대로 복제해 바로 아래 새 행으로 추가.
-                            // 사용자가 2차 방문 내용(금액/비고/날짜는 상단 공유)을 즉시 확인·수정 가능.
+                            // 2차 행에서는 비활성: 클릭 무시
+                            if (isSecond) return;
+                            // 재방문 완료 클릭 시 → 최초 배송 내용 그대로 복제한 2차 행을 바로 아래 생성.
+                            // 2차 행은 팀장·업체·상품 등 내용은 잠금 처리, 금액만 수정 가능.
                             setBulkRows((rows) => {
                               const next = [...rows];
+                              const groupLocal = rows[idx].revisit_group_local || (
+                                (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+                                  ? (crypto as any).randomUUID()
+                                  : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+                              );
                               const clone: BulkRow = {
                                 ...rows[idx],
-                                revisit_required: false,
+                                revisit_required: true,
                                 revisit_done: false,
+                                revisit_group_local: groupLocal,
+                                revisit_visit_no: 2,
+                                // 금액은 비워 사용자가 2차 금액만 입력하도록
+                                metro_fee: "",
+                                regional_fee: "",
+                                note_amount: "",
+                                cod_amount: "",
                               };
                               next.splice(idx + 1, 0, clone);
-                              // 원본 행은 "완료" 표시
-                              next[idx] = { ...rows[idx], revisit_done: true };
+                              // 원본 행: 1차 + 재방문 완료 + 같은 그룹
+                              next[idx] = {
+                                ...rows[idx],
+                                revisit_required: true,
+                                revisit_done: true,
+                                revisit_group_local: groupLocal,
+                                revisit_visit_no: 1,
+                              };
                               return next;
                             });
                           }}
+                          disabled={isSecond}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
-                            r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                            r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
+                            isSecond && "opacity-50 cursor-not-allowed"
                           )}
                           title="클릭 시 같은 내용의 행이 바로 아래에 복제 생성됩니다 (2차 방문 내용 수정용)"
                         >
-                          {r.revisit_done ? "완료" : "—"}
+                          {isSecond ? "—" : (r.revisit_done ? "완료" : "—")}
                         </button>
                       </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
