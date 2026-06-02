@@ -20,6 +20,7 @@ import Summary from "./pages/Summary";
 import HQSettlement from "./pages/HQSettlement";
 import Holidays from "./pages/Holidays";
 import Saves from "./pages/Saves";
+import Verify from "./pages/Verify";
 import Settings from "./pages/Settings";
 import SpecTests from "./pages/SpecTests";
 import OcrTest from "./pages/OcrTest";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/hq-settlement" element={<RouteErrorBoundary routeName="HQSettlement (/hq-settlement)"><HQSettlement /></RouteErrorBoundary>} />
               <Route path="/holidays" element={<RouteErrorBoundary routeName="Holidays (/holidays)"><Holidays /></RouteErrorBoundary>} />
               <Route path="/saves" element={<RouteErrorBoundary routeName="Saves (/saves)"><Saves /></RouteErrorBoundary>} />
+              <Route path="/verify" element={<RouteErrorBoundary routeName="Verify (/verify)"><Verify /></RouteErrorBoundary>} />
               <Route path="/settings" element={<RouteErrorBoundary routeName="Settings (/settings)"><Settings /></RouteErrorBoundary>} />
               <Route path="/spec-tests" element={<RouteErrorBoundary routeName="SpecTests (/spec-tests)"><SpecTests /></RouteErrorBoundary>} />
               <Route path="/ocr-test" element={<RouteErrorBoundary routeName="OcrTest (/ocr-test)"><OcrTest /></RouteErrorBoundary>} />
