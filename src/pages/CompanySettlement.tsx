@@ -218,14 +218,18 @@ export default function CompanySettlement() {
 
   // 정산주기에 따라 업체 표시 필터
   // - 월전체/전체: 모든 업체 표시 (선택 업체의 월 전체 배송내역 = 1~15일 + 16~말일 합산)
-  // - 1~15일 / 16~말일: 보름(biweekly) 주기 업체만 표시 (한달 주기는 월전체로만 정산)
+  // - 1~15일 / 16~말일: 보름 주기 업체 + 해당 기간 실제 배송/착불이 있는 업체 표시
+  //   (월 업체라도 슬립웨이(월)처럼 기간 내 데이터가 있으면 목록에서 숨기지 않는다.)
   const visibleCompanies = useMemo(() => {
     return companies.filter((c) => {
       const cyc = c.settlement_cycle || "biweekly";
       if (period === "all" || period === "month") return true;
-      return cyc === "biweekly";
+      if (cyc === "biweekly") return true;
+      const hasPeriodRows = companyBillableRows.some((r) => matchesCompany(r, c));
+      const hasCarryRows = carryRows.some((r) => matchesCompany(r, c));
+      return hasPeriodRows || hasCarryRows;
     });
-  }, [companies, period]);
+  }, [companies, period, companyBillableRows, carryRows]);
 
   const companySummaries = useMemo(() => {
     const q = query.trim().toLowerCase();
