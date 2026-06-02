@@ -902,6 +902,8 @@ export default function Records() {
     cod_amount: string;
     two_person: boolean;
     paid: boolean;
+    revisit_required: boolean;
+    revisit_done: boolean;
   };
   const emptyBulkRow = (companyId: string = ""): BulkRow => ({
     company_id: companyId,
@@ -916,6 +918,8 @@ export default function Records() {
     cod_amount: "",
     two_person: false,
     paid: false,
+    revisit_required: false,
+    revisit_done: false,
   });
   const [bulkOpen, setBulkOpen] = useState(true);
   const [bulkShared, setBulkShared] = useState(() => {
