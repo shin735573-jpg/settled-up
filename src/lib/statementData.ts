@@ -86,7 +86,9 @@ export const PERIOD_LABEL: Record<PeriodKey, string> = {
  * 업체 청구서에서는 (date, company)별로 1행만 표시하고 금액은 비고금액 합계.
  */
 export const DEFAULT_SPECIAL_ONE_TIME_ITEMS = ["행사철수", "행사상차"] as const;
-let _specialItems = new Set<string>(DEFAULT_SPECIAL_ONE_TIME_ITEMS);
+let _specialItems = new Set<string>(
+  DEFAULT_SPECIAL_ONE_TIME_ITEMS.map((s) => s.replace(/\s+/g, "").trim()),
+);
 /**
  * 업체 청구서에서 다른 특수일 품목으로 합쳐서 청구할 별칭.
  * 예: "행사상차"(신동석/강형주 입력용)는 같은 날짜 "행사철수" 금액에 합산.
