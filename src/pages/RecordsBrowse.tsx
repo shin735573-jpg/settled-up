@@ -142,8 +142,8 @@ export default function RecordsBrowse() {
       return base;
     }
     // 팀장 관점:
-    // - 재방문 1차 행 → 해당 팀장 몫(차감 후) 금액으로 표시
-    // - 재방문 2차 행 → 화면에서 숨김 (1차 행에 합산되어 표시)
+    // - 재방문 1차 행 → 1차 팀장에게만 표시 (차감 후 본인 몫)
+    // - 재방문 2차+ 행 → 해당 회차 팀장에게 그 회차 자체 행/금액으로 표시
     // - 오은규 배송은 오동선으로 합산 정산되므로 오동선 상세에 함께 포함
     const odongseonId = leaders.find((l) => l.name.trim() === "오동선")?.id ?? null;
     const oeunkyuId = leaders.find((l) => l.name.trim() === "오은규")?.id ?? null;
@@ -157,9 +157,15 @@ export default function RecordsBrowse() {
     for (const r of base) {
       const ov = revisitOverride.get(r.id);
       if (ov !== undefined) {
-        // 재방문 그룹 — override 기준
+        if (ov.length === 0) {
+          // 2차+ 행 → 본인이 이 회차 팀장이면 그 회차 자체 행/금액으로 표시
+          if (r.leader1_id && targetIds.has(r.leader1_id)) out.push(r);
+          continue;
+        }
+        // 1차 행 → 본인이 1차 팀장일 때만 본인 몫으로 표시
+        if (!r.leader1_id || !targetIds.has(r.leader1_id)) continue;
         const fee = getRevisitFeeForLeader(r.id, revisitOverride, targetIds);
-        if (!fee) continue; // null → 이 팀장과 무관 또는 2차 행
+        if (!fee) continue;
         out.push({
           ...r,
           metro_fee: fee.metro,
