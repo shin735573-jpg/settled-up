@@ -3524,7 +3524,12 @@ export default function Records() {
       </TabsContent>
 
       <TabsContent value="form" className="mt-0">
-        <Card className="p-4 md:p-6 space-y-4">
+        <Card
+          ref={editFormRef as unknown as React.RefObject<HTMLDivElement>}
+          className={`p-4 md:p-6 space-y-4 transition-all duration-500 ${
+            editHighlight ? "ring-4 ring-primary ring-offset-2 shadow-lg" : ""
+          }`}
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               {form.id ? "배송 수정" : (form.is_missing ? "누락분 추가" : "새 배송 입력")}
