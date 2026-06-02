@@ -2347,6 +2347,65 @@ export default function Records() {
     setFormRevisitOpen(true);
   };
 
+  // 단건 폼 중복 체크 (저장과 무관, 미리 확인용)
+  const runFormDupCheck = async () => {
+    if (!form.date || !form.company_id) {
+      toast.error("중복 체크는 날짜와 업체가 선택된 뒤에 가능합니다");
+      return;
+    }
+    setFormDupChecking(true);
+    try {
+      const company = companies.find((c) => c.id === form.company_id);
+      const cand: DupDelivery = {
+        id: form.id,
+        date: form.date,
+        company_id: form.company_id,
+        company_name: company?.name || "",
+        customer_name: form.customer_name,
+        region: form.region || null,
+        item: form.item,
+        metro_fee: parseNum(form.metro_fee) || 0,
+        note_amount: parseNum(form.note_amount) || 0,
+        regional_fee: parseNum(form.regional_fee) || 0,
+        cod_amount: parseNum(form.cod_amount) || 0,
+        leader1_id: form.leader1_id || null,
+        leader2_id: form.leader2_id || null,
+        split_type: form.split_type || null,
+        two_person: !!form.two_person,
+        paid: !!form.paid,
+        note: form.note || null,
+      };
+      const { data: existing, error } = await supabase
+        .from("deliveries")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
+        .eq("date", form.date)
+        .eq("company_id", form.company_id);
+      if (error) throw error;
+      const pool = (existing || []) as DupDelivery[];
+      const ex = findExactDuplicates(cand, pool);
+      const sus = findSuspectDuplicates(cand, pool);
+      const matches = [...ex, ...sus].slice(0, 5).map((m) =>
+        `${m.date} ${m.company || "?"} / ${m.customer || "?"} / ${m.item || "?"} / 배송 ${m.fee.toLocaleString()}원`,
+      );
+      const status: "none" | "suspect" | "exact" =
+        ex.length > 0 ? "exact" : sus.length > 0 ? "suspect" : "none";
+      setFormDupCheck({
+        status,
+        exact: ex.length,
+        suspect: sus.length,
+        matches,
+        checkedAt: new Date().toLocaleTimeString("ko-KR"),
+      });
+      if (status === "exact") toast.error(`완전 중복 ${ex.length}건 발견 — 저장이 차단됩니다`);
+      else if (status === "suspect") toast.warning(`유사 중복 ${sus.length}건 발견 — 저장 전 확인하세요`);
+      else toast.success("중복 없음");
+    } catch (e: any) {
+      toast.error(`중복 체크 실패: ${e?.message || e}`);
+    } finally {
+      setFormDupChecking(false);
+    }
+  };
+
   // 종합 오류 검사 실행
   const runValidation = () => {
     const ctx: ValidationContext = {
