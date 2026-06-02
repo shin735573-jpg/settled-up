@@ -561,7 +561,10 @@ export function buildLeaderStatements(
   const revisitGroups = new Map<string, StmtDelivery[]>();
   const singles: StmtDelivery[] = [];
   for (const d of deliveries) {
-    if (isLeaderSettlementExcludedItem(d.item) || isVirtualSettlementRow(d, virtualIds)) continue;
+    if (isLeaderSettlementExcludedItem(d.item)) continue;
+    // 2인배송 행은 가상기사가 파트너로 들어있어도 실제 배송이므로 실제 팀장에게 분배한다.
+    // (allocateRow가 virtualIds를 받아 가상기사 몫은 자동 제외)
+    if (!d.two_person && isVirtualSettlementRow(d, virtualIds)) continue;
     if (d.revisit_group_id) {
       const arr = revisitGroups.get(d.revisit_group_id) || [];
       arr.push(d);
