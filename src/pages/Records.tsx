@@ -1775,12 +1775,46 @@ export default function Records() {
                         <div className="flex flex-col items-center gap-0.5">
                           <span>{idx + 1}</span>
                           {r.revisit_group_local && (
-                            <span className={cn(
-                              "text-[10px] px-1.5 py-0.5 rounded font-semibold",
-                              isSecond ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-                            )}>
-                              재방문{isSecond ? "2차" : "1차"}
-                            </span>
+                            <>
+                              <span className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded font-semibold",
+                                isSecond ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                              )}>
+                                재방문{isSecond ? "2차" : "1차"}
+                              </span>
+                              {isSecond && r.date_existing && (
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
+                                  1차: {r.date_existing}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className="text-[10px] px-1.5 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10"
+                                title="재방문 그룹을 해제하고 2차 행을 제거합니다"
+                                onClick={() => {
+                                  const gid = r.revisit_group_local;
+                                  if (!gid) return;
+                                  setBulkRows((rows) => {
+                                    // 같은 로컬 그룹의 2차 행 제거, 1차 행은 재방문 표시 해제
+                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && x.revisit_visit_no === 2));
+                                    return filtered.map((x) => {
+                                      if (x.revisit_group_local !== gid) return x;
+                                      const { revisit_group_local, revisit_group_id_existing, revisit_source_id_existing,
+                                        date_existing, company_name_existing,
+                                        leader1_id_existing, leader1_name_existing,
+                                        leader2_id_existing, leader2_name_existing,
+                                        leader3_id_existing, leader3_name_existing,
+                                        split_type_existing, paid_existing, two_person_existing,
+                                        ...rest } = x as any;
+                                      return { ...rest, revisit_required: false, revisit_done: false, revisit_visit_no: 1 } as BulkRow;
+                                    });
+                                  });
+                                  toast.success("재방문 해제됨");
+                                }}
+                              >
+                                취소
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
