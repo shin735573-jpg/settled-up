@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fmt } from "@/lib/format";
 import { allocateRow, feeForShare } from "@/lib/splitAllocation";
+import { isVirtualSettlementRow } from "@/lib/itemRules";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
@@ -123,6 +124,10 @@ export default function Summary() {
     () => new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id)),
     [leaders],
   );
+  const settlementPeriodRows = useMemo(
+    () => periodRows.filter((r) => !isVirtualSettlementRow(r, virtualIds)),
+    [periodRows, virtualIds],
+  );
 
   // settle_to_id 체인 + 가상기사 자동 귀속(설정된 경우만)
   const resolveSettleId = (id: string): string => {
@@ -145,7 +150,7 @@ export default function Summary() {
 
   // 각 행을 팀장 분배로 계산 — 한 명이라도 집계 가능 팀장에 귀속되면 행을 "유효"로 본다.
   const allocations = useMemo(() => {
-    return periodRows.map((r) => {
+    return settlementPeriodRows.map((r) => {
       const shares = allocateRow({
         leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
         split_type: r.split_type, two_person: r.two_person,
@@ -159,7 +164,7 @@ export default function Summary() {
       const hasValid = resolved.length > 0;
       return { row: r, shares: resolved, hasValid };
     });
-  }, [periodRows, leaders, byId, shindongseokId, ganghyungjuId]);
+  }, [settlementPeriodRows, leaders, byId, shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds]);
 
   const validRows = useMemo(() => allocations.filter((a) => a.hasValid), [allocations]);
 

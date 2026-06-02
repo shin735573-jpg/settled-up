@@ -2,6 +2,7 @@
 // Summary.tsx의 inline 로직과 동일한 규칙을 함수로 추출 — 단위 테스트가 가능하도록.
 
 import { allocateRow } from "./splitAllocation";
+import { isVirtualSettlementRow } from "./itemRules";
 
 export type Period = "h1" | "h2" | "all";
 
@@ -34,6 +35,7 @@ export type SummaryDelivery = {
   regional_fee: number;
   cod_amount: number;
   virtual_leader_id?: string | null;
+  virtual_leader_name?: string | null;
 };
 
 export const inPeriod = (dateStr: string, period: Period): boolean => {
@@ -87,7 +89,7 @@ export function aggregateSummary(
 ): AggregateResult {
   const byId = new Map(leaders.map((l) => [l.id, l]));
   const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
-  const periodRows = rows.filter((r) => inPeriod(r.date, period));
+  const periodRows = rows.filter((r) => inPeriod(r.date, period) && !isVirtualSettlementRow(r, virtualIds));
 
   const allocations = periodRows.map((r) => {
     const shares = allocateRow(
