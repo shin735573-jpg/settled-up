@@ -223,6 +223,7 @@ export default function HQSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
+        virtual_leader_id: (r as { virtual_leader_id?: string | null }).virtual_leader_id ?? null,
       }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
@@ -489,6 +490,7 @@ export default function HQSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
+        virtual_leader_id: (r as { virtual_leader_id?: string | null }).virtual_leader_id ?? null,
       }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
