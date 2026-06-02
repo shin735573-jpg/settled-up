@@ -186,4 +186,55 @@ describe("verifyChecks", () => {
     expect(csv).toContain("배송건수");
     expect(csv).toContain("[상세 이슈]");
   });
+
+  it("업체 배송총합과 팀장 배송총합이 같으면 총합 차이 0원", () => {
+    const leaders = [mkLeader("L1", "맹광식")];
+    const deliveries = [
+      mkRow({ date: "2026-05-05", leader1_id: "L1", leader1_name: "맹광식", metro_fee: 100000, regional_fee: 20000, note_amount: 5000 }),
+      mkRow({ date: "2026-05-12", leader1_id: "L1", leader1_name: "맹광식", metro_fee: 80000 }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders, period: "h1", deductionCtx: emptyCtx,
+    });
+    expect(r.companyDeliveryTotal).toBe(205000);
+    expect(r.leaderDeliveryTotal).toBe(205000);
+    expect(r.totalsDiff).toBe(0);
+    expect(r.issues.find((i) => i.code === "TOTALS_MISMATCH")).toBeUndefined();
+  });
+
+  it("재방문 2차+ 포함 fixture: 업체 배송총합과 팀장 배송총합이 일치", () => {
+    const leaders = [mkLeader("L1", "맹광식"), mkLeader("L2", "오은규")];
+    const deliveries = [
+      mkRow({
+        id: "r1", date: "2026-05-22", leader1_id: "L1", leader1_name: "맹광식",
+        metro_fee: 130000, revisit_group_id: "G1", revisit_visit_no: 1,
+      }),
+      mkRow({
+        id: "r2", date: "2026-05-22", leader1_id: "L2", leader1_name: "오은규",
+        metro_fee: 0, revisit_group_id: "G1", revisit_visit_no: 2,
+      }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders, period: "h2", deductionCtx: emptyCtx,
+    });
+    expect(r.totalsDiff).toBe(0);
+    expect(r.companyDeliveryTotal).toBe(130000);
+    expect(r.leaderDeliveryTotal).toBe(130000);
+    // 업체 CSV에서는 2차 숨김 유지
+    expect(r.hiddenRevisitCount).toBe(1);
+  });
+
+  it("수수료/착불/공제/실지급은 배송총합 비교에 섞이지 않는다", () => {
+    const leaders = [mkLeader("L1", "맹광식")];
+    const deliveries = [
+      mkRow({ date: "2026-05-05", leader1_id: "L1", leader1_name: "맹광식", metro_fee: 100000, cod_amount: 500000 }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders, period: "h1", deductionCtx: emptyCtx,
+    });
+    // 착불 500,000은 배송총합에 포함되지 않음
+    expect(r.companyDeliveryTotal).toBe(100000);
+    expect(r.leaderDeliveryTotal).toBe(100000);
+    expect(r.totalsDiff).toBe(0);
+  });
 });
