@@ -1894,14 +1894,50 @@ export default function Records() {
       }));
       toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차로 설정됨 (1차 내용 자동 채움)`);
     } else if (idx != null) {
-      const clone = build2ndBulkRowFromSrc(effectiveSrc);
-      clone.revisit_visit_no = nextVisitNo;
-      setBulkRows((rows) => {
-        const next = [...rows];
-        next.splice(idx + 1, 0, clone);
-        return next;
-      });
-      toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차 행이 아래에 추가됨 (최초 1차 내용 그대로, 금액만 수정 가능)`);
+      // 복제 행 만들지 않음 — 현재 입력 중 행을 다음 차수로 표시하고 1차 메타데이터를 함께 보이게 함.
+      const newLocalId =
+        (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+          ? (crypto as any).randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      setBulkRows((rows) => rows.map((x, i) => {
+        if (i !== idx) return x;
+        const sourceRegionType =
+          (effectiveSrc.region_type as RegionType | null) ||
+          (Number(effectiveSrc.regional_fee || 0) > 0 ? "regional"
+            : Number(effectiveSrc.metro_fee || 0) > 0 ? "metro"
+            : classifyRegion(effectiveSrc.region || ""));
+        return {
+          ...x,
+          company_id: effectiveSrc.company_id || x.company_id,
+          customer_name: effectiveSrc.customer_name || x.customer_name,
+          region: effectiveSrc.region || x.region,
+          region_type: sourceRegionType || x.region_type,
+          item: effectiveSrc.item || x.item,
+          revisit_required: true,
+          revisit_done: false,
+          revisit_visit_no: nextVisitNo,
+          revisit_group_local: x.revisit_group_local || newLocalId,
+          revisit_group_id_existing: effectiveSrc.revisit_group_id,
+          revisit_source_id_existing: effectiveSrc.id,
+          date_existing: effectiveSrc.date,
+          company_name_existing: effectiveSrc.company_name || "",
+          leader1_id_existing: effectiveSrc.leader1_id || null,
+          leader1_name_existing: effectiveSrc.leader1_name || null,
+          leader2_id_existing: effectiveSrc.leader2_id || null,
+          leader2_name_existing: effectiveSrc.leader2_name || null,
+          leader3_id_existing: effectiveSrc.leader3_id || null,
+          leader3_name_existing: effectiveSrc.leader3_name || null,
+          split_type_existing: effectiveSrc.split_type || null,
+          paid_existing: !!effectiveSrc.paid,
+          two_person_existing: !!effectiveSrc.two_person,
+          // 2차 금액은 새로 입력 — 1차 금액을 그대로 가져오지 않음
+          metro_fee: "",
+          note_amount: "",
+          regional_fee: "",
+          cod_amount: "",
+        };
+      }));
+      toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차로 설정됨 — 1차 정보가 함께 표시됩니다`);
     }
     setRevisitDetectOpen(false);
     setRevisitDetectCandidates([]);
