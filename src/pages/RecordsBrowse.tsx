@@ -813,6 +813,18 @@ function DetailView({ sel, records, loading, onEdit }: { sel: Sel; records: Deli
                   {sel.kind !== "leader" && (
                     <td className="p-2 whitespace-nowrap max-w-[160px] truncate" title={r.note || ""}>{r.note || ""}</td>
                   )}
+                  <td className="p-2 text-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => onEdit(r.id)}
+                      aria-label="편집"
+                      title="등록 화면에서 편집"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
                 </tr>
               );
             })}
