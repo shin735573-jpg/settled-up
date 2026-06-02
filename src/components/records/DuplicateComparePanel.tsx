@@ -132,6 +132,20 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   const [hiddenSuspectIds, setHiddenSuspectIds] = useState<Set<string>>(new Set());
   // 좌우 비교에서 현재 "포커스" 된 패널 id (강조 표시용). null 이면 기준 패널.
   const [focusPanelId, setFocusPanelId] = useState<string | null>(null);
+  // 통합 전 팀장2 수동 선택용 팀장 목록
+  const [teamLeaders, setTeamLeaders] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await supabase
+        .from("team_leaders")
+        .select("id,name")
+        .eq("active", true)
+        .order("name", { ascending: true });
+      if (data) setTeamLeaders(data as Array<{ id: string; name: string }>);
+    })();
+  }, [open]);
 
   // 기준이 바뀌면 상태 초기화
   useEffect(() => {
@@ -196,14 +210,16 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     const fallbackRows: Row[] = [base as Row, row2ForMerge as Row, ...selectedSuspects, ...displayedSuspects].filter(Boolean);
     const row1Leader = leaderCandidatesOf(base as Row)[0]
       ?? fallbackRows.flatMap(leaderCandidatesOf)[0];
-    if (row1Leader?.id && (nrm(next.leader1_id) !== nrm(row1Leader.id) || nrm(next.leader1_name) !== nrm(row1Leader.name))) {
+    // 사용자가 이미 leader1을 지정했으면 절대 덮어쓰지 않는다 (수동 우선)
+    if (row1Leader?.id && !nrm(next.leader1_id)) {
       next = { ...next, leader1_id: row1Leader.id, leader1_name: row1Leader.name ?? next.leader1_name ?? null };
     }
 
     const leader1Id = nrm(next.leader1_id);
     const row2Leader = leaderCandidatesOf(row2ForMerge).find((c) => nrm(c.id) !== leader1Id)
       ?? fallbackRows.flatMap(leaderCandidatesOf).find((c) => nrm(c.id) && nrm(c.id) !== leader1Id);
-    if (row2Leader?.id && (nrm(next.leader2_id) !== nrm(row2Leader.id) || nrm(next.leader2_name) !== nrm(row2Leader.name))) {
+    // leader2도 이미 값이 있으면 덮어쓰지 않음 (수동 입력/기존 값 보존)
+    if (row2Leader?.id && !nrm(next.leader2_id)) {
       next = { ...next, leader2_id: row2Leader.id, leader2_name: row2Leader.name ?? next.leader2_name ?? null };
     }
     return next;
@@ -559,6 +575,63 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                 </label>
               ))}
             </RadioGroup>
+            {(mergeMode === "two_person" || mergeMode === "companion") && (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                <div className="font-medium mb-2">통합 전 팀장 수동 지정 (자동 추론이 틀리면 직접 선택)</div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2">
+                    <span className="w-12">팀장1</span>
+                    <select
+                      className="border rounded px-2 py-1 text-sm bg-background min-w-[160px]"
+                      value={nrm(edited.leader1_id)}
+                      onChange={(ev) => {
+                        const id = ev.target.value || null;
+                        const tl = teamLeaders.find((t) => t.id === id);
+                        setEdited((e) => e ? { ...e, leader1_id: id, leader1_name: tl?.name ?? null } : e);
+                      }}
+                    >
+                      <option value="">— 선택 —</option>
+                      {teamLeaders.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <span className="w-12">팀장2</span>
+                    <select
+                      className="border rounded px-2 py-1 text-sm bg-background min-w-[160px]"
+                      value={nrm(edited.leader2_id)}
+                      onChange={(ev) => {
+                        const id = ev.target.value || null;
+                        const tl = teamLeaders.find((t) => t.id === id);
+                        setEdited((e) => e ? { ...e, leader2_id: id, leader2_name: tl?.name ?? null } : e);
+                      }}
+                    >
+                      <option value="">— 선택 —</option>
+                      {teamLeaders
+                        .filter((t) => t.id !== nrm(edited.leader1_id))
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                    </select>
+                  </label>
+                  {(nrm(edited.leader2_id) || nrm(edited.leader2_name)) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setEdited((e) => e ? { ...e, leader2_id: null, leader2_name: null } : e)}
+                    >
+                      팀장2 비우기
+                    </Button>
+                  )}
+                </div>
+                <div className="mt-1 text-[11px] text-amber-800">
+                  여기서 직접 지정하면 자동 추론보다 우선합니다. 저장 시 그대로 반영됩니다.
+                </div>
+              </div>
+            )}
             {mergeMode === "two_person" && (
               <div className="mt-3 rounded-md border border-violet-300 bg-violet-50 p-2 text-xs text-violet-900">
                 <div className="font-medium mb-1">2인배송 통합 자동 반영 상태</div>
