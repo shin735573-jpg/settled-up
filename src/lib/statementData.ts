@@ -278,9 +278,29 @@ export function buildCompanyStatements(
     const warnings: string[] = [];
     const errors: string[] = [];
 
-    deliveries
-      .filter((d) => inPeriod(d.date, period as Period))
-      .filter((d) => d.company_id === c.id || d.company_name === c.name)
+    // 재방문 그룹의 "기준 날짜" = 그룹 내 가장 빠른 날짜(=1차 방문).
+    // 2차 방문이 다른 정산주기에 있더라도 1차 기준일이 현 주기에 속하면
+    // 같이 끌어와 합산 청구한다.
+    const companyDeliveries = deliveries.filter(
+      (d) => d.company_id === c.id || d.company_name === c.name,
+    );
+    const revisitEarliest = new Map<string, string>();
+    for (const d of companyDeliveries) {
+      const gid = d.revisit_group_id;
+      if (!gid) continue;
+      const cur = revisitEarliest.get(gid);
+      if (!cur || (d.date && d.date < cur)) revisitEarliest.set(gid, d.date);
+    }
+
+    companyDeliveries
+      .filter((d) => {
+        const gid = d.revisit_group_id;
+        if (gid) {
+          const base = revisitEarliest.get(gid) ?? d.date;
+          return inPeriod(base, period as Period);
+        }
+        return inPeriod(d.date, period as Period);
+      })
       .forEach((d) => {
         const remap = (id: string | null, name: string | null): string => {
           if (!id) return name ?? "";
