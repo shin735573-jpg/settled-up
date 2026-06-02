@@ -671,6 +671,20 @@ export default function LeaderSettlement() {
     () => crossCheckTotalFee(rows, virtualIds),
     [rows, virtualIds],
   );
+
+  // 업체청구금액(실제) 100% 추적: 업체정산서 청구금액과 100% 일치하는지 업체별로 검증
+  const companyBilledCheck = useMemo(() => {
+    const stmtCompanies = companies.map((c) => ({
+      ...c,
+      fee_rate_metro: 0,
+      fee_rate_regional: 0,
+      account_number: null,
+      has_cod: true,
+    })) as unknown as Parameters<typeof crossCheckCompanyBilled>[1];
+    const stmtLeaders = leaders as unknown as Parameters<typeof crossCheckCompanyBilled>[2];
+    const stmtDeliveries = rows as unknown as Parameters<typeof crossCheckCompanyBilled>[0];
+    return crossCheckCompanyBilled(stmtDeliveries, stmtCompanies, stmtLeaders, period, virtualIds);
+  }, [rows, companies, leaders, period, virtualIds]);
   const lastWarnedDiffRef = useRef<number | null>(null);
   useEffect(() => {
     if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
