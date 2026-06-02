@@ -147,6 +147,8 @@ export default function LeaderSettlement() {
   const [rows, setRows] = useState<Delivery[]>([]);
   const [companies, setCompanies] = useState<Array<{
     id: string; name: string; issues_invoice: boolean;
+    vat_included: boolean;
+    settlement_cycle: string;
     rejected_leader_id: string | null;
     rejected_leader_id_2: string | null;
     rejected_leader_id_3: string | null;
@@ -185,7 +187,7 @@ export default function LeaderSettlement() {
       const [{ data: l }, { data: cd }, { data: co }] = await Promise.all([
         supabase.from("team_leaders").select("*").order("name"),
         supabase.from("common_deductions").select("id,label,amount,active").order("sort_order"),
-        supabase.from("companies").select("id,name,issues_invoice,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
+        supabase.from("companies").select("id,name,issues_invoice,vat_included,settlement_cycle,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
       ]);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
       setCommonDeductions((cd as CommonDeduction[]) || []);
