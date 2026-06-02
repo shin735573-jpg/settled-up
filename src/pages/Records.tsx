@@ -354,6 +354,7 @@ type FormState = {
   note_amount: string;
   regional_fee: string;
   cod_amount: string;
+  alba_deduction: string;
   split_type: string;
   paid: boolean;
   two_person: boolean;
@@ -383,6 +384,7 @@ const emptyForm = (): FormState => ({
   note_amount: "",
   regional_fee: "",
   cod_amount: "",
+  alba_deduction: "",
   split_type: "",
   paid: false,
   two_person: false,
