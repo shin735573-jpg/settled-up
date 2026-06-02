@@ -184,12 +184,36 @@ describe("행사철수 특수일 처리", () => {
     expect(stmt.feeTotal).toBe(50000);
   });
 
-  it("재방문 그룹: 팀장 정산은 각 행의 팀장이 본인 금액 그대로 받음", () => {
+  it("재방문 그룹: 수기분배 미입력 시 1차 팀장1에게 전액 귀속, 2차 팀장은 0", () => {
     const leaders = [mkLeader("L1", "A팀장"), mkLeader("L2", "B팀장")];
     const deliveries: StmtDelivery[] = [
       mkRow({
         date: "2026-06-05", item: "일반", leader1_id: "L1", leader1_name: "A팀장",
         metro_fee: 50000, revisit_group_id: "g1", revisit_visit_no: 1,
+      }),
+      mkRow({
+        date: "2026-06-12", item: "일반", leader1_id: "L2", leader1_name: "B팀장",
+        metro_fee: 30000, revisit_group_id: "g1", revisit_visit_no: 2,
+      }),
+    ];
+    const stmts = buildLeaderStatements(deliveries, leaders, "h1", { oeunkyuSpecial: true });
+    const a = stmts.find((s) => s.leader.id === "L1")!;
+    const b = stmts.find((s) => s.leader.id === "L2")!;
+    expect(a.realFee).toBe(50000); // 1차 금액 전액
+    expect(b.realFee).toBe(0);      // 2차 팀장은 미분배 시 정산 제외
+  });
+
+  it("재방문 그룹: 수기분배 입력 시 각 팀장에게 지정 금액 분배", () => {
+    const leaders = [mkLeader("L1", "A팀장"), mkLeader("L2", "B팀장")];
+    const deliveries: StmtDelivery[] = [
+      mkRow({
+        date: "2026-06-05", item: "일반", leader1_id: "L1", leader1_name: "A팀장",
+        metro_fee: 80000, revisit_group_id: "g1", revisit_visit_no: 1,
+        revisit_manual_shares: [
+          { leader_id: "L1", leader_name: "A팀장", amount: 50000 },
+          { leader_id: "L2", leader_name: "B팀장", amount: 30000 },
+        ],
+        revisit_distributed: true,
       }),
       mkRow({
         date: "2026-06-12", item: "일반", leader1_id: "L2", leader1_name: "B팀장",
