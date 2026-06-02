@@ -376,7 +376,7 @@ export default function RecordsBrowse() {
             />
           </div>
           <div className="space-y-1 flex-1 min-w-[200px]">
-            <Label className="text-xs">검색 (고객/배송지/품목)</Label>
+            <Label className="text-xs">검색 (고객/배송지/품목/업체/팀장/비고)</Label>
             <div className="relative">
               <Search className="h-3.5 w-3.5 absolute left-2 top-3 text-muted-foreground" />
               <Input
@@ -386,6 +386,59 @@ export default function RecordsBrowse() {
                 className="h-9 pl-7"
               />
             </div>
+          </div>
+          <div className="space-y-1 min-w-[160px]">
+            <Label className="text-xs">업체</Label>
+            <Input
+              list="rb-company-list"
+              value={filterCompany}
+              onChange={(e) => setFilterCompany(e.target.value)}
+              placeholder="업체명"
+              className="h-9"
+            />
+            <datalist id="rb-company-list">
+              {companyOptions.map((c) => <option key={c} value={c} />)}
+            </datalist>
+          </div>
+          <div className="space-y-1 min-w-[180px]">
+            <Label className="text-xs">팀장1</Label>
+            <LeaderCombobox
+              leaders={leaders}
+              value={filterLeader1}
+              onChange={(v) => setFilterLeader1(v || "")}
+            />
+          </div>
+          <div className="space-y-1 min-w-[180px]">
+            <Label className="text-xs">팀장2</Label>
+            <LeaderCombobox
+              leaders={leaders}
+              value={filterLeader2}
+              onChange={(v) => setFilterLeader2(v || "")}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">동행</Label>
+            <select
+              value={filterCompanion}
+              onChange={(e) => setFilterCompanion(e.target.value as any)}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
+              <option value="any">전체</option>
+              <option value="yes">동행 O</option>
+              <option value="no">동행 X</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">2인배송</Label>
+            <select
+              value={filterTwoPerson}
+              onChange={(e) => setFilterTwoPerson(e.target.value as any)}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
+              <option value="any">전체</option>
+              <option value="yes">2인배송 O</option>
+              <option value="no">2인배송 X</option>
+            </select>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">상태 필터</Label>
@@ -400,6 +453,20 @@ export default function RecordsBrowse() {
               ))}
             </select>
           </div>
+          {(filterCompany || filterLeader1 || filterLeader2 ||
+            filterCompanion !== "any" || filterTwoPerson !== "any" || statusFilter !== "all" || search) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch(""); setFilterCompany(""); setFilterLeader1(""); setFilterLeader2("");
+                setFilterCompanion("any"); setFilterTwoPerson("any"); setStatusFilter("all");
+              }}
+              title="모든 필터 초기화"
+            >
+              필터 초기화
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => {
