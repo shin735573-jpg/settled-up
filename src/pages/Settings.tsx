@@ -190,6 +190,16 @@ function BackupCard({ uid }: { uid: string }) {
   const [autoOD, setAutoOD] = useState<boolean>(() => getAutoOneDriveEnabled(uid));
   const [lastAt, setLastAt] = useState<string | null>(() => getLastBackupAt(uid));
   const [busy, setBusy] = useState<"" | "local" | "onedrive">("");
+  type BackupResult = {
+    ok: boolean;
+    mode: "local" | "onedrive";
+    at: string;
+    filename?: string;
+    sizeKb?: number;
+    uploaded?: boolean;
+    error?: string;
+  };
+  const [lastResult, setLastResult] = useState<BackupResult | null>(null);
   useEffect(() => {
     setAuto(getAutoBackupEnabled(uid));
     setAutoOD(getAutoOneDriveEnabled(uid));
@@ -222,8 +232,16 @@ function BackupCard({ uid }: { uid: string }) {
         { description: filename },
       );
       setLastAt(getLastBackupAt(uid));
+      setLastResult({
+        ok: true, mode, at: new Date().toISOString(),
+        filename, sizeKb: kb, uploaded,
+      });
     } catch (e) {
       toast.error("백업 실패", { description: String((e as Error)?.message ?? e) });
+      setLastResult({
+        ok: false, mode, at: new Date().toISOString(),
+        error: String((e as Error)?.message ?? e),
+      });
     } finally {
       setBusy("");
     }
@@ -270,8 +288,93 @@ function BackupCard({ uid }: { uid: string }) {
       <p className="text-[11px] text-muted-foreground">
         마지막 백업: {lastAt ? new Date(lastAt).toLocaleString() : "없음"} · 자동 점검 30분 간격
       </p>
+      {lastResult && <BackupResultPanel r={lastResult} />}
       <RestoreSection uid={uid} />
     </Card>
+  );
+}
+
+function BackupResultPanel({
+  r,
+}: {
+  r: {
+    ok: boolean;
+    mode: "local" | "onedrive";
+    at: string;
+    filename?: string;
+    sizeKb?: number;
+    uploaded?: boolean;
+    error?: string;
+  };
+}) {
+  // 백업 시트(=테이블) 수: 업체·팀장·배송기록·휴무일·공통공제·팀장별공제오버라이드·팀장기간공제·단가표
+  const SHEETS = ["업체", "팀장", "배송기록", "휴무일", "공통공제", "팀장별공제오버라이드", "팀장기간공제", "단가표"];
+  return (
+    <div
+      className={
+        "border rounded p-3 space-y-2 " +
+        (r.ok
+          ? "border-green-500/40 bg-green-50 dark:bg-green-950/20"
+          : "border-destructive/40 bg-destructive/5")
+      }
+    >
+      <div className="flex items-center gap-2">
+        {r.ok ? (
+          <CheckCircle2 className="w-4 h-4 text-green-600" />
+        ) : (
+          <XCircle className="w-4 h-4 text-destructive" />
+        )}
+        <span className="text-sm font-semibold">
+          {r.ok ? "백업 성공" : "백업 실패"}
+          <span className="ml-2 text-xs text-muted-foreground font-normal">
+            {new Date(r.at).toLocaleString()}
+          </span>
+        </span>
+        {r.ok && r.sizeKb !== undefined && (
+          <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+            {r.sizeKb.toLocaleString()}KB
+          </span>
+        )}
+      </div>
+      {r.ok ? (
+        <>
+          {r.filename && (
+            <div className="text-xs font-mono break-all text-muted-foreground">
+              {r.filename}
+            </div>
+          )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 text-[11px]">
+            {SHEETS.map((s) => (
+              <div key={s} className="flex items-center gap-1 px-1.5 py-0.5 bg-background/60 rounded border">
+                <CheckCircle2 className="w-3 h-3 text-green-600 shrink-0" />
+                <span className="truncate">{s}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5 text-[11px]">
+            <span className="px-1.5 py-0.5 rounded bg-background/60 border">
+              로컬 .xlsx 다운로드
+            </span>
+            {r.mode === "onedrive" && (
+              <span
+                className={
+                  "px-1.5 py-0.5 rounded border " +
+                  (r.uploaded
+                    ? "bg-background/60"
+                    : "bg-amber-50 dark:bg-amber-950/30 border-amber-500/40 text-amber-700 dark:text-amber-400")
+                }
+              >
+                OneDrive {r.uploaded ? "업로드 성공" : "업로드 미실행"}
+              </span>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="text-xs text-destructive break-words">
+          {r.error || "알 수 없는 오류"}
+        </div>
+      )}
+    </div>
   );
 }
 
