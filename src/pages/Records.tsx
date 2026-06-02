@@ -1010,6 +1010,23 @@ export default function Records() {
   const [revisitShareOpen, setRevisitShareOpen] = useState(false);
   const [revisitShareFirst, setRevisitShareFirst] = useState<RevisitFirstRow | null>(null);
   const [revisitShareExtraLeaders, setRevisitShareExtraLeaders] = useState<Array<{ id: string | null; name: string | null }>>([]);
+  // 단일폼이 2차+ 행일 때 표시할 1차 정보(읽기 전용)
+  const [formFirstRow, setFormFirstRow] = useState<{
+    id: string;
+    date: string;
+    company_name: string | null;
+    customer_name: string | null;
+    region: string | null;
+    region_type: string | null;
+    item: string | null;
+    leader1_name: string | null;
+    leader2_name: string | null;
+    leader3_name: string | null;
+    metro_fee: number;
+    note_amount: number;
+    regional_fee: number;
+    cod_amount: number;
+  } | null>(null);
   const openRevisitShareDialog = async (groupId: string) => {
     try {
       const { data, error } = await supabase
@@ -1053,6 +1070,42 @@ export default function Records() {
     // 기준이 바뀌면 이전에 "검사완료"로 표시된 키 캐시 비움
     detectedKeyRef.current.clear();
   }, [revisitMatchMode]);
+  // 단일폼이 2차+ 행으로 설정되면 1차 행을 자동 조회해서 읽기 전용 패널을 띄운다
+  useEffect(() => {
+    const gid = form.revisit_group_id;
+    const v = Number(form.revisit_visit_no || 1);
+    if (!gid || v <= 1) {
+      setFormFirstRow(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("deliveries")
+        .select("id,date,company_name,customer_name,region,region_type,item,leader1_name,leader2_name,leader3_name,metro_fee,note_amount,regional_fee,cod_amount,revisit_visit_no")
+        .eq("revisit_group_id", gid)
+        .order("revisit_visit_no", { ascending: true });
+      if (cancelled || error || !data || data.length === 0) return;
+      const first = (data as any[]).find((r) => Number(r.revisit_visit_no ?? 1) === 1) || data[0];
+      setFormFirstRow({
+        id: first.id,
+        date: first.date,
+        company_name: first.company_name ?? null,
+        customer_name: first.customer_name ?? null,
+        region: first.region ?? null,
+        region_type: first.region_type ?? null,
+        item: first.item ?? null,
+        leader1_name: first.leader1_name ?? null,
+        leader2_name: first.leader2_name ?? null,
+        leader3_name: first.leader3_name ?? null,
+        metro_fee: Number(first.metro_fee || 0),
+        note_amount: Number(first.note_amount || 0),
+        regional_fee: Number(first.regional_fee || 0),
+        cod_amount: Number(first.cod_amount || 0),
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [form.revisit_group_id, form.revisit_visit_no]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
@@ -1121,6 +1174,8 @@ export default function Records() {
   const companiesById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const formCompany = form.company_id ? companiesById.get(form.company_id) : null;
   const formHasCod = formCompany?.has_cod !== false; // 미등록은 기본 표시
+  // 단일폼이 재방문 2차+ 행: 1차 정보(업체/고객/지역/지역구분/품목)는 잠금.
+  const isFollowupForm = Boolean(form.revisit_group_id) && Number(form.revisit_visit_no || 1) > 1;
 
   // 지역구분이 바뀌면 배송비 값을 해당 칸으로 자동 이동 (단일 입력 보장)
   useEffect(() => {
@@ -2730,11 +2785,86 @@ export default function Records() {
             <h2 className="text-lg font-semibold flex items-center gap-2">
               {form.id ? "배송 수정" : (form.is_missing ? "누락분 추가" : "새 배송 입력")}
               {form.is_missing && <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>}
+              {formFirstRow && Number(form.revisit_visit_no || 1) > 1 && (
+                <Badge variant="secondary">재방문 {form.revisit_visit_no}차</Badge>
+              )}
             </h2>
             <Button variant="ghost" size="sm" onClick={() => { setForm(emptyForm()); }}>
               <X className="h-4 w-4 mr-1" />초기화
             </Button>
           </div>
+
+          {formFirstRow && Number(form.revisit_visit_no || 1) > 1 && (() => {
+            const baseTotal =
+              formFirstRow.metro_fee + formFirstRow.note_amount + formFirstRow.regional_fee;
+            const secAmt =
+              (parseNum(form.metro_fee) || 0) +
+              (parseNum(form.regional_fee) || 0) +
+              (parseNum(form.note_amount) || 0);
+            const remaining = baseTotal - secAmt;
+            const over = secAmt > baseTotal;
+            const firstLeader = formFirstRow.leader1_name || "(1차 팀장 없음)";
+            return (
+              <div className="rounded-md border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-primary">
+                    1차 배송 정보 (수정 불가 · 업체 청구는 1차 금액으로 고정)
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {formFirstRow.date}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">업체</div>
+                    <div className="font-medium truncate">{formFirstRow.company_name || "-"}</div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">고객 / 배송지</div>
+                    <div className="font-medium truncate">
+                      {formFirstRow.customer_name || "-"} · {formFirstRow.region || "-"}
+                    </div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">1차 팀장</div>
+                    <div className="font-medium truncate">
+                      {[formFirstRow.leader1_name, formFirstRow.leader2_name, formFirstRow.leader3_name].filter(Boolean).join(" · ") || "-"}
+                    </div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">품목</div>
+                    <div className="font-medium truncate" title={formFirstRow.item || ""}>{formFirstRow.item || "-"}</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">수도권</div>
+                    <div className="font-semibold tabular-nums">{formFirstRow.metro_fee.toLocaleString()}원</div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">지방</div>
+                    <div className="font-semibold tabular-nums">{formFirstRow.regional_fee.toLocaleString()}원</div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">비고</div>
+                    <div className="font-semibold tabular-nums">{formFirstRow.note_amount.toLocaleString()}원</div>
+                  </div>
+                  <div className="rounded border bg-primary/10 px-2 py-1.5">
+                    <div className="text-muted-foreground">1차 청구 합계</div>
+                    <div className="font-bold tabular-nums text-primary">{baseTotal.toLocaleString()}원</div>
+                  </div>
+                </div>
+                <div className={`text-xs rounded-md px-3 py-2 border ${over ? "bg-destructive/10 border-destructive/40 text-destructive" : "bg-muted/40 border-muted-foreground/20"}`}>
+                  ※ 이 2차 입력 금액(<span className="font-semibold tabular-nums">{secAmt.toLocaleString()}원</span>)은
+                  <b> 1차 팀장 "{firstLeader}"</b> 정산금에서 자동 차감되어 2차 팀장에게 지급됩니다.
+                  업체 청구액은 1차 금액 {baseTotal.toLocaleString()}원으로 고정.
+                  {over
+                    ? ` ⚠ 1차 청구금액 초과 (${Math.abs(remaining).toLocaleString()}원 초과) — 금액을 줄여주세요.`
+                    : ` 남은 한도: ${Math.max(0, remaining).toLocaleString()}원.`}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className={`form-cells ${form.id ? "is-edit" : "is-new"} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3`}>
             <div className="space-y-1">
@@ -2800,6 +2930,7 @@ export default function Records() {
                   }));
                 }}
                 placeholder="업체명 입력 (부분검색·↑↓ 선택)"
+                disabled={isFollowupForm}
               />
             </div>
 
@@ -2847,12 +2978,14 @@ export default function Records() {
                 value={form.customer_name}
                 onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
                 onBlur={() => verifyRevisitForForm({ silent: true })}
+                disabled={isFollowupForm}
               />
             </div>
             <div className="space-y-1 relative">
               <Label>배송지</Label>
               <Input
                 value={form.region}
+                disabled={isFollowupForm}
                 onChange={(e) => {
                   const v = e.target.value;
                   setForm({ ...form, region: v, region_type: classifyRegion(v) });
@@ -2920,6 +3053,7 @@ export default function Records() {
               <Select
                 value={form.region_type}
                 onValueChange={(v) => setForm({ ...form, region_type: v as RegionType })}
+                disabled={isFollowupForm}
               >
                 <SelectTrigger className={form.region_type === "unknown" ? "border-destructive text-destructive" : ""}>
                   <SelectValue />
@@ -2938,6 +3072,7 @@ export default function Records() {
                 onChange={(e) => setForm({ ...form, item: e.target.value })}
                 rows={4}
                 className="min-h-[112px] whitespace-pre-wrap break-words"
+                disabled={isFollowupForm}
               />
             </div>
             <div className="space-y-1 sm:col-span-2 lg:col-span-4">
