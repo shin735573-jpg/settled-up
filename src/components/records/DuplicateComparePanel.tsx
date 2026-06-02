@@ -120,7 +120,9 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   const [amountMode, setAmountMode] = useState<AmountMode>(undefined);
   const [manualTotal, setManualTotal] = useState<string>("");
   const [companionReason, setCompanionReason] = useState<string>("");
-  const [tab, setTab] = useState<"exact" | "similar" | "note_similar">("exact");
+  const [tab, setTab] = useState<"exact" | "similar" | "note_similar" | "search">("exact");
+  // 중복내용 직접 검색 (날짜 제한 없이 전체 행에서 키워드 매칭)
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [askAmount, setAskAmount] = useState<MergeMode | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   // 통합 저장 직전 "최종 청구금액 확인" 단계
@@ -166,7 +168,32 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     return findDuplicateSuspects(edited, allRows as DupDelivery[]);
   }, [edited, allRows]);
 
-  const activeList = tab === "exact" ? suspects.exact : tab === "similar" ? suspects.similar : suspects.noteSimilar;
+  // 키워드 기반 중복내용 검색: 날짜·월 제한 없이 전체 allRows에서 일치 행을 찾아낸다.
+  //  - 공백 구분 다중 토큰(AND) 매칭
+  //  - 대상 필드: 고객명/품목/배송지/비고/팀장명/업체명/날짜/금액
+  const searchResults = useMemo<DupDelivery[]>(() => {
+    if (!edited) return [];
+    const q = nrm(searchQuery).toLowerCase();
+    if (!q) return [];
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const baseId = nrm(edited.id);
+    return (allRows as Row[]).filter((r) => {
+      if (nrm(r.id) === baseId) return false;
+      const total = feeTotal(r);
+      const hay = [
+        r.date, r.company_name, r.customer_name, r.region, r.item, r.note,
+        r.leader1_name, r.leader2_name,
+        r.metro_fee, r.note_amount, r.regional_fee, r.cod_amount, total,
+      ].map((v) => String(v ?? "").toLowerCase()).join(" | ");
+      return tokens.every((t) => hay.includes(t));
+    });
+  }, [searchQuery, allRows, edited]);
+
+  const activeList: DupDelivery[] =
+    tab === "exact" ? suspects.exact
+    : tab === "similar" ? suspects.similar
+    : tab === "note_similar" ? suspects.noteSimilar
+    : searchResults;
   const refList = suspects.reference;
 
   const selectedSuspects: Row[] = useMemo(() => {
