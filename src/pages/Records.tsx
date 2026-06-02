@@ -48,6 +48,20 @@ import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-re
 import OcrCheckPanel, { type ExtractedRow } from "@/components/OcrCheckPanel";
 import { isSkippablePasteRow, parsePastedTableText } from "@/lib/pasteGrid";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
+import {
+  parseMissingReason,
+  buildMissingReason,
+  type MissingHalf,
+} from "@/lib/missingOverride";
+import {
+  findExactDuplicates,
+  findSuspectDuplicates,
+  formatDuplicateConfirm,
+  hasAnyDuplicates,
+  type DupDelivery,
+} from "@/lib/duplicateCheck";
+import { AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 type Company = {
   id: string;
