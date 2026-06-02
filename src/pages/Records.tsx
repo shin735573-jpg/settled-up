@@ -1594,6 +1594,42 @@ export default function Records() {
             : <span className="text-muted-foreground">일치</span>,
         } as Record<string, any>;
       });
+      // 저장 충돌 로그 기록 (실패해도 무시)
+      try {
+        if (user?.id) {
+          const diffLabels = fields.filter(isDiff).map((f) => f.label);
+          const snap = (r: any) => ({
+            date: r.date ?? null,
+            company_name: r.company_name ?? null,
+            customer_name: r.customer_name ?? null,
+            region: r.region ?? null,
+            item: r.item ?? null,
+            note: r.note ?? null,
+            leader1_name: leaderName(r.leader1_id),
+            leader2_name: leaderName(r.leader2_id),
+            leader3_name: leaderName(r.leader3_id ?? null),
+            virtual_leader_name: leaderName(r.virtual_leader_id ?? null),
+            metro_fee: numv(r.metro_fee),
+            regional_fee: numv(r.regional_fee),
+            note_amount: numv(r.note_amount),
+            cod_amount: numv(r.cod_amount),
+            split_type: r.split_type ?? null,
+            two_person: !!r.two_person,
+          });
+          await supabase.from("save_conflicts").insert({
+            user_id: user.id,
+            context_label: contextLabel,
+            conflict_count: conflictCount,
+            current_snapshot: snap({ ...current, leader3_id: curL3, virtual_leader_id: curVL }),
+            conflict_snapshot: snap(first),
+            diff_fields: diffLabels,
+            conflict_row_id: first.id ?? null,
+            conflict_user_id: first.user_id ?? null,
+            conflict_created_at: first.created_at ?? null,
+            conflict_updated_at: first.updated_at ?? null,
+          });
+        }
+      } catch { /* 로그 실패는 무시 */ }
       await confirmSave({
         title: "중복 저장 차단 — 이미 저장된 기록이 있습니다",
         description:

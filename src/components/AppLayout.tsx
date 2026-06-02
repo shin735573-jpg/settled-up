@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save, Search, ShieldCheck } from "lucide-react";
+import { LogOut, LayoutDashboard, FileSpreadsheet, Building2, Users, Settings as SettingsIcon, Eye, Landmark, CalendarOff, Save, Search, ShieldCheck, AlertTriangle } from "lucide-react";
 import { useEffect } from "react";
 import { startAutoBackupScheduler } from "@/lib/excelBackup";
 
@@ -16,6 +16,7 @@ const nav = [
   { to: "/settings", label: "설정", icon: SettingsIcon },
   { to: "/saves", label: "정산서저장", icon: Save },
   { to: "/verify", label: "정산 검산/백업", icon: ShieldCheck },
+  { to: "/save-conflicts", label: "저장 충돌 로그", icon: AlertTriangle },
 ];
 
 export default function AppLayout() {
