@@ -4717,14 +4717,19 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     ];
     const ok = await confirmSave({ title: "붙여넣기 저장 확인", summary });
     if (!ok) return;
-    // 저장 직전 중복 검사 (단건 저장과 동일 기준)
-    const dupOk = await confirmBulkDuplicates(rows as DupDelivery[]);
-    if (!dupOk) return;
+    // 저장 직전 중복 검사: 완전 중복은 자동 제외, 유사 중복은 confirm
+    const dupRes = await confirmBulkDuplicates(rows as unknown as DupDelivery[]);
+    if (!dupRes.proceed) return;
+    const finalRows = dupRes.rowsToSave as unknown as typeof rows;
     setSaving(true);
-    const { error } = await supabase.from("deliveries").insert(rows);
+    const { error } = await supabase.from("deliveries").insert(finalRows);
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`${rows.length}건 저장 완료`);
+    if (error) { toast.error(friendlyInsertError(error) || error.message); return; }
+    toast.success(
+      finalRows.length === rows.length
+        ? `${finalRows.length}건 저장 완료`
+        : `${finalRows.length}건 저장 완료 (완전 중복 ${rows.length - finalRows.length}건 제외)`,
+    );
     setText("");
     setLeaderOverrides({});
     setRegionOverrides({});
