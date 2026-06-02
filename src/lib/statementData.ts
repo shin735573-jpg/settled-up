@@ -8,7 +8,7 @@ import { allocateRow, feeForShare, type LeaderShare } from "./splitAllocation";
 import {
   isLeaderSettlementExcludedItem,
   isVirtualSettlementRow,
-  findLoadingFeeAssigneeId,
+  findLoadingFeeAssignees,
   normalizeLoadingFeeRowLeaders,
 } from "./itemRules";
 import {
@@ -618,7 +618,8 @@ export function buildLeaderStatements(
   const { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId } = opts;
   const kimyongikId = (opts as { kimyongikId?: string | null }).kimyongikId ?? null;
   // 적재비 행은 항상 "삼호" 팀장에게 귀속한다 (모든 정산에 포함).
-  const samhoId = findLoadingFeeAssigneeId(leaders);
+  // 동명이인 보존: 이미 어느 삼호 ID 에 입력돼 있으면 그 ID 유지, 아니면 primary 로 라우팅.
+  const samhoAssignee = findLoadingFeeAssignees(leaders);
 
   // 정산기사 = 표시 대상 팀장
   const targets = leaders.filter((l) => isCountableLeader(l));
@@ -644,7 +645,7 @@ export function buildLeaderStatements(
   }
 
   const allocs: Alloc[] = singles.map((d) => {
-    const r = normalizeLoadingFeeRowLeaders(d, samhoId);
+    const r = normalizeLoadingFeeRowLeaders(d, samhoAssignee);
     const shares = allocateRow(
       {
         leader1_id: r.leader1_id,
