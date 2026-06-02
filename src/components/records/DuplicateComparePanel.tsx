@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -122,6 +123,10 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   const [askAmount, setAskAmount] = useState<MergeMode | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 좌우 비교 패널에서 사용자가 개별 닫기한 의심 행 id 목록
+  const [hiddenSuspectIds, setHiddenSuspectIds] = useState<Set<string>>(new Set());
+  // 좌우 비교에서 현재 "포커스" 된 패널 id (강조 표시용). null 이면 기준 패널.
+  const [focusPanelId, setFocusPanelId] = useState<string | null>(null);
 
   // 기준이 바뀌면 상태 초기화
   useEffect(() => {
@@ -133,6 +138,8 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     setManualTotal(String(feeTotal(base) || ""));
     setCompanionReason(base.companion_reason || "");
     setTab("exact");
+    setHiddenSuspectIds(new Set());
+    setFocusPanelId(null);
   }, [base?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const suspects = useMemo(() => {
@@ -383,60 +390,155 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                 <TabsTrigger value="note_similar">비고 유사 ({suspects.noteSimilar.length})</TabsTrigger>
               </TabsList>
               <TabsContent value={tab} className="mt-2">
-                {activeList.length === 0 ? (
+                {(() => {
+                  const visibleSuspects = (activeList as Row[]).filter((s) => !hiddenSuspectIds.has(s.id));
+                  // 좌우 패널: 기준 1 + 의심 최대 5 = 총 6개
+                  const MAX_PANELS = 6;
+                  const suspectPanels = visibleSuspects.slice(0, MAX_PANELS - 1);
+                  const overflowCount = visibleSuspects.length - suspectPanels.length;
+                  return activeList.length === 0 ? (
                   <div className="text-xs text-muted-foreground p-3 border rounded">해당 카테고리의 의심 기록이 없습니다.</div>
                 ) : (
-                  <div className="overflow-x-auto border rounded">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/40">
-                        <tr>
-                          <th className="px-2 py-1 text-left w-8"></th>
-                          {COMPARE_FIELDS.map((f) => <th key={String(f.key)} className="px-2 py-1 text-left whitespace-nowrap">{f.label}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="bg-primary/5">
-                          <td className="px-2 py-1 text-[10px] text-muted-foreground">기준</td>
-                          {COMPARE_FIELDS.map((f) => {
-                            if (f.key === "status") return <td key="status" className="px-2 py-1"><StatusBadges tags={[]} /></td>;
-                            const { display } = valueOf(edited, String(f.key));
-                            return <td key={String(f.key)} className="px-2 py-1 whitespace-nowrap">{display}</td>;
-                          })}
-                        </tr>
-                        {activeList.map((s) => {
+                  <div className="space-y-2">
+                    {overflowCount > 0 && (
+                      <div className="text-[11px] text-muted-foreground">
+                        의심 {visibleSuspects.length}건 중 {suspectPanels.length}건 표시 (최대 6개 패널 비교).
+                        남은 {overflowCount}건은 다른 패널을 닫으면 자동으로 보입니다.
+                      </div>
+                    )}
+                    {hiddenSuspectIds.size > 0 && (
+                      <button
+                        type="button"
+                        className="text-[11px] underline text-muted-foreground"
+                        onClick={() => setHiddenSuspectIds(new Set())}
+                      >
+                        닫은 패널 {hiddenSuspectIds.size}개 복구
+                      </button>
+                    )}
+                    <div className="overflow-x-auto border rounded bg-muted/10">
+                      <div className="flex gap-2 p-2 min-w-min">
+                        {/* 기준 패널 */}
+                        {(() => {
+                          const isFocus = focusPanelId === null;
+                          return (
+                            <div
+                              className={
+                                "shrink-0 w-[260px] rounded border bg-card transition " +
+                                (isFocus ? "ring-2 ring-primary border-primary" : "border-border")
+                              }
+                              onClick={() => setFocusPanelId(null)}
+                            >
+                              <div className="flex items-center justify-between px-2 py-1.5 border-b bg-primary/5">
+                                <Badge variant="default" className="text-[10px]">기준</Badge>
+                                <span className="text-[10px] text-muted-foreground">선택한 1건</span>
+                              </div>
+                              <table className="w-full text-xs">
+                                <tbody>
+                                  {COMPARE_FIELDS.map((f) => {
+                                    if (f.key === "status") {
+                                      return (
+                                        <tr key="status" className="border-t">
+                                          <td className="px-2 py-1 text-muted-foreground w-[80px]">{f.label}</td>
+                                          <td className="px-2 py-1"><StatusBadges tags={[]} /></td>
+                                        </tr>
+                                      );
+                                    }
+                                    const { display } = valueOf(edited, String(f.key));
+                                    return (
+                                      <tr key={String(f.key)} className="border-t">
+                                        <td className="px-2 py-1 text-muted-foreground w-[80px]">{f.label}</td>
+                                        <td className="px-2 py-1 break-words">{display}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })()}
+                        {/* 의심 패널들 (좌→우) */}
+                        {suspectPanels.map((s, idx) => {
                           const tags = classifySuspect(edited, s as DupDelivery);
                           const rec = recommendAction(edited, s as DupDelivery);
-                          const checked = selectedSuspectIds.has((s as Row).id);
+                          const checked = selectedSuspectIds.has(s.id);
+                          const isFocus = focusPanelId === s.id;
                           return (
-                            <tr key={(s as Row).id} className={checked ? "bg-amber-50/40" : ""}>
-                              <td className="px-2 py-1">
-                                <Checkbox checked={checked} onCheckedChange={() => toggleSuspect((s as Row).id)} />
-                              </td>
-                              {COMPARE_FIELDS.map((f) => {
-                                if (f.key === "status") {
-                                  return (
-                                    <td key="status" className="px-2 py-1">
-                                      <StatusBadges tags={tags} />
-                                      {rec !== "none" && (
-                                        <div className="text-[10px] text-muted-foreground mt-1">추천: {rec === "merge_two_person" ? "2인배송 통합" : rec === "merge_companion" ? "동행 통합" : rec === "dedupe" ? "중복 제거" : "별도 유지"}</div>
-                                      )}
-                                    </td>
-                                  );
-                                }
-                                const cur = valueOf(s as Row, String(f.key));
-                                const baseVal = valueOf(edited, String(f.key));
-                                const diff = String(cur.raw) !== String(baseVal.raw);
-                                const missing = (f.key === "leader2_name" || f.key === "leader1_name") && (cur.display === "—");
-                                const cls = missing ? "bg-red-100/60 text-red-700" : diff ? "bg-amber-100/40" : "";
-                                return <td key={String(f.key)} className={`px-2 py-1 whitespace-nowrap ${cls}`}>{cur.display}</td>;
-                              })}
-                            </tr>
+                            <div
+                              key={s.id}
+                              className={
+                                "shrink-0 w-[260px] rounded border bg-card transition " +
+                                (isFocus ? "ring-2 ring-amber-400 border-amber-400" : checked ? "border-amber-300" : "border-border")
+                              }
+                              onClick={() => setFocusPanelId(s.id)}
+                            >
+                              <div className="flex items-center justify-between px-2 py-1.5 border-b bg-muted/30">
+                                <label className="flex items-center gap-1.5 text-[11px] cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={() => toggleSuspect(s.id)}
+                                  />
+                                  의심 #{idx + 1}
+                                </label>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  title="이 패널 닫기"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setHiddenSuspectIds((h) => {
+                                      const n = new Set(h); n.add(s.id); return n;
+                                    });
+                                    setSelectedSuspectIds((sel) => {
+                                      if (!sel.has(s.id)) return sel;
+                                      const n = new Set(sel); n.delete(s.id); return n;
+                                    });
+                                    if (focusPanelId === s.id) setFocusPanelId(null);
+                                  }}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                              <table className="w-full text-xs">
+                                <tbody>
+                                  {COMPARE_FIELDS.map((f) => {
+                                    if (f.key === "status") {
+                                      return (
+                                        <tr key="status" className="border-t">
+                                          <td className="px-2 py-1 text-muted-foreground w-[80px]">{f.label}</td>
+                                          <td className="px-2 py-1">
+                                            <StatusBadges tags={tags} />
+                                            {rec !== "none" && (
+                                              <div className="text-[10px] text-muted-foreground mt-1">
+                                                추천: {rec === "merge_two_person" ? "2인배송 통합" : rec === "merge_companion" ? "동행 통합" : rec === "dedupe" ? "중복 제거" : "별도 유지"}
+                                              </div>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    }
+                                    const cur = valueOf(s, String(f.key));
+                                    const baseVal = valueOf(edited, String(f.key));
+                                    const diff = String(cur.raw) !== String(baseVal.raw);
+                                    const missing = (f.key === "leader2_name" || f.key === "leader1_name") && (cur.display === "—");
+                                    const cls = missing ? "bg-red-100/60 text-red-700" : diff ? "bg-amber-100/40" : "";
+                                    return (
+                                      <tr key={String(f.key)} className="border-t">
+                                        <td className="px-2 py-1 text-muted-foreground w-[80px]">{f.label}</td>
+                                        <td className={`px-2 py-1 break-words ${cls}`}>{cur.display}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
+                      </div>
+                    </div>
                   </div>
-                )}
+                  );
+                })()}
                 {refList.length > 0 && tab !== "exact" && (
                   <div className="mt-2 text-[11px] text-muted-foreground">
                     참고건(품목이 다른 같은 고객/배송지) {refList.length}건이 별도로 있습니다.
