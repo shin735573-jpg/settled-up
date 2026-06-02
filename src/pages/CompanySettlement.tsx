@@ -200,12 +200,12 @@ export default function CompanySettlement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company, allRows, leaders]);
 
+  // 업체 청구용 행: 재방문 그룹은 1차 행만 사용 (2차 이후 중복 청구 방지).
+  const companyBillableRows = useMemo(() => keepRevisitPrimaryOnly(allRows), [allRows]);
+
   function detailRowsRaw() {
     return company ? companyBillableRows.filter((r) => matchesCompany(r, company)) : [];
   }
-
-  // 업체 청구용 행: 재방문 그룹은 1차 행만 사용 (2차 이후 중복 청구 방지).
-  const companyBillableRows = useMemo(() => keepRevisitPrimaryOnly(allRows), [allRows]);
 
   // 업체별 요약 계산
   const summarize = (companyRows: any[], carryForCompany: any[]) => {
