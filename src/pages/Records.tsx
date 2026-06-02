@@ -907,6 +907,7 @@ export default function Records() {
     revisit_group_local: string;
     revisit_visit_no: 1 | 2;
     revisit_group_id_existing?: string;
+    revisit_source_id_existing?: string;
     date_existing?: string;
     company_name_existing?: string | null;
     leader1_id_existing?: string | null;
@@ -1320,6 +1321,17 @@ export default function Records() {
       toast.error(`${missingCompanyIdx + 1}번 행의 업체를 선택하세요`);
       return;
     }
+    const sourceIds = Array.from(new Set(rows.map((r) => r.revisit_source_id_existing).filter(Boolean) as string[]));
+    let sourceById = new Map<string, any>();
+    if (sourceIds.length > 0) {
+      const { data: sourceRows, error: sourceError } = await supabase
+        .from("deliveries")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("id", sourceIds);
+      if (sourceError) { toast.error(sourceError.message); return; }
+      sourceById = new Map((sourceRows || []).map((r: any) => [r.id, r]));
+    }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
     const makeUuid = () =>
       (typeof crypto !== "undefined" && (crypto as any).randomUUID)
@@ -1332,31 +1344,33 @@ export default function Records() {
     // 로컬 그룹 ID(완료 클릭으로 묶인 1차/2차) → DB 그룹 UUID 매핑
     const groupIdMap = new Map<string, string>();
     const payloads = rows.flatMap((r) => {
-      const co = companies.find((c) => c.id === r.company_id);
       const lockedExisting = Boolean(r.revisit_group_id_existing);
+      const source = lockedExisting ? sourceById.get(r.revisit_source_id_existing || "") : null;
+      const companyId = source?.company_id || r.company_id;
+      const co = companies.find((c) => c.id === companyId);
       const base = {
         user_id: user.id,
-        date: lockedExisting && r.date_existing ? r.date_existing : bulkShared.date,
-        company_id: r.company_id,
-        company_name: lockedExisting ? (r.company_name_existing || co?.name || "") : (co?.name || ""),
-        leader1_id: lockedExisting ? (r.leader1_id_existing || null) : (bulkShared.leader1_id || null),
-      leader1_name: lockedExisting ? rowLeaderName(r.leader1_id_existing, r.leader1_name_existing) : leaderName(bulkShared.leader1_id),
-      leader2_id: lockedExisting ? (r.leader2_id_existing || null) : (bulkShared.leader2_id || null),
-      leader2_name: lockedExisting ? rowLeaderName(r.leader2_id_existing, r.leader2_name_existing) : leaderName(bulkShared.leader2_id),
-      leader3_id: lockedExisting ? (r.leader3_id_existing || null) : (bulkShared.leader3_id || null),
-      leader3_name: lockedExisting ? rowLeaderName(r.leader3_id_existing, r.leader3_name_existing) : leaderName(bulkShared.leader3_id),
-      customer_name: r.customer_name.trim() || null,
-      region: r.region.trim() || null,
-      region_type: r.region_type === "unknown" ? null : r.region_type,
-      item: r.item || null,
-      note: r.note || null,
+        date: lockedExisting ? (source?.date || r.date_existing || bulkShared.date) : bulkShared.date,
+        company_id: companyId,
+        company_name: lockedExisting ? (source?.company_name || r.company_name_existing || co?.name || "") : (co?.name || ""),
+        leader1_id: lockedExisting ? (source?.leader1_id || r.leader1_id_existing || null) : (bulkShared.leader1_id || null),
+      leader1_name: lockedExisting ? rowLeaderName(source?.leader1_id || r.leader1_id_existing, source?.leader1_name || r.leader1_name_existing) : leaderName(bulkShared.leader1_id),
+      leader2_id: lockedExisting ? (source?.leader2_id || r.leader2_id_existing || null) : (bulkShared.leader2_id || null),
+      leader2_name: lockedExisting ? rowLeaderName(source?.leader2_id || r.leader2_id_existing, source?.leader2_name || r.leader2_name_existing) : leaderName(bulkShared.leader2_id),
+      leader3_id: lockedExisting ? (source?.leader3_id || r.leader3_id_existing || null) : (bulkShared.leader3_id || null),
+      leader3_name: lockedExisting ? rowLeaderName(source?.leader3_id || r.leader3_id_existing, source?.leader3_name || r.leader3_name_existing) : leaderName(bulkShared.leader3_id),
+      customer_name: lockedExisting ? (source?.customer_name || r.customer_name.trim() || null) : (r.customer_name.trim() || null),
+      region: lockedExisting ? (source?.region || r.region.trim() || null) : (r.region.trim() || null),
+      region_type: lockedExisting ? ((source?.region_type || r.region_type) === "unknown" ? null : (source?.region_type || r.region_type)) : (r.region_type === "unknown" ? null : r.region_type),
+      item: lockedExisting ? (source?.item || r.item || null) : (r.item || null),
+      note: lockedExisting ? (source?.note || r.note || null) : (r.note || null),
       metro_fee: parseNum(r.metro_fee) || 0,
       note_amount: parseNum(r.note_amount) || 0,
       regional_fee: parseNum(r.regional_fee) || 0,
       cod_amount: parseNum(r.cod_amount) || 0,
-      split_type: lockedExisting ? (r.split_type_existing || null) : (bulkShared.split_type || null),
-      paid: lockedExisting ? !!r.paid_existing : (r.paid || bulkShared.paid),
-      two_person: lockedExisting ? !!r.two_person_existing : r.two_person,
+      split_type: lockedExisting ? (source?.split_type || r.split_type_existing || null) : (bulkShared.split_type || null),
+      paid: lockedExisting ? !!(source?.paid ?? r.paid_existing) : (r.paid || bulkShared.paid),
+      two_person: lockedExisting ? !!(source?.two_person ?? r.two_person_existing) : r.two_person,
       is_missing: false,
       };
       // 완료 클릭으로 묶인 1차/2차 행은 그대로 각각 저장 (같은 group_id 공유)
