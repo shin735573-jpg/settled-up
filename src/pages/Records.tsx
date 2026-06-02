@@ -3457,7 +3457,7 @@ export default function Records() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); } }}>
+      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setRevisitDetectForForm(false); } }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>재방문 여부 확인</DialogTitle>
@@ -3511,7 +3511,7 @@ export default function Records() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); }}>
+            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setRevisitDetectForForm(false); }}>
               재방문 아님 (새 배송으로 입력)
             </Button>
           </DialogFooter>
