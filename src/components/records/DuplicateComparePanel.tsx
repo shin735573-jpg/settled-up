@@ -1,0 +1,536 @@
+import { useEffect, useMemo, useState } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  type DupDelivery,
+  findDuplicateSuspects,
+  classifySuspect,
+  recommendAction,
+  sumMergedAmounts,
+  validateMergePlan,
+  mapDuplicateError,
+  SUSPECT_STATUS_LABEL,
+  type SuspectStatus,
+  type MergePlanItem,
+} from "@/lib/duplicateCheck";
+
+type Row = DupDelivery & {
+  id: string;
+  leader1_name?: string | null;
+  leader2_name?: string | null;
+  company_name?: string | null;
+  companion_reason?: string | null;
+};
+
+type MergeMode = "none" | "companion" | "two_person" | "keep_separate";
+type AmountMode = "sum" | "manual" | undefined;
+
+function nrm(v: unknown) { return String(v ?? "").trim(); }
+function n(v: unknown) {
+  if (v == null || v === "") return 0;
+  const x = Number(String(v).replace(/,/g, ""));
+  return Number.isFinite(x) ? x : 0;
+}
+function feeTotal(r: Row) { return n(r.metro_fee) + n(r.note_amount) + n(r.regional_fee); }
+function fmt(v: number) { return v.toLocaleString("ko-KR"); }
+
+const STATUS_VARIANT: Record<SuspectStatus, "default" | "destructive" | "secondary" | "outline"> = {
+  exact: "destructive",
+  similar: "default",
+  note_similar: "secondary",
+  leader_missing: "destructive",
+  companion_candidate: "default",
+  two_person_candidate: "default",
+  two_person_mismatch: "destructive",
+  companion_needed: "secondary",
+  settlement_mismatch: "destructive",
+  reference: "outline",
+};
+
+function StatusBadges({ tags }: { tags: SuspectStatus[] }) {
+  if (!tags.length) return <Badge variant="outline">정상</Badge>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((t) => (
+        <Badge key={t} variant={STATUS_VARIANT[t]} className="text-[10px] whitespace-nowrap">
+          {SUSPECT_STATUS_LABEL[t]}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+const COMPARE_FIELDS: Array<{ key: keyof Row | "total" | "status"; label: string; type?: "amount" | "bool"; }> = [
+  { key: "date", label: "날짜" },
+  { key: "company_name", label: "업체" },
+  { key: "customer_name", label: "고객명" },
+  { key: "region", label: "배송지" },
+  { key: "item", label: "품목" },
+  { key: "note", label: "비고" },
+  { key: "leader1_name", label: "팀장1" },
+  { key: "leader2_name", label: "팀장2" },
+  { key: "companion", label: "동행", type: "bool" },
+  { key: "two_person", label: "2인배송", type: "bool" },
+  { key: "split_type", label: "분할" },
+  { key: "metro_fee", label: "수도권비", type: "amount" },
+  { key: "regional_fee", label: "지방비", type: "amount" },
+  { key: "note_amount", label: "비고금액", type: "amount" },
+  { key: "cod_amount", label: "착불", type: "amount" },
+  { key: "total", label: "총 청구금액", type: "amount" },
+  { key: "status", label: "상태" },
+];
+
+function valueOf(r: Row, key: string): { display: string; raw: unknown } {
+  if (key === "total") {
+    const v = feeTotal(r);
+    return { display: fmt(v), raw: v };
+  }
+  const raw = (r as Record<string, unknown>)[key];
+  if (raw == null || raw === "") return { display: "—", raw: "" };
+  if (typeof raw === "boolean") return { display: raw ? "예" : "아니오", raw };
+  if (typeof raw === "number") return { display: fmt(raw), raw };
+  return { display: String(raw), raw: String(raw) };
+}
+
+export type DuplicateComparePanelProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  base: Row | null;
+  allRows: Row[];
+  onSaved?: () => void;
+};
+
+export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSaved }: DuplicateComparePanelProps) {
+  const [edited, setEdited] = useState<Row | null>(null);
+  const [selectedSuspectIds, setSelectedSuspectIds] = useState<Set<string>>(new Set());
+  const [mergeMode, setMergeMode] = useState<MergeMode>("none");
+  const [amountMode, setAmountMode] = useState<AmountMode>(undefined);
+  const [manualTotal, setManualTotal] = useState<string>("");
+  const [companionReason, setCompanionReason] = useState<string>("");
+  const [tab, setTab] = useState<"exact" | "similar" | "note_similar">("exact");
+  const [askAmount, setAskAmount] = useState<MergeMode | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // 기준이 바뀌면 상태 초기화
+  useEffect(() => {
+    if (!base) { setEdited(null); return; }
+    setEdited({ ...base });
+    setSelectedSuspectIds(new Set());
+    setMergeMode("none");
+    setAmountMode(undefined);
+    setManualTotal(String(feeTotal(base) || ""));
+    setCompanionReason(base.companion_reason || "");
+    setTab("exact");
+  }, [base?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const suspects = useMemo(() => {
+    if (!edited) return { exact: [], similar: [], noteSimilar: [], reference: [] };
+    return findDuplicateSuspects(edited, allRows as DupDelivery[]);
+  }, [edited, allRows]);
+
+  const activeList = tab === "exact" ? suspects.exact : tab === "similar" ? suspects.similar : suspects.noteSimilar;
+  const refList = suspects.reference;
+
+  const selectedSuspects: Row[] = useMemo(() => {
+    return allRows.filter((r) => selectedSuspectIds.has(r.id));
+  }, [allRows, selectedSuspectIds]);
+
+  // 합산 미리보기
+  const autoSum = useMemo(() => {
+    if (!edited) return null;
+    return sumMergedAmounts([edited, ...selectedSuspects]);
+  }, [edited, selectedSuspects]);
+
+  function toggleSuspect(id: string) {
+    setSelectedSuspectIds((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function applyMergeMode(mode: MergeMode) {
+    setMergeMode(mode);
+    if (mode === "companion" || mode === "two_person") {
+      setAskAmount(mode);
+    } else {
+      setAmountMode(undefined);
+    }
+  }
+
+  function confirmAmountChoice(choice: "sum" | "manual") {
+    setAmountMode(choice);
+    if (choice === "sum" && autoSum) {
+      setEdited((e) => e ? {
+        ...e,
+        metro_fee: autoSum.metro_fee,
+        note_amount: autoSum.note_amount,
+        regional_fee: autoSum.regional_fee,
+        cod_amount: autoSum.cod_amount,
+      } : e);
+      setManualTotal(String(autoSum.total));
+    }
+    setAskAmount(null);
+  }
+
+  // 최종 적용 계획 (선택된 기준행 + 통합된 suspect들 → keep_separate)
+  const plan: MergePlanItem[] = useMemo(() => {
+    if (!edited || !base) return [];
+    const items: MergePlanItem[] = [];
+    const action = mergeMode === "companion" ? "merge_companion"
+      : mergeMode === "two_person" ? "merge_two_person"
+      : mergeMode === "keep_separate" ? "keep_separate"
+      : "edit";
+    const next: Row = { ...edited };
+    if (action === "merge_companion") {
+      next.companion = true;
+      next.two_person = false;
+      (next as Row).companion_reason = companionReason || null;
+    }
+    if (action === "merge_two_person") {
+      next.two_person = true;
+      next.companion = false;
+      if (!nrm(next.split_type)) next.split_type = "반반";
+    }
+    items.push({
+      base: base as DupDelivery,
+      next: next as DupDelivery,
+      action,
+      amountMode,
+      manualTotal: amountMode === "manual" ? n(manualTotal) : null,
+    });
+    return items;
+  }, [edited, base, mergeMode, amountMode, manualTotal, companionReason]);
+
+  const errors = useMemo(() => validateMergePlan(plan), [plan]);
+  const hasBlocking = errors.some((e) => e.level === "error");
+
+  async function save() {
+    if (!edited || !base) return;
+    if (hasBlocking) {
+      toast.error("저장 전 오류를 먼저 해결해주세요.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const update: Record<string, unknown> = {
+        date: edited.date,
+        company_id: edited.company_id ?? null,
+        company_name: edited.company_name ?? null,
+        customer_name: edited.customer_name ?? null,
+        region: edited.region ?? null,
+        item: edited.item ?? null,
+        note: edited.note ?? null,
+        leader1_id: edited.leader1_id ?? null,
+        leader2_id: edited.leader2_id ?? null,
+        split_type: edited.split_type ?? null,
+        two_person: !!edited.two_person,
+        companion: !!edited.companion,
+        companion_reason: edited.companion_reason ?? null,
+        metro_fee: n(edited.metro_fee),
+        regional_fee: n(edited.regional_fee),
+        note_amount: n(edited.note_amount),
+        cod_amount: n(edited.cod_amount),
+        paid: !!edited.paid,
+      };
+      // 기존 row update — 절대 insert 하지 않음
+      const { error } = await supabase.from("deliveries").update(update).eq("id", base.id);
+      if (error) {
+        const friendly = mapDuplicateError(error);
+        toast.error(friendly || `저장 실패: ${error.message}`);
+        return;
+      }
+      toast.success("저장 완료");
+      setReviewOpen(false);
+      onOpenChange(false);
+      onSaved?.();
+    } catch (e) {
+      toast.error(`저장 실패: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!base || !edited) return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-[920px] overflow-y-auto">
+        <SheetHeader><SheetTitle>배송내역 상세</SheetTitle></SheetHeader>
+        <div className="p-6 text-sm text-muted-foreground">기록을 선택하세요.</div>
+      </SheetContent>
+    </Sheet>
+  );
+
+  const baseTags = ["정상"];
+
+  return (
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="w-full sm:max-w-[1100px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>배송내역 상세 · 중복의심 비교/통합</SheetTitle>
+            <SheetDescription>선택한 1건을 기준으로 같은 user의 기록에서 중복의심을 검색합니다. 저장은 기존 row 업데이트로 처리됩니다.</SheetDescription>
+          </SheetHeader>
+
+          {/* 기준 행 요약 */}
+          <div className="mt-4 rounded-md border p-3 bg-muted/30">
+            <div className="text-xs text-muted-foreground mb-1">기준 기록</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+              <div><span className="text-muted-foreground">날짜</span> {nrm(edited.date) || "—"}</div>
+              <div><span className="text-muted-foreground">업체</span> {nrm(edited.company_name) || "—"}</div>
+              <div><span className="text-muted-foreground">고객</span> {nrm(edited.customer_name) || "—"}</div>
+              <div><span className="text-muted-foreground">배송지</span> {nrm(edited.region) || "—"}</div>
+              <div className="col-span-2"><span className="text-muted-foreground">품목</span> {nrm(edited.item) || "—"}</div>
+              <div className="col-span-2"><span className="text-muted-foreground">비고</span> {nrm(edited.note) || "—"}</div>
+            </div>
+          </div>
+
+          {/* 사용자가 체크할 항목 */}
+          <div className="mt-4 rounded-md border p-3">
+            <div className="text-sm font-medium mb-2">속성 확인/수정</div>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <Checkbox checked={!!edited.companion} onCheckedChange={(v) => setEdited((e) => e ? { ...e, companion: !!v } : e)} />
+                동행여부
+              </label>
+              <label className="flex items-center gap-2">
+                <Checkbox checked={!!edited.two_person} onCheckedChange={(v) => setEdited((e) => e ? { ...e, two_person: !!v } : e)} />
+                2인배송 여부
+              </label>
+              <label className="flex items-center gap-2">
+                <span>분할</span>
+                <select
+                  className="border rounded px-2 py-1 text-sm bg-background"
+                  value={nrm(edited.split_type)}
+                  onChange={(ev) => setEdited((e) => e ? { ...e, split_type: ev.target.value || null } : e)}
+                >
+                  <option value="">—</option>
+                  <option value="반반">반반</option>
+                  <option value="팀장1">팀장1</option>
+                  <option value="팀장2">팀장2</option>
+                </select>
+              </label>
+              {edited.companion && (
+                <label className="flex items-center gap-2">
+                  <span>동행사유</span>
+                  <Input value={companionReason} onChange={(e) => setCompanionReason(e.target.value)} className="h-7 w-48" />
+                </label>
+              )}
+            </div>
+            {!!edited.two_person && !nrm(edited.leader2_id) && (
+              <Alert variant="destructive" className="mt-2 py-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">2인배송인데 팀장2가 비어 있습니다. 좌측 목록에서 행을 편집해 팀장2를 지정하세요.</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          {/* 통합여부 선택 */}
+          <div className="mt-4 rounded-md border p-3">
+            <div className="text-sm font-medium mb-2">통합여부</div>
+            <RadioGroup value={mergeMode} onValueChange={(v) => applyMergeMode(v as MergeMode)} className="flex flex-wrap gap-4">
+              {([
+                ["none", "통합 안 함"],
+                ["companion", "동행 통합"],
+                ["two_person", "2인배송 통합"],
+                ["keep_separate", "별도 기록 유지"],
+              ] as const).map(([v, label]) => (
+                <label key={v} className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value={v} id={`mm-${v}`} />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </RadioGroup>
+            {amountMode && (
+              <div className="mt-3 text-xs text-muted-foreground">
+                금액 처리: <Badge variant="secondary">{amountMode === "sum" ? "자동 합산" : "직접입력"}</Badge>
+                {amountMode === "manual" && (
+                  <span className="ml-2 inline-flex items-center gap-2">
+                    <Label className="text-xs">청구금액</Label>
+                    <Input value={manualTotal} onChange={(e) => setManualTotal(e.target.value)} className="h-7 w-32 inline" />
+                  </span>
+                )}
+                {amountMode === "sum" && autoSum && (
+                  <span className="ml-2">합계 {fmt(autoSum.total)}원</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 중복의심 검색 결과 */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium">중복 의심 검색 결과</div>
+              <div className="text-xs text-muted-foreground">
+                완전 {suspects.exact.length} · 유사 {suspects.similar.length} · 비고 {suspects.noteSimilar.length} · 참고 {refList.length}
+              </div>
+            </div>
+            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+              <TabsList>
+                <TabsTrigger value="exact">완전 일치 ({suspects.exact.length})</TabsTrigger>
+                <TabsTrigger value="similar">유사 건 ({suspects.similar.length})</TabsTrigger>
+                <TabsTrigger value="note_similar">비고 유사 ({suspects.noteSimilar.length})</TabsTrigger>
+              </TabsList>
+              <TabsContent value={tab} className="mt-2">
+                {activeList.length === 0 ? (
+                  <div className="text-xs text-muted-foreground p-3 border rounded">해당 카테고리의 의심 기록이 없습니다.</div>
+                ) : (
+                  <div className="overflow-x-auto border rounded">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/40">
+                        <tr>
+                          <th className="px-2 py-1 text-left w-8"></th>
+                          {COMPARE_FIELDS.map((f) => <th key={String(f.key)} className="px-2 py-1 text-left whitespace-nowrap">{f.label}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="bg-primary/5">
+                          <td className="px-2 py-1 text-[10px] text-muted-foreground">기준</td>
+                          {COMPARE_FIELDS.map((f) => {
+                            if (f.key === "status") return <td key="status" className="px-2 py-1"><StatusBadges tags={[]} /></td>;
+                            const { display } = valueOf(edited, String(f.key));
+                            return <td key={String(f.key)} className="px-2 py-1 whitespace-nowrap">{display}</td>;
+                          })}
+                        </tr>
+                        {activeList.map((s) => {
+                          const tags = classifySuspect(edited, s as DupDelivery);
+                          const rec = recommendAction(edited, s as DupDelivery);
+                          const checked = selectedSuspectIds.has((s as Row).id);
+                          return (
+                            <tr key={(s as Row).id} className={checked ? "bg-amber-50/40" : ""}>
+                              <td className="px-2 py-1">
+                                <Checkbox checked={checked} onCheckedChange={() => toggleSuspect((s as Row).id)} />
+                              </td>
+                              {COMPARE_FIELDS.map((f) => {
+                                if (f.key === "status") {
+                                  return (
+                                    <td key="status" className="px-2 py-1">
+                                      <StatusBadges tags={tags} />
+                                      {rec !== "none" && (
+                                        <div className="text-[10px] text-muted-foreground mt-1">추천: {rec === "merge_two_person" ? "2인배송 통합" : rec === "merge_companion" ? "동행 통합" : rec === "dedupe" ? "중복 제거" : "별도 유지"}</div>
+                                      )}
+                                    </td>
+                                  );
+                                }
+                                const cur = valueOf(s as Row, String(f.key));
+                                const baseVal = valueOf(edited, String(f.key));
+                                const diff = String(cur.raw) !== String(baseVal.raw);
+                                const missing = (f.key === "leader2_name" || f.key === "leader1_name") && (cur.display === "—");
+                                const cls = missing ? "bg-red-100/60 text-red-700" : diff ? "bg-amber-100/40" : "";
+                                return <td key={String(f.key)} className={`px-2 py-1 whitespace-nowrap ${cls}`}>{cur.display}</td>;
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {refList.length > 0 && tab !== "exact" && (
+                  <div className="mt-2 text-[11px] text-muted-foreground">
+                    참고건(품목이 다른 같은 고객/배송지) {refList.length}건이 별도로 있습니다.
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* 에러/경고 */}
+          {errors.length > 0 && (
+            <Alert variant={hasBlocking ? "destructive" : "default"} className="mt-3">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <ul className="text-xs list-disc pl-4">
+                  {errors.map((e, i) => <li key={i}>[{e.level === "error" ? "오류" : "경고"}] {e.message}</li>)}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>취소</Button>
+            <Button onClick={() => setReviewOpen(true)} disabled={saving}>
+              저장 전 최종 확인
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* 금액 처리 질문 */}
+      <Dialog open={!!askAmount} onOpenChange={(o) => { if (!o) setAskAmount(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>각 팀장들 금액을 합산할까요?</DialogTitle>
+            <DialogDescription>
+              {askAmount === "two_person" ? "2인배송 통합" : "동행 통합"} 시 청구금액을 어떻게 처리할지 선택하세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-sm space-y-2">
+            <div className="text-muted-foreground">자동 합산 예상: <b>{autoSum ? fmt(autoSum.total) : 0}원</b> (선택된 의심 {selectedSuspects.length}건 포함)</div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => confirmAmountChoice("manual")}>직접입력</Button>
+            <Button onClick={() => confirmAmountChoice("sum")}>합산</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 최종 확인 */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>저장 전 최종 확인</DialogTitle>
+            <DialogDescription>아래 내용으로 기존 row를 업데이트합니다. 새 row가 만들어지지 않습니다.</DialogDescription>
+          </DialogHeader>
+          <div className="text-sm space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>수정 대상: <b>1건</b></div>
+              <div>통합 방식: <b>{mergeMode === "none" ? "수정만" : mergeMode === "companion" ? "동행 통합" : mergeMode === "two_person" ? "2인배송 통합" : "별도 유지"}</b></div>
+              <div>금액 처리: <b>{amountMode === "sum" ? "자동 합산" : amountMode === "manual" ? "직접입력" : "—"}</b></div>
+              <div>최종 청구금액: <b>{fmt(feeTotal(edited))}원</b></div>
+              <div>팀장2: <b>{nrm(edited.leader2_name) || nrm(edited.leader2_id) || "—"}</b></div>
+              <div>분할: <b>{nrm(edited.split_type) || "—"}</b></div>
+            </div>
+            {edited.two_person && nrm(edited.split_type) === "반반" && (
+              <div className="text-xs text-muted-foreground">기본 정산: 팀장1 {fmt(Math.round(feeTotal(edited) / 2))} · 팀장2 {fmt(Math.round(feeTotal(edited) / 2))}</div>
+            )}
+            {errors.length > 0 && (
+              <Alert variant={hasBlocking ? "destructive" : "default"}>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <ul className="text-xs list-disc pl-4">
+                    {errors.map((e, i) => <li key={i}>[{e.level === "error" ? "오류" : "경고"}] {e.message}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            {errors.length === 0 && (
+              <div className="flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 className="h-4 w-4" /> 검증 통과</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setReviewOpen(false)} disabled={saving}>다시 수정</Button>
+            <Button variant="outline" onClick={() => { setReviewOpen(false); onOpenChange(false); }} disabled={saving}>취소</Button>
+            <Button onClick={save} disabled={hasBlocking || saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              적용 저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export default DuplicateComparePanel;
