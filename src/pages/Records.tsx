@@ -1288,6 +1288,25 @@ export default function Records() {
       revisit_group_id: form.revisit_group_id,
       revisit_visit_no: form.revisit_visit_no || 1,
     };
+    const totalAmt =
+      metroN + regionalN +
+      (parseNum(form.note_amount) || 0) +
+      (parseNum(form.cod_amount) || 0);
+    const summary = [
+      { label: "구분", value: form.id ? "수정" : "신규 저장" },
+      { label: "날짜", value: form.date },
+      { label: "업체", value: company.name },
+      { label: "고객/지역", value: `${form.customer_name || "-"} / ${form.region || "-"}` },
+      { label: "팀장", value: [form.leader1_id, form.leader2_id, form.leader3_id].map(leaderName).filter(Boolean).join("·") || "-" },
+      { label: "총액", value: `${fmt(totalAmt)}원` },
+      ...(form.revisit_required ? [{ label: "재방문", value: form.revisit_group_id ? "기존 그룹" : "1차+2차 동시 생성" }] : []),
+    ];
+    const ok = await confirmSave({
+      title: form.id ? "수정 확인" : "저장 확인",
+      summary,
+      confirmLabel: form.id ? "수정" : "저장",
+    });
+    if (!ok) return;
     setSaving(true);
     let error;
     if (form.id) {
