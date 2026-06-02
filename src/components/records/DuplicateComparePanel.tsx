@@ -322,13 +322,25 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
         return;
       }
       if (!nrm(edited.leader2_id)) {
-        toast.error("2인배송 통합인데 팀장2가 비어 있습니다. 의심행을 선택하거나 팀장2를 직접 지정하세요.");
+        toast.error("팀장2 자동 등록에 실패했습니다. 의심행을 선택하거나 팀장2를 직접 지정하세요.");
         return;
       }
     }
     if (mergeMode === "companion" && !edited.companion) {
       toast.error("동행 통합인데 '동행여부'가 꺼져 있습니다.");
       return;
+    }
+    // 통합 공통: 통합 전 두 행에 팀장이 2명 있었다면 통합 후 반드시 둘 다 남아야 함
+    if (mergeMode === "two_person" || mergeMode === "companion") {
+      const allLeaderIds = new Set<string>();
+      [base, ...selectedSuspects].forEach((r) => {
+        if (nrm(r.leader1_id)) allLeaderIds.add(String(r.leader1_id));
+        if (nrm(r.leader2_id)) allLeaderIds.add(String(r.leader2_id));
+      });
+      if (allLeaderIds.size >= 2 && !nrm(edited.leader2_id)) {
+        toast.error("통합 후 팀장2 값이 누락되었습니다. 팀장2를 지정한 뒤 저장하세요.");
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -341,7 +353,9 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
         item: edited.item ?? null,
         note: edited.note ?? null,
         leader1_id: edited.leader1_id ?? null,
+        leader1_name: edited.leader1_name ?? null,
         leader2_id: edited.leader2_id ?? null,
+        leader2_name: edited.leader2_name ?? null,
         split_type: edited.split_type ?? null,
         two_person: !!edited.two_person,
         companion: !!edited.companion,
