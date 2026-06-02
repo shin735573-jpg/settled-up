@@ -490,6 +490,7 @@ export function buildLeaderStatements(
   deductionCtx?: DeductionContext,
 ): LeaderStmtData[] {
   const byId = new Map(leaders.map((l) => [l.id, l]));
+  const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
   const { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId } = opts;
   const kimyongikId = (opts as { kimyongikId?: string | null }).kimyongikId ?? null;
 
@@ -526,7 +527,7 @@ export function buildLeaderStatements(
         regional_fee: Number(d.regional_fee),
         cod_amount: Number(d.cod_amount),
       },
-      { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId },
+      { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds },
     );
     const resolved = shares
       .map((s) => ({ share: s, target: resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>) }))
