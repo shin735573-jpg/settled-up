@@ -984,6 +984,20 @@ export default function Records() {
   const [revisitDetectCandidates, setRevisitDetectCandidates] = useState<any[]>([]);
   const [revisitDetectLoading, setRevisitDetectLoading] = useState(false);
   const detectedKeyRef = useRef<Set<string>>(new Set());
+  // 같은 고객/배송지 매칭 기준 (사용자 설정, 화면 상단 토글)
+  // both: 고객명+지역 모두 일치 / name: 고객명만 / region: 지역만
+  const [revisitMatchMode, setRevisitMatchMode] = useState<"both" | "name" | "region">(() => {
+    try {
+      const v = localStorage.getItem("records.revisitMatchMode");
+      if (v === "name" || v === "region" || v === "both") return v;
+    } catch { /* noop */ }
+    return "both";
+  });
+  useEffect(() => {
+    try { localStorage.setItem("records.revisitMatchMode", revisitMatchMode); } catch { /* noop */ }
+    // 기준이 바뀌면 이전에 "검사완료"로 표시된 키 캐시 비움
+    detectedKeyRef.current.clear();
+  }, [revisitMatchMode]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
