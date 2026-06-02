@@ -221,7 +221,7 @@ export default function HQSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId });
+      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
         .filter((s) => isCountable(byId.get(s.target)));
@@ -487,7 +487,7 @@ export default function HQSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
-      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId });
+      }, { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds });
       const resolved = shares
         .map((s) => ({ ...s, target: resolveSettleId(s.leader_id) }))
         .filter((s) => isCountable(byId.get(s.target)));
