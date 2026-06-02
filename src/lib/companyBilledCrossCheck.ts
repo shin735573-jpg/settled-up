@@ -16,7 +16,9 @@ import {
   type StmtCompany,
   type StmtLeader,
   type PeriodKey,
+  type CompanyStmtData,
 } from "./statementData";
+import { isVirtualSettlementRow } from "./itemRules";
 
 export type LeaderPeriod = "all" | "first" | "second" | "month";
 
@@ -41,12 +43,25 @@ export type CompanyBilledDiff = {
   leaderSide: number;      // 팀장정산 상단에 보이는 값
   companySide: number;     // 업체정산서가 청구하는 값
   diff: number;            // leaderSide - companySide
+  components: BilledComponent[]; // 항목별 분해 (수도권/지방/비고/착불/청구액/VAT/반올림/최종)
   reasons: Array<{
     code: "inactive" | "cycle" | "special" | "revisit_gating" | "other";
     label: string;
     amount: number;        // 이 카테고리가 차이에 기여한 금액 (대략값)
     rows: BilledDiffRow[];
   }>;
+};
+
+/** 항목별 분해 — 팀장정산 vs 업체정산서 동일 항목을 좌우 비교한다. */
+export type BilledComponent = {
+  key:
+    | "metro" | "regional" | "note"
+    | "cod_offset" | "claim" | "vat" | "rounding" | "final";
+  label: string;
+  leader: number;
+  company: number;
+  diff: number;
+  hint?: string; // 차이 발생 시 안내문
 };
 
 export type CompanyBilledCrossCheck = {
@@ -109,6 +124,16 @@ export function crossCheckCompanyBilled(
   const allIds = new Set<string>([...leaderMap.keys(), ...companyMap.keys()]);
   const perCompany: CompanyBilledDiff[] = [];
 
+  // 업체정산서 결과 캐시 (항목별 비교에 사용)
+  const stmtByCompany = new Map<string, CompanyStmtData[]>();
+  for (const k of periodToStmtKeys(period)) {
+    for (const s of buildCompanyStatements(deliveries, companies, leaders, k)) {
+      const arr = stmtByCompany.get(s.company.id) || [];
+      arr.push(s);
+      stmtByCompany.set(s.company.id, arr);
+    }
+  }
+
   for (const id of allIds) {
     const cInfo = companies.find((c) => c.id === id);
     const leaderSide = leaderMap.get(id)?.billed || 0;
@@ -120,6 +145,14 @@ export function crossCheckCompanyBilled(
     const compDeliveries = deliveries.filter((d) =>
       d.company_id === id ||
       (cInfo && d.company_name && d.company_name.trim() === cInfo.name.trim()),
+    );
+
+    // ─── 항목별 분해 (수도권/지방/비고/착불/청구액/VAT/반올림/최종) ──────────
+    const components = breakdownComponents(
+      compDeliveries,
+      stmtByCompany.get(id) ?? [],
+      cInfo,
+      virtualIds,
     );
 
     // A) 비활성 업체
@@ -210,6 +243,7 @@ export function crossCheckCompanyBilled(
       leaderSide,
       companySide,
       diff,
+      components,
       reasons,
     });
   }
@@ -259,4 +293,104 @@ function detectRevisitGating(deliveries: StmtDelivery[]): StmtDelivery[] {
     if (!hasFirst) out.push(...arr);
   }
   return out;
+}
+
+/**
+ * 항목별 분해 계산 — 팀장정산식과 업체정산서식 양쪽의 동일 항목 값을 산출한다.
+ * 수도권/지방/비고 합계, 착불 상계, 청구액(VAT 전), VAT, 반올림, 최종.
+ */
+function breakdownComponents(
+  compDeliveries: StmtDelivery[],
+  stmts: CompanyStmtData[],
+  cInfo: StmtCompany | undefined,
+  virtualIds?: Set<string> | string[] | null,
+): BilledComponent[] {
+  // ── 팀장정산식 ──: computeCompanyBilledByCompany 와 동일한 billableRows 산정
+  const billable = compDeliveries.filter(
+    (d) => d.two_person || !isVirtualSettlementRow(d, virtualIds),
+  );
+  const earliest = new Map<string, string>();
+  for (const d of billable) {
+    const gid = d.revisit_group_id;
+    if (!gid) continue;
+    const cur = earliest.get(gid);
+    const dt = String(d.date || "");
+    if (!cur || (dt && dt < cur)) earliest.set(gid, dt);
+  }
+  const leaderRows = billable.filter((d) => {
+    const gid = d.revisit_group_id;
+    if (!gid) return true;
+    const first = earliest.get(gid);
+    return !!first && String(d.date || "") === first;
+  });
+  const L = {
+    metro: sum(leaderRows, "metro_fee"),
+    regional: sum(leaderRows, "regional_fee"),
+    note: sum(leaderRows, "note_amount"),
+    cod: sum(leaderRows, "cod_amount"),
+    paid: leaderRows.filter((r) => r.paid).reduce(
+      (s, r) => s + num(r.metro_fee) + num(r.note_amount) + num(r.regional_fee), 0,
+    ),
+  };
+  const Lfee = L.metro + L.note + L.regional;
+  const Lunpaid = Lfee - L.paid;
+  const Lclaim = Math.max(0, Lunpaid - L.cod);
+  const issues = !!cInfo?.issues_invoice;
+  const Lvat = issues && !cInfo?.vat_included ? Math.round(Lclaim * 0.1) : 0;
+  const Lbilled = issues ? Lclaim + Lvat : Lclaim;
+
+  // ── 업체정산서식 ──: buildCompanyStatements 결과 합산
+  let C = { metro: 0, regional: 0, note: 0, cod: 0, claim: 0, vat: 0, billed: 0 };
+  for (const s of stmts) {
+    for (const r of s.rows) {
+      C.metro += num(r.metro_fee);
+      C.regional += num(r.regional_fee);
+      C.note += num(r.note_amount);
+      C.cod += num(r.cod_amount);
+    }
+    C.claim += s.realClaim;
+    C.vat += s.vat;
+    C.billed += s.company.issues_invoice ? s.claimWithVat : s.finalClaim;
+  }
+
+  const rows: BilledComponent[] = [
+    cmp("metro", "수도권배송비", L.metro, C.metro, "행사철수/상차 행 수도권 금액은 업체청구에서 0 처리"),
+    cmp("regional", "지방배송비", L.regional, C.regional, "행사철수/상차 행 지방 금액은 업체청구에서 0 처리"),
+    cmp("note", "비고금액(행사철수 포함)", L.note, C.note, "재방문/기간 게이팅 또는 비활성/정산주기로 인한 차이"),
+    cmp("cod_offset", "착불 상계", L.cod, C.cod, "착불은 청구액에서 차감됨 (양쪽 동일 행 기준)"),
+    cmp("claim", "1차 청구액 (unpaid − cod, 0 이상)", Lclaim, C.claim, "위 항목 차이가 누적되어 발생"),
+    cmp("vat", "VAT (청구액 10%)", Lvat, C.vat, "청구액이 다르면 VAT 도 달라짐"),
+    cmp(
+      "rounding",
+      "반올림 (VAT 라운딩 누적)",
+      Lvat - Math.round(Lclaim * 0.1),
+      C.vat - C.claim * 0.1,
+      "Math.round 적용 차이",
+    ),
+    cmp("final", "최종 청구금액", Lbilled, C.billed),
+  ];
+  return rows;
+}
+
+function cmp(
+  key: BilledComponent["key"],
+  label: string,
+  leader: number,
+  company: number,
+  hint?: string,
+): BilledComponent {
+  const diff = Math.round(leader - company);
+  return {
+    key, label,
+    leader: Math.round(leader),
+    company: Math.round(company),
+    diff,
+    hint: Math.abs(diff) >= 1 ? hint : undefined,
+  };
+}
+
+function sum<K extends keyof StmtDelivery>(rows: StmtDelivery[], k: K): number {
+  let s = 0;
+  for (const r of rows) s += num((r as unknown as Record<string, unknown>)[k as string]);
+  return s;
 }
