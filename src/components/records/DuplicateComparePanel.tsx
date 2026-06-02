@@ -305,7 +305,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       : mergeMode === "two_person" ? "merge_two_person"
       : mergeMode === "keep_separate" ? "keep_separate"
       : "edit";
-    const next: Row = { ...edited };
+    const next: Row = fillLeadersOnto({ ...edited });
     if (action === "merge_companion") {
       next.companion = true;
       next.two_person = false;
@@ -819,7 +819,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
             </DialogDescription>
           </DialogHeader>
           <div className="text-sm space-y-2">
-            <div className="text-muted-foreground">자동 합산 예상: <b>{autoSum ? fmt(autoSum.total) : 0}원</b> (선택된 의심 {selectedSuspects.length}건 포함)</div>
+                <div className="text-muted-foreground">자동 합산 예상: <b>{autoSum ? fmt(autoSum.total) : 0}원</b> (통합 대상 {mergeTargetRows.length}건 포함)</div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => confirmAmountChoice("manual")}>직접입력</Button>
@@ -841,6 +841,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
               <div>통합 방식: <b>{mergeMode === "none" ? "수정만" : mergeMode === "companion" ? "동행 통합" : mergeMode === "two_person" ? "2인배송 통합" : "별도 유지"}</b></div>
               <div>금액 처리: <b>{amountMode === "sum" ? "자동 합산" : amountMode === "manual" ? "직접입력" : "—"}</b></div>
               <div>최종 청구금액: <b>{fmt(feeTotal(edited))}원</b></div>
+              <div>팀장1: <b>{nrm(edited.leader1_name) || nrm(edited.leader1_id) || "—"}</b></div>
               <div>팀장2: <b>{nrm(edited.leader2_name) || nrm(edited.leader2_id) || "—"}</b></div>
               <div>분할: <b>{nrm(edited.split_type) || "—"}</b></div>
             </div>
