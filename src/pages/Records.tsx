@@ -1324,21 +1324,26 @@ export default function Records() {
       (typeof crypto !== "undefined" && (crypto as any).randomUUID)
         ? (crypto as any).randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const rowLeaderName = (id?: string | null, savedName?: string | null) => {
+      if (id) return leaderName(id) || savedName || null;
+      return savedName || null;
+    };
     // 로컬 그룹 ID(완료 클릭으로 묶인 1차/2차) → DB 그룹 UUID 매핑
     const groupIdMap = new Map<string, string>();
     const payloads = rows.flatMap((r) => {
       const co = companies.find((c) => c.id === r.company_id);
+      const lockedExisting = Boolean(r.revisit_group_id_existing);
       const base = {
         user_id: user.id,
-        date: bulkShared.date,
+        date: lockedExisting && r.date_existing ? r.date_existing : bulkShared.date,
         company_id: r.company_id,
-        company_name: co?.name || "",
-        leader1_id: bulkShared.leader1_id || null,
-      leader1_name: leaderName(bulkShared.leader1_id),
-      leader2_id: bulkShared.leader2_id || null,
-      leader2_name: leaderName(bulkShared.leader2_id),
-      leader3_id: bulkShared.leader3_id || null,
-      leader3_name: leaderName(bulkShared.leader3_id),
+        company_name: lockedExisting ? (r.company_name_existing || co?.name || "") : (co?.name || ""),
+        leader1_id: lockedExisting ? (r.leader1_id_existing || null) : (bulkShared.leader1_id || null),
+      leader1_name: lockedExisting ? rowLeaderName(r.leader1_id_existing, r.leader1_name_existing) : leaderName(bulkShared.leader1_id),
+      leader2_id: lockedExisting ? (r.leader2_id_existing || null) : (bulkShared.leader2_id || null),
+      leader2_name: lockedExisting ? rowLeaderName(r.leader2_id_existing, r.leader2_name_existing) : leaderName(bulkShared.leader2_id),
+      leader3_id: lockedExisting ? (r.leader3_id_existing || null) : (bulkShared.leader3_id || null),
+      leader3_name: lockedExisting ? rowLeaderName(r.leader3_id_existing, r.leader3_name_existing) : leaderName(bulkShared.leader3_id),
       customer_name: r.customer_name.trim() || null,
       region: r.region.trim() || null,
       region_type: r.region_type === "unknown" ? null : r.region_type,
@@ -1348,9 +1353,9 @@ export default function Records() {
       note_amount: parseNum(r.note_amount) || 0,
       regional_fee: parseNum(r.regional_fee) || 0,
       cod_amount: parseNum(r.cod_amount) || 0,
-      split_type: bulkShared.split_type || null,
-      paid: r.paid || bulkShared.paid,
-      two_person: r.two_person,
+      split_type: lockedExisting ? (r.split_type_existing || null) : (bulkShared.split_type || null),
+      paid: lockedExisting ? !!r.paid_existing : (r.paid || bulkShared.paid),
+      two_person: lockedExisting ? !!r.two_person_existing : r.two_person,
       is_missing: false,
       };
       // 완료 클릭으로 묶인 1차/2차 행은 그대로 각각 저장 (같은 group_id 공유)
