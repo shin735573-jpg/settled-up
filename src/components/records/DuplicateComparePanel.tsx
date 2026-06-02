@@ -316,11 +316,8 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       next.companion = false;
       if (!nrm(next.split_type)) next.split_type = "반반";
       if (!nrm(next.leader2_id)) {
-        const pool: Row[] = selectedSuspects.length > 0
-          ? selectedSuspects
-          : ([...suspects.exact, ...suspects.similar] as Row[]);
-        const cand = pool
-          .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
+        const cand = mergeTargetRows
+          .flatMap(leaderCandidatesOf)
           .find((c) => nrm(c.id) && c.id !== next.leader1_id);
         if (cand?.id) {
           next.leader2_id = cand.id;
@@ -336,7 +333,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       manualTotal: amountMode === "manual" ? n(manualTotal) : null,
     });
     return items;
-  }, [edited, base, mergeMode, amountMode, manualTotal, companionReason]);
+  }, [edited, base, mergeMode, amountMode, manualTotal, companionReason, mergeTargetRows]);
 
   const errors = useMemo(() => validateMergePlan(plan), [plan]);
   const hasBlocking = errors.some((e) => e.level === "error");
@@ -373,7 +370,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       }
       // 2) 통합 전 두 행에 팀장이 2명 이상 있었다면 팀장2 필수
       const allLeaderIds = new Set<string>();
-      [base, ...selectedSuspects].forEach((r) => {
+      [base, ...mergeTargetRows].forEach((r) => {
         if (nrm(r.leader1_id)) allLeaderIds.add(String(r.leader1_id));
         if (nrm(r.leader2_id)) allLeaderIds.add(String(r.leader2_id));
       });
@@ -436,11 +433,11 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       }
       // 통합 = 2개가 1개로 합쳐짐. 선택된 의심행은 실제로 삭제.
       let mergedDeleted = 0;
-      if ((mergeMode === "companion" || mergeMode === "two_person") && selectedSuspects.length > 0) {
-        const ids = selectedSuspects.map((s) => s.id).filter((id) => id && id !== base.id);
+      if ((mergeMode === "companion" || mergeMode === "two_person") && mergeTargetRows.length > 0) {
+        const ids = mergeTargetRows.map((s) => s.id).filter((id) => id && id !== base.id);
         if (ids.length > 0) {
           // 통합 이력 저장 (복구용 스냅샷) — 삭제 전에 기록
-          const mergedSnapshots = selectedSuspects.filter((s) => ids.includes(s.id));
+          const mergedSnapshots = mergeTargetRows.filter((s) => ids.includes(s.id));
           const { data: u } = await supabase.auth.getUser();
           if (u?.user?.id) {
             await recordMergeLog({
