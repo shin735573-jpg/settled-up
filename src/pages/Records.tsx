@@ -907,6 +907,17 @@ export default function Records() {
     revisit_group_local: string;
     revisit_visit_no: 1 | 2;
     revisit_group_id_existing?: string;
+    date_existing?: string;
+    company_name_existing?: string | null;
+    leader1_id_existing?: string | null;
+    leader1_name_existing?: string | null;
+    leader2_id_existing?: string | null;
+    leader2_name_existing?: string | null;
+    leader3_id_existing?: string | null;
+    leader3_name_existing?: string | null;
+    split_type_existing?: string | null;
+    paid_existing?: boolean;
+    two_person_existing?: boolean;
   };
   const emptyBulkRow = (companyId: string = ""): BulkRow => ({
     company_id: companyId,
