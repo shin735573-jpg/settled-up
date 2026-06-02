@@ -1656,30 +1656,30 @@ export default function Records() {
     if (!user) return;
     setRevisitPickerOpen(true);
     setRevisitLoading(true);
+    // 재방문 요청이 켜진 모든 행을 가져온 뒤, 그룹별로 "최신 차수" 행을 후보로 사용한다.
+    // 최신 차수의 revisit_done이 false 이면 → 아직 후속 차수가 만들어지지 않았으므로 후보.
     const { data, error } = await supabase
       .from("deliveries")
       .select("*")
       .eq("user_id", user.id)
       .eq("revisit_required", true)
-      .eq("revisit_visit_no", 1)
       .not("revisit_group_id", "is", null)
       .order("date", { ascending: false })
-      .limit(500);
+      .limit(1000);
     if (error) { toast.error(error.message); setRevisitLoading(false); return; }
     const all = (data || []) as any[];
-    // 같은 group에 visit_no=2 가 이미 있는 그룹은 제외
-    const groupIds = all.map((r) => r.revisit_group_id);
-    let done = new Set<string>();
-    if (groupIds.length > 0) {
-      const { data: d2 } = await supabase
-        .from("deliveries")
-        .select("revisit_group_id")
-        .eq("user_id", user.id)
-        .eq("revisit_visit_no", 2)
-        .in("revisit_group_id", groupIds);
-      done = new Set((d2 || []).map((r: any) => r.revisit_group_id));
+    const latestByGroup = new Map<string, any>();
+    for (const r of all) {
+      const gid = r.revisit_group_id as string;
+      const existing = latestByGroup.get(gid);
+      if (!existing || Number(r.revisit_visit_no || 1) > Number(existing.revisit_visit_no || 1)) {
+        latestByGroup.set(gid, r);
+      }
     }
-    setRevisitCandidates(all.filter((r) => !done.has(r.revisit_group_id)));
+    const candidates = Array.from(latestByGroup.values())
+      .filter((r) => !r.revisit_done)
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    setRevisitCandidates(candidates);
     setRevisitLoading(false);
   };
 
