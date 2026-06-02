@@ -18,13 +18,18 @@ import type {
   LeaderStmtData,
   StmtDelivery,
 } from "./statementData";
-import type { CheckResult, Finding } from "./statementValidation";
+import type { CheckResult, Finding, FindingLocator } from "./statementValidation";
 
 function empty(): CheckResult {
   return { errors: [], warnings: [], findings: [], ok: true };
 }
-function push(r: CheckResult, severity: Finding["severity"], message: string) {
-  r.findings.push({ severity, message });
+function push(
+  r: CheckResult,
+  severity: Finding["severity"],
+  message: string,
+  locator?: FindingLocator,
+) {
+  r.findings.push({ severity, message, locator });
   if (severity === "error") r.errors.push(message);
   else r.warnings.push(message);
   r.ok = r.errors.length === 0;
@@ -60,14 +65,17 @@ export function validateSettlementInvariants(
     const m = num(d.metro_fee);
     const rg = num(d.regional_fee);
     const t = (d.region_type || "").trim();
+    const loc: FindingLocator | undefined = d.company_id
+      ? { kind: "company", id: d.company_id, rowId: d.id }
+      : undefined;
     if (m > 0 && rg > 0) {
-      push(r, "warning", `[분류] ${d.date} ${d.company_name ?? "?"} ${d.customer_name ?? ""} — 수도권/지방 배송비가 동시에 입력됨 (${m.toLocaleString()} / ${rg.toLocaleString()})`);
+      push(r, "warning", `[분류] ${d.date} ${d.company_name ?? "?"} ${d.customer_name ?? ""} — 수도권/지방 배송비가 동시에 입력됨 (${m.toLocaleString()} / ${rg.toLocaleString()})`, loc);
     }
     if (t === "수도권" && m === 0 && rg > 0) {
-      push(r, "error", `[분류] ${d.date} ${d.company_name ?? "?"} — region_type 수도권인데 지방금액(${rg.toLocaleString()})만 입력됨`);
+      push(r, "error", `[분류] ${d.date} ${d.company_name ?? "?"} — region_type 수도권인데 지방금액(${rg.toLocaleString()})만 입력됨`, loc);
     }
     if (t === "지방" && rg === 0 && m > 0) {
-      push(r, "error", `[분류] ${d.date} ${d.company_name ?? "?"} — region_type 지방인데 수도권금액(${m.toLocaleString()})만 입력됨`);
+      push(r, "error", `[분류] ${d.date} ${d.company_name ?? "?"} — region_type 지방인데 수도권금액(${m.toLocaleString()})만 입력됨`, loc);
     }
   }
 
@@ -94,21 +102,26 @@ export function validateSettlementInvariants(
     );
     if (shares.length === 0) continue;
     const wsum = shares.reduce((s, x) => s + x.weight, 0);
+    const dloc: FindingLocator | undefined = d.leader1_id
+      ? { kind: "leader", id: d.leader1_id, rowId: d.id }
+      : d.company_id
+      ? { kind: "company", id: d.company_id, rowId: d.id }
+      : undefined;
     if (Math.abs(wsum - 1) > 0.005) {
-      push(r, "error", `[분배] ${d.date} ${d.company_name ?? "?"} — 가중치 합이 1이 아님 (${wsum.toFixed(3)})`);
+      push(r, "error", `[분배] ${d.date} ${d.company_name ?? "?"} — 가중치 합이 1이 아님 (${wsum.toFixed(3)})`, dloc);
     }
     const mSum = shares.reduce((s, x) => s + x.metro, 0);
     const nSum = shares.reduce((s, x) => s + x.note_amount, 0);
     const rSum = shares.reduce((s, x) => s + x.regional, 0);
     const cSum = shares.reduce((s, x) => s + x.cod, 0);
     if (Math.round(mSum) !== Math.round(num(d.metro_fee)))
-      push(r, "error", `[분배] ${d.date} 수도권 분배 손실: 원본 ${num(d.metro_fee)} vs 분배합 ${mSum}`);
+      push(r, "error", `[분배] ${d.date} 수도권 분배 손실: 원본 ${num(d.metro_fee)} vs 분배합 ${mSum}`, dloc);
     if (Math.round(nSum) !== Math.round(num(d.note_amount)))
-      push(r, "error", `[분배] ${d.date} 비고 분배 손실: 원본 ${num(d.note_amount)} vs 분배합 ${nSum}`);
+      push(r, "error", `[분배] ${d.date} 비고 분배 손실: 원본 ${num(d.note_amount)} vs 분배합 ${nSum}`, dloc);
     if (Math.round(rSum) !== Math.round(num(d.regional_fee)))
-      push(r, "error", `[분배] ${d.date} 지방 분배 손실: 원본 ${num(d.regional_fee)} vs 분배합 ${rSum}`);
+      push(r, "error", `[분배] ${d.date} 지방 분배 손실: 원본 ${num(d.regional_fee)} vs 분배합 ${rSum}`, dloc);
     if (Math.round(cSum) !== Math.round(num(d.cod_amount)))
-      push(r, "error", `[분배] ${d.date} 착불 분배 손실: 원본 ${num(d.cod_amount)} vs 분배합 ${cSum}`);
+      push(r, "error", `[분배] ${d.date} 착불 분배 손실: 원본 ${num(d.cod_amount)} vs 분배합 ${cSum}`, dloc);
   }
 
   // ─────────────── 2) 착불 합산 ───────────────
@@ -132,7 +145,7 @@ export function validateSettlementInvariants(
     }
     const stmtCod = num(cs.codTotal);
     if (Math.round(raw) !== Math.round(stmtCod)) {
-      push(r, "error", `[착불] ${cs.company.name} 업체 착불 합 불일치: 원본 ${raw.toLocaleString()} vs 청구서 ${stmtCod.toLocaleString()}`);
+      push(r, "error", `[착불] ${cs.company.name} 업체 착불 합 불일치: 원본 ${raw.toLocaleString()} vs 청구서 ${stmtCod.toLocaleString()}`, { kind: "company", id: cs.company.id });
     }
   }
   // 팀장 codSum 총합 == 정산포함 팀장에게 분배된 cod 총합 (제외품목 제외)
@@ -200,20 +213,20 @@ export function validateSettlementInvariants(
         const key = `${(line.label || "").trim()}|${line.periodKey}`;
         seen.set(key, (seen.get(key) ?? 0) + 1);
         if (!allowedPK.has(line.periodKey)) {
-          push(r, "error", `[공제] ${l.leader.name} — 잘못된 보름키 "${line.periodKey}" (${line.label})`);
+          push(r, "error", `[공제] ${l.leader.name} — 잘못된 보름키 "${line.periodKey}" (${line.label})`, { kind: "leader", id: l.leader.id });
         }
       }
       for (const [k, n] of seen) {
-        if (n > 1) push(r, "error", `[공제] ${l.leader.name} — 공통공제 중복 ${n}회: ${k}`);
+        if (n > 1) push(r, "error", `[공제] ${l.leader.name} — 공통공제 중복 ${n}회: ${k}`, { kind: "leader", id: l.leader.id });
       }
       // 개별공제: period_key 가 ctx.periodKey 와 다른 항목이 합산되면 안 됨
       const sumP = ded.personalLines.reduce((s, x) => s + num(x.amount), 0);
       if (Math.round(sumP) !== Math.round(num(ded.personalTotal))) {
-        push(r, "error", `[공제] ${l.leader.name} — 개별공제 합 불일치 (${sumP} vs ${ded.personalTotal})`);
+        push(r, "error", `[공제] ${l.leader.name} — 개별공제 합 불일치 (${sumP} vs ${ded.personalTotal})`, { kind: "leader", id: l.leader.id });
       }
       const totalCheck = num(ded.commonTotal) + num(ded.personalTotal);
       if (Math.round(totalCheck) !== Math.round(num(ded.total))) {
-        push(r, "error", `[공제] ${l.leader.name} — 공제총액 합산 오류 (${totalCheck} vs ${ded.total})`);
+        push(r, "error", `[공제] ${l.leader.name} — 공제총액 합산 오류 (${totalCheck} vs ${ded.total})`, { kind: "leader", id: l.leader.id });
       }
     }
   }
