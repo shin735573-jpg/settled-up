@@ -13,6 +13,7 @@ import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { recordMergeLog } from "@/lib/mergeLog";
 import {
   type DupDelivery,
   findDuplicateSuspects,
@@ -339,6 +340,19 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       if ((mergeMode === "companion" || mergeMode === "two_person") && selectedSuspects.length > 0) {
         const ids = selectedSuspects.map((s) => s.id).filter((id) => id && id !== base.id);
         if (ids.length > 0) {
+          // 통합 이력 저장 (복구용 스냅샷) — 삭제 전에 기록
+          const mergedSnapshots = selectedSuspects.filter((s) => ids.includes(s.id));
+          const { data: u } = await supabase.auth.getUser();
+          if (u?.user?.id) {
+            await recordMergeLog({
+              userId: u.user.id,
+              baseRowId: base.id,
+              action: mergeMode === "companion" ? "merge_companion" : "merge_two_person",
+              baseBefore: base as unknown as Record<string, unknown> & { id: string },
+              baseAfter: { ...(edited as unknown as Record<string, unknown>), id: base.id },
+              mergedRows: mergedSnapshots as unknown as Array<Record<string, unknown> & { id: string }>,
+            });
+          }
           const { error: delErr } = await supabase.from("deliveries").delete().in("id", ids);
           if (delErr) {
             toast.error("통합 중복 행 삭제 실패: " + delErr.message);
