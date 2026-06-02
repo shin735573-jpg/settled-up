@@ -907,6 +907,18 @@ export default function Records() {
     revisit_group_local: string;
     revisit_visit_no: 1 | 2;
     revisit_group_id_existing?: string;
+    revisit_source_id_existing?: string;
+    date_existing?: string;
+    company_name_existing?: string | null;
+    leader1_id_existing?: string | null;
+    leader1_name_existing?: string | null;
+    leader2_id_existing?: string | null;
+    leader2_name_existing?: string | null;
+    leader3_id_existing?: string | null;
+    leader3_name_existing?: string | null;
+    split_type_existing?: string | null;
+    paid_existing?: boolean;
+    two_person_existing?: boolean;
   };
   const emptyBulkRow = (companyId: string = ""): BulkRow => ({
     company_id: companyId,
@@ -1286,12 +1298,6 @@ export default function Records() {
   const bulkSaveAll = async () => {
     if (!user) return;
     if (!bulkShared.date) { toast.error("날짜를 선택하세요"); return; }
-    if (!bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
-    const anyTwoPerson = bulkRows.some((r) => r.two_person);
-    if (anyTwoPerson && !bulkShared.leader2_id) {
-      toast.error("2인배송은 팀장2가 필요합니다.");
-      return;
-    }
     const rows = bulkRows.filter((r) =>
       r.company_id ||
       r.customer_name.trim() ||
@@ -1303,43 +1309,68 @@ export default function Records() {
       parseNum(r.cod_amount),
     );
     if (rows.length === 0) { toast.error("입력된 행이 없습니다."); return; }
+    const rowsNeedingSharedLeader = rows.filter((r) => !r.revisit_group_id_existing);
+    if (rowsNeedingSharedLeader.length > 0 && !bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
+    const anyTwoPerson = rowsNeedingSharedLeader.some((r) => r.two_person);
+    if (anyTwoPerson && !bulkShared.leader2_id) {
+      toast.error("2인배송은 팀장2가 필요합니다.");
+      return;
+    }
     const missingCompanyIdx = rows.findIndex((r) => !r.company_id);
     if (missingCompanyIdx >= 0) {
       toast.error(`${missingCompanyIdx + 1}번 행의 업체를 선택하세요`);
       return;
+    }
+    const sourceIds = Array.from(new Set(rows.map((r) => r.revisit_source_id_existing).filter(Boolean) as string[]));
+    let sourceById = new Map<string, any>();
+    if (sourceIds.length > 0) {
+      const { data: sourceRows, error: sourceError } = await supabase
+        .from("deliveries")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("id", sourceIds);
+      if (sourceError) { toast.error(sourceError.message); return; }
+      sourceById = new Map((sourceRows || []).map((r: any) => [r.id, r]));
     }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
     const makeUuid = () =>
       (typeof crypto !== "undefined" && (crypto as any).randomUUID)
         ? (crypto as any).randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const rowLeaderName = (id?: string | null, savedName?: string | null) => {
+      if (id) return leaderName(id) || savedName || null;
+      return savedName || null;
+    };
     // 로컬 그룹 ID(완료 클릭으로 묶인 1차/2차) → DB 그룹 UUID 매핑
     const groupIdMap = new Map<string, string>();
     const payloads = rows.flatMap((r) => {
-      const co = companies.find((c) => c.id === r.company_id);
+      const lockedExisting = Boolean(r.revisit_group_id_existing);
+      const source = lockedExisting ? sourceById.get(r.revisit_source_id_existing || "") : null;
+      const companyId = source?.company_id || r.company_id;
+      const co = companies.find((c) => c.id === companyId);
       const base = {
         user_id: user.id,
-        date: bulkShared.date,
-        company_id: r.company_id,
-        company_name: co?.name || "",
-        leader1_id: bulkShared.leader1_id || null,
-      leader1_name: leaderName(bulkShared.leader1_id),
-      leader2_id: bulkShared.leader2_id || null,
-      leader2_name: leaderName(bulkShared.leader2_id),
-      leader3_id: bulkShared.leader3_id || null,
-      leader3_name: leaderName(bulkShared.leader3_id),
-      customer_name: r.customer_name.trim() || null,
-      region: r.region.trim() || null,
-      region_type: r.region_type === "unknown" ? null : r.region_type,
-      item: r.item || null,
-      note: r.note || null,
+        date: lockedExisting ? (source?.date || r.date_existing || bulkShared.date) : bulkShared.date,
+        company_id: companyId,
+        company_name: lockedExisting ? (source?.company_name || r.company_name_existing || co?.name || "") : (co?.name || ""),
+        leader1_id: lockedExisting ? (source?.leader1_id || r.leader1_id_existing || null) : (bulkShared.leader1_id || null),
+      leader1_name: lockedExisting ? rowLeaderName(source?.leader1_id || r.leader1_id_existing, source?.leader1_name || r.leader1_name_existing) : leaderName(bulkShared.leader1_id),
+      leader2_id: lockedExisting ? (source?.leader2_id || r.leader2_id_existing || null) : (bulkShared.leader2_id || null),
+      leader2_name: lockedExisting ? rowLeaderName(source?.leader2_id || r.leader2_id_existing, source?.leader2_name || r.leader2_name_existing) : leaderName(bulkShared.leader2_id),
+      leader3_id: lockedExisting ? (source?.leader3_id || r.leader3_id_existing || null) : (bulkShared.leader3_id || null),
+      leader3_name: lockedExisting ? rowLeaderName(source?.leader3_id || r.leader3_id_existing, source?.leader3_name || r.leader3_name_existing) : leaderName(bulkShared.leader3_id),
+      customer_name: lockedExisting ? (source?.customer_name || r.customer_name.trim() || null) : (r.customer_name.trim() || null),
+      region: lockedExisting ? (source?.region || r.region.trim() || null) : (r.region.trim() || null),
+      region_type: lockedExisting ? ((source?.region_type || r.region_type) === "unknown" ? null : (source?.region_type || r.region_type)) : (r.region_type === "unknown" ? null : r.region_type),
+      item: lockedExisting ? (source?.item || r.item || null) : (r.item || null),
+      note: lockedExisting ? (source?.note || r.note || null) : (r.note || null),
       metro_fee: parseNum(r.metro_fee) || 0,
       note_amount: parseNum(r.note_amount) || 0,
       regional_fee: parseNum(r.regional_fee) || 0,
       cod_amount: parseNum(r.cod_amount) || 0,
-      split_type: bulkShared.split_type || null,
-      paid: r.paid || bulkShared.paid,
-      two_person: r.two_person,
+      split_type: lockedExisting ? (source?.split_type || r.split_type_existing || null) : (bulkShared.split_type || null),
+      paid: lockedExisting ? !!(source?.paid ?? r.paid_existing) : (r.paid || bulkShared.paid),
+      two_person: lockedExisting ? !!(source?.two_person ?? r.two_person_existing) : r.two_person,
       is_missing: false,
       };
       // 완료 클릭으로 묶인 1차/2차 행은 그대로 각각 저장 (같은 group_id 공유)
@@ -1427,11 +1458,14 @@ export default function Records() {
       (typeof crypto !== "undefined" && (crypto as any).randomUUID)
         ? (crypto as any).randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const sourceRegionType =
+      (src.region_type as RegionType | null) ||
+      (Number(src.regional_fee || 0) > 0 ? "regional" : Number(src.metro_fee || 0) > 0 ? "metro" : classifyRegion(src.region || ""));
     const clone: BulkRow = {
       company_id: src.company_id || "",
       customer_name: src.customer_name || "",
       region: src.region || "",
-      region_type: (src.region_type as RegionType) || "unknown",
+      region_type: sourceRegionType,
       item: src.item || "",
       note: src.note || "",
       metro_fee: src.metro_fee ? String(src.metro_fee) : "",
@@ -1445,6 +1479,18 @@ export default function Records() {
       revisit_group_local: localId,
       revisit_visit_no: 2,
       revisit_group_id_existing: src.revisit_group_id,
+      revisit_source_id_existing: src.id,
+      date_existing: src.date,
+      company_name_existing: src.company_name || "",
+      leader1_id_existing: src.leader1_id || null,
+      leader1_name_existing: src.leader1_name || null,
+      leader2_id_existing: src.leader2_id || null,
+      leader2_name_existing: src.leader2_name || null,
+      leader3_id_existing: src.leader3_id || null,
+      leader3_name_existing: src.leader3_name || null,
+      split_type_existing: src.split_type || null,
+      paid_existing: !!src.paid,
+      two_person_existing: !!src.two_person,
     };
     setBulkRows((rows) => [...rows, clone]);
     setRevisitPickerOpen(false);
@@ -1730,7 +1776,7 @@ export default function Records() {
                         {isSecond ? (
                           <Input
                             className="h-8"
-                            value={companiesById.get(r.company_id)?.name || ""}
+                             value={r.company_name_existing || companiesById.get(r.company_id)?.name || ""}
                             disabled
                             readOnly
                           />
@@ -1782,7 +1828,7 @@ export default function Records() {
                           {r.two_person ? "2인배송" : "—"}
                         </button>
                       </td>
-                      <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} /></td>
+                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} disabled={isSecond} /></td>
                       <td className="p-1">
                         <AmountTextInput
                           className={cn(
@@ -1794,8 +1840,8 @@ export default function Records() {
                             if (r.region_type === "regional") upd({ regional_fee: v, metro_fee: "" });
                             else upd({ metro_fee: v, regional_fee: "" });
                           }}
-                          disabled={r.region_type === "unknown"}
-                          placeholder={r.region_type === "unknown" ? "지역 먼저" : ""}
+                          disabled={!isSecond && r.region_type === "unknown"}
+                          placeholder={r.region_type === "unknown" ? (isSecond ? "금액 입력" : "지역 먼저") : ""}
                         />
                       </td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
@@ -1827,7 +1873,7 @@ export default function Records() {
                                     value={r.cod_amount}
                                     onChange={(v) => {
                                       const amt = parseNum(v) || 0;
-                                      upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                      upd(isSecond ? { cod_amount: v } : { cod_amount: v, note: applyCodToNote(r.note, amt) });
                                     }}
                                   />
                                   <div className="flex items-center gap-2">
@@ -1837,16 +1883,14 @@ export default function Records() {
                                       value={r.cod_amount}
                                       onChange={(v) => {
                                         const amt = parseNum(v) || 0;
-                                        upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                        upd(isSecond ? { cod_amount: v } : { cod_amount: v, note: applyCodToNote(r.note, amt) });
                                       }}
                                     />
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() =>
-                                        upd({ cod_amount: "", note: applyCodToNote(r.note, 0) })
-                                      }
+                                      onClick={() => upd(isSecond ? { cod_amount: "" } : { cod_amount: "", note: applyCodToNote(r.note, 0) })}
                                     >
                                       삭제
                                     </Button>
@@ -1860,10 +1904,12 @@ export default function Records() {
                       <td className="p-1 text-center">
                         <button
                           type="button"
-                          onClick={() => upd({ paid: !r.paid })}
+                          onClick={() => { if (!isSecond) upd({ paid: !r.paid }); }}
+                          disabled={isSecond}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
-                            r.paid ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                            r.paid ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
+                            isSecond && "opacity-50 cursor-not-allowed"
                           )}
                         >
                           {r.paid ? "선결제" : "—"}
