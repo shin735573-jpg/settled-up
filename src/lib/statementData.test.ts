@@ -163,7 +163,7 @@ describe("행사철수 특수일 처리", () => {
     expect(stmt.realFee).toBe(10000);
   });
 
-  it("재방문 그룹: 업체 청구 1건으로 합산, 날짜는 1차 방문일", () => {
+  it("재방문 그룹: 업체 청구는 1건으로 표시, 금액은 최신 수정액(최고 visit_no)을 사용, 날짜는 1차 방문일", () => {
     const leaders = [mkLeader("L1", "A팀장"), mkLeader("L2", "B팀장")];
     const deliveries: StmtDelivery[] = [
       mkRow({
@@ -177,11 +177,11 @@ describe("행사철수 특수일 처리", () => {
     ];
     const [stmt] = buildCompanyStatements(deliveries, [company], leaders, "h1");
     expect(stmt.rows).toHaveLength(1);
-    expect(stmt.rows[0].metro_fee).toBe(80000);
-    expect(stmt.rows[0].delivery_fee).toBe(80000);
+    expect(stmt.rows[0].metro_fee).toBe(30000);
+    expect(stmt.rows[0].delivery_fee).toBe(30000);
     expect(stmt.rows[0].date).toBe("2026-06-05");
     expect(stmt.rows[0].display_leader1).toBe("A팀장");
-    expect(stmt.feeTotal).toBe(80000);
+    expect(stmt.feeTotal).toBe(30000);
   });
 
   it("재방문 그룹: 팀장 정산은 각 행의 팀장이 본인 금액 그대로 받음", () => {
