@@ -1315,9 +1315,9 @@ export default function Records() {
       parseNum(r.cod_amount),
     );
     if (rows.length === 0) { toast.error("입력된 행이 없습니다."); return; }
-    const rowsNeedingSharedLeader = rows.filter((r) => !r.revisit_group_id_existing);
-    if (rowsNeedingSharedLeader.length > 0 && !bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
-    const anyTwoPerson = rowsNeedingSharedLeader.some((r) => r.two_person);
+    // 2차(재방문) 행도 팀장이 1차와 달라질 수 있으므로 동일하게 공유 팀장 입력 필요
+    if (rows.length > 0 && !bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
+    const anyTwoPerson = rows.some((r) => r.two_person);
     if (anyTwoPerson && !bulkShared.leader2_id) {
       toast.error("2인배송은 팀장2가 필요합니다.");
       return;
