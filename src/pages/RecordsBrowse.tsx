@@ -10,6 +10,9 @@ import { X, Search, Building2, Users, Maximize2, Pencil } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { groupSuspectDuplicates, type DuplicateGroup } from "@/lib/duplicateCheck";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import {
   computeRevisitRedistribution,
   getRevisitFeeForLeader,
@@ -234,6 +237,8 @@ export default function RecordsBrowse() {
   const filledCount = slots.filter(Boolean).length;
   const usedKeys = new Set(slots.filter(Boolean).map((s) => `${s!.kind}:${s!.id}`));
 
+  const duplicateGroups = useMemo(() => groupSuspectDuplicates(records), [records]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -418,6 +423,11 @@ export default function RecordsBrowse() {
           </div>
         );
       })()}
+
+      <DuplicateGroupsPanel
+        groups={duplicateGroups}
+        onEdit={(id) => navigate(`/records?edit=${id}`)}
+      />
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-5xl">
@@ -847,5 +857,109 @@ function Stat({ label, value, highlight }: { label: string; value: string; highl
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="font-bold tabular-nums">{value}</div>
     </div>
+  );
+}
+
+function DuplicateGroupsPanel({
+  groups,
+  onEdit,
+}: {
+  groups: DuplicateGroup[];
+  onEdit: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const totalRows = groups.reduce((s, g) => s + g.rows.length, 0);
+  const exactGroups = groups.filter((g) => g.exactPairs > 0).length;
+  return (
+    <Card className="p-3 md:p-4">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="w-full flex items-center gap-2 text-left"
+          >
+            <AlertTriangle
+              className={cn(
+                "h-4 w-4",
+                groups.length === 0 ? "text-muted-foreground" : "text-amber-600",
+              )}
+            />
+            <span className="font-semibold text-sm">중복 의심 그룹</span>
+            <Badge variant={groups.length === 0 ? "secondary" : "destructive"} className="h-5 px-1.5 text-[11px]">
+              {groups.length}
+            </Badge>
+            {groups.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                · {totalRows}건 · 정확중복 그룹 {exactGroups}
+              </span>
+            )}
+            <span className="flex-1" />
+            <ChevronDown
+              className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
+            />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          {groups.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-4 text-center">
+              현재 조회 범위에서 중복 의심 그룹이 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {groups.map((g) => (
+                <div key={g.key} className="border rounded-md">
+                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-muted/40 border-b text-xs">
+                    <Badge variant={g.exactPairs > 0 ? "destructive" : "outline"} className="h-5 px-1.5 text-[11px]">
+                      {g.exactPairs > 0 ? `정확중복` : `의심`}
+                    </Badge>
+                    <span className="font-semibold tabular-nums">{g.date}</span>
+                    <span>· {g.company || "?"}</span>
+                    <span>· {g.customer || "?"}</span>
+                    {g.region && <span className="text-muted-foreground">({g.region})</span>}
+                    <span>· {g.item || "?"}</span>
+                    <span className="tabular-nums">· 배송 {fmt(g.fee)}원</span>
+                    <span className="ml-auto text-muted-foreground">{g.rows.length}건</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/20">
+                        <tr className="text-left">
+                          <th className="px-2 py-1">ID</th>
+                          <th className="px-2 py-1">팀장1</th>
+                          <th className="px-2 py-1">팀장2</th>
+                          <th className="px-2 py-1 text-right">착불</th>
+                          <th className="px-2 py-1">분할</th>
+                          <th className="px-2 py-1">결제</th>
+                          <th className="px-2 py-1">비고</th>
+                          <th className="px-2 py-1"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.rows.map((r: any) => (
+                          <tr key={r.id} className="border-t">
+                            <td className="px-2 py-1 font-mono text-[10px]">{String(r.id).slice(0, 8)}</td>
+                            <td className="px-2 py-1">{r.leader1_name || "-"}</td>
+                            <td className="px-2 py-1">{r.leader2_name || "-"}</td>
+                            <td className="px-2 py-1 text-right tabular-nums">{fmt(Number(r.cod_amount || 0))}</td>
+                            <td className="px-2 py-1">{r.split_type || "-"}</td>
+                            <td className="px-2 py-1">{r.paid ? "Y" : "N"}</td>
+                            <td className="px-2 py-1 truncate max-w-[200px]">{r.note || ""}</td>
+                            <td className="px-2 py-1 text-right">
+                              <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => onEdit(r.id)}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 }
