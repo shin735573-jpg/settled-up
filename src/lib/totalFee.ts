@@ -47,14 +47,19 @@ export const totalUnifiedDeliveryFee = (
   rows: UnifiedRow[],
   virtualIds?: Set<string> | string[] | null,
 ): number => {
-  // 재방문 그룹의 1차(가장 빠른 날짜) 행 id 집합
-  const earliest = new Map<string, { date: string; rowRef: UnifiedRow }>();
+  // 재방문 그룹의 1차 행 선택 — keepRevisitPrimaryOnly 와 동일한 규칙:
+  //   1) visit_no 가 더 작은 행 우선
+  //   2) 동률이면 날짜가 더 빠른 행 우선
+  // (과거에는 날짜만 보고 골라 visit_no=1 행이 더 늦은 날짜인 경우 두 식이 어긋났음)
+  const primary = new Map<string, { visitNo: number; date: string; rowRef: UnifiedRow }>();
   for (const r of rows) {
     const gid = r.revisit_group_id;
     if (!gid) continue;
+    const vn = Number(r.revisit_visit_no ?? 1);
     const dt = String(r.date || "");
-    const cur = earliest.get(gid);
-    if (!cur || (dt && dt < cur.date)) earliest.set(gid, { date: dt, rowRef: r });
+    const cur = primary.get(gid);
+    const better = !cur || vn < cur.visitNo || (vn === cur.visitNo && dt && dt < cur.date);
+    if (better) primary.set(gid, { visitNo: vn, date: dt, rowRef: r });
   }
   let sum = 0;
   for (const r of rows) {
@@ -62,7 +67,7 @@ export const totalUnifiedDeliveryFee = (
     if (!r.two_person && isVirtualSettlementRow(r, virtualIds)) continue;
     const gid = r.revisit_group_id;
     if (gid) {
-      const first = earliest.get(gid);
+      const first = primary.get(gid);
       if (!first || first.rowRef !== r) continue; // 1차 행이 아니면 제외
     }
     sum += rowDeliveryFee(r);
