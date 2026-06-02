@@ -396,23 +396,36 @@ export function classifySuspect(base: DupDelivery, suspect: DupDelivery): Suspec
   const baseL2 = norm(base.leader2_id);
   const susL1 = norm(suspect.leader1_id);
   const susL2 = norm(suspect.leader2_id);
-  if (grouped) {
-    if ((!baseL2 && susL1 && susL1 !== baseL1) || (!susL2 && baseL1 && baseL1 !== susL1)) {
+  if (grouped && !isExact) {
+    // 팀장 차이는 "양쪽 모두 값이 있을 때" 또는 "한쪽만 있을 때"만 인정.
+    // 빈값 vs 빈값(둘 다 미입력)은 차이로 보지 않는다.
+    const l1Differs = (baseL1 || susL1) && baseL1 !== susL1;
+    const l2Differs = (baseL2 || susL2) && baseL2 !== susL2;
+    const anyTwoPerson = !!base.two_person || !!suspect.two_person;
+    const anyHalfSplit =
+      norm(base.split_type) === "반반" || norm(suspect.split_type) === "반반";
+
+    // 팀장 누락: 의심행이 반반/2인배송인데 leader2 가 비어 있거나,
+    //           base 에 leader2 가 있는데 의심행에는 없는 경우만.
+    const suspectNeedsL2 = !!suspect.two_person || norm(suspect.split_type) === "반반";
+    if ((suspectNeedsL2 && !susL2) || (baseL2 && !susL2)) {
       tags.push("leader_missing");
     }
-    // 팀장만 다른 경우: 통합 후보
-    if (baseL1 !== susL1 || baseL2 !== susL2) {
-      if (norm(base.split_type) === "반반" || norm(suspect.split_type) === "반반") {
-        tags.push("two_person_candidate");
-      } else {
-        tags.push("companion_candidate");
-      }
+
+    // 통합 후보: 팀장이 실제로 다른 경우에만.
+    if (l1Differs || l2Differs) {
+      if (anyHalfSplit || anyTwoPerson) tags.push("two_person_candidate");
+      else tags.push("companion_candidate");
     }
+
     if (!!base.two_person !== !!suspect.two_person) tags.push("two_person_mismatch");
-    if (!!base.companion !== !!suspect.companion) tags.push("companion_needed");
-    // 정산 불일치: 반반이라면서 팀장2가 없음
-    const needsLeader2 = norm(base.split_type) === "반반" || !!base.two_person;
-    if (needsLeader2 && !baseL2) tags.push("settlement_mismatch");
+    // 동행 확인 필요: 동행여부가 다르고, 팀장도 실제로 다른 경우에만
+    if (!!base.companion !== !!suspect.companion && (l1Differs || l2Differs)) {
+      tags.push("companion_needed");
+    }
+    // 정산 불일치: 의심행 기준으로만 평가(같은 그룹 안 행 자신의 상태)
+    const needsLeader2 = norm(suspect.split_type) === "반반" || !!suspect.two_person;
+    if (needsLeader2 && !susL2) tags.push("settlement_mismatch");
   }
   return tags;
 }
