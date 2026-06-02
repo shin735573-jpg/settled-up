@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
-import { totalLeaderSettlementDeliveryFee, computeCompanyBilledByCompany } from "@/lib/totalFee";
+import { totalLeaderSettlementDeliveryFee, totalUnifiedDeliveryFee, computeCompanyBilledByCompany } from "@/lib/totalFee";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -640,8 +640,9 @@ export default function LeaderSettlement() {
       totalCount += m.count;
       totalCod += m.cod;
     });
-    // 총배송비 = 팀장정산 기준 공통 헬퍼 사용 — 적재비 같은 별도 매출 품목 제외
-    const companyTotalFee = totalLeaderSettlementDeliveryFee(rows, virtualIds);
+    // 총배송비 = 업체정산 화면과 100% 동일하게 맞추기 위한 통합 헬퍼
+    //   (적재비 제외 + 가상기사 단독 행 제외 + 재방문 1차만)
+    const companyTotalFee = totalUnifiedDeliveryFee(rows, virtualIds);
     const totalFee = companyTotalFee;
     // 업체청구금액 = 실제로 각 업체에 청구된 금액의 합 (재방문 2차+/적재 제외 행 제외,
     //   미수금 - 착불 상계 + 부가세). 정산용 내부 계산값(totalLeaderSettlementDeliveryFee)과 분리.
