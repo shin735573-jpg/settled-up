@@ -20,7 +20,7 @@ export type SaveConfirmRequest = {
   cancelLabel?: string;
 };
 
-type Pending = SaveConfirmRequest & { action: () => void | Promise<void> };
+type Pending = SaveConfirmRequest & { resolve: (ok: boolean) => void };
 
 /**
  * 공용 "저장 전 요약 확인" 다이얼로그.
@@ -36,31 +36,26 @@ type Pending = SaveConfirmRequest & { action: () => void | Promise<void> };
  */
 export function useSaveConfirm() {
   const [pending, setPending] = useState<Pending | null>(null);
-  const [busy, setBusy] = useState(false);
   const pendingRef = useRef<Pending | null>(null);
   pendingRef.current = pending;
 
-  const confirm = useCallback(
-    (req: SaveConfirmRequest, action: () => void | Promise<void>) => {
-      setPending({ ...req, action });
-    },
-    [],
-  );
+  // Promise-based: returns true if user confirms, false if cancels.
+  const confirm = useCallback((req: SaveConfirmRequest): Promise<boolean> => {
+    return new Promise<boolean>((resolve) => {
+      setPending({ ...req, resolve });
+    });
+  }, []);
 
-  const onConfirm = async () => {
+  const onConfirm = () => {
     const p = pendingRef.current;
     if (!p) return;
-    setBusy(true);
-    try {
-      await p.action();
-    } finally {
-      setBusy(false);
-      setPending(null);
-    }
+    p.resolve(true);
+    setPending(null);
   };
 
   const onCancel = () => {
-    if (busy) return;
+    const p = pendingRef.current;
+    if (p) p.resolve(false);
     setPending(null);
   };
 
@@ -84,22 +79,18 @@ export function useSaveConfirm() {
           </ul>
         </div>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>
+          <AlertDialogCancel onClick={(e) => { e.preventDefault(); onCancel(); }}>
             {pending?.cancelLabel || "취소"}
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault();
-              onConfirm();
-            }}
-            disabled={busy}
+            onClick={(e) => { e.preventDefault(); onConfirm(); }}
           >
-            {busy ? "저장 중..." : pending?.confirmLabel || "저장"}
+            {pending?.confirmLabel || "저장"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 
-  return { confirm, dialog, isOpen: !!pending, busy };
+  return { confirm, dialog, isOpen: !!pending };
 }
