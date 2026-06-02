@@ -1903,6 +1903,9 @@ export default function Records() {
       },
     });
     if (!ok) return;
+    // 저장 직전 중복 검사 (단건 저장과 동일 기준)
+    const dupOk = await confirmBulkDuplicates(payloads as DupDelivery[]);
+    if (!dupOk) return;
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
