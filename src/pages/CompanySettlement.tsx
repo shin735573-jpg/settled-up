@@ -680,7 +680,10 @@ export default function CompanySettlement() {
                   <TableCell>{r.date}</TableCell>
                   <TableCell>{r.company_name}</TableCell>
                   <TableCell>{displayLeaderName(r.leader1_id, r.leader1_name)}</TableCell>
-                  <TableCell>{displayLeaderName(r.leader2_id, r.leader2_name)}</TableCell>
+                  <TableCell>
+                    {displayLeaderName(r.leader2_id, r.leader2_name)
+                      || (r.virtual_leader_name ? String(r.virtual_leader_name) : "-")}
+                  </TableCell>
                   <TableCell>{displayLeaderName(r.leader3_id, r.leader3_name)}</TableCell>
                   <TableCell>{r.customer_name || "-"}</TableCell>
                   <TableCell className="align-top min-w-[160px] max-w-[320px] whitespace-pre-wrap break-words">{r.item || "-"}</TableCell>
