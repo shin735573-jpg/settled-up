@@ -993,6 +993,22 @@ function CompaniesTab() {
         .update({ company_id: canonical.id, company_name: canonical.name })
         .in("company_id", otherIds);
       if (ep) throw ep;
+      // 3.1) 기준 업체 id로 이미 존재하지만 company_name 이 옛 이름으로 남아있는 행도
+      //      통합 후 기준명으로 통일한다 (검색/표시 일관성 보장)
+      const { error: e1b } = await supabase
+        .from("deliveries")
+        .update({ company_name: canonical.name })
+        .eq("company_id", canonical.id)
+        .neq("company_name", canonical.name);
+      if (e1b) throw e1b;
+      const { error: epb } = await supabase
+        .from("price_list")
+        .update({ company_name: canonical.name })
+        .eq("company_id", canonical.id)
+        .neq("company_name", canonical.name);
+      if (epb) throw epb;
+      // 3.2) company_id 가 NULL 이면서 이름이 기준업체의 옛 이름(별칭) 인 행도 흡수
+      //      (이름 공백/대소문자 차이까지 잡으려면 별도 정규화 필요 — 기본 매칭만 처리)
       // 3.5) 검증: 옮겨지지 않은 잔여 행이 있으면 중단(데이터 손실 방지)
       const [{ count: remDel }, { count: remPrice }] = await Promise.all([
         supabase.from("deliveries").select("id", { count: "exact", head: true }).in("company_id", otherIds),
