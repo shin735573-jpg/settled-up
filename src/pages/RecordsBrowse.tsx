@@ -136,8 +136,12 @@ export default function RecordsBrowse() {
     let base = records;
     if (sel.kind === "company") {
       base = base.filter((r) => r.company_id === sel.id);
-      // 업체 관점: 재방문 그룹은 1차 행만 표시 (2차 이후는 업체에 청구/노출하지 않음)
-      base = keepRevisitPrimaryOnly(base);
+      // 업체 관점: 방문 횟수는 모두 카운트해서 표시하되, 청구금액은 1차만 (2차+ 행은 금액 0 처리)
+      base = base.map((r) =>
+        r.revisit_group_id && Number(r.revisit_visit_no) >= 2
+          ? { ...r, metro_fee: 0, regional_fee: 0, note_amount: 0, cod_amount: 0 }
+          : r,
+      );
       if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
       return base;
     }
