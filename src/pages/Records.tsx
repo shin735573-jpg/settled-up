@@ -1541,6 +1541,41 @@ export default function Records() {
       ? (companyNames[0] || "-")
       : `${companyNames[0]} 외 ${companyNames.length - 1}곳`;
     const revisitGroups = new Set(payloads.filter((p: any) => p.revisit_required).map((p: any) => p.revisit_group_id)).size;
+    // 규칙: 재방문 그룹은 1차 행에만 금액(수도권/지방/비고/착불)이 있어야 한다.
+    // 2차+ 행에 금액이 입력되어 있으면 정산/청구에 반영되지 않으므로 경고.
+    const revisitViolations: string[] = [];
+    {
+      const byGid = new Map<string, any[]>();
+      for (const p of payloads as any[]) {
+        const gid = p.revisit_group_id;
+        if (!gid) continue;
+        const arr = byGid.get(gid) || [];
+        arr.push(p);
+        byGid.set(gid, arr);
+      }
+      for (const [, group] of byGid) {
+        for (const p of group) {
+          const v = Number(p.revisit_visit_no || 1);
+          if (v <= 1) continue;
+          const sum =
+            Number(p.metro_fee || 0) + Number(p.regional_fee || 0) +
+            Number(p.note_amount || 0) + Number(p.cod_amount || 0);
+          if (sum > 0) {
+            revisitViolations.push(
+              `${p.date || ""} ${p.company_name || ""} ${p.customer_name || ""} ${v}차: ${fmt(sum)}원 (1차 행에만 금액 입력)`,
+            );
+          }
+        }
+      }
+    }
+    if (revisitViolations.length > 0) {
+      toast.warning(
+        `재방문 규칙 경고: 2차+ 행에 입력된 금액은 정산/청구에 반영되지 않습니다 (${revisitViolations.length}건)\n` +
+          revisitViolations.slice(0, 3).join("\n") +
+          (revisitViolations.length > 3 ? `\n…외 ${revisitViolations.length - 3}건` : ""),
+        { duration: 8000 },
+      );
+    }
     const summary = [
       { label: "저장 건수", value: `${payloads.length}건 (입력 ${rows.length}건)` },
       { label: "날짜", value: bulkShared.date },
@@ -1553,6 +1588,9 @@ export default function Records() {
         : []),
       { label: "총액", value: `${fmt(totalAmt)}원` },
       ...(revisitGroups > 0 ? [{ label: "재방문", value: `${revisitGroups}그룹` }] : []),
+      ...(revisitViolations.length > 0
+        ? [{ label: "재방문 경고", value: `${revisitViolations.length}건 (2차+ 금액 무시됨)` }]
+        : []),
     ];
     const detailRows = payloads.map((p: any) => {
       const sum =
