@@ -120,6 +120,7 @@ export default function CompanySettlement() {
   const [allRows, setAllRows] = useState<any[]>([]);
   const [carryRows, setCarryRows] = useState<any[]>([]);
   const [leaders, setLeaders] = useState<any[]>([]);
+  const [query, setQuery] = useState<string>("");
 
   useEffect(() => {
     (async () => {
@@ -234,14 +235,21 @@ export default function CompanySettlement() {
   }, [companies, period]);
 
   const companySummaries = useMemo(() => {
+    const q = query.trim().toLowerCase();
     return visibleCompanies
+      .filter((c) => {
+        if (!q) return true;
+        const name = (c.name || "").toLowerCase();
+        const acct = (c.account_number || "").toLowerCase();
+        return name.includes(q) || acct.includes(q);
+      })
       .map((c) => {
         const rs = companyBillableRows.filter((r) => matchesCompany(r, c));
         const cr = carryRows.filter((r) => matchesCompany(r, c));
         return { company: c, ...summarize(rs, cr) };
       })
       .sort((a, b) => b.count - a.count);
-  }, [visibleCompanies, companyBillableRows, carryRows]);
+  }, [visibleCompanies, companyBillableRows, carryRows, query]);
 
   // 자동검증 (업체 제출 관점)
   const audit = useMemo(
@@ -259,8 +267,21 @@ export default function CompanySettlement() {
   useArrowKeyNav(rootRef);
 
   const detailRows = useMemo(
-    () => (company ? companyBillableRows.filter((r) => matchesCompany(r, company)) : []),
-    [company, companyBillableRows]
+    () => {
+      if (!company) return [];
+      const base = companyBillableRows.filter((r) => matchesCompany(r, company));
+      const q = query.trim().toLowerCase();
+      if (!q) return base;
+      return base.filter((r: any) => {
+        const fields = [
+          r.customer_name, r.item, r.note, r.region,
+          r.leader1_name, r.leader2_name, r.leader3_name,
+          r.date, r.company_name,
+        ];
+        return fields.some((v) => (v || "").toString().toLowerCase().includes(q));
+      });
+    },
+    [company, companyBillableRows, query]
   );
   const detailSummary = useMemo(() => {
     if (!company) return null;
@@ -463,6 +484,25 @@ export default function CompanySettlement() {
         <div className="flex items-center gap-2 ml-2">
           <span className="text-xs text-muted-foreground">날짜 자동</span>
           <Switch checked={autoPeriod} onCheckedChange={toggleAutoPeriod} />
+        </div>
+        <div className="relative ml-2">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={companyId ? "고객/품목/팀장/비고 검색" : "업체명/계좌 검색"}
+            className="border rounded px-3 py-2 w-56"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+              aria-label="검색 초기화"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
