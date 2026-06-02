@@ -1539,7 +1539,10 @@ export default function Records() {
     if (idx == null) return;
     let effectiveSrc = src;
     if (!src.revisit_group_id) {
-      const newGid = makeUuid();
+      const newGid =
+        (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+          ? (crypto as any).randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const { error } = await supabase
         .from("deliveries")
         .update({
