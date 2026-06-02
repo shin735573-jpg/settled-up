@@ -44,6 +44,7 @@ import {
 import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
 import OcrCheckPanel, { type ExtractedRow } from "@/components/OcrCheckPanel";
 import { isSkippablePasteRow, parsePastedTableText } from "@/lib/pasteGrid";
+import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 
 type Company = {
   id: string;
@@ -860,6 +861,7 @@ function CodPicker({
 
 export default function Records() {
   const { user } = useAuth();
+  const { confirm: confirmSave, dialog: saveConfirmDialog } = useSaveConfirm();
   // 사용자 지정 수도권 키워드 캐시 동기화
   useEffect(() => {
     setMetroKeywordsCache(loadMetroKeywords(user?.id || "anon"));
@@ -1286,6 +1288,25 @@ export default function Records() {
       revisit_group_id: form.revisit_group_id,
       revisit_visit_no: form.revisit_visit_no || 1,
     };
+    const totalAmt =
+      metroN + regionalN +
+      (parseNum(form.note_amount) || 0) +
+      (parseNum(form.cod_amount) || 0);
+    const summary = [
+      { label: "구분", value: form.id ? "수정" : "신규 저장" },
+      { label: "날짜", value: form.date },
+      { label: "업체", value: company.name },
+      { label: "고객/지역", value: `${form.customer_name || "-"} / ${form.region || "-"}` },
+      { label: "팀장", value: [form.leader1_id, form.leader2_id, form.leader3_id].map(leaderName).filter(Boolean).join("·") || "-" },
+      { label: "총액", value: `${fmt(totalAmt)}원` },
+      ...(form.revisit_required ? [{ label: "재방문", value: form.revisit_group_id ? "기존 그룹" : "1차+2차 동시 생성" }] : []),
+    ];
+    const ok = await confirmSave({
+      title: form.id ? "수정 확인" : "저장 확인",
+      summary,
+      confirmLabel: form.id ? "수정" : "저장",
+    });
+    if (!ok) return;
     setSaving(true);
     let error;
     if (form.id) {
@@ -1438,6 +1459,28 @@ export default function Records() {
       }
       return [base];
     });
+    // 요약 다이얼로그
+    const totalAmt = payloads.reduce(
+      (s, p: any) =>
+        s + Number(p.metro_fee || 0) + Number(p.regional_fee || 0) +
+        Number(p.note_amount || 0) + Number(p.cod_amount || 0),
+      0,
+    );
+    const companyNames = Array.from(new Set(payloads.map((p: any) => p.company_name).filter(Boolean)));
+    const companyLabel = companyNames.length <= 1
+      ? (companyNames[0] || "-")
+      : `${companyNames[0]} 외 ${companyNames.length - 1}곳`;
+    const revisitGroups = new Set(payloads.filter((p: any) => p.revisit_required).map((p: any) => p.revisit_group_id)).size;
+    const summary = [
+      { label: "저장 건수", value: `${payloads.length}건 (입력 ${rows.length}건)` },
+      { label: "날짜", value: bulkShared.date },
+      { label: "업체", value: companyLabel },
+      { label: "팀장", value: [bulkShared.leader1_id, bulkShared.leader2_id, bulkShared.leader3_id].map(leaderName).filter(Boolean).join("·") || "-" },
+      { label: "총액", value: `${fmt(totalAmt)}원` },
+      ...(revisitGroups > 0 ? [{ label: "재방문", value: `${revisitGroups}그룹` }] : []),
+    ];
+    const ok = await confirmSave({ title: "여러건 저장 확인", summary });
+    if (!ok) return;
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
@@ -1707,6 +1750,7 @@ export default function Records() {
 
   return (
     <div className="space-y-4" ref={recordsRootRef}>
+      {saveConfirmDialog}
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">기록입력</h1>
         <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40 flex-1 sm:flex-none" />
@@ -3067,6 +3111,7 @@ type ParsedRow = {
 function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defaultMonth, onSaved, onReload }: {
   open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; defaultMonth?: string; onSaved: () => void; onReload: () => void | Promise<void>;
 }) {
+  const { confirm: confirmSave, dialog: saveConfirmDialog } = useSaveConfirm();
   const [text, setText] = useState("");
   // 주문 메모 자유 입력 (자동 분석 → 붙여넣기 칸에 KV 블록으로 추가)
   const [memoText, setMemoText] = useState("");
@@ -3629,7 +3674,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     const toSave = visible.map(({ row }) => row).filter((r) => skipErrors ? !r.errors.length : true);
     if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
     if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
-    setSaving(true);
     const rows = toSave.map((r) => ({
       user_id: userId,
       date: r.date!,
@@ -3647,6 +3691,18 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       split_type: r.split || null, paid: r.paid,
       two_person: r.twoPerson,
     }));
+    const totalAmt = rows.reduce((s, r: any) => s + Number(r.metro_fee||0)+Number(r.regional_fee||0)+Number(r.note_amount||0)+Number(r.cod_amount||0), 0);
+    const companyNames = Array.from(new Set(rows.map((r: any) => r.company_name).filter(Boolean)));
+    const companyLabel = companyNames.length <= 1 ? (companyNames[0] || "-") : `${companyNames[0]} 외 ${companyNames.length - 1}곳`;
+    const summary = [
+      { label: "저장 건수", value: `${rows.length}건` },
+      ...(errorCount > 0 ? [{ label: "오류 제외", value: `${errorCount}건 제외됨` }] : []),
+      { label: "업체", value: companyLabel },
+      { label: "총액", value: `${fmt(totalAmt)}원` },
+    ];
+    const ok = await confirmSave({ title: "붙여넣기 저장 확인", summary });
+    if (!ok) return;
+    setSaving(true);
     const { error } = await supabase.from("deliveries").insert(rows);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
@@ -3664,6 +3720,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
 
   return (
     <>
+    {saveConfirmDialog}
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[98vw] w-[98vw] max-h-[95vh] sm:max-w-[98vw] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-2 shrink-0">

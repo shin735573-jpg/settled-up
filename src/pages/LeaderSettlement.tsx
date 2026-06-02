@@ -4,6 +4,7 @@ import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
 import { totalLeaderSettlementDeliveryFee } from "@/lib/totalFee";
 import { isLeaderSettlementExcludedItem } from "@/lib/itemRules";
+import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -110,6 +111,7 @@ function realLeaderIdFor(r: Delivery, byId: Map<string, Leader>): string | null 
 
 export default function LeaderSettlement() {
   const { user } = useAuth();
+  const { confirm: confirmSave, dialog: saveConfirmDialog } = useSaveConfirm();
   const initial = useMemo(() => getCurrentHalf(), []);
   const [month, setMonth] = useState(() => initial.month);
   const [period, setPeriod] = useState<Period>(initial.half === "h1" ? "first" : "second");
@@ -612,6 +614,19 @@ export default function LeaderSettlement() {
   };
   const saveDetailDeductions = async () => {
     if (!user || !leaderId) return;
+    const validRows = detailDeductions.filter((d) => (d.label || "").trim() || num(d.amount) > 0);
+    const totalAmt = validRows.reduce((s, d) => s + num(d.amount), 0);
+    const leaderName = leaders.find((l: any) => l.id === leaderId)?.name || "팀장";
+    const ok = await confirmSave({
+      title: "개별 공제 저장 확인",
+      summary: [
+        { label: "팀장", value: leaderName },
+        { label: "기간", value: periodKey },
+        { label: "항목 수", value: `${validRows.length}건` },
+        { label: "총액", value: `${num(totalAmt).toLocaleString()}원` },
+      ],
+    });
+    if (!ok) return;
     setSavingDeductions(true);
     // 단순화: 해당 (leader, period)의 모든 행 삭제 후 비어있지 않은 행만 재삽입
     await supabase
@@ -664,6 +679,13 @@ export default function LeaderSettlement() {
     if (!user || !leaderId) return;
     const entries = Object.entries(detailCommonEdits);
     if (entries.length === 0) return;
+    const ok = await confirmSave({
+      title: "공통 공제 수정값 저장 확인",
+      summary: [
+        { label: "수정 항목 수", value: `${entries.length}건` },
+      ],
+    });
+    if (!ok) return;
     setSavingCommon(true);
     for (const [editKey, amount] of entries) {
       // editKey 형식: `${cdId}__${periodKey}`
@@ -721,6 +743,7 @@ export default function LeaderSettlement() {
 
   return (
     <div className="space-y-4" ref={rootRef}>
+      {saveConfirmDialog}
       <div className="flex flex-wrap items-center gap-2">
         {leaderId && (
           <Button variant="outline" size="sm" onClick={() => setLeaderId("")}>

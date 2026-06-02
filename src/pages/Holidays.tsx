@@ -21,6 +21,7 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getKoreanHolidayName } from "@/lib/koreanHolidays";
+import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 
 type Leader = { id: string; name: string; active: boolean; is_virtual: boolean };
 type Holiday = {
@@ -44,6 +45,7 @@ const toISO = (d: Date) => {
 
 export default function Holidays() {
   const { user } = useAuth();
+  const { confirm: confirmSave, dialog: saveConfirmDialog } = useSaveConfirm();
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [rows, setRows] = useState<Holiday[]>([]);
 
@@ -90,6 +92,16 @@ export default function Holidays() {
     if (!user) return;
     if (!date) return toast.error("휴무 날짜를 선택하세요");
     const isHQ = target === HQ_VALUE;
+    const targetName = isHQ ? "본사" : (leaderNameById.get(target) || "팀장");
+    const summary = [
+      { label: "대상", value: targetName },
+      { label: "날짜", value: toISO(date) },
+      ...(reason ? [{ label: "사유", value: reason }] : []),
+      ...(note ? [{ label: "메모", value: note }] : []),
+      { label: "상태", value: active ? "활성" : "비활성" },
+    ];
+    const ok = await confirmSave({ title: "휴무일 추가 확인", summary, confirmLabel: "추가" });
+    if (!ok) return;
     const { error } = await supabase.from("holidays").insert({
       user_id: user.id,
       date: toISO(date),
@@ -145,6 +157,7 @@ export default function Holidays() {
 
   return (
     <div className="space-y-4">
+      {saveConfirmDialog}
       <h1 className="text-2xl font-bold">휴무일관리</h1>
 
       {/* 입력 폼 */}
