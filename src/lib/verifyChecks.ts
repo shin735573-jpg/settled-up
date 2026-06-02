@@ -224,7 +224,7 @@ export function leadersCsv(leaderStmts: LeaderStmtData[]): string {
       rows.push([
         ls.leader.name, r.delivery.date, r.delivery.company_name ?? "",
         r.delivery.customer_name ?? "", r.delivery.item ?? "",
-        r.share.metro_fee, r.share.note_amount, r.share.regional_fee, r.share.cod_amount,
+        r.share.metro, r.share.note_amount, r.share.regional, r.share.cod,
         r.unitFee, r.unitAfterFee, r.unitPayout,
       ]);
     }
