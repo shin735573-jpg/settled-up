@@ -159,6 +159,24 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     return allRows.filter((r) => selectedSuspectIds.has(r.id));
   }, [allRows, selectedSuspectIds]);
 
+  // 통합 모드에서 의심행을 선택/변경할 때 leader2가 비어 있으면 다시 자동 채움.
+  // 기존 leader2 값은 절대 덮어쓰지 않음.
+  useEffect(() => {
+    if (mergeMode !== "two_person" && mergeMode !== "companion") return;
+    if (!edited) return;
+    if (nrm(edited.leader2_id)) return; // 이미 있으면 보존
+    const pool: Row[] = selectedSuspects.length > 0
+      ? selectedSuspects
+      : ([...suspects.exact, ...suspects.similar] as Row[]);
+    const cand = pool
+      .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
+      .find((c) => nrm(c.id) && c.id !== edited.leader1_id);
+    if (cand?.id) {
+      setEdited((e) => e ? { ...e, leader2_id: cand.id, leader2_name: cand.name ?? null } : e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergeMode, selectedSuspectIds, suspects.exact.length, suspects.similar.length]);
+
   // 합산 미리보기
   const autoSum = useMemo(() => {
     if (!edited) return null;
@@ -175,33 +193,35 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
 
   function applyMergeMode(mode: MergeMode) {
     setMergeMode(mode);
-    // 2인배송 통합: 사용자가 별도 입력 없이 두 가지가 자동 반영됨.
-    //  - two_person = true
-    //  - leader2 비어있으면 선택된 의심 행의 leader1 중 base.leader1과 다른 것으로 자동 채움
-    //  - split_type 비어있으면 "반반"
-    if (mode === "two_person") {
+    // 통합 모드(동행/2인배송) 공통: 팀장2 보존 + 자동 채움.
+    //  - 이미 leader2가 있으면 절대 덮어쓰지 않음
+    //  - 비어 있으면 선택된 의심행, 그 다음 표시 중인 의심행의 leader1 중
+    //    base.leader1과 다른 것으로 자동 채움
+    //  - leader2_name도 함께 채워야 통합 후 화면/저장에 보임
+    if (mode === "two_person" || mode === "companion") {
       setEdited((e) => {
         if (!e) return e;
-        const next: Row = { ...e, two_person: true, companion: false };
+        const next: Row = {
+          ...e,
+          two_person: mode === "two_person" ? true : false,
+          companion: mode === "companion" ? true : !!e.companion && mode !== "two_person" ? e.companion : false,
+        };
+        // leader2 자동 채움 (비어 있을 때만; 기존 값은 보존)
         if (!nrm(next.leader2_id)) {
-          // 선택된 의심행이 없으면 표시 중인 모든 의심행에서 자동 추론
           const pool: Row[] = selectedSuspects.length > 0
             ? selectedSuspects
             : ([...suspects.exact, ...suspects.similar] as Row[]);
-          const candidates = pool
+          const cand = pool
             .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
-            .filter((c) => nrm(c.id) && c.id !== next.leader1_id);
-          if (candidates[0]?.id) {
-            next.leader2_id = candidates[0].id;
-            next.leader2_name = candidates[0].name ?? next.leader2_name ?? null;
+            .find((c) => nrm(c.id) && c.id !== next.leader1_id);
+          if (cand?.id) {
+            next.leader2_id = cand.id;
+            next.leader2_name = cand.name ?? null;
           }
         }
-        if (!nrm(next.split_type)) next.split_type = "반반";
+        if (mode === "two_person" && !nrm(next.split_type)) next.split_type = "반반";
         return next;
       });
-    }
-    if (mode === "companion") {
-      setEdited((e) => e ? { ...e, companion: true, two_person: false } : e);
     }
     if (mode === "companion" || mode === "two_person") {
       // 기본은 자동 합산. 사용자가 청구금액을 바꾸고 싶을 때만 수동 선택.
@@ -283,8 +303,18 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   const errors = useMemo(() => validateMergePlan(plan), [plan]);
   const hasBlocking = errors.some((e) => e.level === "error");
 
-  async function save() {
+  async function save(overrideFinalTotal?: number) {
     if (!edited || !base) return;
+    // 통합 시 사용자가 "최종 청구금액 확인" 단계에서 금액을 직접 수정한 경우,
+    // 차액을 note_amount에 흡수시켜 최종 합계가 일치하도록 한다.
+    let effectiveEdited: Row = edited;
+    if (overrideFinalTotal != null) {
+      const current = feeTotal(edited);
+      const diff = overrideFinalTotal - current;
+      if (diff !== 0) {
+        effectiveEdited = { ...edited, note_amount: Math.max(0, n(edited.note_amount) + diff) };
+      }
+    }
     if (hasBlocking) {
       toast.error("저장 전 오류를 먼저 해결해주세요.");
       return;
@@ -302,7 +332,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
         return;
       }
       if (!nrm(edited.leader2_id)) {
-        toast.error("2인배송 통합인데 팀장2가 비어 있습니다. 의심행을 선택하거나 팀장2를 직접 지정하세요.");
+        toast.error("팀장2 자동 등록에 실패했습니다. 의심행을 선택하거나 팀장2를 직접 지정하세요.");
         return;
       }
     }
@@ -310,27 +340,41 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       toast.error("동행 통합인데 '동행여부'가 꺼져 있습니다.");
       return;
     }
+    // 통합 공통: 통합 전 두 행에 팀장이 2명 있었다면 통합 후 반드시 둘 다 남아야 함
+    if (mergeMode === "two_person" || mergeMode === "companion") {
+      const allLeaderIds = new Set<string>();
+      [base, ...selectedSuspects].forEach((r) => {
+        if (nrm(r.leader1_id)) allLeaderIds.add(String(r.leader1_id));
+        if (nrm(r.leader2_id)) allLeaderIds.add(String(r.leader2_id));
+      });
+      if (allLeaderIds.size >= 2 && !nrm(edited.leader2_id)) {
+        toast.error("통합 후 팀장2 값이 누락되었습니다. 팀장2를 지정한 뒤 저장하세요.");
+        return;
+      }
+    }
     setSaving(true);
     try {
       const update = {
-        date: edited.date,
-        company_id: edited.company_id ?? null,
-        company_name: edited.company_name ?? null,
-        customer_name: edited.customer_name ?? null,
-        region: edited.region ?? null,
-        item: edited.item ?? null,
-        note: edited.note ?? null,
-        leader1_id: edited.leader1_id ?? null,
-        leader2_id: edited.leader2_id ?? null,
-        split_type: edited.split_type ?? null,
-        two_person: !!edited.two_person,
-        companion: !!edited.companion,
-        companion_reason: edited.companion_reason ?? null,
-        metro_fee: n(edited.metro_fee),
-        regional_fee: n(edited.regional_fee),
-        note_amount: n(edited.note_amount),
-        cod_amount: n(edited.cod_amount),
-        paid: !!edited.paid,
+        date: effectiveEdited.date,
+        company_id: effectiveEdited.company_id ?? null,
+        company_name: effectiveEdited.company_name ?? null,
+        customer_name: effectiveEdited.customer_name ?? null,
+        region: effectiveEdited.region ?? null,
+        item: effectiveEdited.item ?? null,
+        note: effectiveEdited.note ?? null,
+        leader1_id: effectiveEdited.leader1_id ?? null,
+        leader1_name: effectiveEdited.leader1_name ?? null,
+        leader2_id: effectiveEdited.leader2_id ?? null,
+        leader2_name: effectiveEdited.leader2_name ?? null,
+        split_type: effectiveEdited.split_type ?? null,
+        two_person: !!effectiveEdited.two_person,
+        companion: !!effectiveEdited.companion,
+        companion_reason: effectiveEdited.companion_reason ?? null,
+        metro_fee: n(effectiveEdited.metro_fee),
+        regional_fee: n(effectiveEdited.regional_fee),
+        note_amount: n(effectiveEdited.note_amount),
+        cod_amount: n(effectiveEdited.cod_amount),
+        paid: !!effectiveEdited.paid,
       } as never;
       // 기존 row update — 절대 insert 하지 않음
       const { error } = await supabase.from("deliveries").update(update).eq("id", base.id);
@@ -353,7 +397,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
               baseRowId: base.id,
               action: mergeMode === "companion" ? "merge_companion" : "merge_two_person",
               baseBefore: base as unknown as Record<string, unknown> & { id: string },
-              baseAfter: { ...(edited as unknown as Record<string, unknown>), id: base.id },
+              baseAfter: { ...(effectiveEdited as unknown as Record<string, unknown>), id: base.id },
               mergedRows: mergedSnapshots as unknown as Array<Record<string, unknown> & { id: string }>,
             });
           }
@@ -774,8 +818,9 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                 if (mergeMode === "companion" || mergeMode === "two_person") {
                   setFinalAmountInput(String(feeTotal(edited) || 0));
                   setEditingFinalAmount(false);
+                  // Radix Dialog 중첩 전환 충돌을 피하기 위해 한 프레임 분리
                   setReviewOpen(false);
-                  setAmountConfirmOpen(true);
+                  setTimeout(() => setAmountConfirmOpen(true), 80);
                 } else {
                   void save();
                 }
@@ -869,17 +914,9 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                   setEditingFinalAmount(false);
                   return;
                 }
-                // 입력된 최종 금액을 edited에 반영 (note_amount에 차액 흡수)
+                // override로 직접 전달 — 비동기 setState 의존 제거
                 const desired = n(finalAmountInput);
-                const current = feeTotal(edited);
-                if (desired !== current) {
-                  const diff = desired - current;
-                  setEdited((e) => e ? { ...e, note_amount: Math.max(0, n(e.note_amount) + diff) } : e);
-                  // setState는 비동기이므로 save() 안에서 다시 한 번 반영된 값 사용
-                  // 다음 tick에서 save 실행
-                  await new Promise((r) => setTimeout(r, 0));
-                }
-                await save();
+                await save(desired);
                 setAmountConfirmOpen(false);
               }}
               disabled={saving}
