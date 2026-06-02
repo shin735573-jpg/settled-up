@@ -252,6 +252,18 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       next.two_person = true;
       next.companion = false;
       if (!nrm(next.split_type)) next.split_type = "반반";
+      if (!nrm(next.leader2_id)) {
+        const pool: Row[] = selectedSuspects.length > 0
+          ? selectedSuspects
+          : ([...suspects.exact, ...suspects.similar] as Row[]);
+        const cand = pool
+          .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
+          .find((c) => nrm(c.id) && c.id !== next.leader1_id);
+        if (cand?.id) {
+          next.leader2_id = cand.id;
+          next.leader2_name = cand.name ?? next.leader2_name ?? null;
+        }
+      }
     }
     items.push({
       base: base as DupDelivery,
