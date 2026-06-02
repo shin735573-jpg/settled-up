@@ -1426,13 +1426,13 @@ function LeaderPreview({
       <div className="overflow-hidden rounded-xl border border-border/60">
         <table className="w-full text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1180 }}>
           <colgroup>
-            {[80, 140, 160, 60, 180, 160, 100, 100, 100, 100].map((w, i) => (
+            {[80, 130, 130, 140, 60, 160, 140, 100, 100, 100, 100].map((w, i) => (
               <col key={i} style={{ width: w }} />
             ))}
           </colgroup>
           <thead className="bg-muted/60">
             <tr>
-              {["날짜", "업체", "품목", "2인", "동행팀장", "비고", "수도권배송비", "비고금액", "지방배송비", "착불"].map((h) => (
+              {["날짜", "업체", "배송지", "품목", "2인", "동행팀장", "비고", "수도권배송비", "비고금액", "지방배송비", "착불"].map((h) => (
                 <th key={h} className="px-2 py-2 text-center font-semibold uppercase tracking-wider text-[10px] text-muted-foreground whitespace-nowrap border-b border-border/60">{h}</th>
               ))}
             </tr>
@@ -1456,6 +1456,7 @@ function LeaderPreview({
               <tr key={r.delivery.id + "-" + i} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.delivery.date.slice(5)}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.delivery.company_name ?? ""}</td>
+                <td className="px-2 py-1.5 text-center align-middle truncate">{r.delivery.region ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.delivery.item ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle">
                   {d.two_person ? <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">2인</span> : ""}
@@ -1474,7 +1475,7 @@ function LeaderPreview({
               );
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={10} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
+              <tr><td colSpan={11} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
         </table>
