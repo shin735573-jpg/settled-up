@@ -91,3 +91,14 @@ export function isInEffectivePeriod(
 
 /** PostgREST `or` 절: 해당 월에 override 가 걸린 배송기록을 찾을 때 사용. */
 export const settleOverridePrefix = (monthYYYYMM: string) => `[SETTLE:${monthYYYYMM}:`;
+
+/**
+ * 정산 화면 전달용: override 가 있는 배송행의 `date` 를 effective 정산 날짜로 치환한
+ * 얕은 복사본을 반환. 기존 inPeriod(d.date, period) 로직(day-of-month 검사)에
+ * 그대로 흘려보낼 수 있게 해준다. override 가 없으면 원본 그대로 반환.
+ */
+export function withEffectiveDate<T extends AnyDelivery>(d: T): T {
+  if (!hasSettlementOverride(d)) return d;
+  return { ...d, date: getEffectiveSettleDate(d) };
+}
+
