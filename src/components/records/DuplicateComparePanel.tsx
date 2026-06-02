@@ -170,6 +170,30 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
 
   function applyMergeMode(mode: MergeMode) {
     setMergeMode(mode);
+    // 2인배송 통합: 사용자가 별도 입력 없이 두 가지가 자동 반영됨.
+    //  - two_person = true
+    //  - leader2 비어있으면 선택된 의심 행의 leader1 중 base.leader1과 다른 것으로 자동 채움
+    //  - split_type 비어있으면 "반반"
+    if (mode === "two_person") {
+      setEdited((e) => {
+        if (!e) return e;
+        const next: Row = { ...e, two_person: true, companion: false };
+        if (!nrm(next.leader2_id)) {
+          const candidates = selectedSuspects
+            .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
+            .filter((c) => nrm(c.id) && c.id !== next.leader1_id);
+          if (candidates[0]?.id) {
+            next.leader2_id = candidates[0].id;
+            next.leader2_name = candidates[0].name ?? next.leader2_name ?? null;
+          }
+        }
+        if (!nrm(next.split_type)) next.split_type = "반반";
+        return next;
+      });
+    }
+    if (mode === "companion") {
+      setEdited((e) => e ? { ...e, companion: true, two_person: false } : e);
+    }
     if (mode === "companion" || mode === "two_person") {
       setAskAmount(mode);
     } else {
@@ -328,12 +352,6 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                   <option value="팀장2">팀장2</option>
                 </select>
               </label>
-              {edited.companion && (
-                <label className="flex items-center gap-2">
-                  <span>동행사유</span>
-                  <Input value={companionReason} onChange={(e) => setCompanionReason(e.target.value)} className="h-7 w-48" />
-                </label>
-              )}
             </div>
             {!!edited.two_person && !nrm(edited.leader2_id) && (
               <Alert variant="destructive" className="mt-2 py-2">

@@ -163,24 +163,9 @@ export function validateMergePlan(
   for (const p of plan) {
     const rows = groupsByKey.get(p.groupKey) ?? [];
     if (p.action === "merge_two_person") {
-      const noL2 = rows.filter((r) => !s(r.leader2_id) && !s(p.leader2Id));
-      if (noL2.length) {
-        issues.push({
-          groupKey: p.groupKey,
-          message: "2인배송 통합인데 팀장2가 비어있는 행이 있습니다.",
-          severity: "error",
-        });
-      }
+      // 팀장2는 그룹 내 다른 행의 팀장1로 자동 추론하므로 별도 검증 없음
     }
-    if (p.action === "merge_companion") {
-      if (!s(p.companionReason)) {
-        issues.push({
-          groupKey: p.groupKey,
-          message: "동행 통합은 동행 사유 입력이 필요합니다.",
-          severity: "warn",
-        });
-      }
-    }
+    // 동행 통합은 사유 입력 없이 진행
     // 그룹 내 완전 중복이 남아있으면 경고
     const keys = rows.map(exactKey);
     if (new Set(keys).size < keys.length && p.action !== "dedupe") {
@@ -204,18 +189,33 @@ export function buildUpdatePatches(
     const rows = groupsByKey.get(p.groupKey) ?? [];
     if (p.action === "keep_separate") continue;
     if (p.action === "dedupe") continue; // 삭제는 별도 흐름
+    // merge_two_person: 그룹에서 leader1이 서로 다른 행이 있으면 자동으로 leader2 후보로 사용
+    let autoLeader2: string | null = null;
+    if (p.action === "merge_two_person") {
+      const leaderIds = Array.from(
+        new Set(rows.map((r) => s(r.leader1_id)).filter(Boolean)),
+      );
+      if (leaderIds.length >= 2) {
+        // 첫 행 기준으로 다른 팀장1을 leader2로
+        const base = s(rows[0]?.leader1_id);
+        autoLeader2 = leaderIds.find((id) => id !== base) ?? null;
+      }
+    }
     for (const r of rows) {
       if (!p.targetIds.includes(r.id)) continue;
       const patch: Partial<GroupRow> = {};
       if (p.action === "merge_companion") {
         patch.companion = true;
         patch.two_person = false;
-        if (p.companionReason !== undefined) patch.companion_reason = p.companionReason;
       } else if (p.action === "merge_two_person") {
         patch.two_person = true;
         patch.companion = false;
-        if (p.leader2Id !== undefined && !s(r.leader2_id)) patch.leader2_id = p.leader2Id;
-        if (p.splitType !== undefined) patch.split_type = p.splitType;
+        if (!s(r.leader2_id)) {
+          const l2 = s(p.leader2Id) || autoLeader2;
+          if (l2) patch.leader2_id = l2;
+        }
+        // 분할은 자동 "반반"으로 처리 (반반 정산 자동 계산)
+        if (!s(r.split_type)) patch.split_type = "반반";
       }
       if (Object.keys(patch).length > 0) out.push({ id: r.id, patch });
     }

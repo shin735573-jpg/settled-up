@@ -249,9 +249,6 @@ export default function RecordsBrowse() {
     }
     for (const g of targets) {
       queueAction(g, action, {
-        companionReason: bulkReason || undefined,
-        leader2Id: bulkLeader2 || undefined,
-        splitType: bulkSplit || undefined,
       });
     }
     toast.success(`${targets.length}개 그룹에 ${actionLabel[action]} 예약됨`);
@@ -314,7 +311,6 @@ export default function RecordsBrowse() {
         leader2_id: rest.leader2_id || null,
         two_person: !!rest.two_person,
         companion: !!rest.companion,
-        companion_reason: rest.companion_reason ?? null,
         split_type: rest.split_type ?? null,
         metro_fee: Number(rest.metro_fee) || 0,
         regional_fee: Number(rest.regional_fee) || 0,
@@ -664,31 +660,15 @@ export default function RecordsBrowse() {
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <div>대상 그룹 {checkedGroupCount}개에 일괄 적용합니다.</div>
-            {bulkOpen === "merge_companion" && (
-              <div className="space-y-1">
-                <Label className="text-xs">동행 사유</Label>
-                <Input value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} placeholder="예: 엘리베이터 고장" />
+            {bulkOpen === "merge_two_person" && (
+              <div className="text-xs text-muted-foreground">
+                2인배송 통합을 예약하면 팀장2는 그룹 내 다른 팀장1로 자동 채워지고, 반반 정산이 자동 적용됩니다.
               </div>
             )}
-            {bulkOpen === "merge_two_person" && (
-              <>
-                <div className="space-y-1">
-                  <Label className="text-xs">팀장2 (비어있는 행만 채움)</Label>
-                  <LeaderCombobox leaders={leaders} value={bulkLeader2} onChange={setBulkLeader2} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">분할 방식</Label>
-                  <select
-                    value={bulkSplit}
-                    onChange={(e) => setBulkSplit(e.target.value)}
-                    className="h-9 w-full rounded-md border bg-background px-2"
-                  >
-                    <option value="">(변경 없음)</option>
-                    <option value="반반">반반</option>
-                    <option value="2인배송">2인배송</option>
-                  </select>
-                </div>
-              </>
+            {bulkOpen === "merge_companion" && (
+              <div className="text-xs text-muted-foreground">
+                동행 통합으로 처리됩니다. 별도의 사유 입력은 필요하지 않습니다.
+              </div>
             )}
           </div>
           <DialogFooter>
@@ -760,12 +740,6 @@ export default function RecordsBrowse() {
                   />
                   <span className="text-xs">예</span>
                 </label>
-              </Field>
-              <Field label="동행 사유" full>
-                <Input
-                  value={editForm.companion_reason ?? ""}
-                  onChange={(e) => setEditForm({ ...editForm, companion_reason: e.target.value })}
-                />
               </Field>
               <Field label="분할 방식">
                 <select
@@ -849,13 +823,6 @@ function ComparePanel({
   onDedupe: () => void;
 }) {
   const rec = recommendAction(group.rows);
-  // 동행 통합 사유 / 2인 통합용 팀장2 입력
-  const [reason, setReason] = useState(queued?.companionReason ?? "");
-  const [leader2, setLeader2] = useState(queued?.leader2Id ?? "");
-  useEffect(() => {
-    setReason(queued?.companionReason ?? "");
-    setLeader2(queued?.leader2Id ?? "");
-  }, [queued?.groupKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fields: { key: keyof GroupRow | "fee"; label: string; render: (r: GroupRow) => React.ReactNode; }[] = [
     { key: "date", label: "날짜", render: (r) => String(r.date ?? "").slice(0, 10) },
@@ -972,28 +939,21 @@ function ComparePanel({
       {/* 액션 영역 */}
       <div className="border rounded-md p-3 space-y-2 bg-muted/20">
         <div className="text-xs font-semibold">통합/유지 판단</div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs">동행 사유 (동행 통합 시)</Label>
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 엘리베이터 고장" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">팀장2 (2인배송 통합 시, 비어있는 행만 채움)</Label>
-            <LeaderCombobox leaders={leaders} value={leader2} onChange={setLeader2} />
-          </div>
+        <div className="text-[11px] text-muted-foreground">
+          2인배송 통합을 선택하면 팀장2와 반반 정산이 자동 처리됩니다. 동행/2인배송 사유 입력은 더 이상 필요하지 않습니다.
         </div>
         <div className="flex flex-wrap gap-2 pt-1">
           <Button
             variant="default"
             size="sm"
-            onClick={() => onQueue("merge_companion", { companionReason: reason })}
+            onClick={() => onQueue("merge_companion")}
           >
             동행 통합 예약
           </Button>
           <Button
             variant="default"
             size="sm"
-            onClick={() => onQueue("merge_two_person", { leader2Id: leader2 || undefined })}
+            onClick={() => onQueue("merge_two_person")}
           >
             2인배송 통합 예약
           </Button>

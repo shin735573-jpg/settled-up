@@ -73,27 +73,27 @@ describe("recordGrouping", () => {
     expect(recommendAction(g)).toBe("merge_companion");
   });
 
-  it("validate: 2인배송 통합인데 팀장2 없으면 에러", () => {
+  it("validate: 2인배송 통합은 팀장2 없어도 에러 없음 (자동 채움)", () => {
     const g = [r({ id: "a" })];
     const map = new Map([["k1", g]]);
     const issues = validateMergePlan(
       [{ groupKey: "k1", action: "merge_two_person", targetIds: ["a"] }],
       map,
     );
-    expect(issues.find((x) => x.severity === "error")).toBeTruthy();
+    expect(issues.find((x) => x.severity === "error")).toBeFalsy();
   });
 
-  it("buildUpdatePatches: 동행 통합 시 companion=true, two_person=false", () => {
+  it("buildUpdatePatches: 동행 통합 시 companion=true, two_person=false (사유 입력 없음)", () => {
     const g = [r({ id: "a" }), r({ id: "b" })];
     const map = new Map([["k1", g]]);
     const patches = buildUpdatePatches(
-      [{ groupKey: "k1", action: "merge_companion", targetIds: ["a", "b"], companionReason: "엘베고장" }],
+      [{ groupKey: "k1", action: "merge_companion", targetIds: ["a", "b"] }],
       map,
     );
     expect(patches).toHaveLength(2);
     expect(patches[0].patch.companion).toBe(true);
     expect(patches[0].patch.two_person).toBe(false);
-    expect(patches[0].patch.companion_reason).toBe("엘베고장");
+    expect(patches[0].patch.companion_reason).toBeUndefined();
   });
 
   it("buildUpdatePatches: 2인배송 통합 시 팀장2 없으면 채워줌", () => {
