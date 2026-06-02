@@ -1711,7 +1711,7 @@ export default function Records() {
         if (!confirm(`경고 ${warns.length}건:\n${warns.map((w) => `- ${w.message}`).join("\n")}\n\n그대로 저장할까요?`)) return;
       }
     }
-    const metroN = parseNum(form.metro_fee) || 0;
+    let metroN = parseNum(form.metro_fee) || 0;
     const regionalN = parseNum(form.regional_fee) || 0;
     if (!form.region) {
       if (!confirm("배송지가 비어있습니다. 그대로 저장할까요?")) return;
