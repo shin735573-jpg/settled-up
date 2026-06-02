@@ -22,5 +22,8 @@ export const totalDeliveryFee = (rows: DeliveryLike[]): number =>
   rows.reduce((s, r) => s + rowDeliveryFee(r), 0);
 
 /** 팀장정산 배송비 합 — 적재비 같은 별도 매출 품목은 제외 */
-export const totalLeaderSettlementDeliveryFee = (rows: DeliveryLike[]): number =>
-  rows.reduce((s, r) => s + (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r) ? 0 : rowDeliveryFee(r)), 0);
+export const totalLeaderSettlementDeliveryFee = (
+  rows: DeliveryLike[],
+  virtualIds?: Set<string> | string[] | null,
+): number =>
+  rows.reduce((s, r) => s + (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds) ? 0 : rowDeliveryFee(r)), 0);
