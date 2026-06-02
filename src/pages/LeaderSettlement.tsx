@@ -143,6 +143,7 @@ export default function LeaderSettlement() {
     rejected_leader_id_3: string | null;
   }>>([]);
   const [leaderId, setLeaderId] = useState<string>("");
+  const [leaderSearch, setLeaderSearch] = useState("");
   const [commonDeductions, setCommonDeductions] = useState<CommonDeduction[]>([]);
   const [periodDeductions, setPeriodDeductions] = useState<LeaderPeriodDeduction[]>([]);
   const [detailDeductions, setDetailDeductions] = useState<LeaderPeriodDeduction[]>([]);
