@@ -1028,6 +1028,8 @@ export default function LeaderSettlement() {
 
       <CompanyBilledMismatchBanner result={companyBilledCheck} />
 
+      <TotalVsBilledMismatchBanner result={totalVsBilled} />
+
       {!leaderId && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
