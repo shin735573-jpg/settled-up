@@ -1882,22 +1882,31 @@ export default function Records() {
     toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차 행이 아래에 추가됨 (최초 1차 내용 그대로, 금액만 수정 가능)`);
   };
 
-  // 단일폼: 재방문요청 토글 시 같은 고객명/지역의 과거 배송이 있는지 확인
-  const verifyRevisitForForm = async () => {
+  // 단일폼 자동 매칭: 같은 키 반복 호출 방지용
+  const formMatchKeyRef = useRef<string>("");
+  // 단일폼: 재방문요청 토글 시 또는 고객/지역 변경 시 같은 고객명·지역의 과거 배송 자동 확인
+  // silent=true 이면 조용 모드 — 매칭 있을 때만 토스트(자동 onBlur 트리거용)
+  const verifyRevisitForForm = async (opts?: { silent?: boolean }) => {
+    const silent = !!opts?.silent;
+    // 기존 그룹 행 편집 중이면 자동 매칭 의미 없음
+    if (form.revisit_group_id) return;
     const name = (form.customer_name || "").trim();
     const region = (form.region || "").trim();
     if (revisitMatchMode === "name" && !name) {
-      toast.warning("재방문 매칭: 고객명을 입력하세요");
+      if (!silent) toast.warning("재방문 매칭: 고객명을 입력하세요");
       return;
     }
     if (revisitMatchMode === "region" && !region) {
-      toast.warning("재방문 매칭: 지역을 입력하세요");
+      if (!silent) toast.warning("재방문 매칭: 지역을 입력하세요");
       return;
     }
     if (revisitMatchMode === "both" && (!name || !region)) {
-      toast.warning("재방문 매칭: 고객명/지역을 모두 입력하세요");
+      if (!silent) toast.warning("재방문 매칭: 고객명/지역을 모두 입력하세요");
       return;
     }
+    const key = `${revisitMatchMode}|${name.toLowerCase()}|${region.toLowerCase()}`;
+    if (silent && formMatchKeyRef.current === key) return;
+    formMatchKeyRef.current = key;
     let q = supabase
       .from("deliveries")
       .select("id,date,company_name,customer_name,region,revisit_group_id,revisit_visit_no")
@@ -1906,16 +1915,17 @@ export default function Records() {
     if ((revisitMatchMode === "name" || revisitMatchMode === "both") && name) q = q.ilike("customer_name", name);
     if ((revisitMatchMode === "region" || revisitMatchMode === "both") && region) q = q.ilike("region", `%${region}%`);
     const { data, error } = await q;
-    if (error) { toast.error(`재방문 매칭 검색 실패: ${error.message}`); return; }
+    if (error) { if (!silent) toast.error(`재방문 매칭 검색 실패: ${error.message}`); return; }
     if (!data || data.length === 0) {
-      toast.warning(
+      if (!silent) toast.warning(
         `이전 방문 기록 없음 — 고객명/지역(${revisitMatchMode === "both" ? `${name} · ${region}` : revisitMatchMode === "name" ? name : region})과 일치하는 과거 배송이 없습니다. 새 1차+2차로 등록됩니다.`
       );
       return;
     }
     const top = data[0];
-    toast.success(
-      `재방문 매칭 발견: ${top.date} ${top.company_name} ${top.customer_name || ""} (${top.revisit_group_id ? `${top.revisit_visit_no || 1}차` : "단건"}) 외 ${data.length - 1}건 — "재방문 진행" 버튼으로 차수 추가 가능`
+    toast.info(
+      `재방문 매칭 발견: ${top.date} ${top.company_name} ${top.customer_name || ""} (${top.revisit_group_id ? `${top.revisit_visit_no || 1}차` : "단건"}) 외 ${data.length - 1}건 — "재방문요청" 체크 시 다음 차수로 등록`,
+      { duration: 6000 },
     );
   };
 
