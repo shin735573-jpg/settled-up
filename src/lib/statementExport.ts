@@ -231,11 +231,36 @@ export async function printTargets(
   win.document.open();
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서 인쇄</title>
 <style>
-  @page { size: A4 portrait; margin: 8mm; }
+  /* A4 한 장에 정산서 1매가 꽉 차도록 — 여백 0, 이미지를 페이지 크기에 맞춤 */
+  @page { size: A4 portrait; margin: 0; }
   html, body { margin: 0; padding: 0; background: #fff; }
-  .sheet { display: block; width: 100%; page-break-after: always; break-after: page; }
+  /* 화면 미리보기에서도 A4 한 장 비율로 보이도록 sheet 크기 고정 */
+  .sheet {
+    width: 210mm;
+    height: 297mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #fff;
+    page-break-after: always;
+    break-after: page;
+    box-sizing: border-box;
+  }
   .sheet:last-child { page-break-after: auto; break-after: auto; }
-  .sheet img { display: block; width: 100%; height: auto; }
+  /* 비율 유지하며 페이지에 꽉 차게 (잘리지 않음) */
+  .sheet img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+  @media print {
+    html, body { width: 210mm; height: 297mm; }
+    .sheet { width: 210mm; height: 297mm; }
+  }
   .loading { font: 14px system-ui, sans-serif; padding: 24px; color: #444; }
   .err { font: 14px system-ui, sans-serif; padding: 24px; color: #b00; }
 </style></head><body><div id="root"><div class="loading">정산서 이미지 준비 중…</div></div></body></html>`);
