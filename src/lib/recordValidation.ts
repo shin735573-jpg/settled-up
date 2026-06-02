@@ -472,6 +472,9 @@ export function validateTeamParity(
   if (!ganghyungjuId || !shindongseokId) return out;
 
   const leaderById = new Map(ctx.leaders.map((l) => [l.id, l] as const));
+  const virtualIds = new Set(
+    ctx.leaders.filter((l) => (l as { is_virtual?: boolean }).is_virtual).map((l) => l.id),
+  );
 
   let gCount = 0, sCount = 0;
   let gMetro = 0, sMetro = 0;
