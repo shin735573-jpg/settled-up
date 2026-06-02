@@ -15,6 +15,7 @@ import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
 import { Switch } from "@/components/ui/switch";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
+import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -56,7 +57,6 @@ const alignClass = (a: "left" | "right" | "center") =>
 
 const fmtAmount = (n: number) => (n && n !== 0 ? fmt(n) : "-");
 
-import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 
 export default function CompanySettlement() {
   const initial = useMemo(() => getCurrentHalf(), []);
