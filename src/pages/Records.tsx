@@ -1300,9 +1300,13 @@ export default function Records() {
       return;
     }
     const leaderName = (id: string) => leaders.find((l) => l.id === id)?.name || null;
-    const payloads = rows.map((r) => {
+    const makeUuid = () =>
+      (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+        ? (crypto as any).randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const payloads = rows.flatMap((r) => {
       const co = companies.find((c) => c.id === r.company_id);
-      return {
+      const base = {
         user_id: user.id,
         date: bulkShared.date,
         company_id: r.company_id,
@@ -1327,6 +1331,14 @@ export default function Records() {
       two_person: r.two_person,
       is_missing: false,
       };
+      if (r.revisit_required) {
+        const groupId = makeUuid();
+        return [
+          { ...base, revisit_group_id: groupId, revisit_visit_no: 1, revisit_required: true, revisit_done: r.revisit_done },
+          { ...base, revisit_group_id: groupId, revisit_visit_no: 2, revisit_required: true, revisit_done: false },
+        ];
+      }
+      return [base];
     });
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
