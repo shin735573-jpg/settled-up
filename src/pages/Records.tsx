@@ -2816,6 +2816,66 @@ export default function Records() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); } }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>재방문 여부 확인</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="text-xs text-muted-foreground">
+              같은 고객/지역의 과거 배송 기록이 발견되었습니다. 재방문이면 원본을 선택해 잠금된 2차 행으로 자동 변환합니다.
+            </div>
+            <div className="max-h-[55vh] overflow-auto border rounded-md">
+              <table className="w-full text-xs">
+                <thead className="bg-muted sticky top-0">
+                  <tr className="text-left">
+                    <th className="p-2">날짜</th>
+                    <th className="p-2">업체</th>
+                    <th className="p-2">고객</th>
+                    <th className="p-2">지역</th>
+                    <th className="p-2">상품</th>
+                    <th className="p-2">팀장</th>
+                    <th className="p-2 text-right">금액</th>
+                    <th className="p-2 w-32"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revisitDetectLoading && (
+                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">검색 중…</td></tr>
+                  )}
+                  {!revisitDetectLoading && revisitDetectCandidates.length === 0 && (
+                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">매칭된 과거 배송이 없습니다.</td></tr>
+                  )}
+                  {!revisitDetectLoading && revisitDetectCandidates.map((r) => {
+                    const amt =
+                      Number(r.metro_fee || 0) + Number(r.regional_fee || 0) +
+                      Number(r.note_amount || 0) + Number(r.cod_amount || 0);
+                    return (
+                      <tr key={r.id} className="border-t hover:bg-muted/40">
+                        <td className="p-2 whitespace-nowrap">{r.date}</td>
+                        <td className="p-2">{r.company_name}</td>
+                        <td className="p-2">{r.customer_name || ""}</td>
+                        <td className="p-2">{r.region || ""}</td>
+                        <td className="p-2 max-w-[200px] truncate" title={r.item || ""}>{r.item || ""}</td>
+                        <td className="p-2">{[r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join(", ")}</td>
+                        <td className="p-2 text-right tabular-nums">{fmt(amt)}</td>
+                        <td className="p-2">
+                          <Button size="sm" onClick={() => confirmDetectedRevisit(r)}>재방문으로</Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); }}>
+              재방문 아님 (새 배송으로 입력)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!dongPrompt} onOpenChange={(v) => !v && setDongPrompt(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
