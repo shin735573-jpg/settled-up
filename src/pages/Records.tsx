@@ -1296,8 +1296,8 @@ export default function Records() {
     if (form.region_type === "regional" && metroN > 0 && regionalN === 0) {
       if (!confirm("지역구분이 지방인데 수도권배송비만 입력되어 있습니다. 그대로 저장할까요?")) return;
     }
-    if (form.two_person && !form.leader2_id) {
-      toast.error("2인배송은 팀장2가 필요합니다.");
+    if (form.two_person && !form.leader2_id && !form.virtual_leader_id) {
+      toast.error("2인배송은 팀장2 또는 가상기사가 필요합니다.");
       return;
     }
     // 팀장2가 입력되면 자동으로 2인배송으로 간주되어 금액이 50/50 분배됨 (확인 다이얼로그 불필요)
@@ -1316,8 +1316,13 @@ export default function Records() {
       company_name: company.name,
       leader1_id: form.leader1_id || null,
       leader1_name: leaderName(form.leader1_id),
-      leader2_id: form.leader2_id || null,
-      leader2_name: leaderName(form.leader2_id),
+      // 가상기사가 지정된 2인배송은 팀장2 자리에 가상기사를 자동 입력
+      leader2_id: (form.two_person && form.virtual_leader_id && !form.leader2_id)
+        ? form.virtual_leader_id
+        : (form.leader2_id || null),
+      leader2_name: (form.two_person && form.virtual_leader_id && !form.leader2_id)
+        ? leaderName(form.virtual_leader_id)
+        : leaderName(form.leader2_id),
       leader3_id: form.leader3_id || null,
       leader3_name: leaderName(form.leader3_id),
       customer_name: form.customer_name || null,
@@ -1446,8 +1451,8 @@ export default function Records() {
     // 2차(재방문) 행도 팀장이 1차와 달라질 수 있으므로 동일하게 공유 팀장 입력 필요
     if (rows.length > 0 && !bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
     const anyTwoPerson = rows.some((r) => r.two_person);
-    if (anyTwoPerson && !bulkShared.leader2_id) {
-      toast.error("2인배송은 팀장2가 필요합니다.");
+    if (anyTwoPerson && !bulkShared.leader2_id && !bulkShared.virtual_leader_id) {
+      toast.error("2인배송은 팀장2 또는 가상기사가 필요합니다.");
       return;
     }
     const missingCompanyIdx = rows.findIndex((r) => !r.company_id);
