@@ -560,6 +560,19 @@ export function buildLeaderStatements(
     const feeTotal = rows.reduce((s, r) => s + r.unitFee, 0);
     const afterFee = realFee - feeTotal;
     const ded = computeLeaderDeductions(leader.id, deductionCtx, leader);
+    // 배송 입력의 "알바공제"는 해당 행의 정산기사(leader1의 settle 대상)에게 귀속.
+    let albaTotal = 0;
+    for (const a of allocs) {
+      const v = Number(a.d.alba_deduction || 0);
+      if (v <= 0) continue;
+      const t = resolveSettleId(a.d.leader1_id, byId as Map<string, SummaryLeader>);
+      if (t === leader.id) albaTotal += v;
+    }
+    if (albaTotal > 0) {
+      ded.personalLines.push({ label: "알바공제", amount: albaTotal });
+      ded.personalTotal += albaTotal;
+      ded.total += albaTotal;
+    }
     const deductionTotal = ded.total;
     // 정산금은 음수 불가 — 0 으로 클램프 (LeaderSettlement 마스터 화면과 동일 정책)
     const payout = Math.max(0, afterFee - codSum - deductionTotal);
