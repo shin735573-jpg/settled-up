@@ -2084,53 +2084,54 @@ export default function Records() {
                           )}
                           title="저장 시 같은 내용의 2차 방문 행이 함께 생성됩니다 (업체 청구는 1건으로 합산)"
                         >
-                           {isFollowup ? "2차" : (r.revisit_required ? "요청" : "—")}
+                           {isFollowup ? `${visitNo}차` : (r.revisit_required ? "요청" : "—")}
                         </button>
                       </td>
                       <td className="p-1 text-center">
                         <button
                           type="button"
                           onClick={() => {
-                            // 2차 행에서는 비활성: 클릭 무시
-                            if (isFollowup) return;
-                            // 재방문 완료 클릭 시 → 최초 배송 내용 그대로 복제한 2차 행을 바로 아래 생성.
-                            // 2차 행은 팀장·업체·상품 등 내용은 잠금 처리, 금액만 수정 가능.
+                            // 재방문 진행 클릭 시 → 현재 행 내용 그대로 복제한 다음 차수(N+1) 행을 바로 아래 생성.
+                            // 후속 차수 행은 팀장·업체·상품 등 내용은 잠금 처리, 금액만 수정 가능.
+                            // 1차 → 2차 → 3차 … 식으로 무제한 체이닝 가능.
                             setBulkRows((rows) => {
                               const next = [...rows];
-                              const groupLocal = rows[idx].revisit_group_local || (
+                              const cur = rows[idx];
+                              const curVisitNo = Number(cur.revisit_visit_no) || 1;
+                              const nextVisitNo = curVisitNo + 1;
+                              const groupLocal = cur.revisit_group_local || (
                                 (typeof crypto !== "undefined" && (crypto as any).randomUUID)
                                   ? (crypto as any).randomUUID()
                                   : `${Date.now()}-${Math.random().toString(16).slice(2)}`
                               );
                               const clone: BulkRow = {
-                                ...rows[idx],
+                                ...cur,
                                 revisit_required: true,
                                 revisit_done: false,
                                 revisit_group_local: groupLocal,
-                                revisit_visit_no: 2,
-                                // 금액은 1차 입력값을 그대로 보여주고, 필요 시 2차 금액으로 수정
+                                revisit_visit_no: nextVisitNo,
+                                // 금액은 현재 차수 입력값을 그대로 보여주고, 필요 시 다음 차수 금액으로 수정
                               };
                               next.splice(idx + 1, 0, clone);
-                              // 원본 행: 1차 + 재방문 완료 + 같은 그룹
+                              // 원본 행: 현재 차수 + 재방문 완료 + 같은 그룹 (차수는 보존)
                               next[idx] = {
-                                ...rows[idx],
+                                ...cur,
                                 revisit_required: true,
                                 revisit_done: true,
                                 revisit_group_local: groupLocal,
-                                revisit_visit_no: 1,
+                                revisit_visit_no: curVisitNo,
                               };
                               return next;
                             });
                           }}
-                          disabled={isFollowup}
+                          disabled={false}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
-                            r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
-                            isFollowup && "opacity-50 cursor-not-allowed"
+                            r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
                           )}
-                          title="클릭 시 같은 내용의 행이 바로 아래에 복제 생성됩니다 (2차 방문 내용 수정용)"
+                          title="클릭 시 같은 내용의 다음 차수 행이 바로 아래에 복제 생성됩니다 (2차·3차·… 무제한 체이닝)"
                         >
-                          {isFollowup ? "—" : (r.revisit_done ? "완료" : "—")}
+                          {r.revisit_done ? `+${visitNo + 1}차` : `+${visitNo + 1}차`}
                         </button>
                       </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
