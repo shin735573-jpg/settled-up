@@ -3,6 +3,7 @@
 
 import { allocateRow } from "./splitAllocation";
 import { isSpecialOneTimeItem } from "./statementData";
+import { isVirtualSettlementRow } from "./itemRules";
 
 export type Severity = "error" | "warning";
 
@@ -38,6 +39,8 @@ export type DeliveryRecord = {
   split_type: string | null;
   paid: boolean | null;
   two_person?: boolean | null;
+  virtual_leader_id?: string | null;
+  virtual_leader_name?: string | null;
   is_missing?: boolean;
 };
 
@@ -259,6 +262,7 @@ export function validateSettleRedirect(
   );
 
   rows.forEach((r, i) => {
+    if (isVirtualSettlementRow(r, virtualIds)) return;
     const rowLabel = labelOf ? labelOf(r, i) : `행 ${i + 1}`;
     const ids = [r.leader1_id, r.leader2_id, r.leader3_id].filter(Boolean) as string[];
     const involved = ids.find((id) => redirectIds.has(id));
@@ -383,9 +387,9 @@ export function comparePeriodTotals(
     const inRange = rows.filter((r) => r.date && r.date >= start && r.date <= end);
     const total = (r: DeliveryRecord) =>
       isNumLike(r.metro_fee).n + isNumLike(r.note_amount).n + isNumLike(r.regional_fee).n;
-    const companyTotal = inRange.reduce((s, r) => s + total(r), 0);
+    const companyTotal = inRange.filter((r) => !isVirtualSettlementRow(r)).reduce((s, r) => s + total(r), 0);
     const leaderTotal = inRange
-      .filter((r) => r.leader1_id || r.leader1_name)
+      .filter((r) => !isVirtualSettlementRow(r) && (r.leader1_id || r.leader1_name))
       .reduce((s, r) => s + total(r), 0);
     const diff = companyTotal - leaderTotal;
     return {
@@ -484,6 +488,7 @@ export function validateTeamParity(
   let gCod = 0, sCod = 0;
 
   rows.forEach((r, i) => {
+    if (isVirtualSettlementRow(r, virtualIds)) return;
     const rowLabel = labelOf ? labelOf(r, i) : `행 ${i + 1}`;
     const push = (severity: Severity, code: string, message: string) =>
       out.push({ rowId: r.id, rowLabel, code, message, severity });

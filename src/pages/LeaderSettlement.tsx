@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
 import { totalLeaderSettlementDeliveryFee } from "@/lib/totalFee";
-import { isLeaderSettlementExcludedItem } from "@/lib/itemRules";
+import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -253,6 +253,10 @@ export default function LeaderSettlement() {
     [leaders],
   );
   const sdsOpts = { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds };
+  const settlementRows = useMemo(
+    () => rows.filter((r) => !isVirtualSettlementRow(r, virtualIds)),
+    [rows, virtualIds],
+  );
   const isHyungjuDongseokLeader = (lid: string): boolean => lid === shindongseokId || lid === ganghyungjuId;
   const commonDefaultAmountFor = (lid: string, cd: CommonDeduction): number => {
     // 강형주/신동석은 한 팀 재분배 대상이므로 쓰레기비용 공통공제 50,000원을 기본 고정하지 않는다.
@@ -264,7 +268,7 @@ export default function LeaderSettlement() {
   const rawTotalsFor = (lid: string) => {
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0;
     rows.forEach((r) => {
-      if (isLeaderSettlementExcludedItem(r.item)) return;
+      if (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds)) return;
       const shares = allocateRow({
         leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
         split_type: r.split_type, two_person: r.two_person,
@@ -338,7 +342,7 @@ export default function LeaderSettlement() {
   /** 정산대상 팀장 목록: 활성 + 다른 팀장에게 정산귀속 안 된 팀장 */
   const settlingLeaders = useMemo(
     () => leaders.filter(
-      (l) => l.active && !l.is_rejected && !l.settle_to_id && (l.settle_status ?? "included") !== "excluded",
+      (l) => l.active && !l.is_rejected && !l.is_virtual && !l.settle_to_id && (l.settle_status ?? "included") !== "excluded",
     ),
     [leaders],
   );
@@ -346,12 +350,12 @@ export default function LeaderSettlement() {
   // 자동검증 (내부 관점)
   const audit = useMemo(
     () => auditDeliveries({
-      deliveries: rows as any,
+      deliveries: settlementRows as any,
       companies,
       leaders,
       mode: "internal",
     }),
-    [rows, companies, leaders],
+    [settlementRows, companies, leaders],
   );
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -379,7 +383,7 @@ export default function LeaderSettlement() {
     metro: number; noteAmt: number; regional: number; cod: number; count: number;
     weight: number; reasons: string[];
   } | null => {
-    if (isLeaderSettlementExcludedItem(r.item)) return null;
+    if (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds)) return null;
     const targets = targetSetFor(settlingLid);
     const shares = allocateRow({
       leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
@@ -461,7 +465,7 @@ export default function LeaderSettlement() {
       totalCod += m.cod;
     });
     // 총배송비 = 팀장정산 기준 공통 헬퍼 사용 — 적재비 같은 별도 매출 품목 제외
-    const companyTotalFee = totalLeaderSettlementDeliveryFee(rows);
+    const companyTotalFee = totalLeaderSettlementDeliveryFee(rows, virtualIds);
     const totalFee = companyTotalFee;
     return {
       totalLeaders: masterRows.length,

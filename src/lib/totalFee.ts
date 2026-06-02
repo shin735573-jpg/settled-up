@@ -1,8 +1,11 @@
 import { isLeaderSettlementExcludedItem } from "./itemRules";
+import { isVirtualSettlementRow } from "./itemRules";
 
 // 총배송비 공통 계산기 — 화면별 합산 기준을 한 곳에서 관리한다.
 export type DeliveryLike = {
   item?: string | null;
+  virtual_leader_id?: string | null;
+  virtual_leader_name?: string | null;
   metro_fee?: number | string | null;
   note_amount?: number | string | null;
   regional_fee?: number | string | null;
@@ -19,5 +22,8 @@ export const totalDeliveryFee = (rows: DeliveryLike[]): number =>
   rows.reduce((s, r) => s + rowDeliveryFee(r), 0);
 
 /** 팀장정산 배송비 합 — 적재비 같은 별도 매출 품목은 제외 */
-export const totalLeaderSettlementDeliveryFee = (rows: DeliveryLike[]): number =>
-  rows.reduce((s, r) => s + (isLeaderSettlementExcludedItem(r.item) ? 0 : rowDeliveryFee(r)), 0);
+export const totalLeaderSettlementDeliveryFee = (
+  rows: DeliveryLike[],
+  virtualIds?: Set<string> | string[] | null,
+): number =>
+  rows.reduce((s, r) => s + (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds) ? 0 : rowDeliveryFee(r)), 0);
