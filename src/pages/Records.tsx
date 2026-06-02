@@ -1044,7 +1044,7 @@ export default function Records() {
     totalAmt: number;
     l1Name: string;
     l2Name: string;
-    splitMode: "half" | "third" | "half";
+    splitMode: "half" | "third";
     resolve: (v: { ok: boolean; newTotal: number } | null) => void;
   } | null>(null);
   const [intEditAmt, setIntEditAmt] = useState<string>("");
