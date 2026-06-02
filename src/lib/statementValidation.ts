@@ -10,7 +10,20 @@ import type {
 } from "./statementData";
 import { matchesCompany } from "./companyMatch";
 
-export type Finding = { severity: "error" | "warning"; message: string };
+export type FindingLocator = {
+  /** 어떤 정산서로 이동할지 */
+  kind: "company" | "leader";
+  /** 해당 정산서 id */
+  id: string;
+  /** 강조할 원본 배송행 id (있으면 자동 스크롤 + 하이라이트) */
+  rowId?: string;
+};
+export type Finding = {
+  severity: "error" | "warning";
+  message: string;
+  /** 클릭 시 이동할 위치 (없으면 이동 불가) */
+  locator?: FindingLocator;
+};
 export type CheckResult = {
   errors: string[];
   warnings: string[];
@@ -24,8 +37,13 @@ function emptyResult(): CheckResult {
   return { errors: [], warnings: [], findings: [], ok: true };
 }
 
-function push(r: CheckResult, severity: Finding["severity"], message: string) {
-  r.findings.push({ severity, message });
+function push(
+  r: CheckResult,
+  severity: Finding["severity"],
+  message: string,
+  locator?: FindingLocator,
+) {
+  r.findings.push({ severity, message, locator });
   if (severity === "error") r.errors.push(message);
   else r.warnings.push(message);
   r.ok = r.errors.length === 0;
