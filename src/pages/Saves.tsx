@@ -38,10 +38,10 @@ import {
 } from "@/lib/statementValidation";
 import { validateSettlementInvariants } from "@/lib/settlementInvariants";
 import { toast } from "@/hooks/use-toast";
-import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
+import { exportSingle, exportZip, printTargets, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Cloud, CloudOff, FolderOpen, FolderCheck } from "lucide-react";
+import { Cloud, CloudOff, FolderOpen, FolderCheck, Printer } from "lucide-react";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 import {
   pickSaveDirectory,
