@@ -1466,6 +1466,18 @@ export default function Records() {
   const editParam = searchParams.get("edit");
   const [editHighlight, setEditHighlight] = useState(false);
   const editFormRef = useRef<HTMLDivElement | null>(null);
+  // 점프 진입한 행의 핵심 필드를 상단 패널로 표시 (사용자가 올바른 행을 편집 중인지 빠르게 확인)
+  const [jumpedFromRow, setJumpedFromRow] = useState<{
+    id: string;
+    date: string | null;
+    company_name: string | null;
+    customer_name: string | null;
+    item: string | null;
+    leader1_name: string | null;
+    leader2_name: string | null;
+    fee: number;
+    cod_amount: number;
+  } | null>(null);
   useEffect(() => {
     if (!editParam) return;
     let cancelled = false;
@@ -1481,6 +1493,18 @@ export default function Records() {
       } else {
         editRow(data as Delivery);
         toast.success("배송내역을 편집 모드로 불러왔습니다");
+        const d = data as any;
+        setJumpedFromRow({
+          id: d.id,
+          date: d.date ?? null,
+          company_name: d.company_name ?? null,
+          customer_name: d.customer_name ?? null,
+          item: d.item ?? null,
+          leader1_name: d.leader1_name ?? null,
+          leader2_name: d.leader2_name ?? null,
+          fee: (Number(d.metro_fee) || 0) + (Number(d.note_amount) || 0) + (Number(d.regional_fee) || 0),
+          cod_amount: Number(d.cod_amount) || 0,
+        });
         // 폼이 마운트된 다음 프레임에 스크롤 + 강조 효과
         setTimeout(() => {
           editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3542,6 +3566,41 @@ export default function Records() {
               <X className="h-4 w-4 mr-1" />초기화
             </Button>
           </div>
+
+          {jumpedFromRow && form.id === jumpedFromRow.id && (
+            <div className="rounded-md border-2 border-primary/60 bg-primary/5 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-primary flex items-center gap-2">
+                  점프 진입한 행 — 핵심 필드 확인
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setJumpedFromRow(null)}
+                  title="이 안내를 닫습니다"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
+                <div><div className="text-muted-foreground">날짜</div><div className="font-semibold">{jumpedFromRow.date ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">업체</div><div className="font-semibold">{jumpedFromRow.company_name ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">고객</div><div className="font-semibold">{jumpedFromRow.customer_name ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">품목</div><div className="font-semibold">{jumpedFromRow.item ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">팀장1</div><div className="font-semibold">{jumpedFromRow.leader1_name ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">팀장2</div><div className="font-semibold">{jumpedFromRow.leader2_name ?? "-"}</div></div>
+                <div>
+                  <div className="text-muted-foreground">배송비 / 착불</div>
+                  <div className="font-semibold">
+                    {jumpedFromRow.fee.toLocaleString()}
+                    {jumpedFromRow.cod_amount > 0 && (
+                      <span className="ml-1 text-orange-600">+ 착불 {jumpedFromRow.cod_amount.toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {form.is_missing && (
             <div className="rounded-md border-2 border-orange-400/60 bg-orange-50 dark:bg-orange-950/30 p-3 space-y-2">
