@@ -130,13 +130,49 @@ export default function RecordsBrowse() {
   // 그룹 계산
   const groups: LooseGroup[] = useMemo(() => groupByLooseKey(records), [records]);
 
-  // 검색/필터 적용
+  // 업체명 옵션 (현재 로드된 기록 기준)
+  const companyOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of records) if (r.company_name) s.add(String(r.company_name));
+    return Array.from(s).sort();
+  }, [records]);
+
+  // 검색/필터 적용 — 업체/팀장1/팀장2/동행/2인배송/비고 포함
   const visibleGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const fc = filterCompany.trim().toLowerCase();
     return groups.filter((g) => {
       if (q) {
-        const hay = [g.customer, g.region, g.item, g.date].join(" ").toLowerCase();
+        const hay = [
+          g.customer, g.region, g.item, g.date,
+          ...g.rows.map((r) => r.company_name || ""),
+          ...g.rows.map((r) => r.leader1_name || ""),
+          ...g.rows.map((r) => r.leader2_name || ""),
+          ...g.rows.map((r) => r.note || ""),
+        ].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
+      }
+      if (fc) {
+        const hit = g.rows.some((r) => (r.company_name || "").toLowerCase().includes(fc));
+        if (!hit) return false;
+      }
+      if (filterLeader1) {
+        const hit = g.rows.some((r) => r.leader1_id === filterLeader1);
+        if (!hit) return false;
+      }
+      if (filterLeader2) {
+        const hit = g.rows.some((r) => r.leader2_id === filterLeader2);
+        if (!hit) return false;
+      }
+      if (filterCompanion !== "any") {
+        const wantYes = filterCompanion === "yes";
+        const hit = g.rows.some((r) => !!r.companion === wantYes);
+        if (!hit) return false;
+      }
+      if (filterTwoPerson !== "any") {
+        const wantYes = filterTwoPerson === "yes";
+        const hit = g.rows.some((r) => !!r.two_person === wantYes);
+        if (!hit) return false;
       }
       if (statusFilter !== "all") {
         const has = g.rows.some((r) => classifyGroupRow(r, g.rows).includes(statusFilter));
@@ -144,7 +180,24 @@ export default function RecordsBrowse() {
       }
       return true;
     });
-  }, [groups, search, statusFilter]);
+  }, [groups, search, statusFilter, filterCompany, filterLeader1, filterLeader2, filterCompanion, filterTwoPerson]);
+
+  // 비교 패널 토글 (최대 6개, 7개째 시도하면 안내)
+  const togglePanel = (key: string) => {
+    setSelectedKeys((prev) => {
+      if (prev.includes(key)) return prev.filter((k) => k !== key);
+      if (prev.length >= MAX_COMPARE_PANELS) {
+        toast.warning(`최대 ${MAX_COMPARE_PANELS}개까지 비교 가능합니다. 다른 패널을 먼저 닫아주세요.`);
+        return prev;
+      }
+      return [...prev, key];
+    });
+    setSelectedGroupKey(key);
+  };
+  const closePanel = (key: string) => {
+    setSelectedKeys((prev) => prev.filter((k) => k !== key));
+    setSelectedGroupKey((cur) => (cur === key ? null : cur));
+  };
 
   const groupsByKey = useMemo(() => {
     const m = new Map<string, GroupRow[]>();
