@@ -38,6 +38,10 @@ export type VerifyResult = {
   hiddenRevisitCount: number;
   commonDeductionTotal: number;
   personalDeductionTotal: number;
+  totalDeductionTotal: number;
+  codTotal: number;
+  leaderPayoutBeforeVat: number;
+  vatTotal: number;
   errorCount: number;
   warningCount: number;
   issues: VerifyIssue[];
@@ -55,6 +59,10 @@ export type VerifyInput = {
 };
 
 const norm = (s: unknown) => String(s ?? "").trim();
+export const displayCustomerName = (s: unknown) => {
+  const v = String(s ?? "").trim();
+  return v.length ? v : "고객명 없음";
+};
 const deliveryBaseAmount = (d: StmtDelivery) =>
   Number(d.metro_fee || 0) + Number(d.regional_fee || 0) + Number(d.note_amount || 0);
 
@@ -143,6 +151,10 @@ export function runVerify(input: VerifyInput): VerifyResult {
     (s, l) => s + (l.deductions?.personalTotal ?? 0),
     0,
   );
+  const totalDeductionTotal = commonDeductionTotal + personalDeductionTotal;
+  const codTotal = leaderStmts.reduce((s, l) => s + (l.codSum || 0), 0);
+  const leaderPayoutBeforeVat = leaderStmts.reduce((s, l) => s + (l.payout || 0), 0);
+  const vatTotal = leaderStmts.reduce((s, l) => s + (l.vat || 0), 0);
 
   const issues: VerifyIssue[] = [];
 
@@ -156,10 +168,11 @@ export function runVerify(input: VerifyInput): VerifyResult {
   }
 
   // 누락 / 0원 / 중복
+  const companyById = new Map(companies.map((c) => [c.id, c]));
   const dupMap = new Map<string, StmtDelivery[]>();
   for (const d of deliveries) {
     const miss: string[] = [];
-    if (!norm(d.customer_name)) miss.push("고객명");
+    // 고객명 누락은 "고객명 없음"으로 자동 보정 — 경고하지 않음
     if (!norm(d.item)) miss.push("품목");
     if (!d.company_id && !norm(d.company_name)) miss.push("업체");
     if (!d.leader1_id && !norm(d.leader1_name)) miss.push("팀장");
@@ -170,26 +183,24 @@ export function runVerify(input: VerifyInput): VerifyResult {
         message: `${miss.join("/")} 누락`,
         deliveryId: d.id,
         date: d.date,
-        customer: norm(d.customer_name),
+        customer: displayCustomerName(d.customer_name),
         company: norm(d.company_name),
       });
     }
-    const metro = Number(d.metro_fee || 0);
-    const reg = Number(d.regional_fee || 0);
+    // 배송비 0원은 "배송비 없음" 정상 케이스 — ZERO_FEE 경고를 만들지 않음
+    // has_cod=false 업체에서 착불 입력이 들어오면 주의
     const cod = Number(d.cod_amount || 0);
-    if (metro === 0 && reg === 0 && cod === 0) {
-      // 재방문 2차 이상은 정상 케이스이므로 제외
-      if (!(d.revisit_group_id && Number(d.revisit_visit_no ?? 1) >= 2)) {
-        issues.push({
-          severity: "warning",
-          code: "ZERO_FEE",
-          message: "배송비와 착불이 모두 0원",
-          deliveryId: d.id,
-          date: d.date,
-          customer: norm(d.customer_name),
-          company: norm(d.company_name),
-        });
-      }
+    const comp = d.company_id ? companyById.get(d.company_id) : undefined;
+    if (comp && comp.has_cod === false && cod > 0) {
+      issues.push({
+        severity: "warning",
+        code: "COD_NOT_EXPECTED",
+        message: `착불 미사용 업체에 착불 ${cod}원 입력 확인`,
+        deliveryId: d.id,
+        date: d.date,
+        customer: displayCustomerName(d.customer_name),
+        company: norm(d.company_name),
+      });
     }
     const dupKey = [
       d.date,
@@ -217,7 +228,7 @@ export function runVerify(input: VerifyInput): VerifyResult {
           message: `중복 의심 (${arr.length}건) ${key}`,
           deliveryId: d.id,
           date: d.date,
-          customer: norm(d.customer_name),
+          customer: displayCustomerName(d.customer_name),
           company: norm(d.company_name),
         });
       }
@@ -239,6 +250,10 @@ export function runVerify(input: VerifyInput): VerifyResult {
     hiddenRevisitCount,
     commonDeductionTotal,
     personalDeductionTotal,
+    totalDeductionTotal,
+    codTotal,
+    leaderPayoutBeforeVat,
+    vatTotal,
     errorCount,
     warningCount,
     issues,
@@ -333,11 +348,14 @@ export function verifyResultCsv(result: VerifyResult): string {
   rows.push(["총합 차이", result.totalsDiff]);
   rows.push(["업체 표시 합계", result.companyDisplayTotal]);
   rows.push(["업체 청구 합계(VAT포함)", result.companyClaimTotal]);
-  rows.push(["팀장 배분 합계", result.leaderShareTotal]);
-  rows.push(["팀장 실지급 합계(VAT포함)", result.leaderPayoutTotal]);
+  rows.push(["착불합계", result.codTotal]);
+  rows.push(["팀장 정산금액(부가세 전)", result.leaderPayoutBeforeVat]);
+  rows.push(["부가세", result.vatTotal]);
+  rows.push(["팀장 최종지급액(부가세 포함)", result.leaderPayoutTotal]);
   rows.push(["숨겨진 재방문 2차+ 건수", result.hiddenRevisitCount]);
-  rows.push(["공통공제 합계", result.commonDeductionTotal]);
-  rows.push(["개별공제 합계", result.personalDeductionTotal]);
+  rows.push(["회사공제 합계", result.commonDeductionTotal]);
+  rows.push(["개인공제 합계", result.personalDeductionTotal]);
+  rows.push(["총공제 합계", result.totalDeductionTotal]);
   rows.push(["오류 건수", result.errorCount]);
   rows.push(["주의 건수", result.warningCount]);
   rows.push([]);
