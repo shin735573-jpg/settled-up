@@ -1123,6 +1123,10 @@ export default function Records() {
       two_person: !!(r as any).two_person,
       is_missing: !!r.is_missing,
       missing_reason: r.missing_reason || "",
+      revisit_required: !!(r as any).revisit_required,
+      revisit_done: !!(r as any).revisit_done,
+      revisit_group_id: (r as any).revisit_group_id ?? null,
+      revisit_visit_no: Number((r as any).revisit_visit_no ?? 1),
     });
     setFormOpen(true);
     setActiveTab("form");
