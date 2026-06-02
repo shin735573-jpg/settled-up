@@ -1458,11 +1458,14 @@ export default function Records() {
       (typeof crypto !== "undefined" && (crypto as any).randomUUID)
         ? (crypto as any).randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const sourceRegionType =
+      (src.region_type as RegionType | null) ||
+      (Number(src.regional_fee || 0) > 0 ? "regional" : Number(src.metro_fee || 0) > 0 ? "metro" : classifyRegion(src.region || ""));
     const clone: BulkRow = {
       company_id: src.company_id || "",
       customer_name: src.customer_name || "",
       region: src.region || "",
-      region_type: (src.region_type as RegionType) || classifyRegion(src.region || ""),
+      region_type: sourceRegionType,
       item: src.item || "",
       note: src.note || "",
       metro_fee: src.metro_fee ? String(src.metro_fee) : "",
