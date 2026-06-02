@@ -246,7 +246,7 @@ export default function CompanySettlement() {
           r.date, r.company_name,
         ];
         return fields.some((v) => (v || "").toString().toLowerCase().includes(q));
-      });
+      }));
     },
     [company, companyBillableRows, query]
   );
