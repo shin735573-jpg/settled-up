@@ -2544,11 +2544,11 @@ export default function Records() {
                               detectedKeyRef.current.clear();
                               detectRevisitForRow(idx);
                             }
+                            // 재방문 요청만 표시 — 복제 행은 만들지 않음.
+                            // 2차 입력 시 자동 매칭으로 같은 행에 1차 정보가 함께 표시됩니다.
                             setBulkRows((rows) => {
                               const nx = [...rows];
                               const c = rows[idx];
-                              const curVisitNo = Number(c.revisit_visit_no) || 1;
-                              const nextVisitNo = curVisitNo + 1;
                               const groupLocal = c.revisit_group_local || (
                                 (typeof crypto !== "undefined" && (crypto as any).randomUUID)
                                   ? (crypto as any).randomUUID()
@@ -2556,19 +2556,10 @@ export default function Records() {
                               );
                               nx[idx] = {
                                 ...c,
-                                revisit_required: true,
+                                revisit_required: !c.revisit_required ? true : c.revisit_required,
                                 revisit_group_local: groupLocal,
-                                revisit_visit_no: curVisitNo,
+                                revisit_visit_no: Number(c.revisit_visit_no) || 1,
                               };
-                              const nextLocked: BulkRow = {
-                                ...c,
-                                revisit_required: true,
-                                revisit_done: false,
-                                revisit_group_local: groupLocal,
-                                revisit_visit_no: nextVisitNo,
-                                revisit_locked: true,
-                              };
-                              nx.splice(idx + 1, 0, nextLocked);
                               return nx;
                             });
                          }}
