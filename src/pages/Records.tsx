@@ -1832,7 +1832,9 @@ export default function Records() {
                   const total = (parseNum(r.metro_fee) || 0) + (parseNum(r.note_amount) || 0) + (parseNum(r.regional_fee) || 0) + (parseNum(r.cod_amount) || 0);
                   const upd = (patch: Partial<BulkRow>) =>
                     setBulkRows((rows) => rows.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
-                  const isFollowup = (Number(r.revisit_visit_no) || 1) > 1;
+                  // isFollowup = "잠금된 이전 차수 행" (내용 전체 잠금, 비고금액만 수정 가능)
+                  // 활성 입력 행은 항상 현재 작성 중인 최신 차수 (revisit_locked=false)
+                  const isFollowup = !!r.revisit_locked;
                   const visitNo = Number(r.revisit_visit_no) || 1;
                   return (
                      <tr
