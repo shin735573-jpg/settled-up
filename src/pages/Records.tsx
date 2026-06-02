@@ -1576,6 +1576,8 @@ export default function Records() {
                   <th className="p-2 min-w-[120px]">착불</th>
                   <th className="p-2 min-w-[90px]">선결제</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
+                  <th className="p-2 min-w-[90px]">재방문필요</th>
+                  <th className="p-2 min-w-[90px]">재방문진행</th>
                   <th className="p-2 min-w-[100px]">총액</th>
                   <th className="p-2 w-12"></th>
                 </tr>
