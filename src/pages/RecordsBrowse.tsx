@@ -618,7 +618,9 @@ function PanelCard({
               <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
             ) : records.map((r) => {
               const fee = Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
-              const leadersTxt = [r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join("·");
+              const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
+              const leadersTxt = [r.leader1_name, leader2Disp, r.leader3_name].filter(Boolean).join("·");
+              const hasVirtual = !!r.virtual_leader_name;
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
                   <td className="p-2 whitespace-nowrap">
@@ -656,6 +658,9 @@ function PanelCard({
                         {leadersTxt || "-"}
                       </span>
                     </td>
+                  )}
+                  {sel.kind === "leader" && hasVirtual && (
+                    null
                   )}
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[140px] truncate" title={r.region || ""}>{r.region || "-"}</td>
