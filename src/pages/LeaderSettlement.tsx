@@ -444,12 +444,13 @@ export default function LeaderSettlement() {
         count += 1;
         return;
       }
+      const nr = normalizeLoadingFeeRowLeaders(r, samhoId);
       const shares = allocateRow({
-        leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
-        split_type: r.split_type, two_person: r.two_person,
+        leader1_id: nr.leader1_id, leader2_id: nr.leader2_id, leader3_id: nr.leader3_id,
+        split_type: nr.split_type, two_person: nr.two_person ?? false,
         metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
         regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
-        virtual_leader_id: r.virtual_leader_id ?? null,
+        virtual_leader_id: nr.virtual_leader_id ?? null,
       }, { virtualIds }); // 재분배는 건너뛰되 가상기사 입력은 제외
       const s = shares.find((x) => x.leader_id === lid);
       if (!s) return;
