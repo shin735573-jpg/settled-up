@@ -977,6 +977,12 @@ export default function Records() {
   const [revisitPickerOpen, setRevisitPickerOpen] = useState(false);
   const [revisitCandidates, setRevisitCandidates] = useState<any[]>([]);
   const [revisitLoading, setRevisitLoading] = useState(false);
+  // 입력 중 동일 고객/지역 자동 감지 다이얼로그
+  const [revisitDetectOpen, setRevisitDetectOpen] = useState(false);
+  const [revisitDetectIdx, setRevisitDetectIdx] = useState<number | null>(null);
+  const [revisitDetectCandidates, setRevisitDetectCandidates] = useState<any[]>([]);
+  const [revisitDetectLoading, setRevisitDetectLoading] = useState(false);
+  const detectedKeyRef = useRef<Set<string>>(new Set());
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
