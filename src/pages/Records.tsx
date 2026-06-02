@@ -2782,6 +2782,92 @@ export default function Records() {
   return (
     <div className="space-y-4" ref={recordsRootRef}>
       {saveConfirmDialog}
+      {/* 두 팀장 통합 — 최종 청구금액만 확인하는 간단 다이얼로그 */}
+      <Dialog
+        open={!!integrationConfirm}
+        onOpenChange={(o) => {
+          if (!o && integrationConfirm) {
+            integrationConfirm.resolve({ ok: false, newTotal: integrationConfirm.totalAmt });
+            setIntegrationConfirm(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>두 팀장 배송으로 처리됩니다</DialogTitle>
+          </DialogHeader>
+          {integrationConfirm && (() => {
+            const ic = integrationConfirm;
+            const cur = parseNum(intEditAmt) || 0;
+            const s1 = ic.splitMode === "third"
+              ? Math.round(cur * 2 / 3)
+              : Math.round(cur / 2);
+            const s2 = cur - s1;
+            return (
+              <div className="space-y-3 text-sm">
+                <p className="text-muted-foreground">
+                  최종 청구금액이 맞는지만 확인해주세요. 팀장1·팀장2 자동 반영, 정산금은 자동 계산됩니다.
+                </p>
+                <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">최종 청구금액</span>
+                    {intEditing ? (
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        autoFocus
+                        value={intEditAmt}
+                        onChange={(e) => setIntEditAmt(e.target.value)}
+                        className="w-40 text-right tabular-nums"
+                      />
+                    ) : (
+                      <span className="font-semibold text-base tabular-nums">
+                        {fmt(cur)}원
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{ic.l1Name} 정산금</span>
+                    <span className="font-medium tabular-nums">{fmt(s1)}원</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{ic.l2Name} 정산금</span>
+                    <span className="font-medium tabular-nums">{fmt(s2)}원</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!integrationConfirm) return;
+                integrationConfirm.resolve({ ok: false, newTotal: integrationConfirm.totalAmt });
+                setIntegrationConfirm(null);
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIntEditing((v) => !v)}
+            >
+              {intEditing ? "수정 완료" : "청구금액 수정"}
+            </Button>
+            <Button
+              onClick={() => {
+                if (!integrationConfirm) return;
+                const newTotal = parseNum(intEditAmt) || 0;
+                integrationConfirm.resolve({ ok: true, newTotal });
+                setIntegrationConfirm(null);
+              }}
+            >
+              최종 저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <FirstTimeSetupAlert companyCount={companies.length} leaderCount={leaders.length} />
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">기록입력</h1>
