@@ -189,10 +189,6 @@ export default function HQSettlement() {
     () => periodRows.filter((r) => !isVirtualSettlementRow(r, virtualIds)),
     [periodRows, virtualIds],
   );
-  const settlementRows = useMemo(
-    () => rows.filter((r) => !isVirtualSettlementRow(r, virtualIds)),
-    [rows, virtualIds],
-  );
   const settlementYearRows = useMemo(
     () => yearRows.filter((r) => !isVirtualSettlementRow(r, virtualIds)),
     [yearRows, virtualIds],
@@ -347,12 +343,12 @@ export default function HQSettlement() {
   // 자동검증 (내부 관점) — 현재 기간 탭에 표시되는 행만 검사
   const audit = useMemo(
     () => auditDeliveries({
-      deliveries: periodRows as any,
+      deliveries: settlementPeriodRows as any,
       companies,
       leaders: leaders as any,
       mode: "internal",
     }),
-    [periodRows, companies, leaders],
+    [settlementPeriodRows, companies, leaders],
   );
 
   const rootRef = useRef<HTMLDivElement>(null);
