@@ -1002,6 +1002,38 @@ export default function Records() {
   const [revisitDetectIdx, setRevisitDetectIdx] = useState<number | null>(null);
   const [revisitDetectCandidates, setRevisitDetectCandidates] = useState<any[]>([]);
   const [revisitDetectLoading, setRevisitDetectLoading] = useState(false);
+  // 재방문 팀장 분배 입력 다이얼로그
+  const [revisitShareOpen, setRevisitShareOpen] = useState(false);
+  const [revisitShareFirst, setRevisitShareFirst] = useState<RevisitFirstRow | null>(null);
+  const [revisitShareExtraLeaders, setRevisitShareExtraLeaders] = useState<Array<{ id: string | null; name: string | null }>>([]);
+  const openRevisitShareDialog = async (groupId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("deliveries")
+        .select("id,date,customer_name,region,metro_fee,note_amount,regional_fee,leader1_id,leader1_name,leader2_id,leader2_name,leader3_id,leader3_name,revisit_group_id,revisit_visit_no,revisit_manual_shares")
+        .eq("revisit_group_id", groupId)
+        .order("revisit_visit_no", { ascending: true });
+      if (error) throw error;
+      const rows = (data || []) as any[];
+      const first = rows.find((r) => Number(r.revisit_visit_no ?? 1) === 1) || rows[0];
+      if (!first) {
+        toast.error("재방문 1차 행을 찾을 수 없습니다");
+        return;
+      }
+      const extras: Array<{ id: string | null; name: string | null }> = [];
+      for (const r of rows) {
+        [["leader1_id","leader1_name"],["leader2_id","leader2_name"],["leader3_id","leader3_name"]].forEach(([i,n]) => {
+          if (r[i]) extras.push({ id: r[i] as string, name: (r[n] as string) || null });
+        });
+      }
+      setRevisitShareFirst(first as RevisitFirstRow);
+      setRevisitShareExtraLeaders(extras);
+      setRevisitShareOpen(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`불러오기 실패: ${msg}`);
+    }
+  };
   const detectedKeyRef = useRef<Set<string>>(new Set());
   // 같은 고객/배송지 매칭 기준 (사용자 설정, 화면 상단 토글)
   // both: 고객명+지역 모두 일치 / name: 고객명만 / region: 지역만
