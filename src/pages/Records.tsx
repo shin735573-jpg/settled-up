@@ -378,6 +378,8 @@ type FormState = {
   two_person: boolean;
   is_missing: boolean;
   missing_reason: string;
+  settle_month: string;
+  settle_half: MissingHalf;
   revisit_required: boolean;
   revisit_done: boolean;
   revisit_group_id: string | null;
@@ -409,6 +411,8 @@ const emptyForm = (): FormState => ({
   two_person: false,
   is_missing: false,
   missing_reason: "",
+  settle_month: "",
+  settle_half: "FULL",
   revisit_required: false,
   revisit_done: false,
   revisit_group_id: null,
