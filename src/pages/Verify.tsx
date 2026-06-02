@@ -171,10 +171,13 @@ export default function Verify() {
           <Card className="p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <Stat label="배송건수" value={fmt(result.deliveryCount)} />
-              <Stat label="업체 표시 합계" value={fmt(result.companyDisplayTotal)} />
-              <Stat label="업체 청구 합계(VAT포함)" value={fmt(result.companyClaimTotal)} />
-              <Stat label="팀장 배분 합계" value={fmt(result.leaderShareTotal)} />
-              <Stat label="팀장 실지급(VAT포함)" value={fmt(result.leaderPayoutTotal)} />
+              <Stat label="업체 배송총합" value={fmt(result.companyDeliveryTotal)} />
+              <Stat label="팀장 배송총합" value={fmt(result.leaderDeliveryTotal)} />
+              <Stat label="총합 차이" value={fmt(result.totalsDiff)} />
+              <Stat label="(참고) 업체 표시 합계" value={fmt(result.companyDisplayTotal)} />
+              <Stat label="(참고) 업체 청구(VAT포함)" value={fmt(result.companyClaimTotal)} />
+              <Stat label="(참고) 팀장 배분 합계" value={fmt(result.leaderShareTotal)} />
+              <Stat label="(참고) 팀장 실지급(VAT포함)" value={fmt(result.leaderPayoutTotal)} />
               <Stat label="숨겨진 재방문 2차+ 건수" value={fmt(result.hiddenRevisitCount)} />
               <Stat label="공통공제 합계" value={fmt(result.commonDeductionTotal)} />
               <Stat label="개별공제 합계" value={fmt(result.personalDeductionTotal)} />
