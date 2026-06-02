@@ -102,16 +102,38 @@ export async function buildBackupBlob(uid: string): Promise<{ blob: Blob; filena
   meta.addRow(["백업시각", new Date().toISOString()]);
   meta.addRow(["스키마버전", "1"]);
 
+  const rawData: Record<string, Row[]> = {};
+
   for (const t of TABLES) {
     const ws = wb.addWorksheet(t.sheet);
     try {
       const rows = await fetchAll(t.name, uid);
+      rawData[t.name] = rows;
       meta.addRow([t.sheet, `${rows.length}건`]);
       setSheetFromRows(ws, rows);
     } catch (e) {
       meta.addRow([t.sheet, `오류: ${(e as Error).message}`]);
       ws.addRow(["조회 실패", (e as Error).message]);
     }
+  }
+
+  // ─── 정산 상세 시트 (팀장·업체별, 백업 전용 — 복구 시 무시됨) ───
+  try {
+    try {
+      const { data: si } = await supabase
+        .from("special_items" as never)
+        .select("label,active")
+        .eq("user_id", uid);
+      const labels = ((si as Array<{ label: string; active: boolean }> | null) ?? [])
+        .filter((r) => r.active)
+        .map((r) => String(r.label || "").trim())
+        .filter((l) => l.length > 0);
+      if (labels.length > 0) setSpecialOneTimeItems(labels);
+    } catch { /* ignore */ }
+    addDetailSheets(wb, uid, rawData);
+    meta.addRow(["정산상세시트", "생성됨 (팀장별상세/업체별상세/요약 2종)"]);
+  } catch (e) {
+    meta.addRow(["정산상세시트", `오류: ${(e as Error).message}`]);
   }
 
   const buf = await wb.xlsx.writeBuffer();
