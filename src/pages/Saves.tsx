@@ -1214,9 +1214,6 @@ export default function Saves() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!bulkResult} onOpenChange={(o) => { if (!o) setBulkResult(null); }}>
-        <DialogContent className="max-w-xl" />
-      </Dialog>
       <Dialog open={auditOpen} onOpenChange={setAuditOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
