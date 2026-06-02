@@ -59,18 +59,30 @@ import {
   formatDuplicateConfirm,
   hasAnyDuplicates,
   findBulkDuplicates,
+  summarizeBulk,
   type DupDelivery,
 } from "@/lib/duplicateCheck";
 import { AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+// PostgREST/Postgres 에러를 한국어로 보여준다.
+//  - 23505: dedupe_key 유니크 위반 (DB 레벨 중복 차단)
+function friendlyInsertError(error: { code?: string; message?: string } | null): string | null {
+  if (!error) return null;
+  if (error.code === "23505" || /duplicate key|unique constraint/i.test(error.message || "")) {
+    return "동일한 내용의 기록이 이미 등록되어 있어 저장할 수 없습니다. (중복 차단)";
+  }
+  return error.message || "저장 중 오류가 발생했습니다";
+}
+
 // 대량 저장(여러건 저장 / 엑셀 붙여넣기) 전에 후보 행들을 기존 DB와 비교해
-// 정확/의심 중복을 확인하고, 사용자 confirm을 받는다.
-// - true: 사용자가 진행 동의 (또는 중복 없음)
-// - false: 사용자가 취소
-async function confirmBulkDuplicates(
-  candidates: DupDelivery[],
-): Promise<boolean> {
+// 정확/의심 중복을 분류한다.
+//  - 완전 중복은 자동으로 제외 (사용자에게 알림)
+//  - 유사 중복은 사용자 confirm 후 진행
+// 반환: { proceed, rowsToSave } — rowsToSave 는 입력과 동일한 shape (T 보존)
+async function confirmBulkDuplicates<T extends DupDelivery>(
+  candidates: T[],
+): Promise<{ proceed: boolean; rowsToSave: T[] }> {
   try {
     const pairs = Array.from(new Set(
       candidates
@@ -80,23 +92,48 @@ async function confirmBulkDuplicates(
       const [date, company_id] = s.split("|");
       return { date, company_id };
     });
-    if (pairs.length === 0) return true;
-    const dates = Array.from(new Set(pairs.map((p) => p.date)));
-    const companyIds = Array.from(new Set(pairs.map((p) => p.company_id)));
-    const { data: existing } = await supabase
-      .from("deliveries")
-      .select("id,date,company_id,company_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,paid,note")
-      .in("date", dates)
-      .in("company_id", companyIds);
-    const pool = (existing || []).filter((e: any) =>
-      pairs.some((p) => p.date === e.date && p.company_id === e.company_id),
-    ) as DupDelivery[];
-    const { exact, suspect } = findBulkDuplicates(candidates, pool);
-    if (!hasAnyDuplicates(exact, suspect)) return true;
-    return confirm(formatDuplicateConfirm(exact, suspect));
+    let pool: DupDelivery[] = [];
+    if (pairs.length > 0) {
+      const dates = Array.from(new Set(pairs.map((p) => p.date)));
+      const companyIds = Array.from(new Set(pairs.map((p) => p.company_id)));
+      const { data: existing } = await supabase
+        .from("deliveries")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
+        .in("date", dates)
+        .in("company_id", companyIds);
+      pool = (existing || []).filter((e: any) =>
+        pairs.some((p) => p.date === e.date && p.company_id === e.company_id),
+      ) as DupDelivery[];
+    }
+    const s = summarizeBulk(candidates as DupDelivery[], pool);
+    if (s.exactDupCount === 0 && s.suspectCount === 0) {
+      return { proceed: true, rowsToSave: candidates };
+    }
+    const summaryMsg =
+      `총 ${s.total}건 · 신규 저장 ${s.newCount}건` +
+      (s.exactDupCount > 0 ? ` · 완전 중복 제외 ${s.exactDupCount}건` : "") +
+      (s.suspectCount > 0 ? ` · 유사 중복 경고 ${s.suspectCount}건` : "");
+    if (s.exactDupCount > 0) {
+      toast.warning(summaryMsg);
+    }
+    if (s.suspectCount > 0) {
+      const proceed = confirm(
+        `${summaryMsg}\n\n` +
+        formatDuplicateConfirm([], s.suspectMatches),
+      );
+      if (!proceed) return { proceed: false, rowsToSave: candidates };
+    }
+    // exact dup 인덱스를 가진 후보 제거 → newRows + suspectRows 만 저장
+    const keepSet = new Set<DupDelivery>([...s.newRows, ...s.suspectRows]);
+    const rowsToSave = candidates.filter((c) => keepSet.has(c as DupDelivery));
+    if (rowsToSave.length === 0) {
+      toast.error("모든 행이 완전 중복이라 저장할 항목이 없습니다");
+      return { proceed: false, rowsToSave: [] };
+    }
+    return { proceed: true, rowsToSave };
   } catch {
     // 중복 검사 실패는 저장을 막지 않는다.
-    return true;
+    return { proceed: true, rowsToSave: candidates };
   }
 }
 
@@ -1001,6 +1038,23 @@ export default function Records() {
     return emptyForm();
   });
   const [saving, setSaving] = useState(false);
+  // 단건 폼: 중복 체크 결과 ('idle' | 'none' | 'suspect' | 'exact')
+  const [formDupCheck, setFormDupCheck] = useState<{
+    status: "idle" | "none" | "suspect" | "exact";
+    exact: number;
+    suspect: number;
+    matches: string[];
+    checkedAt?: string;
+  }>({ status: "idle", exact: 0, suspect: 0, matches: [] });
+  const [formDupChecking, setFormDupChecking] = useState(false);
+  // 폼 입력값이 바뀌면 이전 중복 체크 결과는 무효화
+  useEffect(() => {
+    setFormDupCheck((s) => (s.status === "idle" ? s : { status: "idle", exact: 0, suspect: 0, matches: [] }));
+  }, [
+    form.date, form.company_id, form.customer_name, form.region, form.item,
+    form.metro_fee, form.regional_fee, form.note_amount, form.cod_amount,
+    form.leader1_id, form.leader2_id, form.split_type, form.two_person, form.paid,
+  ]);
   // 한 팀장 여러건 일괄 입력
   type BulkRow = {
     company_id: string;
@@ -1603,7 +1657,9 @@ export default function Records() {
     });
     if (!ok) return;
     setSaving(true);
-    // 저장 직전 중복 검사 (단건) — 정확/의심 중복이 발견되면 사용자 confirm
+    // 저장 직전 중복 검사 (단건)
+    //  - 완전 중복: 저장 차단
+    //  - 유사 중복: 사용자 확인 후 진행
     try {
       const cand: DupDelivery = {
         id: form.id,
@@ -1611,6 +1667,7 @@ export default function Records() {
         company_id: form.company_id,
         company_name: company.name,
         customer_name: form.customer_name,
+        region: form.region || null,
         item: form.item,
         metro_fee: metroN,
         note_amount: parseNum(form.note_amount) || 0,
@@ -1619,18 +1676,28 @@ export default function Records() {
         leader1_id: form.leader1_id || null,
         leader2_id: form.leader2_id || null,
         split_type: form.split_type || null,
+        two_person: !!form.two_person,
         paid: form.paid,
         note: form.note || null,
       };
       const { data: existing } = await supabase
         .from("deliveries")
-        .select("id,date,company_id,company_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,paid,note")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
         .eq("date", form.date)
         .eq("company_id", form.company_id);
-      const ex = findExactDuplicates(cand, (existing || []) as DupDelivery[]);
-      const sus = findSuspectDuplicates(cand, (existing || []) as DupDelivery[]);
-      if (hasAnyDuplicates(ex, sus)) {
-        if (!confirm(formatDuplicateConfirm(ex, sus))) {
+      const pool = (existing || []) as DupDelivery[];
+      const ex = findExactDuplicates(cand, pool);
+      const sus = findSuspectDuplicates(cand, pool);
+      if (ex.length > 0) {
+        toast.error(`이미 동일한 기록이 등록되어 있습니다 (완전 중복 ${ex.length}건). 저장이 차단되었습니다.`);
+        setSaving(false);
+        return;
+      }
+      if (sus.length > 0) {
+        if (!confirm(
+          `유사한 기록이 ${sus.length}건 존재합니다. 저장 전 확인하세요.\n\n` +
+          formatDuplicateConfirm([], sus),
+        )) {
           setSaving(false);
           return;
         }
@@ -1654,7 +1721,7 @@ export default function Records() {
       }
     }
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyInsertError(error) || error.message); return; }
     // 다음 차수 자동 생성 로직 제거 — 다음 차수는 사용자가 직접 등록.
     toast.success(form.id ? "수정 완료" : "저장 완료");
     setForm(emptyForm());
@@ -1903,13 +1970,14 @@ export default function Records() {
       },
     });
     if (!ok) return;
-    // 저장 직전 중복 검사 (단건 저장과 동일 기준)
-    const dupOk = await confirmBulkDuplicates(payloads as DupDelivery[]);
-    if (!dupOk) return;
+    // 저장 직전 중복 검사: 완전 중복은 자동 제외, 유사 중복은 confirm
+    const dupRes = await confirmBulkDuplicates(payloads as unknown as DupDelivery[]);
+    if (!dupRes.proceed) return;
+    const finalPayloads = dupRes.rowsToSave as unknown as typeof payloads;
     setBulkSaving(true);
-    const { error } = await supabase.from("deliveries").insert(payloads);
+    const { error } = await supabase.from("deliveries").insert(finalPayloads);
     setBulkSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(friendlyInsertError(error) || error.message); return; }
     // 저장된 그룹의 이전 차수들은 모두 처리 완료(revisit_done=true)로 표시.
     // 새로 들어간 행의 visit_no 미만 차수를 그룹별로 일괄 업데이트.
     const byGroupMaxV = new Map<string, number>();
@@ -1926,7 +1994,11 @@ export default function Records() {
         .eq("revisit_group_id", gid)
         .lt("revisit_visit_no", maxV);
     }
-    toast.success(`${rows.length}건 저장 완료`);
+    toast.success(
+      finalPayloads.length === payloads.length
+        ? `${finalPayloads.length}건 저장 완료`
+        : `${finalPayloads.length}건 저장 완료 (완전 중복 ${payloads.length - finalPayloads.length}건 제외)`,
+    );
     // 저장 후 입력란 전체 초기화 (공유 필드 + 행 모두)
     setBulkShared({
       date: new Date().toISOString().slice(0, 10),
@@ -2281,6 +2353,65 @@ export default function Records() {
     // 단일폼: 인라인 드롭다운으로 표시 (다이얼로그 X)
     setFormRevisitCandidates(candidates);
     setFormRevisitOpen(true);
+  };
+
+  // 단건 폼 중복 체크 (저장과 무관, 미리 확인용)
+  const runFormDupCheck = async () => {
+    if (!form.date || !form.company_id) {
+      toast.error("중복 체크는 날짜와 업체가 선택된 뒤에 가능합니다");
+      return;
+    }
+    setFormDupChecking(true);
+    try {
+      const company = companies.find((c) => c.id === form.company_id);
+      const cand: DupDelivery = {
+        id: form.id,
+        date: form.date,
+        company_id: form.company_id,
+        company_name: company?.name || "",
+        customer_name: form.customer_name,
+        region: form.region || null,
+        item: form.item,
+        metro_fee: parseNum(form.metro_fee) || 0,
+        note_amount: parseNum(form.note_amount) || 0,
+        regional_fee: parseNum(form.regional_fee) || 0,
+        cod_amount: parseNum(form.cod_amount) || 0,
+        leader1_id: form.leader1_id || null,
+        leader2_id: form.leader2_id || null,
+        split_type: form.split_type || null,
+        two_person: !!form.two_person,
+        paid: !!form.paid,
+        note: form.note || null,
+      };
+      const { data: existing, error } = await supabase
+        .from("deliveries")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
+        .eq("date", form.date)
+        .eq("company_id", form.company_id);
+      if (error) throw error;
+      const pool = (existing || []) as DupDelivery[];
+      const ex = findExactDuplicates(cand, pool);
+      const sus = findSuspectDuplicates(cand, pool);
+      const matches = [...ex, ...sus].slice(0, 5).map((m) =>
+        `${m.date} ${m.company || "?"} / ${m.customer || "?"} / ${m.item || "?"} / 배송 ${m.fee.toLocaleString()}원`,
+      );
+      const status: "none" | "suspect" | "exact" =
+        ex.length > 0 ? "exact" : sus.length > 0 ? "suspect" : "none";
+      setFormDupCheck({
+        status,
+        exact: ex.length,
+        suspect: sus.length,
+        matches,
+        checkedAt: new Date().toLocaleTimeString("ko-KR"),
+      });
+      if (status === "exact") toast.error(`완전 중복 ${ex.length}건 발견 — 저장이 차단됩니다`);
+      else if (status === "suspect") toast.warning(`유사 중복 ${sus.length}건 발견 — 저장 전 확인하세요`);
+      else toast.success("중복 없음");
+    } catch (e: any) {
+      toast.error(`중복 체크 실패: ${e?.message || e}`);
+    } finally {
+      setFormDupChecking(false);
+    }
   };
 
   // 종합 오류 검사 실행
@@ -3571,12 +3702,71 @@ export default function Records() {
             </div>
           </div>
 
+          {/* 중복 체크 결과 박스 + 버튼 */}
+          <div className="space-y-2 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={runFormDupCheck}
+                disabled={formDupChecking || saving}
+                title="현재 입력값으로 같은 날짜·업체 기록에서 중복을 검사합니다"
+              >
+                {formDupChecking ? "중복 체크 중…"
+                  : formDupCheck.status === "exact" ? `완전 중복 ${formDupCheck.exact}건`
+                  : formDupCheck.status === "suspect" ? `유사 중복 ${formDupCheck.suspect}건 발견`
+                  : formDupCheck.status === "none" ? "중복 없음"
+                  : "중복 체크"}
+              </Button>
+              {formDupCheck.checkedAt && (
+                <span className="text-[11px] text-muted-foreground">
+                  검사 시각 {formDupCheck.checkedAt}
+                </span>
+              )}
+              {form.id && (
+                <span className="text-[11px] text-muted-foreground">수정 모드 — 자기 자신은 중복에서 제외됩니다</span>
+              )}
+            </div>
+            {formDupCheck.status === "exact" && (
+              <div className="rounded-md border-2 border-destructive/60 bg-destructive/10 p-3 text-sm">
+                <div className="font-semibold text-destructive">
+                  이미 동일한 기록이 등록되어 있습니다 · 완전 중복 {formDupCheck.exact}건
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  날짜·업체·고객·지역·품목·금액·팀장·분할·결제유무·2인배송이 모두 같습니다. 저장이 차단됩니다.
+                </div>
+                <ul className="mt-2 text-xs list-disc pl-5 space-y-0.5">
+                  {formDupCheck.matches.map((m, i) => <li key={i}>{m}</li>)}
+                </ul>
+              </div>
+            )}
+            {formDupCheck.status === "suspect" && (
+              <div className="rounded-md border-2 border-yellow-400/70 bg-yellow-50 dark:bg-yellow-950/30 p-3 text-sm">
+                <div className="font-semibold text-yellow-800 dark:text-yellow-300">
+                  유사한 기록이 존재합니다. 저장 전 확인하세요 · 유사 중복 {formDupCheck.suspect}건
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  날짜·업체·고객·지역·품목은 같지만 금액/팀장 등이 다릅니다.
+                </div>
+                <ul className="mt-2 text-xs list-disc pl-5 space-y-0.5">
+                  {formDupCheck.matches.map((m, i) => <li key={i}>{m}</li>)}
+                </ul>
+              </div>
+            )}
+            {formDupCheck.status === "none" && (
+              <div className="rounded-md border border-green-500/50 bg-green-50 dark:bg-green-950/30 p-2 text-xs text-green-800 dark:text-green-300">
+                중복 없음 — 저장 가능
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
             <Button size="lg" className="h-12 text-base" onClick={saveForm} disabled={saving || !!form.id}>
-              저장
+              {saving ? "저장 중…" : "저장"}
             </Button>
             <Button size="lg" className="h-12 text-base" variant="secondary" onClick={saveForm} disabled={saving || !form.id}>
-              수정
+              {saving ? "저장 중…" : "수정"}
             </Button>
             <Button size="lg" className="h-12 text-base" variant="destructive" onClick={deleteForm} disabled={saving || !form.id}>
               삭제
@@ -4662,14 +4852,19 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     ];
     const ok = await confirmSave({ title: "붙여넣기 저장 확인", summary });
     if (!ok) return;
-    // 저장 직전 중복 검사 (단건 저장과 동일 기준)
-    const dupOk = await confirmBulkDuplicates(rows as DupDelivery[]);
-    if (!dupOk) return;
+    // 저장 직전 중복 검사: 완전 중복은 자동 제외, 유사 중복은 confirm
+    const dupRes = await confirmBulkDuplicates(rows as unknown as DupDelivery[]);
+    if (!dupRes.proceed) return;
+    const finalRows = dupRes.rowsToSave as unknown as typeof rows;
     setSaving(true);
-    const { error } = await supabase.from("deliveries").insert(rows);
+    const { error } = await supabase.from("deliveries").insert(finalRows);
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`${rows.length}건 저장 완료`);
+    if (error) { toast.error(friendlyInsertError(error) || error.message); return; }
+    toast.success(
+      finalRows.length === rows.length
+        ? `${finalRows.length}건 저장 완료`
+        : `${finalRows.length}건 저장 완료 (완전 중복 ${rows.length - finalRows.length}건 제외)`,
+    );
     setText("");
     setLeaderOverrides({});
     setRegionOverrides({});

@@ -4,6 +4,7 @@ import {
   findSuspectDuplicates,
   formatDuplicateConfirm,
   findBulkDuplicates,
+  summarizeBulk,
   type DupDelivery,
 } from "./duplicateCheck";
 
@@ -13,6 +14,7 @@ const base = (over: Partial<DupDelivery> = {}): DupDelivery => ({
   company_id: "c1",
   company_name: "업체A",
   customer_name: "홍길동",
+  region: "강남구",
   item: "식탁",
   metro_fee: 100000,
   note_amount: 0,
@@ -21,6 +23,7 @@ const base = (over: Partial<DupDelivery> = {}): DupDelivery => ({
   leader1_id: "L1",
   leader2_id: null,
   split_type: null,
+  two_person: false,
   paid: false,
   note: "",
   ...over,
@@ -42,6 +45,26 @@ describe("duplicateCheck", () => {
     const cand = base({ id: null, cod_amount: 50000 });
     expect(findExactDuplicates(cand, existing)).toHaveLength(0);
     expect(findSuspectDuplicates(cand, existing)).toHaveLength(1);
+  });
+
+  it("배송지(region)가 다르면 의심도 아님", () => {
+    const existing = [base({ id: "ex1", region: "강남구" })];
+    const cand = base({ id: null, region: "송파구" });
+    expect(findSuspectDuplicates(cand, existing)).toHaveLength(0);
+    expect(findExactDuplicates(cand, existing)).toHaveLength(0);
+  });
+
+  it("2인배송(two_person) 값이 다르면 완전 중복 아님", () => {
+    const existing = [base({ id: "ex1", two_person: false })];
+    const cand = base({ id: null, two_person: true });
+    expect(findExactDuplicates(cand, existing)).toHaveLength(0);
+    expect(findSuspectDuplicates(cand, existing)).toHaveLength(1);
+  });
+
+  it("비고(note)만 달라도 완전 중복으로 본다", () => {
+    const existing = [base({ id: "ex1", note: "메모A" })];
+    const cand = base({ id: null, note: "메모B" });
+    expect(findExactDuplicates(cand, existing)).toHaveLength(1);
   });
 
   it("같은 id 는 비교에서 제외 (수정 케이스)", () => {
@@ -99,5 +122,30 @@ describe("duplicateCheck", () => {
     const { exact, suspect } = findBulkDuplicates(candidates, []);
     expect(exact).toHaveLength(0);
     expect(suspect).toHaveLength(0);
+  });
+
+  it("summarizeBulk 는 완전중복을 제외하고 신규/유사를 분리한다", () => {
+    const existing = [base({ id: "ex1" })];
+    const candidates = [
+      base({ id: null }), // ex1 과 완전 중복 → 제외
+      base({ id: null, customer_name: "유사A", cod_amount: 5000 }),
+      base({ id: null, customer_name: "신규A", region: "신규동" }),
+    ];
+    const s = summarizeBulk(candidates, existing);
+    expect(s.total).toBe(3);
+    expect(s.exactDupCount).toBe(1);
+    expect(s.newCount + s.suspectCount).toBe(2);
+    expect(s.newRows.find((r) => r.customer_name === "신규A")).toBeTruthy();
+  });
+
+  it("summarizeBulk 는 후보끼리의 정확 중복은 첫건만 신규로 살린다", () => {
+    const candidates = [
+      base({ id: null, customer_name: "동일" }),
+      base({ id: null, customer_name: "동일" }),
+      base({ id: null, customer_name: "동일" }),
+    ];
+    const s = summarizeBulk(candidates, []);
+    expect(s.newCount).toBe(1);
+    expect(s.exactDupCount).toBe(2);
   });
 });

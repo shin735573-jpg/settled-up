@@ -113,6 +113,7 @@ export type Database = {
           created_at: string
           customer_name: string | null
           date: string
+          dedupe_key: string | null
           id: string
           is_missing: boolean
           item: string | null
@@ -151,6 +152,7 @@ export type Database = {
           created_at?: string
           customer_name?: string | null
           date: string
+          dedupe_key?: string | null
           id?: string
           is_missing?: boolean
           item?: string | null
@@ -189,6 +191,7 @@ export type Database = {
           created_at?: string
           customer_name?: string | null
           date?: string
+          dedupe_key?: string | null
           id?: string
           is_missing?: boolean
           item?: string | null
@@ -559,7 +562,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      compute_delivery_dedupe_key: {
+        Args: { d: Database["public"]["Tables"]["deliveries"]["Row"] }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

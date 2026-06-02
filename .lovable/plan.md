@@ -1,111 +1,71 @@
-## 작업 범위 요약
+# 기록입력 중복 체크/방지 기능 강화
 
-기존 정산 계산 코어(`statementData.ts`의 배분/공제/VAT/재방문 로직)는 절대 변경하지 않고, 그 **입력 단계에서 누락분 override 기간을 적용**하는 얇은 어댑터 레이어를 추가합니다. UI는 현 스타일과 정렬을 유지합니다.
+## 범위
+- 기록입력 화면(`src/pages/Records.tsx`)의 단건 입력 폼, "모두 저장"(다행 그리드), 엑셀 붙여넣기 다이얼로그 모두 대상
+- `src/lib/duplicateCheck.ts` 보강 (필드 추가: 배송지/2일배송)
+- DB: `deliveries.dedupe_key` 컬럼 + 유니크 인덱스 추가, 기존 데이터 백필
+- 기존 정산/검산/팀장정산 로직, 재방문/공제 기준은 변경하지 않음
 
----
+## 1. 중복 키 정의 (정정 사항)
+사용자 요구의 "배송지"는 현재 스키마에 없습니다. `deliveries` 테이블 기준 가장 가까운 필드는 `region`(또는 `region_type`)이며, "2일배송"은 `two_person`이 아닌 별도 필드가 없으므로 `two_person`을 그대로 사용합니다. (실제 컬럼 매핑)
 
-## 1. 누락분 정산 반영월 (핵심)
+- 완전 중복 키: `date`, `company_id`, `customer_name`, `region`, `item`, `leader1_id`, `leader2_id`, `metro_fee`, `note_amount`, `regional_fee`, `cod_amount`, `two_person`, `split_type`, `paid`
+- 유사 중복 키: `date`, `company_id`, `customer_name`, `region`, `item`
 
-### 데이터 저장 방식
-- `deliveries` 스키마는 변경하지 않음. 기존 `missing_reason` 컬럼에 **구조화 prefix**로 저장:
-  ```
-  [SETTLE:2026-05:H1] 실제 사유 텍스트
-  ```
-  - 구간 코드: `H1` (1~15일) · `H2` (16~말일) · `FULL` (월전체)
-- 신규 헬퍼 `src/lib/missingOverride.ts`:
-  - `parseMissingReason(raw) → { settleMonth, half, reason }`
-  - `buildMissingReason({ settleMonth, half, reason }) → string`
-  - `getEffectiveSettleDate(delivery)` → override 있으면 가상의 정산 날짜(예: `2026-05-01` 또는 `2026-05-16`) 반환, 없으면 `delivery.date`
-  - `isDeliveryInPeriod(delivery, period)` → 모든 화면이 공통으로 쓰는 단일 진실 함수
+`duplicateCheck.ts`에 `region`, `two_person` 비교 추가. (현재 `note` 필드 비교는 완전 중복 기준에서 제거 — 사용자 요구에 비고는 빠져 있음)
 
-### 정산 코어 변경 금지 — 어댑터 패턴
-- `statementData.ts`의 모든 build 함수는 호출자가 **이미 기간 필터된 deliveries 배열**을 넘기는 구조 활용
-- 각 화면(업체정산/팀장정산/한눈요약/Verify)에서 deliveries fetch 후 `isDeliveryInPeriod(d, period)`로 필터 → 그 결과를 기존 build 함수에 그대로 전달
-- 효과: 일반 건은 `date`, 누락분 override 건은 지정 월/반기로 정산 포함. 원래 배송일 달에서는 자동 제외.
+## 2. DB 변경
+새 마이그레이션:
+- `deliveries.dedupe_key text` 추가
+- 트리거: insert/update 시 `dedupe_key`를 정규화 문자열로 자동 생성
+  - 형식: `date|company_id|lower(trim(customer_name))|lower(trim(region))|lower(trim(item))|leader1_id|leader2_id|metro_fee|note_amount|regional_fee|cod_amount|two_person|coalesce(split_type,'')|paid`
+- 기존 데이터 백필 (트리거가 update에서 동작하도록 `UPDATE deliveries SET dedupe_key = NULL`)
+- `CREATE UNIQUE INDEX deliveries_user_dedupe_key_uidx ON deliveries (user_id, dedupe_key) WHERE dedupe_key IS NOT NULL`
+- 만약 기존에 이미 중복 row가 있으면 인덱스 생성이 실패하므로, 사전 진단 SELECT 결과 안내 후 user_id별 중복은 가장 오래된 row만 유지하고 dedupe_key를 비워두는 방식 (안전을 위해 삭제는 하지 않음, 대신 dedupe_key NULL → unique 검사 제외)
 
-### 영향 화면
-- `CompanySettlement.tsx`, `LeaderSettlement.tsx`, `Summary.tsx`, `Verify.tsx` — deliveries 필터링 부분만 `isDeliveryInPeriod`로 교체
+## 3. UI 변경 (`Records.tsx`)
 
-### 기록입력 UI (`Records.tsx`)
-- 누락분 체크 시 추가 필드:
-  - 누락 사유 (text)
-  - 정산 반영월 (`<input type="month">` YYYY-MM)
-  - 반영 구간 (Select: 1~15일 / 16~말일 / 월전체)
-- 안내: "배송일은 유지되고, 정산에는 선택한 월/구간으로 포함됩니다."
-- 누락분 체크 시 정산 반영월 필수 검증
-- 저장 시 `buildMissingReason()`으로 직렬화, 불러올 때 `parseMissingReason()`으로 복원
-- 기존 grid 정렬·라벨·높이 유지
+### 단건 입력 폼 상단
+- "오류 검사" 버튼 옆에 **[중복 체크]** 버튼 추가
+- 결과 요약 박스 (폼 상단):
+  - 빨간 박스: "이미 동일한 기록이 등록되어 있습니다 · 완전 중복 N건" + 매치 ID/날짜/업체/고객 표시
+  - 노란 박스: "유사한 기록이 존재합니다. 저장 전 확인하세요 · 유사 중복 N건"
+  - 초록 박스: "중복 없음"
+- 저장 버튼 동작:
+  - 완전 중복이 있으면 **저장 차단** (toast: "완전 중복이 있어 저장할 수 없습니다")
+  - 유사 중복은 기존 confirm 다이얼로그 유지하되 한글 메시지 강화
+- 저장 중 `saving=true`로 버튼 disable (이미 구현됨, 유지)
+- 수정 모드: `form.id`가 있으면 update (현재 로직 유지), 자기 자신은 중복 비교 제외 (이미 `sameId`로 구현됨)
 
-### 이월착불(carry) 보정
-- carry 계산 위치를 찾아(`LeaderSettlement` / `CompanySettlement`의 미결제 누적 부분) override 있는 건은 원래 배송일 기준 carry에서 제외, 지정 정산월 기준으로만 카운트
+### 엑셀 붙여넣기 다이얼로그
+- 저장 직전 요약 박스 추가:
+  - "총 N건 · 신규 저장 N건 · 완전 중복 제외 N건 · 유사 중복 경고 N건"
+- 완전 중복 행은 자동으로 제외하고 저장, 유사 중복은 confirm 후 진행
+- DB unique 제약 위반 시 한국어 에러 toast: "동일 내용이 이미 등록되어 있어 일부 건이 저장되지 않았습니다"
 
----
+### "모두 저장" (그리드)
+- 동일하게 요약 박스 + 완전 중복 제외 로직 적용
 
-## 2. 기록입력 중복 검수
-- 신규 `src/lib/duplicateCheck.ts`:
-  - `findExactDuplicates(candidate, existing)` — 날짜/업체/고객/품목/배송합계/착불/팀장1/팀장2/분할/결제여부/비고
-  - `findSuspectDuplicates(candidate, existing)` — 날짜/업체/고객/품목/배송합계
-- `Records.tsx` 단건 저장 + 엑셀 붙여넣기 저장 직전 confirm dialog:
-  ```
-  정확 중복 N건 / 의심 중복 M건
-  - [기존ID] 2026-05-12 업체명 고객명 …
-  계속 저장하시겠습니까?
-  ```
-- 테스트: `duplicateCheck.test.ts`
+## 4. 헬퍼 추가
+- `duplicateCheck.ts`에 `summarizeBulk(candidates, existing)` 추가 → `{total, newCount, exactDupCount, suspectCount, newRows, exactDupRows}` 반환
+- 모든 저장 경로에서 이 함수를 호출하도록 통일
 
----
+## 5. 백필/진단
+- 마이그레이션 안에 백필 포함
+- 별도 안내: 진단용 SELECT는 마이그레이션 실행 후 안내 (사용자가 직접 확인 가능)
 
-## 3. 금액 검수 경고 (recordValidation + verifyChecks)
-신규 코드:
-- `ZERO_ALL`: 배송비·착불 모두 0
-- `COD_ONLY`: 배송비 0인데 착불 > 0
-- `COD_GT_FEE`: 착불 > 배송비 합
-- `PAID_BUT_COD`: paid=true인데 cod_amount > 0
-기존 `recordValidation.ts`와 `verifyChecks.ts` 양쪽에 같은 규칙 추가. 기존 ZERO_FEE 정책(0원 정상)은 유지하되 위 4개는 별도 코드로.
+## 변경 파일
+- `src/lib/duplicateCheck.ts` (+region/two_person, +summarizeBulk)
+- `src/lib/duplicateCheck.test.ts` (테스트 보강)
+- `src/pages/Records.tsx` (단건/엑셀/모두저장 UI 박스 + 차단 로직)
+- 신규 마이그레이션 (dedupe_key 컬럼·트리거·인덱스·백필)
 
----
+## 변경하지 않는 것
+- 정산/검산/재방문/공제 계산
+- 다른 페이지(CompanySettlement, LeaderSettlement, Verify 등)
+- `note` 필드 (요구사항에서 빠짐 — 비고가 달라도 같은 배송이면 중복으로 판정)
 
-## 4. 기록입력 첫 사용 안내
-`Records.tsx` 상단에 회사 0 또는 팀장 0일 때 Alert 카드 + "설정으로 이동" 버튼 (`/settings`)
-
----
-
-## 5. 로그인 화면 정리 (`Auth.tsx`)
-- 기본값 자동 입력 제거 → `useState("")`
-- placeholder 추가
-- 빈 값으로 submit 시 `toast.error("이메일과 비밀번호를 입력해 주세요")`
-- 이미 빈 상태로 보이지만 코드 확인 후 정리
-
----
-
-## 6. Verify 중복 경고 그룹당 1건
-`verifyChecks.ts`의 DUPLICATE issue를 그룹당 첫 1건만 push하도록 변경 (대신 메시지에 "외 N건" 표기)
-
----
-
-## 7. 기록입력 정렬 유지
-누락분 추가 필드는 기존 grid row 아래 확장 영역으로 conditional render — 기존 셀 width/높이 영향 없음
-
----
-
-## 테스트
-- `missingOverride.test.ts` — parse/build round-trip, getEffectiveSettleDate, isDeliveryInPeriod (override vs date)
-- `duplicateCheck.test.ts` — exact/suspect 분리
-- `verifyChecks.test.ts` 보강 — 신규 4개 경고 코드, DUPLICATE 그룹화
-- 기존 테스트 전부 통과 유지
-
----
-
-## 변경 금지
-- `statementData.ts` 계산 로직 / 재방문·공제·VAT 기준
-- DB 스키마 (`deliveries.missing_reason` 컬럼 사용만)
-- 업체정산/팀장정산/본사정산 금액 계산식
-
-## 새 파일
-- `src/lib/missingOverride.ts` + test
-- `src/lib/duplicateCheck.ts` + test
-
-## 수정 파일
-- `Records.tsx` (UI, 저장 hook), `Auth.tsx`, `CompanySettlement.tsx`, `LeaderSettlement.tsx`, `Summary.tsx`, `Verify.tsx`, `verifyChecks.ts`, `recordValidation.ts`
-
-진행해도 될까요?
+## 확인 필요
+1. **"배송지" 필드 매핑**: `region`(서울/지방 등 분류)으로 매핑할까요, 아니면 따로 컬럼 추가가 필요한가요? (현재는 `region` 사용 가정)
+2. **"2일배송"**: `two_person`(2인배송) 필드를 의미한 것 맞나요?
+3. **기존 중복 데이터 처리**: 마이그레이션 실행 시 이미 같은 키의 row가 여러 개 있으면 인덱스 생성이 실패합니다. 가장 오래된 row만 dedupe_key를 채우고 나머지는 NULL로 두는 방식(데이터 보존)으로 진행해도 될까요?
