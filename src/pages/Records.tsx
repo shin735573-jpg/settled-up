@@ -2843,6 +2843,17 @@ export default function Records() {
                 <Checkbox checked={form.revisit_done} tabIndex={-1} className="pointer-events-none" />
                 <span>{form.revisit_done ? "완료" : "미완료"}</span>
               </div>
+              {form.revisit_group_id && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-1 h-7 text-xs"
+                  onClick={() => openRevisitShareDialog(form.revisit_group_id as string)}
+                  title="재방문 1차 배송비를 팀장별로 직접 분배합니다"
+                >
+                  팀장 분배 입력
+                </Button>
+              )}
             </div>
           </div>
 
