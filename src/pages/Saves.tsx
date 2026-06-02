@@ -578,6 +578,39 @@ export default function Saves() {
     "정산서 재생성", "both-all",
     () => doExportAll("both", true),
   );
+
+  // ─── 인쇄 (저장되는 사진과 동일 이미지) ───────────────────
+  async function doPrint(kind: "company" | "leader", ids?: string[]) {
+    const all = collectNodes(kind);
+    const targets = ids ? all.filter((t) => ids.includes(t.id)) : all;
+    if (targets.length === 0) {
+      toast({ title: "인쇄 대상 없음", variant: "destructive" });
+      return;
+    }
+    setExportingMsg(`${kind === "company" ? "업체" : "팀장"} 인쇄 준비 중…`);
+    try {
+      const { count, pages } = await printTargets(
+        targets,
+        (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
+      );
+      toast({ title: "인쇄 다이얼로그 열림", description: `${count}건 · ${pages}장` });
+    } catch (e) {
+      toast({ title: "인쇄 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setExportingMsg("");
+    }
+  }
+  const onPrintCompanyOne = () => selectedCompany && doPrint("company", [selectedCompany.company.id]);
+  const onPrintCompanyAll = () => {
+    const ids = companyStmts.filter((s) => s.finalClaim > 0).map((s) => s.company.id);
+    doPrint("company", ids);
+  };
+  const onPrintLeaderOne = () => selectedLeader && doPrint("leader", [selectedLeader.leader.id]);
+  const onPrintLeaderAll = () => {
+    const ids = leaderStmts.filter((s) => s.deliveryCount > 0).map((s) => s.leader.id);
+    doPrint("leader", ids);
+  };
+
   const onCheckOnly = () => {
     const result = runChecksFor("both-all");
     setCheckTitle("저장 전 오류 검사 결과 (업체 + 팀장)");
