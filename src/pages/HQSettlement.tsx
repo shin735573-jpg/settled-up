@@ -206,7 +206,7 @@ export default function HQSettlement() {
     return cur?.id ?? id;
   };
   const isCountable = (l: Leader | undefined): boolean =>
-    !!l && l.active && !l.is_rejected &&
+    !!l && l.active && !l.is_rejected && !l.is_virtual &&
     (l.settle_status ?? "included") !== "excluded" && !l.settle_to_id;
 
   // 행별 팀장 분배 (재분배 포함)
