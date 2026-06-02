@@ -1562,7 +1562,7 @@ function CompanyPreview({
       <div className="overflow-hidden rounded-xl border border-border/60">
         <table className="w-full text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1030 }}>
           <colgroup>
-            {[70,85,85,140,120,220,200,110].map((w,i)=>(<col key={i} style={{ width: w }} />))}
+            {[70,70,70,115,100,260,235,110].map((w,i)=>(<col key={i} style={{ width: w }} />))}
           </colgroup>
           <thead className="bg-muted/60">
             <tr>
