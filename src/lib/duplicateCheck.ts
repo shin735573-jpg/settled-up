@@ -478,18 +478,14 @@ export function validateMergePlan(items: MergePlanItem[]): MergeValidationError[
   for (const it of items) {
     const { next, action, amountMode, manualTotal } = it;
     const id = norm(it.base.id) || undefined;
-    if (action === "merge_two_person") {
-      if (!norm(next.leader2_id)) errors.push({ id, message: "2인배송 통합인데 팀장2가 없습니다.", level: "error" });
-      if (!next.two_person) errors.push({ id, message: "2인배송 통합인데 2인배송 여부가 꺼져 있습니다.", level: "error" });
-    }
-    if (norm(next.split_type) === "반반" && !norm(next.leader2_id)) {
-      errors.push({ id, message: "반반 정산인데 팀장2가 없습니다.", level: "error" });
-    }
+    // 2인배송 통합: 팀장2는 의심행에서 자동 추론하므로 강제 입력 검증을 하지 않는다.
+    // (사용자는 통합 여부만 선택하면 되도록 한다)
     if (action === "merge_companion" && !next.companion) {
       errors.push({ id, message: "동행 통합인데 동행여부가 꺼져 있습니다.", level: "error" });
     }
+    // 금액 처리 방식 미선택은 경고로만 처리 (기본은 자동 합산)
     if ((action === "merge_two_person" || action === "merge_companion") && !amountMode) {
-      errors.push({ id, message: "금액 처리 방식(합산/직접입력)을 선택해주세요.", level: "error" });
+      errors.push({ id, message: "금액 처리 방식(합산/직접입력)을 선택해주세요. 기본은 자동 합산입니다.", level: "warning" });
     }
     if (amountMode === "manual" && (manualTotal == null || !Number.isFinite(Number(manualTotal)))) {
       errors.push({ id, message: "직접입력 청구금액이 비어 있습니다.", level: "error" });
