@@ -2053,7 +2053,16 @@ export default function Records() {
                       <td className="p-1 text-center">
                         <button
                           type="button"
-                          onClick={() => { if (!isSecond) upd({ revisit_required: !r.revisit_required }); }}
+                         onClick={() => {
+                           if (isSecond) return;
+                           const next = !r.revisit_required;
+                           upd({ revisit_required: next });
+                           // 재방문 체크 시 → 같은 고객/지역의 과거 원본 배송을 즉시 검색해 보여줌
+                           if (next) {
+                             detectedKeyRef.current.clear();
+                             detectRevisitForRow(idx);
+                           }
+                         }}
                           disabled={isSecond}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
