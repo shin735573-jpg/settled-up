@@ -5,7 +5,12 @@
 // 다른 화면(업체정산/팀장정산/한눈요약)의 계산 로직은 절대 수정하지 않는다.
 
 import { allocateRow, feeForShare, type LeaderShare } from "./splitAllocation";
-import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "./itemRules";
+import {
+  isLeaderSettlementExcludedItem,
+  isVirtualSettlementRow,
+  findLoadingFeeAssigneeId,
+  normalizeLoadingFeeRowLeaders,
+} from "./itemRules";
 import {
   inPeriod,
   isCountableLeader,
@@ -612,6 +617,8 @@ export function buildLeaderStatements(
   const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
   const { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId } = opts;
   const kimyongikId = (opts as { kimyongikId?: string | null }).kimyongikId ?? null;
+  // 적재비 행은 항상 "삼호" 팀장에게 귀속한다 (모든 정산에 포함).
+  const samhoId = findLoadingFeeAssigneeId(leaders);
 
   // 정산기사 = 표시 대상 팀장
   const targets = leaders.filter((l) => isCountableLeader(l));
@@ -637,18 +644,19 @@ export function buildLeaderStatements(
   }
 
   const allocs: Alloc[] = singles.map((d) => {
+    const r = normalizeLoadingFeeRowLeaders(d, samhoId);
     const shares = allocateRow(
       {
-        leader1_id: d.leader1_id,
-        leader2_id: d.leader2_id,
-        leader3_id: d.leader3_id,
-        split_type: d.split_type,
-        two_person: d.two_person ?? false,
+        leader1_id: r.leader1_id,
+        leader2_id: r.leader2_id,
+        leader3_id: r.leader3_id,
+        split_type: r.split_type,
+        two_person: r.two_person ?? false,
         metro_fee: Number(d.metro_fee),
         note_amount: Number(d.note_amount),
         regional_fee: Number(d.regional_fee),
         cod_amount: Number(d.cod_amount),
-        virtual_leader_id: (d as { virtual_leader_id?: string | null }).virtual_leader_id ?? null,
+        virtual_leader_id: (r as { virtual_leader_id?: string | null }).virtual_leader_id ?? null,
       },
       { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds },
     );

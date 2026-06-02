@@ -10,7 +10,12 @@ import { logTotalFeeMismatch } from "@/lib/totalFeeCrossCheck";
 import { CompanyBilledMismatchBanner } from "@/components/CompanyBilledMismatchBanner";
 import { crossCheckTotalVsBilled } from "@/lib/totalVsBilledCrossCheck";
 import { TotalVsBilledMismatchBanner } from "@/components/TotalVsBilledMismatchBanner";
-import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
+import {
+  isLeaderSettlementExcludedItem,
+  isVirtualSettlementRow,
+  findLoadingFeeAssigneeId,
+  normalizeLoadingFeeRowLeaders,
+} from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -260,6 +265,7 @@ export default function LeaderSettlement() {
   }, [commonKeysJoined]);
 
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+  const samhoId = useMemo(() => findLoadingFeeAssigneeId(leaders), [leaders]);
 
   /** 신동석/강형주 팀장 ID — 정식명 또는 별칭(동석/형주)으로 매칭. 재분배에 사용. */
   const findLeaderIdByNames = (names: string[]): string | null => {
@@ -438,12 +444,13 @@ export default function LeaderSettlement() {
         count += 1;
         return;
       }
+      const nr = normalizeLoadingFeeRowLeaders(r, samhoId);
       const shares = allocateRow({
-        leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
-        split_type: r.split_type, two_person: r.two_person,
+        leader1_id: nr.leader1_id, leader2_id: nr.leader2_id, leader3_id: nr.leader3_id,
+        split_type: nr.split_type, two_person: nr.two_person ?? false,
         metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
         regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
-        virtual_leader_id: r.virtual_leader_id ?? null,
+        virtual_leader_id: nr.virtual_leader_id ?? null,
       }, { virtualIds }); // 재분배는 건너뛰되 가상기사 입력은 제외
       const s = shares.find((x) => x.leader_id === lid);
       if (!s) return;
@@ -569,12 +576,13 @@ export default function LeaderSettlement() {
       if (metro === 0 && noteAmt === 0 && regional === 0 && cod === 0) return null;
       return { metro, noteAmt, regional, cod, count: 1, weight: 1, reasons };
     }
+    const nr = normalizeLoadingFeeRowLeaders(r, samhoId);
     const shares = allocateRow({
-      leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
-      split_type: r.split_type, two_person: r.two_person,
+      leader1_id: nr.leader1_id, leader2_id: nr.leader2_id, leader3_id: nr.leader3_id,
+      split_type: nr.split_type, two_person: nr.two_person ?? false,
       metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
       regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
-      virtual_leader_id: r.virtual_leader_id ?? null,
+      virtual_leader_id: nr.virtual_leader_id ?? null,
     }, sdsOpts);
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0, weight = 0;
     const reasons: string[] = [];
