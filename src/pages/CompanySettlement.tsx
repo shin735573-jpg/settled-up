@@ -485,6 +485,25 @@ export default function CompanySettlement() {
           <span className="text-xs text-muted-foreground">날짜 자동</span>
           <Switch checked={autoPeriod} onCheckedChange={toggleAutoPeriod} />
         </div>
+        <div className="relative ml-2">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={companyId ? "고객/품목/팀장/비고 검색" : "업체명/계좌 검색"}
+            className="border rounded px-3 py-2 w-56"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+              aria-label="검색 초기화"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       <AuditBanner
