@@ -1203,7 +1203,15 @@ export default function Saves() {
           )}
           <ScrollArea className="max-h-[360px] pr-3">
             <ul className="space-y-1 text-sm">
-              {checkResult?.findings.map((f, i) => (
+              {checkResult?.findings.map((f, i) => {
+                const loc = f.locator;
+                const locName =
+                  loc?.kind === "company"
+                    ? (companyStmts.find((s) => s.company.id === loc.id)?.company.name ?? loc.id)
+                    : loc?.kind === "leader"
+                    ? (leaderStmts.find((s) => s.leader.id === loc.id)?.leader.name ?? loc.id)
+                    : null;
+                return (
                 <li
                   key={i}
                   className={
@@ -1213,10 +1221,32 @@ export default function Saves() {
                       : "border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-200")
                   }
                 >
-                  <span className="mr-1 font-semibold">{f.severity === "error" ? "오류" : "경고"}</span>
-                  {f.message}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="mr-1 font-semibold">{f.severity === "error" ? "오류" : "경고"}</span>
+                      {f.message}
+                      {loc && (
+                        <div className="mt-0.5 text-[11px] opacity-80">
+                          위치 — {loc.kind === "company" ? "업체" : "팀장"} 정산서: {locName}
+                          {loc.rowId ? " · 해당 행" : ""}
+                        </div>
+                      )}
+                    </div>
+                    {loc && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 shrink-0 px-2 text-[11px]"
+                        onClick={() => jumpToFinding(loc)}
+                      >
+                        이동
+                      </Button>
+                    )}
+                  </div>
                 </li>
-              ))}
+                );
+              })}
               {checkResult && checkResult.findings.length === 0 && (
                 <li className="text-center text-muted-foreground">검사 완료 — 발견된 항목 없음</li>
               )}
