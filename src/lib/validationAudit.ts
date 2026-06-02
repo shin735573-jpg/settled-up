@@ -112,6 +112,5 @@ export function clearValidationAudits(month: string, period: string) {
 }
 
 export function summarizeAudit(e: AuditEntry): string {
-  return `경고 ${e.warningsBefore_count(e)}`;
+  return `경고 ${e.warnings.length} · 오류 ${e.errors.length} (직전 대비 해소 ${e.resolvedWarnings.length + e.resolvedErrors.length}, 신규 ${e.newWarnings.length + e.newErrors.length})`;
 }
-// (이전 줄은 사용되지 않음 — 호출 측은 entry 필드를 직접 사용)
