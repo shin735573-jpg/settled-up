@@ -1534,6 +1534,39 @@ export default function Records() {
     });
     if (!ok) return;
     setSaving(true);
+    // 저장 직전 중복 검사 (단건) — 정확/의심 중복이 발견되면 사용자 confirm
+    try {
+      const cand: DupDelivery = {
+        id: form.id,
+        date: form.date,
+        company_id: form.company_id,
+        company_name: company.name,
+        customer_name: form.customer_name,
+        item: form.item,
+        metro_fee: metroN,
+        note_amount: parseNum(form.note_amount) || 0,
+        regional_fee: regionalN,
+        cod_amount: parseNum(form.cod_amount) || 0,
+        leader1_id: form.leader1_id || null,
+        leader2_id: form.leader2_id || null,
+        split_type: form.split_type || null,
+        paid: form.paid,
+        note: form.note || null,
+      };
+      const { data: existing } = await supabase
+        .from("deliveries")
+        .select("id,date,company_id,company_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,paid,note")
+        .eq("date", form.date)
+        .eq("company_id", form.company_id);
+      const ex = findExactDuplicates(cand, (existing || []) as DupDelivery[]);
+      const sus = findSuspectDuplicates(cand, (existing || []) as DupDelivery[]);
+      if (hasAnyDuplicates(ex, sus)) {
+        if (!confirm(formatDuplicateConfirm(ex, sus))) {
+          setSaving(false);
+          return;
+        }
+      }
+    } catch { /* 중복 검사 실패는 무시하고 진행 */ }
     let error;
     if (form.id) {
       ({ error } = await supabase.from("deliveries").update(payload).eq("id", form.id));
