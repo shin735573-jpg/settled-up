@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,11 @@ export type SaveConfirmRequest = {
   title?: string;
   description?: string;
   summary: SaveSummaryItem[];
+  /** 선택: 입력된 각 건의 상세 내용을 표 형태로 표시 */
+  details?: {
+    columns: { key: string; label: string; align?: "left" | "right" | "center"; className?: string }[];
+    rows: Array<Record<string, ReactNode>>;
+  };
   confirmLabel?: string;
   cancelLabel?: string;
 };
@@ -61,7 +66,7 @@ export function useSaveConfirm() {
 
   const dialog = (
     <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) onCancel(); }}>
-      <AlertDialogContent>
+      <AlertDialogContent className="max-w-3xl">
         <AlertDialogHeader>
           <AlertDialogTitle>{pending?.title || "저장 확인"}</AlertDialogTitle>
           <AlertDialogDescription>
@@ -78,6 +83,47 @@ export function useSaveConfirm() {
             ))}
           </ul>
         </div>
+        {pending?.details && pending.details.rows.length > 0 && (
+          <div className="mt-2 max-h-[50vh] overflow-auto rounded-md border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-8">#</th>
+                  {pending.details.columns.map((c) => (
+                    <th
+                      key={c.key}
+                      className={
+                        "px-2 py-1.5 font-medium text-muted-foreground " +
+                        (c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "text-left")
+                      }
+                    >
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pending.details.rows.map((r, i) => (
+                  <tr key={i} className="border-t">
+                    <td className="px-2 py-1 text-muted-foreground">{i + 1}</td>
+                    {pending.details!.columns.map((c) => (
+                      <td
+                        key={c.key}
+                        className={
+                          "px-2 py-1 align-top " +
+                          (c.align === "right" ? "text-right tabular-nums" : c.align === "center" ? "text-center" : "text-left") +
+                          (c.className ? " " + c.className : "")
+                        }
+                      >
+                        {r[c.key] ?? ""}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel onClick={(e) => { e.preventDefault(); onCancel(); }}>
             {pending?.cancelLabel || "취소"}
