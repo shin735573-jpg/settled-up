@@ -120,6 +120,9 @@ export function TotalFeeMismatchBanner({
                             >
                               <span className="truncate">
                                 {r.date ?? "-"} · {r.company_name ?? "-"} · {r.item ?? "-"} · {r.leader1_name ?? "-"}
+                                {r.reason && (
+                                  <span className="ml-1 text-[11px] text-muted-foreground">— {r.reason}</span>
+                                )}
                               </span>
                               <span className="flex items-center gap-2 whitespace-nowrap">
                                 <span className="tabular-nums">{r.fee.toLocaleString()}원</span>
@@ -170,6 +173,7 @@ export function TotalFeeMismatchBanner({
                   <TableHead>품목</TableHead>
                   <TableHead>팀장1</TableHead>
                   <TableHead className="text-right">배송비</TableHead>
+                  <TableHead>사유</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -198,6 +202,7 @@ export function TotalFeeMismatchBanner({
                     <TableCell>{r.item ?? "-"}</TableCell>
                     <TableCell>{r.leader1_name ?? "-"}</TableCell>
                     <TableCell className="text-right">{r.fee.toLocaleString()}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{r.reason ?? "-"}</TableCell>
                   </TableRow>
                 ))}
                 {!active?.rows.length && (

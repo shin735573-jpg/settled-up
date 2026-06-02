@@ -9,6 +9,7 @@ import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { totalDeliveryFee, totalUnifiedDeliveryFee } from "@/lib/totalFee";
 import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
+import { logTotalFeeMismatch } from "@/lib/totalFeeCrossCheck";
 import { TotalFeeMismatchBanner } from "@/components/TotalFeeMismatchBanner";
 import { toast } from "sonner";
 import { matchesCompany } from "@/lib/companyMatch";
@@ -322,6 +323,11 @@ export default function CompanySettlement() {
   useEffect(() => {
     if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
       toast.error(totalFeeCheck.message ?? "총배송비 검증 실패");
+      logTotalFeeMismatch(totalFeeCheck, {
+        unifiedLabel: "업체정산 통합식",
+        leaderLabel: "팀장정산식",
+        context: "CompanySettlement",
+      });
       lastWarnedDiffRef.current = totalFeeCheck.diff;
     } else if (totalFeeCheck.ok) {
       lastWarnedDiffRef.current = null;
