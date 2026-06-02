@@ -2106,9 +2106,12 @@ export default function Records() {
                         <button
                           type="button"
                           onClick={() => {
-                            // 재방문 진행 클릭 시 → 현재 행 내용 그대로 복제한 다음 차수(N+1) 행을 바로 아래 생성.
-                            // 후속 차수 행은 팀장·업체·상품 등 내용은 잠금 처리, 금액만 수정 가능.
-                            // 1차 → 2차 → 3차 … 식으로 무제한 체이닝 가능.
+                            // 재방문 진행 클릭 시:
+                            // - 현재 활성 행은 다음 차수(N+1)로 승격되어 사용자가 계속 입력 가능.
+                            // - 바로 아래에 직전 차수(N)의 "잠금 복제본"이 자동 생성됨.
+                            //   잠금 복제본은 비고금액만 수정 가능, 나머지는 모두 잠김.
+                            // 활성 행이 잠금 행이면 (예: 후보 가져오기로 들어온 행) 동작 안 함.
+                            if (isFollowup) return;
                             setBulkRows((rows) => {
                               const next = [...rows];
                               const cur = rows[idx];
@@ -2119,22 +2122,24 @@ export default function Records() {
                                   ? (crypto as any).randomUUID()
                                   : `${Date.now()}-${Math.random().toString(16).slice(2)}`
                               );
-                              const clone: BulkRow = {
-                                ...cur,
-                                revisit_required: true,
-                                revisit_done: false,
-                                revisit_group_local: groupLocal,
-                                revisit_visit_no: nextVisitNo,
-                                // 금액은 현재 차수 입력값을 그대로 보여주고, 필요 시 다음 차수 금액으로 수정
-                              };
-                              next.splice(idx + 1, 0, clone);
-                              // 원본 행: 현재 차수 + 재방문 완료 + 같은 그룹 (차수는 보존)
-                              next[idx] = {
+                              // 직전 차수의 잠금 복제본 (이미 완료된 과거 방문으로 표시)
+                              const lockedPrev: BulkRow = {
                                 ...cur,
                                 revisit_required: true,
                                 revisit_done: true,
                                 revisit_group_local: groupLocal,
                                 revisit_visit_no: curVisitNo,
+                                revisit_locked: true,
+                              };
+                              next.splice(idx + 1, 0, lockedPrev);
+                              // 활성 행: 다음 차수로 승격, 계속 진행 중 (revisit_done=false)
+                              next[idx] = {
+                                ...cur,
+                                revisit_required: true,
+                                revisit_done: false,
+                                revisit_group_local: groupLocal,
+                                revisit_visit_no: nextVisitNo,
+                                revisit_locked: false,
                               };
                               return next;
                             });
