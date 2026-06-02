@@ -1935,9 +1935,9 @@ export default function Records() {
     formMatchKeyRef.current = key;
     let q = supabase
       .from("deliveries")
-      .select("id,date,company_name,customer_name,region,revisit_group_id,revisit_visit_no")
+      .select("*")
       .order("date", { ascending: false })
-      .limit(5);
+      .limit(20);
     if ((revisitMatchMode === "name" || revisitMatchMode === "both") && name) q = q.ilike("customer_name", name);
     if ((revisitMatchMode === "region" || revisitMatchMode === "both") && region) q = q.ilike("region", `%${region}%`);
     const { data, error } = await q;
@@ -1948,11 +1948,24 @@ export default function Records() {
       );
       return;
     }
-    const top = data[0];
-    toast.info(
-      `재방문 매칭 발견: ${top.date} ${top.company_name} ${top.customer_name || ""} (${top.revisit_group_id ? `${top.revisit_visit_no || 1}차` : "단건"}) 외 ${data.length - 1}건 — "재방문요청" 체크 시 다음 차수로 등록`,
-      { duration: 6000 },
-    );
+    // 그룹 중복 제거: 같은 group_id는 가장 빠른 차수만, 단건은 그대로
+    const byGroup = new Map<string, any>();
+    const singles: any[] = [];
+    for (const r of data as any[]) {
+      if (r.revisit_group_id) {
+        const cur = byGroup.get(r.revisit_group_id);
+        if (!cur || Number(r.revisit_visit_no || 1) < Number(cur.revisit_visit_no || 1)) {
+          byGroup.set(r.revisit_group_id, r);
+        }
+      } else {
+        singles.push(r);
+      }
+    }
+    const candidates = [...byGroup.values(), ...singles].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    setRevisitDetectCandidates(candidates);
+    setRevisitDetectIdx(null);
+    setRevisitDetectForForm(true);
+    setRevisitDetectOpen(true);
   };
 
   // 종합 오류 검사 실행
