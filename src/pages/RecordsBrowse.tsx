@@ -631,7 +631,6 @@ function PanelCard({
               const fee = Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
               const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
               const leadersTxt = [r.leader1_name, leader2Disp, r.leader3_name].filter(Boolean).join("·");
-              const hasVirtual = !!r.virtual_leader_name;
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
                   <td className="p-2 whitespace-nowrap">
@@ -667,9 +666,6 @@ function PanelCard({
                       <span className="inline-flex items-center gap-1">
                         <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
                         {leadersTxt || "-"}
-                        {hasVirtual && (
-                          <span className="text-[9px] text-amber-700 font-medium ml-0.5">(가상)</span>
-                        )}
                       </span>
                     </td>
                   )}
