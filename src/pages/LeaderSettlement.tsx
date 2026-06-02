@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
-import { totalLeaderSettlementDeliveryFee } from "@/lib/totalFee";
+import { totalLeaderSettlementDeliveryFee, computeCompanyBilledByCompany } from "@/lib/totalFee";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
