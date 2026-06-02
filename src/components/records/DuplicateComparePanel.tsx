@@ -573,6 +573,63 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                 </label>
               ))}
             </RadioGroup>
+            {(mergeMode === "two_person" || mergeMode === "companion") && (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+                <div className="font-medium mb-2">통합 전 팀장 수동 지정 (자동 추론이 틀리면 직접 선택)</div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2">
+                    <span className="w-12">팀장1</span>
+                    <select
+                      className="border rounded px-2 py-1 text-sm bg-background min-w-[160px]"
+                      value={nrm(edited.leader1_id)}
+                      onChange={(ev) => {
+                        const id = ev.target.value || null;
+                        const tl = teamLeaders.find((t) => t.id === id);
+                        setEdited((e) => e ? { ...e, leader1_id: id, leader1_name: tl?.name ?? null } : e);
+                      }}
+                    >
+                      <option value="">— 선택 —</option>
+                      {teamLeaders.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <span className="w-12">팀장2</span>
+                    <select
+                      className="border rounded px-2 py-1 text-sm bg-background min-w-[160px]"
+                      value={nrm(edited.leader2_id)}
+                      onChange={(ev) => {
+                        const id = ev.target.value || null;
+                        const tl = teamLeaders.find((t) => t.id === id);
+                        setEdited((e) => e ? { ...e, leader2_id: id, leader2_name: tl?.name ?? null } : e);
+                      }}
+                    >
+                      <option value="">— 선택 —</option>
+                      {teamLeaders
+                        .filter((t) => t.id !== nrm(edited.leader1_id))
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                    </select>
+                  </label>
+                  {(nrm(edited.leader2_id) || nrm(edited.leader2_name)) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setEdited((e) => e ? { ...e, leader2_id: null, leader2_name: null } : e)}
+                    >
+                      팀장2 비우기
+                    </Button>
+                  )}
+                </div>
+                <div className="mt-1 text-[11px] text-amber-800">
+                  여기서 직접 지정하면 자동 추론보다 우선합니다. 저장 시 그대로 반영됩니다.
+                </div>
+              </div>
+            )}
             {mergeMode === "two_person" && (
               <div className="mt-3 rounded-md border border-violet-300 bg-violet-50 p-2 text-xs text-violet-900">
                 <div className="font-medium mb-1">2인배송 통합 자동 반영 상태</div>
