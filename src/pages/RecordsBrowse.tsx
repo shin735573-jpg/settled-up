@@ -136,10 +136,22 @@ export default function RecordsBrowse() {
       const odongseonId = leaders.find((l) => l.name.trim() === "오동선")?.id ?? null;
       const oeunkyuId = leaders.find((l) => l.name.trim() === "오은규")?.id ?? null;
       const includeOeunkyu = !!odongseonId && !!oeunkyuId && sel.id === odongseonId;
+      // 1차 통과: 본인이 직접 포함된 행
+      const directMatched = base.filter((r) => {
+        const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
+        if (ids.includes(sel.id)) return true;
+        if (includeOeunkyu && ids.includes(oeunkyuId)) return true;
+        return false;
+      });
+      // 2차 통과: 동일 재방문 그룹의 모든 차수(다른 팀장이 담당한 2차도 함께 표시)
+      const groupIds = new Set(
+        directMatched.map((r) => r.revisit_group_id).filter(Boolean) as string[],
+      );
       base = base.filter((r) => {
         const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
         if (ids.includes(sel.id)) return true;
         if (includeOeunkyu && ids.includes(oeunkyuId)) return true;
+        if (r.revisit_group_id && groupIds.has(r.revisit_group_id)) return true;
         return false;
       });
     }
