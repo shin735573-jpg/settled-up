@@ -1907,12 +1907,13 @@ export default function Records() {
                         />
                         )}
                       </td>
-                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} disabled={isSecond} /></td>
+                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} onBlur={() => detectRevisitForRow(idx)} disabled={isSecond} /></td>
                       <td className="p-1">
                         <Input
                           className="h-8"
                           value={r.region}
                           disabled={isSecond}
+                          onBlur={() => detectRevisitForRow(idx)}
                           onChange={(e) => {
                             const v = e.target.value;
                             const next = classifyRegion(v);
