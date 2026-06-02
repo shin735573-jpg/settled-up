@@ -2008,6 +2008,7 @@ export default function Records() {
                   <th className="p-2 min-w-[120px]">배송비</th>
                   <th className="p-2 min-w-[100px]">비고금액</th>
                   <th className="p-2 min-w-[120px]">착불</th>
+                  <th className="p-2 min-w-[100px]">알바공제</th>
                   <th className="p-2 min-w-[90px]">선결제</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
                   <th className="p-2 min-w-[90px]">재방문요청</th>
