@@ -37,6 +37,7 @@ import {
   isInEffectivePeriod,
   settleOverridePrefix,
   hasSettlementOverride,
+  withEffectiveDate,
 } from "@/lib/missingOverride";
 import { toast } from "@/hooks/use-toast";
 
@@ -92,9 +93,16 @@ export default function Verify() {
       const mergedMap = new Map<string, StmtDelivery>();
       for (const d of dsList) mergedMap.set(d.id, d);
       for (const d of ovList) mergedMap.set(d.id, d);
-      const merged = Array.from(mergedMap.values()).filter((d) =>
-        isInEffectivePeriod(d as unknown as { date?: string; missing_reason?: string | null }, month, period),
-      );
+      const merged = Array.from(mergedMap.values())
+        .filter((d) =>
+          isInEffectivePeriod(
+            d as unknown as { date?: string; missing_reason?: string | null },
+            month,
+            period,
+          ),
+        )
+        // override 가 있는 행은 effective date 로 치환해서 기존 inPeriod(day) 검사에 통과되도록.
+        .map((d) => withEffectiveDate(d) as StmtDelivery);
       setDeliveries(merged);
       setCommonDeductions((cds.data ?? []) as unknown as StmtCommonDeduction[]);
       setCommonOverrides((ovs.data ?? []) as unknown as StmtCommonOverride[]);
