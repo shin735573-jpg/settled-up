@@ -179,7 +179,11 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
         if (!e) return e;
         const next: Row = { ...e, two_person: true, companion: false };
         if (!nrm(next.leader2_id)) {
-          const candidates = selectedSuspects
+          // 선택된 의심행이 없으면 표시 중인 모든 의심행에서 자동 추론
+          const pool: Row[] = selectedSuspects.length > 0
+            ? selectedSuspects
+            : ([...suspects.exact, ...suspects.similar] as Row[]);
+          const candidates = pool
             .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
             .filter((c) => nrm(c.id) && c.id !== next.leader1_id);
           if (candidates[0]?.id) {
@@ -195,7 +199,21 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       setEdited((e) => e ? { ...e, companion: true, two_person: false } : e);
     }
     if (mode === "companion" || mode === "two_person") {
-      setAskAmount(mode);
+      // 기본은 자동 합산. 사용자가 청구금액을 바꾸고 싶을 때만 수동 선택.
+      setAmountMode("sum");
+      setEdited((e) => {
+        if (!e) return e;
+        const sum = sumMergedAmounts([e, ...selectedSuspects]);
+        return {
+          ...e,
+          metro_fee: sum.metro_fee,
+          note_amount: sum.note_amount,
+          regional_fee: sum.regional_fee,
+          cod_amount: sum.cod_amount,
+        };
+      });
+      setManualTotal(String(sumMergedAmounts([edited!, ...selectedSuspects]).total || ""));
+      setAskAmount(null);
     } else {
       setAmountMode(undefined);
     }
