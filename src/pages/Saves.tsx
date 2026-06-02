@@ -37,6 +37,14 @@ import {
   type CheckResult,
 } from "@/lib/statementValidation";
 import { validateSettlementInvariants } from "@/lib/settlementInvariants";
+import {
+  appendValidationAudit,
+  getValidationAudits,
+  clearValidationAudits,
+  summarizeAudit,
+  type AuditEntry,
+  type AuditScope,
+} from "@/lib/validationAudit";
 import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, printTargets, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
