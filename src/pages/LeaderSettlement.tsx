@@ -1124,7 +1124,12 @@ export default function LeaderSettlement() {
                       <TableCell>{r.date}</TableCell>
                       <TableCell>{r.company_name}</TableCell>
                       <TableCell>{real1Name || "-"}</TableCell>
-                      <TableCell>{real2Name || "-"}</TableCell>
+                      <TableCell>
+                        <div>{real2Name || "-"}</div>
+                        {r.virtual_leader_name && (
+                          <div className="text-[10px] text-muted-foreground">가상기사: {r.virtual_leader_name}</div>
+                        )}
+                      </TableCell>
                       <TableCell>{settleName}</TableCell>
                       <TableCell>{r.customer_name || "-"}</TableCell>
                       <TableCell>{r.region || "-"}</TableCell>
