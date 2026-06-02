@@ -1297,12 +1297,6 @@ export default function Records() {
   const bulkSaveAll = async () => {
     if (!user) return;
     if (!bulkShared.date) { toast.error("날짜를 선택하세요"); return; }
-    if (!bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
-    const anyTwoPerson = bulkRows.some((r) => r.two_person);
-    if (anyTwoPerson && !bulkShared.leader2_id) {
-      toast.error("2인배송은 팀장2가 필요합니다.");
-      return;
-    }
     const rows = bulkRows.filter((r) =>
       r.company_id ||
       r.customer_name.trim() ||
@@ -1314,6 +1308,13 @@ export default function Records() {
       parseNum(r.cod_amount),
     );
     if (rows.length === 0) { toast.error("입력된 행이 없습니다."); return; }
+    const rowsNeedingSharedLeader = rows.filter((r) => !r.revisit_group_id_existing);
+    if (rowsNeedingSharedLeader.length > 0 && !bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
+    const anyTwoPerson = rowsNeedingSharedLeader.some((r) => r.two_person);
+    if (anyTwoPerson && !bulkShared.leader2_id) {
+      toast.error("2인배송은 팀장2가 필요합니다.");
+      return;
+    }
     const missingCompanyIdx = rows.findIndex((r) => !r.company_id);
     if (missingCompanyIdx >= 0) {
       toast.error(`${missingCompanyIdx + 1}번 행의 업체를 선택하세요`);
