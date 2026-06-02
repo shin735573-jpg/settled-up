@@ -128,24 +128,25 @@ export function validateLeaderStatement(
   const r = emptyResult();
   const l = data.leader;
   const prefix = `[${l.name}]`;
+  const locLeader = (rowId?: string): FindingLocator => ({ kind: "leader", id: l.id, rowId });
 
   // 1) 정산제외 팀장에 대해 호출됐다면 오류
   if ((l.settle_status ?? "included") === "excluded") {
-    push(r, "error", `${prefix} 정산제외 팀장 정산서는 생성할 수 없습니다`);
+    push(r, "error", `${prefix} 정산제외 팀장 정산서는 생성할 수 없습니다`, locLeader());
   }
 
   // 2) 오은규 단독 정산서 (특수정산 ON 상태) 금지
   if (ctx.oeunkyuSpecial && ctx.oeunkyuId && l.id === ctx.oeunkyuId) {
-    push(r, "error", `${prefix} 오은규 정산서는 생성할 수 없습니다 (오동선에 합산)`);
+    push(r, "error", `${prefix} 오은규 정산서는 생성할 수 없습니다 (오동선에 합산)`, locLeader());
   }
 
   // 3) 해당 정산기사 기준 데이터만 들어갔는지 (분배 weight 합이 0보다 큼)
   for (const row of data.rows) {
     if (row.share.weight <= 0) {
-      push(r, "error", `${prefix} 분배 비율 0 행 포함: ${row.delivery.date}`);
+      push(r, "error", `${prefix} 분배 비율 0 행 포함: ${row.delivery.date}`, locLeader(row.delivery.id));
     }
     if (row.share.weight > 1.0001) {
-      push(r, "error", `${prefix} 중복 계산 (weight>${row.share.weight.toFixed(2)}): ${row.delivery.date}`);
+      push(r, "error", `${prefix} 중복 계산 (weight>${row.share.weight.toFixed(2)}): ${row.delivery.date}`, locLeader(row.delivery.id));
     }
   }
 
@@ -163,7 +164,7 @@ export function validateLeaderStatement(
         row.delivery.leader3_id === ctx.shindongseokId;
       // 본인이 직접 입력된 경우는 분배 후 weight 0.5 이하여야 정상
       if (involved && row.share.weight > 0.5001) {
-        push(r, "error", `${prefix} 강형주/신동석 팀 분배 오류 (weight=${row.share.weight.toFixed(2)}, 날짜 ${row.delivery.date})`);
+        push(r, "error", `${prefix} 강형주/신동석 팀 분배 오류 (weight=${row.share.weight.toFixed(2)}, 날짜 ${row.delivery.date})`, locLeader(row.delivery.id));
       }
     }
   }
@@ -174,7 +175,7 @@ export function validateLeaderStatement(
     const hasOeunkyuRow = data.rows.some((r2) => r2.isOeunkyuTransfer);
     // 경고: 한 건도 없으면 단순 안내
     if (!hasOeunkyuRow) {
-      push(r, "warning", `${prefix} 오은규에서 넘어온 건이 정산서에 없음 (해당 기간에 오은규 배송이 0건이면 정상)`);
+      push(r, "warning", `${prefix} 오은규에서 넘어온 건이 정산서에 없음 (해당 기간에 오은규 배송이 0건이면 정상)`, locLeader());
     }
   }
 
@@ -183,7 +184,7 @@ export function validateLeaderStatement(
 
   // 7) 빈 정산서
   if (data.rows.length === 0) {
-    push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`);
+    push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`, locLeader());
   }
 
   // 8) 팀장 정산서 부가세 표시 규칙 (사양 10-10/11/12)
@@ -193,12 +194,12 @@ export function validateLeaderStatement(
   if (!l.issues_invoice) {
     // 미발급 팀장: 부가세 문구/금액 절대 금지 — data.vat/payoutWithVat 는 0이어야 함
     if (data.vat !== 0) {
-      push(r, "error", `${prefix} 계산서 미발급 팀장에 부가세 표시 금지`);
+      push(r, "error", `${prefix} 계산서 미발급 팀장에 부가세 표시 금지`, locLeader());
     }
   } else {
     // 발급 팀장: 총합배송비 > 0 인데 부가세 미표시면 오류
     if (totalDelivery > 0 && expectedVat <= 0) {
-      push(r, "error", `${prefix} 계산서 발급 팀장에 부가세/부가세포함총배송비 누락`);
+      push(r, "error", `${prefix} 계산서 발급 팀장에 부가세/부가세포함총배송비 누락`, locLeader());
     }
   }
 
