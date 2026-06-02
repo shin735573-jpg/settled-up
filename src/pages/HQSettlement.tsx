@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 import { toast } from "@/hooks/use-toast";
 import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
+import { computeRevisitRedistribution } from "@/lib/revisitRedistribute";
 
 type Period = "h1" | "h2" | "all";
 type Delivery = any;
@@ -227,7 +228,26 @@ export default function HQSettlement() {
 
   // 행별 팀장 분배 (재분배 포함)
   const allocations = useMemo(() => {
+    const revisitOverride = computeRevisitRedistribution(settlementPeriodRows, virtualIds);
     return settlementPeriodRows.map((r) => {
+      const ov = revisitOverride.get(r.id);
+      if (ov !== undefined) {
+        if (ov.length === 0) return { row: r, shares: [], hasValid: false };
+        const resolved = ov
+          .map((s) => ({
+            leader_id: s.leader_id,
+            metro: s.metro,
+            note_amount: s.note_amount,
+            regional: s.regional,
+            cod: s.cod,
+            count: 1,
+            weight: 1,
+            reason: s.reason,
+            target: resolveSettleId(s.leader_id),
+          }))
+          .filter((s) => isCountable(byId.get(s.target)));
+        return { row: r, shares: resolved, hasValid: resolved.length > 0 };
+      }
       const shares = allocateRow({
         leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
         split_type: r.split_type, two_person: r.two_person,
@@ -515,7 +535,26 @@ export default function HQSettlement() {
 
   // ── 연간 행별 팀장 분배 (수수료 계산용)
   const yearAllocations = useMemo(() => {
+    const revisitOverride = computeRevisitRedistribution(settlementYearRows, virtualIds);
     return settlementYearRows.map((r) => {
+      const ov = revisitOverride.get(r.id);
+      if (ov !== undefined) {
+        if (ov.length === 0) return { row: r, shares: [], hasValid: false };
+        const resolved = ov
+          .map((s) => ({
+            leader_id: s.leader_id,
+            metro: s.metro,
+            note_amount: s.note_amount,
+            regional: s.regional,
+            cod: s.cod,
+            count: 1,
+            weight: 1,
+            reason: s.reason,
+            target: resolveSettleId(s.leader_id),
+          }))
+          .filter((s) => isCountable(byId.get(s.target)));
+        return { row: r, shares: resolved, hasValid: resolved.length > 0 };
+      }
       const shares = allocateRow({
         leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
         split_type: r.split_type, two_person: r.two_person,
