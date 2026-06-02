@@ -485,13 +485,22 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
     render: (r, { displayLeaderById }) => (
       <div>
         <div>{displayLeaderById(r.leader1_id, r.leader1_name)}</div>
-        {r.virtual_leader_name && (
-          <div className="text-[10px] text-muted-foreground">가상: {r.virtual_leader_name}</div>
-        )}
       </div>
     ) },
   { key: "leader2", label: "팀장2", width: 110, cellCls: "whitespace-nowrap",
-    render: (r, { displayLeaderById }) => displayLeaderById(r.leader2_id, r.leader2_name) },
+    render: (r, { displayLeaderById }) => {
+      const real = displayLeaderById(r.leader2_id, r.leader2_name);
+      if (real && real !== "-") return real;
+      if (r.virtual_leader_name) {
+        return (
+          <div>
+            <div>{r.virtual_leader_name}</div>
+            <div className="text-[10px] text-amber-700 font-medium">가상기사</div>
+          </div>
+        );
+      }
+      return real;
+    } },
   { key: "leader3", label: "팀장3", width: 110, cellCls: "whitespace-nowrap",
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader3_id, r.leader3_name) },
   { key: "customer", label: "고객명", width: 120, cellCls: "whitespace-nowrap",

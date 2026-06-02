@@ -1297,7 +1297,7 @@ export default function LeaderSettlement() {
                   const real1Name = real1 ? (leadersById.get(real1)?.name || r.leader1_name) : r.leader1_name;
                   const real2Name = r.leader2_id
                     ? (leadersById.get(r.leader2_id)?.name || r.leader2_name)
-                    : r.leader2_name;
+                    : (r.leader2_name || r.virtual_leader_name || null);
                   const settleId = settlementLeaderIdFor(r, leadersById);
                   const settleName = settleId ? (leadersById.get(settleId)?.name || "-") : "-";
                   const share = leaderId ? shareForSettling(r, leaderId) : null;
@@ -1316,7 +1316,10 @@ export default function LeaderSettlement() {
                       <TableCell>{real1Name || "-"}</TableCell>
                       <TableCell>
                         <div>{real2Name || "-"}</div>
-                        {r.virtual_leader_name && (
+                        {r.virtual_leader_name && !r.leader2_id && (
+                          <div className="text-[10px] text-amber-700 font-medium">가상기사</div>
+                        )}
+                        {r.virtual_leader_name && r.leader2_id && (
                           <div className="text-[10px] text-muted-foreground">가상기사: {r.virtual_leader_name}</div>
                         )}
                       </TableCell>
