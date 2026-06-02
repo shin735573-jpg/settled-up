@@ -1476,6 +1476,7 @@ export default function Records() {
       revisit_group_local: localId,
       revisit_visit_no: 2,
       revisit_group_id_existing: src.revisit_group_id,
+      revisit_source_id_existing: src.id,
       date_existing: src.date,
       company_name_existing: src.company_name || "",
       leader1_id_existing: src.leader1_id || null,
