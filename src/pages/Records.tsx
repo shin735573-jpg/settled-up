@@ -1001,6 +1001,8 @@ export default function Records() {
   // 입력 중 동일 고객/지역 자동 감지 다이얼로그
   const [revisitDetectOpen, setRevisitDetectOpen] = useState(false);
   const [revisitDetectIdx, setRevisitDetectIdx] = useState<number | null>(null);
+  // 단일폼에서 자동 감지된 경우 true → 다이얼로그에서 "재방문으로" 선택 시 폼에 채워줌
+  const [revisitDetectForForm, setRevisitDetectForForm] = useState(false);
   const [revisitDetectCandidates, setRevisitDetectCandidates] = useState<any[]>([]);
   const [revisitDetectLoading, setRevisitDetectLoading] = useState(false);
   // 재방문 팀장 분배 입력 다이얼로그
