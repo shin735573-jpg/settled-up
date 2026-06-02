@@ -3567,6 +3567,41 @@ export default function Records() {
             </Button>
           </div>
 
+          {jumpedFromRow && form.id === jumpedFromRow.id && (
+            <div className="rounded-md border-2 border-primary/60 bg-primary/5 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-primary flex items-center gap-2">
+                  점프 진입한 행 — 핵심 필드 확인
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setJumpedFromRow(null)}
+                  title="이 안내를 닫습니다"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
+                <div><div className="text-muted-foreground">날짜</div><div className="font-semibold">{jumpedFromRow.date ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">업체</div><div className="font-semibold">{jumpedFromRow.company_name ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">고객</div><div className="font-semibold">{jumpedFromRow.customer_name ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">품목</div><div className="font-semibold">{jumpedFromRow.item ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">팀장1</div><div className="font-semibold">{jumpedFromRow.leader1_name ?? "-"}</div></div>
+                <div><div className="text-muted-foreground">팀장2</div><div className="font-semibold">{jumpedFromRow.leader2_name ?? "-"}</div></div>
+                <div>
+                  <div className="text-muted-foreground">배송비 / 착불</div>
+                  <div className="font-semibold">
+                    {jumpedFromRow.fee.toLocaleString()}
+                    {jumpedFromRow.cod_amount > 0 && (
+                      <span className="ml-1 text-orange-600">+ 착불 {jumpedFromRow.cod_amount.toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {form.is_missing && (
             <div className="rounded-md border-2 border-orange-400/60 bg-orange-50 dark:bg-orange-950/30 p-3 space-y-2">
               <div className="text-sm font-semibold text-orange-700 dark:text-orange-300">
