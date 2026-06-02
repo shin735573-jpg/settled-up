@@ -69,6 +69,44 @@ function CompanyBlock({
 
       {isOpen && (
         <div className="border-t border-destructive/20 bg-background/40 px-2 py-1 text-foreground">
+          <div className="mb-2 overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left px-1 py-1 font-medium">항목</th>
+                  <th className="text-right px-1 py-1 font-medium">팀장정산식</th>
+                  <th className="text-right px-1 py-1 font-medium">업체정산서식</th>
+                  <th className="text-right px-1 py-1 font-medium">차이</th>
+                  <th className="text-left px-1 py-1 font-medium">메모</th>
+                </tr>
+              </thead>
+              <tbody>
+                {co.components.map((c) => {
+                  const isFinal = c.key === "final";
+                  const hot = c.diff !== 0;
+                  return (
+                    <tr
+                      key={c.key}
+                      className={`border-b border-border/40 ${isFinal ? "font-semibold" : ""}`}
+                    >
+                      <td className="px-1 py-1">{c.label}</td>
+                      <td className="px-1 py-1 text-right tabular-nums">{c.leader.toLocaleString()}</td>
+                      <td className="px-1 py-1 text-right tabular-nums">{c.company.toLocaleString()}</td>
+                      <td
+                        className={`px-1 py-1 text-right tabular-nums ${
+                          hot ? "text-destructive font-semibold" : "text-muted-foreground"
+                        }`}
+                      >
+                        {c.diff > 0 ? "+" : ""}{c.diff.toLocaleString()}
+                      </td>
+                      <td className="px-1 py-1 text-muted-foreground">{c.hint ?? ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
           <input
             type="text"
             value={query}
