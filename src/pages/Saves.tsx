@@ -923,7 +923,7 @@ export default function Saves() {
         </div>
       </Card>
 
-      <Tabs defaultValue="company" className="space-y-3">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "company" | "leader")} className="space-y-3">
         <TabsList>
           <TabsTrigger value="company">업체 정산서 ({companyStmts.length})</TabsTrigger>
           <TabsTrigger value="leader">팀장 정산서 ({leaderStmts.length})</TabsTrigger>
