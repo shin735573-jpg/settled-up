@@ -1018,6 +1018,8 @@ export default function LeaderSettlement() {
 
       <TotalFeeMismatchBanner result={totalFeeCheck} unifiedLabel="통합식" leaderLabel="팀장정산식" />
 
+      <CompanyBilledMismatchBanner result={companyBilledCheck} />
+
       {!leaderId && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
