@@ -955,6 +955,7 @@ export default function Records() {
       leader1_id: "",
       leader2_id: "",
       leader3_id: "",
+      virtual_leader_id: "",
       two_person: false,
       split_type: "",
       paid: false,
