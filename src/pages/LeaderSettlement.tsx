@@ -7,6 +7,8 @@ import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
 import { TotalFeeMismatchBanner } from "@/components/TotalFeeMismatchBanner";
 import { crossCheckCompanyBilled } from "@/lib/companyBilledCrossCheck";
 import { CompanyBilledMismatchBanner } from "@/components/CompanyBilledMismatchBanner";
+import { crossCheckTotalVsBilled } from "@/lib/totalVsBilledCrossCheck";
+import { TotalVsBilledMismatchBanner } from "@/components/TotalVsBilledMismatchBanner";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -686,6 +688,12 @@ export default function LeaderSettlement() {
     return crossCheckCompanyBilled(stmtDeliveries, stmtCompanies, stmtLeaders, period, virtualIds);
   }, [rows, companies, leaders, period, virtualIds]);
   const lastWarnedDiffRef = useRef<number | null>(null);
+
+  // 총배송비(정산용) vs 업체청구금액(실제) 차이의 100% 원인 분해
+  const totalVsBilled = useMemo(
+    () => crossCheckTotalVsBilled(rows, companies, virtualIds),
+    [rows, companies, virtualIds],
+  );
   useEffect(() => {
     if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
       toast.error(totalFeeCheck.message ?? "총배송비 검증 실패");
@@ -1019,6 +1027,8 @@ export default function LeaderSettlement() {
       <TotalFeeMismatchBanner result={totalFeeCheck} unifiedLabel="통합식" leaderLabel="팀장정산식" />
 
       <CompanyBilledMismatchBanner result={companyBilledCheck} />
+
+      <TotalVsBilledMismatchBanner result={totalVsBilled} />
 
       {!leaderId && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
