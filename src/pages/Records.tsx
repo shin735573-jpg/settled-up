@@ -905,7 +905,7 @@ export default function Records() {
     revisit_required: boolean;
     revisit_done: boolean;
     revisit_group_local: string;
-    revisit_visit_no: 1 | 2;
+    revisit_visit_no: number;
     revisit_group_id_existing?: string;
     revisit_source_id_existing?: string;
     date_existing?: string;
@@ -1349,6 +1349,14 @@ export default function Records() {
     };
     // 로컬 그룹 ID(완료 클릭으로 묶인 1차/2차) → DB 그룹 UUID 매핑
     const groupIdMap = new Map<string, string>();
+    // 같은 로컬 그룹 내 최고 차수 — 그 미만은 모두 revisit_done=true
+    const maxVisitByGroup = new Map<string, number>();
+    for (const r of rows) {
+      if (!r.revisit_group_local) continue;
+      const v = Number(r.revisit_visit_no) || 1;
+      const cur = maxVisitByGroup.get(r.revisit_group_local) ?? 0;
+      if (v > cur) maxVisitByGroup.set(r.revisit_group_local, v);
+    }
     const payloads = rows.flatMap((r) => {
       const lockedExisting = Boolean(r.revisit_group_id_existing);
       const source = lockedExisting ? sourceById.get(r.revisit_source_id_existing || "") : null;
@@ -1388,12 +1396,15 @@ export default function Records() {
           gid = r.revisit_group_id_existing || makeUuid();
           groupIdMap.set(r.revisit_group_local, gid);
         }
+        const v = Number(r.revisit_visit_no) || 1;
+        const maxV = maxVisitByGroup.get(r.revisit_group_local) ?? v;
         return [{
           ...base,
           revisit_group_id: gid,
-          revisit_visit_no: r.revisit_visit_no,
+          revisit_visit_no: v,
           revisit_required: true,
-          revisit_done: r.revisit_visit_no === 1 ? true : false,
+          // 그룹 내 최고 차수 행은 아직 진행 중(done=false), 그 미만은 모두 완료(done=true)
+          revisit_done: v < maxV,
         }];
       }
       // 완료 클릭 없이 "예정"만 체크된 경우 → 동일 내용 2차 행 자동 생성
@@ -1819,11 +1830,12 @@ export default function Records() {
                   const total = (parseNum(r.metro_fee) || 0) + (parseNum(r.note_amount) || 0) + (parseNum(r.regional_fee) || 0) + (parseNum(r.cod_amount) || 0);
                   const upd = (patch: Partial<BulkRow>) =>
                     setBulkRows((rows) => rows.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
-                  const isSecond = r.revisit_visit_no === 2;
+                  const isFollowup = (Number(r.revisit_visit_no) || 1) > 1;
+                  const visitNo = Number(r.revisit_visit_no) || 1;
                   return (
                      <tr
                        key={idx}
-                       className={cn("border-t", isSecond && "bg-muted/30")}
+                       className={cn("border-t", isFollowup && "bg-muted/30")}
                        onKeyDown={(e) => {
                          if (e.key !== "Enter") return;
                          if (e.defaultPrevented) return;
@@ -1851,16 +1863,16 @@ export default function Records() {
                             <>
                               <span className={cn(
                                 "text-[10px] px-1.5 py-0.5 rounded font-semibold",
-                                isSecond ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                                isFollowup ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
                               )}>
-                                재방문{isSecond ? "2차" : "1차"}
+                                {isFollowup ? `${visitNo}차배송` : "방문1차"}
                               </span>
-                              {isSecond && r.date_existing && (
+                              {isFollowup && r.date_existing && (
                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
                                   1차: {r.date_existing}
                                 </span>
                               )}
-                              {isSecond && (r.leader1_name_existing || r.leader2_name_existing || r.leader3_name_existing) && (
+                              {isFollowup && (r.leader1_name_existing || r.leader2_name_existing || r.leader3_name_existing) && (
                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 팀장">
                                   1차 팀장: {[r.leader1_name_existing, r.leader2_name_existing, r.leader3_name_existing].filter(Boolean).join("·")}
                                 </span>
@@ -1868,13 +1880,13 @@ export default function Records() {
                               <button
                                 type="button"
                                 className="text-[10px] px-1.5 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10"
-                                title="재방문 그룹을 해제하고 2차 행을 제거합니다"
+                                title="재방문 그룹을 해제하고 후속 차수 행을 모두 제거합니다"
                                 onClick={() => {
                                   const gid = r.revisit_group_local;
                                   if (!gid) return;
                                   setBulkRows((rows) => {
-                                    // 같은 로컬 그룹의 2차 행 제거, 1차 행은 재방문 표시 해제
-                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && x.revisit_visit_no === 2));
+                                    // 같은 로컬 그룹의 후속(2차 이상) 행 모두 제거, 1차 행은 재방문 표시 해제
+                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && (Number(x.revisit_visit_no) || 1) > 1));
                                     return filtered.map((x) => {
                                       if (x.revisit_group_local !== gid) return x;
                                       const { revisit_group_local, revisit_group_id_existing, revisit_source_id_existing,
@@ -1897,7 +1909,7 @@ export default function Records() {
                         </div>
                       </td>
                       <td className="p-1">
-                        {isSecond ? (
+                        {isFollowup ? (
                           <Input
                             className="h-8"
                              value={r.company_name_existing || companiesById.get(r.company_id)?.name || ""}
@@ -1919,12 +1931,12 @@ export default function Records() {
                         />
                         )}
                       </td>
-                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} onBlur={() => detectRevisitForRow(idx)} disabled={isSecond} /></td>
+                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} onBlur={() => detectRevisitForRow(idx)} disabled={isFollowup} /></td>
                       <td className="p-1">
                         <Input
                           className="h-8"
                           value={r.region}
-                          disabled={isSecond}
+                          disabled={isFollowup}
                           onBlur={() => detectRevisitForRow(idx)}
                           onChange={(e) => {
                             const v = e.target.value;
@@ -1938,22 +1950,22 @@ export default function Records() {
                           }}
                         />
                       </td>
-                      <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} disabled={isSecond} /></td>
+                      <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} disabled={isFollowup} /></td>
                       <td className="p-1 text-center">
                         <button
                           type="button"
-                          onClick={() => { if (!isSecond) upd({ two_person: !r.two_person }); }}
-                          disabled={isSecond}
+                          onClick={() => { if (!isFollowup) upd({ two_person: !r.two_person }); }}
+                          disabled={isFollowup}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
                             r.two_person ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
-                            isSecond && "opacity-50 cursor-not-allowed"
+                            isFollowup && "opacity-50 cursor-not-allowed"
                           )}
                         >
                           {r.two_person ? "2인배송" : "—"}
                         </button>
                       </td>
-                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} disabled={isSecond} /></td>
+                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} disabled={isFollowup} /></td>
                       <td className="p-1">
                         <AmountTextInput
                           className={cn(
@@ -1965,8 +1977,8 @@ export default function Records() {
                             if (r.region_type === "regional") upd({ regional_fee: v, metro_fee: "" });
                             else upd({ metro_fee: v, regional_fee: "" });
                           }}
-                          disabled={!isSecond && r.region_type === "unknown"}
-                          placeholder={r.region_type === "unknown" ? (isSecond ? "금액 입력" : "지역 먼저") : ""}
+                          disabled={!isFollowup && r.region_type === "unknown"}
+                          placeholder={r.region_type === "unknown" ? (isFollowup ? "금액 입력" : "지역 먼저") : ""}
                         />
                       </td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
@@ -1998,7 +2010,7 @@ export default function Records() {
                                     value={r.cod_amount}
                                     onChange={(v) => {
                                       const amt = parseNum(v) || 0;
-                                      upd(isSecond ? { cod_amount: v } : { cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                      upd(isFollowup ? { cod_amount: v } : { cod_amount: v, note: applyCodToNote(r.note, amt) });
                                     }}
                                   />
                                   <div className="flex items-center gap-2">
@@ -2008,14 +2020,14 @@ export default function Records() {
                                       value={r.cod_amount}
                                       onChange={(v) => {
                                         const amt = parseNum(v) || 0;
-                                        upd(isSecond ? { cod_amount: v } : { cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                        upd(isFollowup ? { cod_amount: v } : { cod_amount: v, note: applyCodToNote(r.note, amt) });
                                       }}
                                     />
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => upd(isSecond ? { cod_amount: "" } : { cod_amount: "", note: applyCodToNote(r.note, 0) })}
+                                      onClick={() => upd(isFollowup ? { cod_amount: "" } : { cod_amount: "", note: applyCodToNote(r.note, 0) })}
                                     >
                                       삭제
                                     </Button>
@@ -2029,12 +2041,12 @@ export default function Records() {
                       <td className="p-1 text-center">
                         <button
                           type="button"
-                          onClick={() => { if (!isSecond) upd({ paid: !r.paid }); }}
-                          disabled={isSecond}
+                          onClick={() => { if (!isFollowup) upd({ paid: !r.paid }); }}
+                          disabled={isFollowup}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
                             r.paid ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
-                            isSecond && "opacity-50 cursor-not-allowed"
+                            isFollowup && "opacity-50 cursor-not-allowed"
                           )}
                         >
                           {r.paid ? "선결제" : "—"}
@@ -2043,7 +2055,7 @@ export default function Records() {
                       <td className="p-1">
                         <Select
                           value={r.region_type}
-                          disabled={isSecond}
+                          disabled={isFollowup}
                           onValueChange={(v) => {
                             const next = v as RegionType;
                             // 배송비 값을 새 지역구분 칸으로 자동 이동
@@ -2066,7 +2078,7 @@ export default function Records() {
                         <button
                           type="button"
                          onClick={() => {
-                           if (isSecond) return;
+                           if (isFollowup) return;
                            const next = !r.revisit_required;
                            upd({ revisit_required: next });
                            // 재방문 체크 시 → 같은 고객/지역의 과거 원본 배송을 즉시 검색해 보여줌
@@ -2075,61 +2087,62 @@ export default function Records() {
                              detectRevisitForRow(idx);
                            }
                          }}
-                          disabled={isSecond}
+                          disabled={isFollowup}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
                             r.revisit_required ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
-                            isSecond && "opacity-50 cursor-not-allowed"
+                            isFollowup && "opacity-50 cursor-not-allowed"
                           )}
                           title="저장 시 같은 내용의 2차 방문 행이 함께 생성됩니다 (업체 청구는 1건으로 합산)"
                         >
-                           {isSecond ? "2차" : (r.revisit_required ? "요청" : "—")}
+                           {isFollowup ? `${visitNo}차` : (r.revisit_required ? "요청" : "—")}
                         </button>
                       </td>
                       <td className="p-1 text-center">
                         <button
                           type="button"
                           onClick={() => {
-                            // 2차 행에서는 비활성: 클릭 무시
-                            if (isSecond) return;
-                            // 재방문 완료 클릭 시 → 최초 배송 내용 그대로 복제한 2차 행을 바로 아래 생성.
-                            // 2차 행은 팀장·업체·상품 등 내용은 잠금 처리, 금액만 수정 가능.
+                            // 재방문 진행 클릭 시 → 현재 행 내용 그대로 복제한 다음 차수(N+1) 행을 바로 아래 생성.
+                            // 후속 차수 행은 팀장·업체·상품 등 내용은 잠금 처리, 금액만 수정 가능.
+                            // 1차 → 2차 → 3차 … 식으로 무제한 체이닝 가능.
                             setBulkRows((rows) => {
                               const next = [...rows];
-                              const groupLocal = rows[idx].revisit_group_local || (
+                              const cur = rows[idx];
+                              const curVisitNo = Number(cur.revisit_visit_no) || 1;
+                              const nextVisitNo = curVisitNo + 1;
+                              const groupLocal = cur.revisit_group_local || (
                                 (typeof crypto !== "undefined" && (crypto as any).randomUUID)
                                   ? (crypto as any).randomUUID()
                                   : `${Date.now()}-${Math.random().toString(16).slice(2)}`
                               );
                               const clone: BulkRow = {
-                                ...rows[idx],
+                                ...cur,
                                 revisit_required: true,
                                 revisit_done: false,
                                 revisit_group_local: groupLocal,
-                                revisit_visit_no: 2,
-                                // 금액은 1차 입력값을 그대로 보여주고, 필요 시 2차 금액으로 수정
+                                revisit_visit_no: nextVisitNo,
+                                // 금액은 현재 차수 입력값을 그대로 보여주고, 필요 시 다음 차수 금액으로 수정
                               };
                               next.splice(idx + 1, 0, clone);
-                              // 원본 행: 1차 + 재방문 완료 + 같은 그룹
+                              // 원본 행: 현재 차수 + 재방문 완료 + 같은 그룹 (차수는 보존)
                               next[idx] = {
-                                ...rows[idx],
+                                ...cur,
                                 revisit_required: true,
                                 revisit_done: true,
                                 revisit_group_local: groupLocal,
-                                revisit_visit_no: 1,
+                                revisit_visit_no: curVisitNo,
                               };
                               return next;
                             });
                           }}
-                          disabled={isSecond}
+                          disabled={false}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
-                            r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
-                            isSecond && "opacity-50 cursor-not-allowed"
+                            r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
                           )}
-                          title="클릭 시 같은 내용의 행이 바로 아래에 복제 생성됩니다 (2차 방문 내용 수정용)"
+                          title="클릭 시 같은 내용의 다음 차수 행이 바로 아래에 복제 생성됩니다 (2차·3차·… 무제한 체이닝)"
                         >
-                          {isSecond ? "—" : (r.revisit_done ? "완료" : "—")}
+                          {r.revisit_done ? "완료" : `+${visitNo + 1}차`}
                         </button>
                       </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
