@@ -2978,12 +2978,14 @@ export default function Records() {
                 value={form.customer_name}
                 onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
                 onBlur={() => verifyRevisitForForm({ silent: true })}
+                disabled={isFollowupForm}
               />
             </div>
             <div className="space-y-1 relative">
               <Label>배송지</Label>
               <Input
                 value={form.region}
+                disabled={isFollowupForm}
                 onChange={(e) => {
                   const v = e.target.value;
                   setForm({ ...form, region: v, region_type: classifyRegion(v) });
@@ -3051,6 +3053,7 @@ export default function Records() {
               <Select
                 value={form.region_type}
                 onValueChange={(v) => setForm({ ...form, region_type: v as RegionType })}
+                disabled={isFollowupForm}
               >
                 <SelectTrigger className={form.region_type === "unknown" ? "border-destructive text-destructive" : ""}>
                   <SelectValue />
@@ -3069,6 +3072,7 @@ export default function Records() {
                 onChange={(e) => setForm({ ...form, item: e.target.value })}
                 rows={4}
                 className="min-h-[112px] whitespace-pre-wrap break-words"
+                disabled={isFollowupForm}
               />
             </div>
             <div className="space-y-1 sm:col-span-2 lg:col-span-4">
