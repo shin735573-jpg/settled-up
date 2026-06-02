@@ -85,19 +85,38 @@ export const PERIOD_LABEL: Record<PeriodKey, string> = {
  * 팀장 정산에는 각 팀장이 입력한 행이 그대로 반영되지만,
  * 업체 청구서에서는 (date, company)별로 1행만 표시하고 금액은 비고금액 합계.
  */
-export const DEFAULT_SPECIAL_ONE_TIME_ITEMS = ["행사철수"] as const;
+export const DEFAULT_SPECIAL_ONE_TIME_ITEMS = ["행사철수", "행사상차"] as const;
 let _specialItems = new Set<string>(DEFAULT_SPECIAL_ONE_TIME_ITEMS);
+/**
+ * 업체 청구서에서 다른 특수일 품목으로 합쳐서 청구할 별칭.
+ * 예: "행사상차"(신동석/강형주 입력용)는 같은 날짜 "행사철수" 금액에 합산.
+ * 팀장 정산서에는 원래 입력한 품목명("행사상차")이 그대로 유지됨.
+ */
+const SPECIAL_ITEM_COMPANY_ALIAS: Record<string, string> = {
+  "행사상차": "행사철수",
+};
+export function normalizeSpecialItemForCompany(item: string | null | undefined): string {
+  const t = (item ?? "").trim();
+  return SPECIAL_ITEM_COMPANY_ALIAS[t] ?? t;
+}
 /** Settings 화면에서 등록한 특수일 품목 목록을 런타임에 주입 */
 export function setSpecialOneTimeItems(labels: string[]) {
   _specialItems = new Set(
     labels.map((l) => (l ?? "").trim()).filter((l) => l.length > 0),
   );
+  // 별칭(행사상차 등)도 항상 특수일로 인식되도록 보강
+  for (const alias of Object.keys(SPECIAL_ITEM_COMPANY_ALIAS)) {
+    _specialItems.add(alias);
+  }
 }
 export function getSpecialOneTimeItems(): string[] {
   return Array.from(_specialItems);
 }
 export const isSpecialOneTimeItem = (item: string | null | undefined): boolean =>
-  !!item && _specialItems.has(String(item).trim());
+  !!item && (
+    _specialItems.has(String(item).trim())
+    || Object.prototype.hasOwnProperty.call(SPECIAL_ITEM_COMPANY_ALIAS, String(item).trim())
+  );
 
 /** 업체 정산서 1장에 들어가는 행 (분배 전, 원본 1건). */
 export type CompanyStmtRow = StmtDelivery & {
