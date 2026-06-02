@@ -173,17 +173,8 @@ export default function RecordsBrowse() {
     });
   };
 
-  // 중복 체크 (월 단위)
-  const runDuplicateCheck = () => {
-    let exact = 0, suspect = 0;
-    for (const g of groups) {
-      const keys = g.rows.map(exactKey);
-      const uniq = new Set(keys);
-      if (uniq.size < keys.length) exact++;
-      else suspect++;
-    }
-    toast.info(`검사 완료 · 그룹 ${groups.length}건 (정확중복 ${exact} / 유사중복 ${suspect})`);
-  };
+  // 중복 체크 기능은 /records (기록입력) 화면으로 이전됨.
+  // 배송내역조회는 검색/비교 보조 역할만 담당한다.
 
   // 일괄 적용
   const applyBulk = () => {
@@ -347,8 +338,14 @@ export default function RecordsBrowse() {
               ))}
             </select>
           </div>
-          <Button variant="outline" onClick={runDuplicateCheck} disabled={loading}>
-            중복 체크
+          <Button
+            variant="outline"
+            onClick={() => {
+              window.location.href = "/records";
+            }}
+            title="중복 체크/확인/수정은 기록입력 화면에서 처리합니다"
+          >
+            중복 체크는 기록입력에서 →
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
