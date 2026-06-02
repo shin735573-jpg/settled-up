@@ -19,6 +19,7 @@ export type DupDelivery = {
   leader2_id?: string | null;
   split_type?: string | null;
   two_person?: boolean | null;
+  companion?: boolean | null;
   paid?: boolean | null;
   note?: string | null;
 };
