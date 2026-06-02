@@ -20,6 +20,7 @@ export function TotalFeeMismatchBanner({
 }) {
   const [active, setActive] = useState<CategoryBreakdown | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [queries, setQueries] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   if (result.ok) return null;
 
@@ -75,33 +76,69 @@ export function TotalFeeMismatchBanner({
                 </div>
                 {isOpen && clickable && (
                   <div className="border-t border-destructive/20 bg-background/40 px-2 py-1 text-foreground">
-                    {c.rows.length === 0 ? (
+                    <input
+                      type="text"
+                      value={queries[c.label] ?? ""}
+                      onChange={(e) =>
+                        setQueries((p) => ({ ...p, [c.label]: e.target.value }))
+                      }
+                      placeholder="날짜/업체/팀장/금액 검색"
+                      className="mb-1 w-full rounded border border-border bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    {(() => {
+                      const q = (queries[c.label] ?? "").trim().toLowerCase();
+                      const filtered = q
+                        ? c.rows.filter((r) => {
+                            const hay = [
+                              r.date,
+                              r.company_name,
+                              r.customer_name,
+                              r.item,
+                              r.leader1_name,
+                              String(r.fee ?? ""),
+                              r.fee?.toLocaleString?.() ?? "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")
+                              .toLowerCase();
+                            return hay.includes(q);
+                          })
+                        : c.rows;
+                      if (filtered.length === 0) {
+                        return <div className="py-1 text-muted-foreground">일치하는 행 없음</div>;
+                      }
+                      return (
+                        <ul className="divide-y divide-border">
+                          {filtered.slice(0, 20).map((r, i) => (
+                            <li
+                              key={r.id ?? i}
+                              className={`flex items-center justify-between gap-2 py-1 ${
+                                r.id ? "cursor-pointer hover:bg-muted/50" : ""
+                              }`}
+                              onClick={() => r.id && navigate(`/records?edit=${r.id}`)}
+                            >
+                              <span className="truncate">
+                                {r.date ?? "-"} · {r.company_name ?? "-"} · {r.item ?? "-"} · {r.leader1_name ?? "-"}
+                              </span>
+                              <span className="flex items-center gap-2 whitespace-nowrap">
+                                <span className="tabular-nums">{r.fee.toLocaleString()}원</span>
+                                {r.id && <ExternalLink className="h-3 w-3" />}
+                              </span>
+                            </li>
+                          ))}
+                          {filtered.length > 20 && (
+                            <li className="py-1 text-muted-foreground">
+                              …외 {filtered.length - 20}건. 전체보기를 눌러 다이얼로그에서 확인하세요.
+                            </li>
+                          )}
+                        </ul>
+                      );
+                    })()}
+                    {false && c.rows.length === 0 ? (
                       <div className="py-1 text-muted-foreground">행 없음</div>
                     ) : (
-                      <ul className="divide-y divide-border">
-                        {c.rows.slice(0, 20).map((r, i) => (
-                          <li
-                            key={r.id ?? i}
-                            className={`flex items-center justify-between gap-2 py-1 ${
-                              r.id ? "cursor-pointer hover:bg-muted/50" : ""
-                            }`}
-                            onClick={() => r.id && navigate(`/records?edit=${r.id}`)}
-                          >
-                            <span className="truncate">
-                              {r.date ?? "-"} · {r.company_name ?? "-"} · {r.item ?? "-"} · {r.leader1_name ?? "-"}
-                            </span>
-                            <span className="flex items-center gap-2 whitespace-nowrap">
-                              <span className="tabular-nums">{r.fee.toLocaleString()}원</span>
-                              {r.id && <ExternalLink className="h-3 w-3" />}
-                            </span>
-                          </li>
-                        ))}
-                        {c.rows.length > 20 && (
-                          <li className="py-1 text-muted-foreground">
-                            …외 {c.rows.length - 20}건. 전체보기를 눌러 다이얼로그에서 확인하세요.
-                          </li>
-                        )}
-                      </ul>
+                      null
                     )}
                   </div>
                 )}
