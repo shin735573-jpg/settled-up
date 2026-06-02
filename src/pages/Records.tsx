@@ -1389,6 +1389,68 @@ export default function Records() {
     load();
   };
 
+  // 미완료 1차 배송 후보 조회 (재방문 완료 등록 다이얼로그)
+  const openRevisitPicker = async () => {
+    if (!user) return;
+    setRevisitPickerOpen(true);
+    setRevisitLoading(true);
+    const { data, error } = await supabase
+      .from("deliveries")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("revisit_required", true)
+      .eq("revisit_visit_no", 1)
+      .not("revisit_group_id", "is", null)
+      .order("date", { ascending: false })
+      .limit(500);
+    if (error) { toast.error(error.message); setRevisitLoading(false); return; }
+    const all = (data || []) as any[];
+    // 같은 group에 visit_no=2 가 이미 있는 그룹은 제외
+    const groupIds = all.map((r) => r.revisit_group_id);
+    let done = new Set<string>();
+    if (groupIds.length > 0) {
+      const { data: d2 } = await supabase
+        .from("deliveries")
+        .select("revisit_group_id")
+        .eq("user_id", user.id)
+        .eq("revisit_visit_no", 2)
+        .in("revisit_group_id", groupIds);
+      done = new Set((d2 || []).map((r: any) => r.revisit_group_id));
+    }
+    setRevisitCandidates(all.filter((r) => !done.has(r.revisit_group_id)));
+    setRevisitLoading(false);
+  };
+
+  // 후보 선택 → bulk 그리드에 잠금된 2차 행 추가
+  const addRevisitFromExisting = (src: any) => {
+    const localId =
+      (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+        ? (crypto as any).randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const clone: BulkRow = {
+      company_id: src.company_id || "",
+      customer_name: src.customer_name || "",
+      region: src.region || "",
+      region_type: (src.region_type as RegionType) || "unknown",
+      item: src.item || "",
+      note: src.note || "",
+      metro_fee: src.metro_fee ? String(src.metro_fee) : "",
+      note_amount: src.note_amount ? String(src.note_amount) : "",
+      regional_fee: src.regional_fee ? String(src.regional_fee) : "",
+      cod_amount: src.cod_amount ? String(src.cod_amount) : "",
+      two_person: !!src.two_person,
+      paid: !!src.paid,
+      revisit_required: true,
+      revisit_done: false,
+      revisit_group_local: localId,
+      revisit_visit_no: 2,
+      revisit_group_id_existing: src.revisit_group_id,
+    };
+    setBulkRows((rows) => [...rows, clone]);
+    setRevisitPickerOpen(false);
+    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행 추가됨`);
+  };
+
   // 종합 오류 검사 실행
   const runValidation = () => {
     const ctx: ValidationContext = {
