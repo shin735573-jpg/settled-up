@@ -21,6 +21,10 @@ export default function Auth() {
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      toast.error("이메일과 비밀번호를 입력해 주세요");
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -30,6 +34,14 @@ export default function Auth() {
 
   const signUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      toast.error("이메일과 비밀번호를 입력해 주세요");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("비밀번호는 6자 이상이어야 합니다");
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
@@ -71,11 +83,11 @@ export default function Auth() {
               <form onSubmit={signIn} className="space-y-3 pt-3">
                 <div className="space-y-1">
                   <Label htmlFor="si-email">이메일</Label>
-                  <Input id="si-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  <Input id="si-email" type="email" placeholder="name@example.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="si-pw">비밀번호</Label>
-                  <Input id="si-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  <Input id="si-pw" type="password" placeholder="비밀번호 입력" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
                 <div className="text-right">
                   <Link to="/forgot-password" className="text-xs text-primary hover:underline">
@@ -89,11 +101,11 @@ export default function Auth() {
               <form onSubmit={signUp} className="space-y-3 pt-3">
                 <div className="space-y-1">
                   <Label htmlFor="su-email">이메일</Label>
-                  <Input id="su-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  <Input id="su-email" type="email" placeholder="name@example.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="su-pw">비밀번호</Label>
-                  <Input id="su-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+                  <Input id="su-pw" type="password" placeholder="6자 이상 비밀번호" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>회원가입</Button>
               </form>
