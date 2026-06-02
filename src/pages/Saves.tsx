@@ -714,6 +714,20 @@ export default function Saves() {
           <GateButton reason={blockedReason} variant="secondary" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader") || saveBlocked}>정산서 재생성</GateButton>
           <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
         </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 border-t pt-3">
+          <Button size="lg" variant="outline" className="h-14" onClick={onPrintCompanyOne} disabled={!selectedCompany}>
+            <Printer className="mr-2 h-4 w-4" /> 업체 인쇄
+          </Button>
+          <Button size="lg" variant="outline" className="h-14" onClick={onPrintCompanyAll} disabled={companyStmts.length === 0}>
+            <Printer className="mr-2 h-4 w-4" /> 업체 전체 인쇄
+          </Button>
+          <Button size="lg" variant="outline" className="h-14" onClick={onPrintLeaderOne} disabled={!selectedLeader}>
+            <Printer className="mr-2 h-4 w-4" /> 팀장 인쇄
+          </Button>
+          <Button size="lg" variant="outline" className="h-14" onClick={onPrintLeaderAll} disabled={leaderStmts.length === 0}>
+            <Printer className="mr-2 h-4 w-4" /> 팀장 전체 인쇄
+          </Button>
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3 text-sm">
           <div className="flex items-center gap-2">
             {uploadOD ? <Cloud className="h-4 w-4 text-primary" /> : <CloudOff className="h-4 w-4 text-muted-foreground" />}
