@@ -1117,6 +1117,7 @@ export default function Records() {
       missing_reason: r.missing_reason || "",
     });
     setFormOpen(true);
+    setActiveTab("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
