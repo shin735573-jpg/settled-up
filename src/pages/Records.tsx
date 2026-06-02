@@ -354,6 +354,7 @@ type FormState = {
   note_amount: string;
   regional_fee: string;
   cod_amount: string;
+  alba_deduction: string;
   split_type: string;
   paid: boolean;
   two_person: boolean;
@@ -383,6 +384,7 @@ const emptyForm = (): FormState => ({
   note_amount: "",
   regional_fee: "",
   cod_amount: "",
+  alba_deduction: "",
   split_type: "",
   paid: false,
   two_person: false,
@@ -902,6 +904,7 @@ export default function Records() {
     note_amount: string;
     regional_fee: string;
     cod_amount: string;
+    alba_deduction: string;
     two_person: boolean;
     paid: boolean;
     revisit_required: boolean;
@@ -934,6 +937,7 @@ export default function Records() {
     note_amount: "",
     regional_fee: "",
     cod_amount: "",
+    alba_deduction: "",
     two_person: false,
     paid: false,
     revisit_required: false,
@@ -1166,6 +1170,7 @@ export default function Records() {
       note_amount: String(r.note_amount ?? ""),
       regional_fee: String(r.regional_fee ?? ""),
       cod_amount: String(r.cod_amount ?? ""),
+      alba_deduction: String((r as any).alba_deduction ?? ""),
       split_type: r.split_type || "",
       paid: !!r.paid,
       two_person: !!(r as any).two_person,
@@ -1285,6 +1290,7 @@ export default function Records() {
       missing_reason: form.is_missing ? (form.missing_reason || null) : null,
       revisit_required: form.revisit_required,
       revisit_done: form.revisit_done,
+      alba_deduction: parseNum(form.alba_deduction) || 0,
       revisit_group_id: form.revisit_group_id,
       revisit_visit_no: form.revisit_visit_no || 1,
     };
@@ -1423,6 +1429,7 @@ export default function Records() {
       paid: lockedExisting ? !!(source?.paid ?? r.paid_existing) : (r.paid || bulkShared.paid),
       two_person: lockedExisting ? !!(source?.two_person ?? r.two_person_existing) : r.two_person,
       is_missing: false,
+      alba_deduction: parseNum(r.alba_deduction) || 0,
       // 배열 insert에서 일부 행만 이 필드를 가질 경우 PostgREST가 누락된 행에 NULL을 보내
       // NOT NULL 제약을 위반하므로 모든 행에 기본값을 명시.
       revisit_group_id: null as string | null,
@@ -1607,6 +1614,7 @@ export default function Records() {
       note_amount: src.note_amount ? String(src.note_amount) : "",
       regional_fee: src.regional_fee ? String(src.regional_fee) : "",
       cod_amount: src.cod_amount ? String(src.cod_amount) : "",
+      alba_deduction: "",
       two_person: !!src.two_person,
       paid: !!src.paid,
       revisit_required: true,
@@ -2000,6 +2008,7 @@ export default function Records() {
                   <th className="p-2 min-w-[120px]">배송비</th>
                   <th className="p-2 min-w-[100px]">비고금액</th>
                   <th className="p-2 min-w-[120px]">착불</th>
+                  <th className="p-2 min-w-[100px]">알바공제</th>
                   <th className="p-2 min-w-[90px]">선결제</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
                   <th className="p-2 min-w-[90px]">재방문요청</th>
@@ -2225,6 +2234,15 @@ export default function Records() {
                           );
                         })()}
                       </td>
+                      <td className="p-1">
+                        <AmountTextInput
+                          className="h-8 text-right tabular-nums"
+                          value={r.alba_deduction}
+                          disabled={isFollowup}
+                          onChange={(v) => upd({ alba_deduction: v })}
+                          placeholder="0"
+                        />
+                      </td>
                       <td className="p-1 text-center">
                         <button
                           type="button"
@@ -2361,6 +2379,9 @@ export default function Records() {
                   </td>
                   <td className="p-2 text-right">
                     {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.cod_amount) || 0), 0))}
+                  </td>
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.alba_deduction) || 0), 0))}
                   </td>
                   <td colSpan={4} />
                   <td className="p-2 text-right">
