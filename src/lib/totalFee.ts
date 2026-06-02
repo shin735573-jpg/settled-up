@@ -138,6 +138,9 @@ export function computeCompanyBilledByCompany(
   for (const d of deliveries) {
     // 가상기사 단독 행은 업체 청구에서 제외 (단, 2인배송은 포함)
     if (!d.two_person && isVirtualSettlementRow(d, virtualIds)) continue;
+    // 착불(cod_amount > 0) 행은 업체 청구 대상에서 제외 (정책 2026-06).
+    // 고객이 기사에게 직접 결제했으므로 업체에 청구하지 않는다.
+    if (Number(d.cod_amount) > 0) continue;
     const c = (d.company_id && byId.get(d.company_id)) || byName.get(String(d.company_name || "").trim());
     if (!c) continue;
     let g = groups.get(c.id);
