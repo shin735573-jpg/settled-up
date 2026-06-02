@@ -347,8 +347,14 @@ export default function RecordsBrowse() {
               ))}
             </select>
           </div>
-          <Button variant="outline" onClick={runDuplicateCheck} disabled={loading}>
-            중복 체크
+          <Button
+            variant="outline"
+            onClick={() => {
+              window.location.href = "/records";
+            }}
+            title="중복 체크/확인/수정은 기록입력 화면에서 처리합니다"
+          >
+            중복 체크는 기록입력에서 →
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
