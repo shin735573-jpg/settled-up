@@ -915,6 +915,7 @@ export default function Records() {
     cod_amount: string;
     alba_deduction: string;
     two_person: boolean;
+    virtual_leader_id: string;
     paid: boolean;
     revisit_required: boolean;
     revisit_done: boolean;
