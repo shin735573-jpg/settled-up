@@ -1315,9 +1315,9 @@ export default function Records() {
       parseNum(r.cod_amount),
     );
     if (rows.length === 0) { toast.error("입력된 행이 없습니다."); return; }
-    const rowsNeedingSharedLeader = rows.filter((r) => !r.revisit_group_id_existing);
-    if (rowsNeedingSharedLeader.length > 0 && !bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
-    const anyTwoPerson = rowsNeedingSharedLeader.some((r) => r.two_person);
+    // 2차(재방문) 행도 팀장이 1차와 달라질 수 있으므로 동일하게 공유 팀장 입력 필요
+    if (rows.length > 0 && !bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
+    const anyTwoPerson = rows.some((r) => r.two_person);
     if (anyTwoPerson && !bulkShared.leader2_id) {
       toast.error("2인배송은 팀장2가 필요합니다.");
       return;
@@ -1359,12 +1359,13 @@ export default function Records() {
         date: lockedExisting ? (source?.date || r.date_existing || bulkShared.date) : bulkShared.date,
         company_id: companyId,
         company_name: lockedExisting ? (source?.company_name || r.company_name_existing || co?.name || "") : (co?.name || ""),
-        leader1_id: lockedExisting ? (source?.leader1_id || r.leader1_id_existing || null) : (bulkShared.leader1_id || null),
-      leader1_name: lockedExisting ? rowLeaderName(source?.leader1_id || r.leader1_id_existing, source?.leader1_name || r.leader1_name_existing) : leaderName(bulkShared.leader1_id),
-      leader2_id: lockedExisting ? (source?.leader2_id || r.leader2_id_existing || null) : (bulkShared.leader2_id || null),
-      leader2_name: lockedExisting ? rowLeaderName(source?.leader2_id || r.leader2_id_existing, source?.leader2_name || r.leader2_name_existing) : leaderName(bulkShared.leader2_id),
-      leader3_id: lockedExisting ? (source?.leader3_id || r.leader3_id_existing || null) : (bulkShared.leader3_id || null),
-      leader3_name: lockedExisting ? rowLeaderName(source?.leader3_id || r.leader3_id_existing, source?.leader3_name || r.leader3_name_existing) : leaderName(bulkShared.leader3_id),
+        // 2차(재방문)는 팀장이 1차와 달라도 OK — 현재 입력일의 공유 팀장 값을 사용
+        leader1_id: bulkShared.leader1_id || null,
+      leader1_name: leaderName(bulkShared.leader1_id),
+      leader2_id: bulkShared.leader2_id || null,
+      leader2_name: leaderName(bulkShared.leader2_id),
+      leader3_id: bulkShared.leader3_id || null,
+      leader3_name: leaderName(bulkShared.leader3_id),
       customer_name: lockedExisting ? (source?.customer_name || r.customer_name.trim() || null) : (r.customer_name.trim() || null),
       region: lockedExisting ? (source?.region || r.region.trim() || null) : (r.region.trim() || null),
       region_type: lockedExisting ? ((source?.region_type || r.region_type) === "unknown" ? null : (source?.region_type || r.region_type)) : (r.region_type === "unknown" ? null : r.region_type),
@@ -1851,6 +1852,11 @@ export default function Records() {
                               {isSecond && r.date_existing && (
                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
                                   1차: {r.date_existing}
+                                </span>
+                              )}
+                              {isSecond && (r.leader1_name_existing || r.leader2_name_existing || r.leader3_name_existing) && (
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 팀장">
+                                  1차 팀장: {[r.leader1_name_existing, r.leader2_name_existing, r.leader3_name_existing].filter(Boolean).join("·")}
                                 </span>
                               )}
                               <button
