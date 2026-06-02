@@ -204,7 +204,8 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     ...(suspects.exact as Row[]),
     ...(suspects.similar as Row[]),
     ...(suspects.noteSimilar as Row[]),
-  ]), [suspects.exact, suspects.similar, suspects.noteSimilar]);
+    ...(searchResults as Row[]),
+  ]), [suspects.exact, suspects.similar, suspects.noteSimilar, searchResults]);
 
   const row2ForMerge = useMemo(() => {
     return selectedSuspects[0] ?? displayedSuspects[0] ?? null;
