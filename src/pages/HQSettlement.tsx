@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { useAuth } from "@/hooks/useAuth";
 import { sortLeadersByFeeAsc, compareLeadersByFeeAsc } from "@/lib/leaderSort";
+import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AmountInput } from "@/components/AmountInput";
