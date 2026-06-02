@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { X, Search, Building2, Users, Maximize2 } from "lucide-react";
+import { X, Search, Building2, Users, Maximize2, Pencil } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,7 @@ function buildRevisitOrdinalMap(records: any[]): Map<string, number> {
 }
 
 export default function RecordsBrowse() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [records, setRecords] = useState<Delivery[]>([]);
@@ -403,6 +405,7 @@ export default function RecordsBrowse() {
                       loading={loading}
                       onClose={() => setSlot(idx, null)}
                       onDetail={() => setDetail(sel)}
+                      onEdit={(id) => navigate(`/records?edit=${id}`)}
                     />
                   </div>
                 ))}
@@ -432,7 +435,12 @@ export default function RecordsBrowse() {
             </DialogTitle>
           </DialogHeader>
           {detail && (
-            <DetailView sel={detail} records={recordsFor(detail)} loading={loading} />
+            <DetailView
+              sel={detail}
+              records={recordsFor(detail)}
+              loading={loading}
+              onEdit={(id) => navigate(`/records?edit=${id}`)}
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -552,6 +560,7 @@ function PanelCard({
   loading,
   onClose,
   onDetail,
+  onEdit,
 }: {
   index: number;
   sel: Sel;
@@ -559,6 +568,7 @@ function PanelCard({
   loading: boolean;
   onClose: () => void;
   onDetail: () => void;
+  onEdit: (id: string) => void;
 }) {
   const totals = useMemo(() => {
     let metro = 0, note = 0, regional = 0, cod = 0;
@@ -609,13 +619,14 @@ function PanelCard({
               <th className="p-2 whitespace-nowrap">품목</th>
               <th className="p-2 text-right whitespace-nowrap">배송비</th>
               <th className="p-2 text-right whitespace-nowrap">착불</th>
+              <th className="p-2 text-center whitespace-nowrap w-10"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
+              <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
             ) : records.length === 0 ? (
-              <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
+              <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
             ) : records.map((r) => {
               const fee = Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
               const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
@@ -667,6 +678,18 @@ function PanelCard({
                   <td className="p-2 whitespace-nowrap max-w-[200px] truncate" title={r.item || ""}>{r.item || "-"}</td>
                   <td className="p-2 text-right tabular-nums">{fmt(fee)}</td>
                   <td className="p-2 text-right tabular-nums">{fmt(Number(r.cod_amount || 0))}</td>
+                  <td className="p-2 text-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => onEdit(r.id)}
+                      aria-label="편집"
+                      title="등록 화면에서 편집"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
                 </tr>
               );
             })}
@@ -677,6 +700,7 @@ function PanelCard({
                 <td className="p-2" colSpan={sel.kind === "company" || sel.kind === "leader" ? 5 : 5}>합계</td>
                 <td className="p-2 text-right tabular-nums">{fmt(totals.sum)}</td>
                 <td className="p-2 text-right tabular-nums">{fmt(totals.cod)}</td>
+                <td className="p-2"></td>
               </tr>
             </tfoot>
           )}
@@ -686,7 +710,7 @@ function PanelCard({
   );
 }
 
-function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; loading: boolean }) {
+function DetailView({ sel, records, loading, onEdit }: { sel: Sel; records: Delivery[]; loading: boolean; onEdit: (id: string) => void }) {
   const totals = useMemo(() => {
     let metro = 0, note = 0, regional = 0, cod = 0;
     for (const r of records) {
@@ -727,13 +751,14 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
               )}
               <th className="p-2 text-right whitespace-nowrap">착불</th>
               {sel.kind !== "leader" && <th className="p-2 whitespace-nowrap">비고</th>}
+              <th className="p-2 text-center whitespace-nowrap w-10"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={sel.kind === "leader" ? 7 : 10} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
+              <tr><td colSpan={sel.kind === "leader" ? 8 : 11} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
             ) : records.length === 0 ? (
-              <tr><td colSpan={sel.kind === "leader" ? 7 : 10} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
+              <tr><td colSpan={sel.kind === "leader" ? 8 : 11} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
             ) : records.map((r) => {
               const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
               const leadersTxt = [r.leader1_name, leader2Disp, r.leader3_name].filter(Boolean).join("·");
@@ -788,6 +813,18 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
                   {sel.kind !== "leader" && (
                     <td className="p-2 whitespace-nowrap max-w-[160px] truncate" title={r.note || ""}>{r.note || ""}</td>
                   )}
+                  <td className="p-2 text-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => onEdit(r.id)}
+                      aria-label="편집"
+                      title="등록 화면에서 편집"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
                 </tr>
               );
             })}
