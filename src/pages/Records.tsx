@@ -1399,6 +1399,30 @@ export default function Records() {
       toast.error("2인배송은 팀장2 또는 가상기사가 필요합니다.");
       return;
     }
+    // 가상기사 검증: 같은 날, 같은 업체에서 그 팀장이 실제 배송을 하고 있으면 가상기사 등록 불가
+    if (form.virtual_leader_id) {
+      const vLeader = leaders.find((l) => l.id === form.virtual_leader_id);
+      // is_virtual 로 등록된 (실제 존재하지 않는) 가상기사 자체는 항상 허용
+      if (vLeader && !vLeader.is_virtual) {
+        const { data: sameDayRows } = await supabase
+          .from("deliveries")
+          .select("id,customer_name,leader1_id,leader2_id,leader3_id")
+          .eq("date", form.date)
+          .eq("company_id", form.company_id)
+          .or(
+            `leader1_id.eq.${form.virtual_leader_id},leader2_id.eq.${form.virtual_leader_id},leader3_id.eq.${form.virtual_leader_id}`,
+          );
+        const conflicts = (sameDayRows || []).filter((r) => r.id !== form.id);
+        if (conflicts.length > 0) {
+          const names = conflicts.map((r) => r.customer_name || "(고객명 없음)").join(", ");
+          toast.error(
+            `${vLeader.name} 팀장은 같은 날(${form.date}) 같은 업체에서 실제 배송 중입니다 — 가상기사로 등록할 수 없습니다. (${names})`,
+            { duration: 8000 },
+          );
+          return;
+        }
+      }
+    }
     // 팀장2가 입력되면 자동으로 2인배송으로 간주되어 금액이 50/50 분배됨 (확인 다이얼로그 불필요)
     if (form.split_type === "3분할") {
       const names = [form.leader1_id, form.leader2_id]
