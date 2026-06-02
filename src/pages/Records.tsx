@@ -4259,6 +4259,13 @@ export default function Records() {
         leaders={selectableLeaders}
         onSaved={load}
       />
+      <DuplicateComparePanel
+        open={comparePanelOpen}
+        onOpenChange={(o) => { setComparePanelOpen(o); if (!o) setCompareBaseId(null); }}
+        base={(records as any[]).find((r) => r.id === compareBaseId) || null}
+        allRows={records as any[]}
+        onSaved={() => { void load(); }}
+      />
     </div>
   );
 }
