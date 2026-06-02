@@ -101,6 +101,9 @@ export default function Saves() {
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
+  const [companyQuery, setCompanyQuery] = useState<string>("");
+  const [leaderQuery, setLeaderQuery] = useState<string>("");
+  const normSearch = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
 
   async function reload() {
     if (!uid) return;
@@ -188,6 +191,21 @@ export default function Saves() {
 
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
+
+  const filteredCompanyStmts = useMemo(() => {
+    const q = normSearch(companyQuery);
+    if (!q) return companyStmts;
+    return companyStmts.filter((s) => normSearch(s.company.name).includes(q));
+  }, [companyStmts, companyQuery]);
+  const filteredLeaderStmts = useMemo(() => {
+    const q = normSearch(leaderQuery);
+    if (!q) return leaderStmts;
+    return leaderStmts.filter((s) => {
+      if (normSearch(s.leader.name).includes(q)) return true;
+      const aliases = (s.leader as { aliases?: string[] | null }).aliases ?? [];
+      return aliases.some((a) => normSearch(a).includes(q));
+    });
+  }, [leaderStmts, leaderQuery]);
 
   // ─── PNG 렌더 대상 노드 보관 (숨겨진 영역) ─────────────
   const exportRoot = useRef<HTMLDivElement>(null);
