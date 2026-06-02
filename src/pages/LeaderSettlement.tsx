@@ -1165,7 +1165,7 @@ export default function LeaderSettlement() {
                     <tr className="border-b">
                       <th className="text-left px-2 py-2 font-medium text-muted-foreground">업체명</th>
                       <th className="text-center px-2 py-2 font-medium text-muted-foreground w-20">건수</th>
-                      <th className="text-right px-2 py-2 font-medium text-muted-foreground w-32">배송비합</th>
+                      <th className="text-right px-2 py-2 font-medium text-muted-foreground w-32" title="실제 업체에 청구된 금액 (VAT 포함)">업체청구금액</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1173,7 +1173,7 @@ export default function LeaderSettlement() {
                       <tr key={c.company} className="border-b last:border-0">
                         <td className="px-2 py-2 truncate max-w-[180px]">{c.company}</td>
                         <td className="px-2 py-2 text-center">{c.count.toLocaleString()}</td>
-                        <td className="px-2 py-2 text-right font-semibold">{fmt(c.total)}</td>
+                        <td className="px-2 py-2 text-right font-semibold">{fmt(c.actualBilled)}</td>
                       </tr>
                     ))}
                     {detailByCompany.length === 0 && (
