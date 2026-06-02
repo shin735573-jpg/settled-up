@@ -13,7 +13,7 @@ import { TotalVsBilledMismatchBanner } from "@/components/TotalVsBilledMismatchB
 import {
   isLeaderSettlementExcludedItem,
   isVirtualSettlementRow,
-  findLoadingFeeAssigneeId,
+  findLoadingFeeAssignees,
   normalizeLoadingFeeRowLeaders,
 } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
@@ -265,7 +265,7 @@ export default function LeaderSettlement() {
   }, [commonKeysJoined]);
 
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
-  const samhoId = useMemo(() => findLoadingFeeAssigneeId(leaders), [leaders]);
+  const samhoAssignee = useMemo(() => findLoadingFeeAssignees(leaders), [leaders]);
 
   /** 신동석/강형주 팀장 ID — 정식명 또는 별칭(동석/형주)으로 매칭. 재분배에 사용. */
   const findLeaderIdByNames = (names: string[]): string | null => {
@@ -444,7 +444,7 @@ export default function LeaderSettlement() {
         count += 1;
         return;
       }
-      const nr = normalizeLoadingFeeRowLeaders(r, samhoId);
+      const nr = normalizeLoadingFeeRowLeaders(r, samhoAssignee);
       const shares = allocateRow({
         leader1_id: nr.leader1_id, leader2_id: nr.leader2_id, leader3_id: nr.leader3_id,
         split_type: nr.split_type, two_person: nr.two_person ?? false,
@@ -576,7 +576,7 @@ export default function LeaderSettlement() {
       if (metro === 0 && noteAmt === 0 && regional === 0 && cod === 0) return null;
       return { metro, noteAmt, regional, cod, count: 1, weight: 1, reasons };
     }
-    const nr = normalizeLoadingFeeRowLeaders(r, samhoId);
+    const nr = normalizeLoadingFeeRowLeaders(r, samhoAssignee);
     const shares = allocateRow({
       leader1_id: nr.leader1_id, leader2_id: nr.leader2_id, leader3_id: nr.leader3_id,
       split_type: nr.split_type, two_person: nr.two_person ?? false,
