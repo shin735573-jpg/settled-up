@@ -2014,6 +2014,19 @@ export default function Records() {
                     }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
+                  {i === 1 && (
+                    <div className="pt-1">
+                      <Label className="text-[10px] text-muted-foreground">가상기사 (정산X)</Label>
+                      <div className="scale-95 origin-left">
+                        <LeaderCombobox
+                          leaders={selectableLeaders}
+                          value={bulkShared.virtual_leader_id || ""}
+                          onChange={(v) => setBulkShared({ ...bulkShared, virtual_leader_id: v })}
+                          placeholder="가상기사 선택"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
