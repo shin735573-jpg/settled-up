@@ -2189,6 +2189,14 @@ export default function Records() {
                           {r.two_person ? "2인배송" : "—"}
                         </button>
                       </td>
+                      <td className="p-1">
+                        <LeaderCombobox
+                          leaders={selectableLeaders}
+                          value={r.virtual_leader_id || ""}
+                          onChange={(v) => { if (!isFollowup) upd({ virtual_leader_id: v }); }}
+                          placeholder="가상기사 (정산X)"
+                        />
+                      </td>
                        <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} disabled={isFollowup} /></td>
                       <td className="p-1">
                         <AmountTextInput
