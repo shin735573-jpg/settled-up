@@ -71,20 +71,21 @@ export function RevisitShareDialog({
 
   useEffect(() => {
     if (!open || !first) return;
-    // 1차 배송 팀장만 분배 대상 — 복제/추가/추가팀장 없음
-    const firstLeaders: Array<{ id: string | null; name: string | null }> = [
-      { id: first.leader1_id, name: first.leader1_name },
-      { id: first.leader2_id, name: first.leader2_name },
-      { id: first.leader3_id, name: first.leader3_name },
+    // 1차 + 2차(이후) 팀장만 분배 대상 — 팀장 추가/삭제/변경 불가, 금액만 수정.
+    const allLeaders: Array<{ id: string | null; name: string | null; visit: 1 | 2 }> = [
+      { id: first.leader1_id, name: first.leader1_name, visit: 1 },
+      { id: first.leader2_id, name: first.leader2_name, visit: 1 },
+      { id: first.leader3_id, name: first.leader3_name, visit: 1 },
+      ...extraLeaders.map((l) => ({ ...l, visit: 2 as const })),
     ];
     const seen = new Set<string>();
-    const base: RevisitShare[] = [];
-    firstLeaders.forEach((c) => {
+    const base: Array<RevisitShare & { visit?: 1 | 2 }> = [];
+    allLeaders.forEach((c) => {
       if (!c.id || seen.has(c.id)) return;
       seen.add(c.id);
-      base.push({ leader_id: c.id, leader_name: c.name || "", amount: 0 });
+      base.push({ leader_id: c.id, leader_name: c.name || "", amount: 0, visit: c.visit });
     });
-    // 저장된 수기분배가 있으면 1차 팀장에 한해 금액 복원
+    // 저장된 수기분배가 있으면 해당 팀장 금액 복원
     if (first.revisit_manual_shares && first.revisit_manual_shares.length > 0) {
       const savedMap = new Map(
         first.revisit_manual_shares.map((s) => [s.leader_id, Number(s.amount) || 0]),
@@ -224,7 +225,9 @@ export function RevisitShareDialog({
               <div key={r.leader_id || i} className="flex items-center gap-2">
                 <div className="flex-1 rounded-md border bg-muted/30 px-3 py-2 text-sm">
                   {r.leader_name || "(이름 없음)"}
-                  <span className="ml-2 text-xs text-muted-foreground">1차 팀장</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {(r as RevisitShare & { visit?: 1 | 2 }).visit === 2 ? "2차 팀장" : "1차 팀장"}
+                  </span>
                 </div>
                 <Input
                   type="number"
@@ -246,7 +249,7 @@ export function RevisitShareDialog({
               </div>
             ))}
             <div className="text-xs text-muted-foreground">
-              ※ 1차 배송에 등록된 팀장만 분배 대상입니다. 새 팀장 추가/복제는 불가.
+              ※ 1차 청구금액은 수정 불가. 1차·2차 팀장의 금액 합계가 청구금액과 정확히 일치해야 저장됩니다.
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 text-sm border-t pt-3">
