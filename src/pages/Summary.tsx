@@ -134,9 +134,9 @@ export default function Summary() {
   };
 
   // 집계 가능한 최종 팀장: 활성·비거부·정산포함, settle_to_id 없음(=최종)
-  // 가상기사도 2인배송 등에서 실제 정산 대상이므로 포함.
+  // 가상기사는 절대 정산 대상에서 제외 — 업체 기록상 팀장2 자리에 들어가도 정산/내역에 잡히지 않음.
   const isCountable = (l: Leader | undefined): boolean =>
-    !!l && l.active && !l.is_rejected &&
+    !!l && l.active && !l.is_rejected && !l.is_virtual &&
     (l.settle_status ?? "included") !== "excluded" && !l.settle_to_id;
 
   // 각 행을 팀장 분배로 계산 — 한 명이라도 집계 가능 팀장에 귀속되면 행을 "유효"로 본다.
