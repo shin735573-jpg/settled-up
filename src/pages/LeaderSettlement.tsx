@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useArrowKeyNav } from "@/hooks/useArrowKeyNav";
 import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
 import { totalLeaderSettlementDeliveryFee, totalUnifiedDeliveryFee, computeCompanyBilledByCompany } from "@/lib/totalFee";
+import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -661,6 +662,21 @@ export default function LeaderSettlement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masterRows, rows, companies]);
 
+  // 업체정산 ↔ 팀장정산 총배송비 100% 일치 자동검증 (저장/재생성·필터 변경 시마다)
+  const totalFeeCheck = useMemo(
+    () => crossCheckTotalFee(rows, virtualIds),
+    [rows, virtualIds],
+  );
+  const lastWarnedDiffRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
+      toast.error(totalFeeCheck.message ?? "총배송비 검증 실패");
+      lastWarnedDiffRef.current = totalFeeCheck.diff;
+    } else if (totalFeeCheck.ok) {
+      lastWarnedDiffRef.current = null;
+    }
+  }, [totalFeeCheck]);
+
   // ===== 헤더-셀 컬럼 위치 검증 (개발용) =====
   useEffect(() => {
     if (leaderId) { setLeaderColAlignError(false); return; }
@@ -981,6 +997,15 @@ export default function LeaderSettlement() {
       </div>
 
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
+
+      {!totalFeeCheck.ok && (
+        <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <strong>총배송비 검증 실패 — </strong>
+          통합식 {totalFeeCheck.unified.toLocaleString()}원 vs
+          팀장정산식 {totalFeeCheck.leaderStyle.toLocaleString()}원
+          (차이 {totalFeeCheck.diff.toLocaleString()}원). 업체정산 화면과 합계가 일치하지 않습니다.
+        </div>
+      )}
 
       {!leaderId && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

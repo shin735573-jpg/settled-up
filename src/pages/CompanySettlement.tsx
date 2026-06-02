@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { totalDeliveryFee, totalUnifiedDeliveryFee } from "@/lib/totalFee";
+import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
+import { toast } from "sonner";
 import { matchesCompany } from "@/lib/companyMatch";
 import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolver";
 import { auditDeliveries } from "@/lib/liveAudit";
@@ -312,6 +314,21 @@ export default function CompanySettlement() {
     };
   }, [visibleCompanies, companyBillableRows, allRows, leaders]);
 
+  // 업체정산 ↔ 팀장정산 총배송비 100% 일치 자동검증 (저장/재생성·필터 변경 시마다)
+  const totalFeeCheck = useMemo(() => {
+    const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+    return crossCheckTotalFee(allRows, virtualIds);
+  }, [allRows, leaders]);
+  const lastWarnedDiffRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
+      toast.error(totalFeeCheck.message ?? "총배송비 검증 실패");
+      lastWarnedDiffRef.current = totalFeeCheck.diff;
+    } else if (totalFeeCheck.ok) {
+      lastWarnedDiffRef.current = null;
+    }
+  }, [totalFeeCheck]);
+
   // 컬럼 위치 검증: 헤더 컬럼 수와 데이터 셀 수가 일치하는지 + 순서가 정의와 일치하는지
   const [colAlignError, setColAlignError] = useState<string | null>(null);
   const [diagReport, setDiagReport] = useState<DiagReport | null>(null);
@@ -505,6 +522,15 @@ export default function CompanySettlement() {
         result={audit}
         defaultOpen={!audit.ok}
       />
+
+      {!totalFeeCheck.ok && (
+        <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <strong>총배송비 검증 실패 — </strong>
+          업체정산 통합식 {totalFeeCheck.unified.toLocaleString()}원 vs
+          팀장정산식 {totalFeeCheck.leaderStyle.toLocaleString()}원
+          (차이 {totalFeeCheck.diff.toLocaleString()}원). 두 화면의 총배송비가 일치하지 않습니다.
+        </div>
+      )}
 
       {!companyId && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
