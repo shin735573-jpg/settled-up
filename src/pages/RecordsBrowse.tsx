@@ -631,6 +631,7 @@ function PanelCard({
               const fee = Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
               const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
               const leadersTxt = [r.leader1_name, leader2Disp, r.leader3_name].filter(Boolean).join("·");
+              const virtualName = r.virtual_leader_name || "";
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
                   <td className="p-2 whitespace-nowrap">
@@ -655,10 +656,17 @@ function PanelCard({
                   </td>
                   {sel.kind === "leader" && (
                     <td className="p-2 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1">
-                        <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>
-                        {r.company_name || "-"}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="inline-flex items-center gap-1">
+                          <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>
+                          {r.company_name || "-"}
+                        </span>
+                        {virtualName && (
+                          <span className="text-[10px] text-amber-700 font-medium mt-0.5">
+                            가상기사: {virtualName}
+                          </span>
+                        )}
+                      </div>
                     </td>
                   )}
                   {sel.kind === "company" && (
