@@ -1845,11 +1845,7 @@ export default function Records() {
                                 revisit_done: false,
                                 revisit_group_local: groupLocal,
                                 revisit_visit_no: 2,
-                                // 금액은 비워 사용자가 2차 금액만 입력하도록
-                                metro_fee: "",
-                                regional_fee: "",
-                                note_amount: "",
-                                cod_amount: "",
+                                // 금액은 1차 입력값을 그대로 보여주고, 필요 시 2차 금액으로 수정
                               };
                               next.splice(idx + 1, 0, clone);
                               // 원본 행: 1차 + 재방문 완료 + 같은 그룹
