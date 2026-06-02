@@ -217,9 +217,18 @@ export default function RecordsBrowse() {
     setSaving(true);
     let ok = 0, fail = 0;
     for (const { id, patch } of patches) {
+      const cleanPatch: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === undefined) continue;
+        if (["metro_fee", "regional_fee", "note_amount", "cod_amount"].includes(k)) {
+          cleanPatch[k] = Number(v as number | string) || 0;
+        } else {
+          cleanPatch[k] = v;
+        }
+      }
       const { error } = await supabase
         .from("deliveries")
-        .update({ ...patch, updated_at: new Date().toISOString() })
+        .update({ ...cleanPatch, updated_at: new Date().toISOString() } as any)
         .eq("id", id);
       if (error) {
         fail++;
