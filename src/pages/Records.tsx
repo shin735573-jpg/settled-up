@@ -1527,58 +1527,80 @@ export default function Records() {
           ? [{ label: "마지막 수정", value: fmtDt(first.updated_at) }] : []),
         { label: "충돌 기준", value: "날짜·업체·고객·배송지·품목·비고·팀장·금액 등 모든 핵심 값 일치" },
       ];
-      const cols = [
-        { key: "who", label: "저장자" },
-        { key: "when", label: "저장 시각" },
-        { key: "date", label: "날짜" },
-        { key: "company", label: "업체" },
-        { key: "customer", label: "고객" },
-        { key: "region", label: "배송지" },
-        { key: "item", label: "품목" },
-        { key: "note", label: "비고" },
-        { key: "l1", label: "팀장1" },
-        { key: "l2", label: "팀장2" },
-        { key: "split", label: "분할" },
-        { key: "amt", label: "금액합", align: "right" as const },
-      ];
-      const sumAmt = (r: any) =>
-        Number(r?.metro_fee || 0) + Number(r?.regional_fee || 0) +
-        Number(r?.note_amount || 0) + Number(r?.cod_amount || 0);
-      const currentRow: Record<string, any> = {
-        who: "(현재 입력)",
-        when: "-",
-        date: current.date,
-        company: current.company_name,
-        customer: current.customer_name || "-",
-        region: current.region || "-",
-        item: current.item || "-",
-        note: current.note || "-",
-        l1: leaderName(current.leader1_id),
-        l2: leaderName(current.leader2_id),
-        split: current.split_type || "-",
-        amt: fmt(sumAmt(current)),
+      // 필드별 diff (금액 / 팀장 / 기사 / 분할 / 2인배송) — 첫 충돌 행과 비교
+      const cur: any = current as any;
+      const curL3 = cur.leader3_id ?? form.leader3_id ?? null;
+      const curVL = cur.virtual_leader_id ?? form.virtual_leader_id ?? null;
+      const numv = (v: unknown) => {
+        if (v == null || v === "") return 0;
+        const n = Number(String(v).replace(/,/g, ""));
+        return Number.isFinite(n) ? n : 0;
       };
-      const conflictRowsView = conflictRows.map((r) => ({
-        who: whoLabel(r.user_id),
-        when: fmtDt(r.updated_at || r.created_at),
-        date: r.date,
-        company: r.company_name,
-        customer: r.customer_name || "-",
-        region: r.region || "-",
-        item: r.item || "-",
-        note: r.note || "-",
-        l1: leaderName(r.leader1_id),
-        l2: leaderName(r.leader2_id),
-        split: r.split_type || "-",
-        amt: fmt(sumAmt(r)),
-      }));
+      type Field = {
+        label: string;
+        group: "팀장/기사" | "금액" | "옵션";
+        curRaw: any;
+        savedRaw: any;
+        display: (v: any) => string;
+      };
+      const moneyDisp = (v: any) => `${fmt(numv(v))}원`;
+      const boolDisp = (v: any) => (v ? "예" : "아니오");
+      const fields: Field[] = [
+        { label: "팀장1", group: "팀장/기사", curRaw: current.leader1_id || null, savedRaw: first.leader1_id || null, display: (v) => leaderName(v) },
+        { label: "팀장2", group: "팀장/기사", curRaw: current.leader2_id || null, savedRaw: first.leader2_id || null, display: (v) => leaderName(v) },
+        { label: "팀장3", group: "팀장/기사", curRaw: curL3, savedRaw: first.leader3_id || null, display: (v) => leaderName(v) },
+        { label: "가상기사", group: "팀장/기사", curRaw: curVL, savedRaw: first.virtual_leader_id || null, display: (v) => leaderName(v) },
+        { label: "수도권 배송비", group: "금액", curRaw: current.metro_fee, savedRaw: first.metro_fee, display: moneyDisp },
+        { label: "지방 배송비", group: "금액", curRaw: current.regional_fee, savedRaw: first.regional_fee, display: moneyDisp },
+        { label: "비고 금액", group: "금액", curRaw: current.note_amount, savedRaw: first.note_amount, display: moneyDisp },
+        { label: "착불 금액", group: "금액", curRaw: current.cod_amount, savedRaw: first.cod_amount, display: moneyDisp },
+        {
+          label: "금액 합계", group: "금액",
+          curRaw: numv(current.metro_fee) + numv(current.regional_fee) + numv(current.note_amount) + numv(current.cod_amount),
+          savedRaw: numv(first.metro_fee) + numv(first.regional_fee) + numv(first.note_amount) + numv(first.cod_amount),
+          display: moneyDisp,
+        },
+        { label: "분할 방식", group: "옵션", curRaw: current.split_type || null, savedRaw: first.split_type || null, display: (v) => v || "-" },
+        { label: "2인배송", group: "옵션", curRaw: !!current.two_person, savedRaw: !!first.two_person, display: boolDisp },
+      ];
+      const isDiff = (f: Field) => {
+        if (f.group === "금액") return numv(f.curRaw) !== numv(f.savedRaw);
+        return (f.curRaw ?? "") !== (f.savedRaw ?? "");
+      };
+      const diffCount = fields.filter(isDiff).length;
+      summary.push({
+        label: "필드 차이",
+        value: diffCount === 0
+          ? "금액/팀장/기사/옵션 모두 동일 (완전 중복)"
+          : `${diffCount}개 필드 다름 — 아래 표에서 빨간색으로 강조`,
+      });
+      const diffCols = [
+        { key: "group", label: "분류" },
+        { key: "field", label: "항목" },
+        { key: "cur", label: "현재 입력", align: "right" as const },
+        { key: "saved", label: "저장됨", align: "right" as const },
+        { key: "status", label: "상태", align: "center" as const },
+      ];
+      const diffRows = fields.map((f) => {
+        const differs = isDiff(f);
+        const cls = differs ? "text-destructive font-semibold" : "";
+        return {
+          group: f.group,
+          field: f.label,
+          cur: <span className={cls}>{f.display(f.curRaw)}</span>,
+          saved: <span className={cls}>{f.display(f.savedRaw)}</span>,
+          status: differs
+            ? <span className="text-destructive font-semibold">다름</span>
+            : <span className="text-muted-foreground">일치</span>,
+        } as Record<string, any>;
+      });
       await confirmSave({
         title: "중복 저장 차단 — 이미 저장된 기록이 있습니다",
         description:
           "다른 기기/세션에서 먼저 저장된 동일한 기록이 발견되어 저장이 차단되었습니다. " +
           "아래에서 누가·언제 저장했는지와 현재 입력 내용이 무엇과 충돌하는지 확인해주세요.",
         summary,
-        details: { columns: cols, rows: [currentRow, ...conflictRowsView] },
+        details: { columns: diffCols, rows: diffRows },
         cancelLabel: "확인",
         hideConfirm: true,
       });
