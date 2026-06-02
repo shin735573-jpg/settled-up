@@ -613,12 +613,20 @@ export function buildLeaderStatements(
     const manual = Array.isArray(first.revisit_manual_shares)
       ? first.revisit_manual_shares.filter((m) => m && m.leader_id && !virtualIds.has(m.leader_id) && Number(m.amount) > 0)
       : null;
-    const shares: LeaderShare[] = [];
+    // 재방문은 각 팀장이 실제 방문한 차수의 행에 본인 몫만 표시되어야 한다.
+    // → share 단위로 sourceDelivery(어느 방문 행에 표시할지)를 함께 보관.
+    const pushShare = (s: LeaderShare, src: StmtDelivery) => {
+      const target = resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>);
+      if (!isCountableLeader(byId.get(target))) return;
+      allocs.push({ d: src, shares: [{ share: s, target }] });
+    };
     if (manual && manual.length > 0) {
       const totalManual = manual.reduce((s, m) => s + Number(m.amount || 0), 0) || 1;
       for (const m of manual) {
         const amt = Math.max(0, Number(m.amount || 0));
-        shares.push({
+        // 수기분배: 해당 팀장이 실제 방문한 차수의 행에 표기 (없으면 1차 행)
+        const visit = sorted.find((s) => s.leader1_id === m.leader_id) ?? first;
+        pushShare({
           leader_id: m.leader_id,
           weight: amt / totalManual,
           metro: useMetro ? amt : 0,
@@ -627,11 +635,11 @@ export function buildLeaderStatements(
           cod: 0,
           count: 1,
           reason: "재방문 수기분배",
-        });
+        }, visit);
       }
       // 비고금액 / 착불은 1차 팀장1에게 귀속 (수기 입력에 포함되지 않음)
       if (first.leader1_id && !virtualIds.has(first.leader1_id) && (baseNote !== 0 || baseCod !== 0)) {
-        shares.push({
+        pushShare({
           leader_id: first.leader1_id,
           weight: 0,
           metro: 0,
@@ -640,7 +648,7 @@ export function buildLeaderStatements(
           cod: baseCod,
           count: 0,
           reason: "재방문 비고/착불(1차 팀장1)",
-        });
+        }, first);
       }
     } else if (first.leader1_id && !virtualIds.has(first.leader1_id)) {
       // 자동 분배 규칙:
@@ -660,7 +668,8 @@ export function buildLeaderStatements(
         const capped = Math.min(secAmt, Math.max(0, baseTotal - assignedToSecondary));
         if (capped <= 0) continue;
         assignedToSecondary += capped;
-        shares.push({
+        // 2차 이후: 그 차수 방문 행에 본인 몫만 표기
+        pushShare({
           leader_id: secLeader,
           weight: 0,
           metro: useMetro ? capped : 0,
@@ -669,10 +678,11 @@ export function buildLeaderStatements(
           cod: 0,
           count: 1,
           reason: "재방문 2차 분배",
-        });
+        }, sec);
       }
       const firstRemaining = Math.max(0, baseTotal - assignedToSecondary);
-      shares.push({
+      // 1차 팀장: 1차 방문 행에 잔여 + 비고/착불 표기
+      pushShare({
         leader_id: first.leader1_id,
         weight: 1,
         metro: useMetro ? firstRemaining : 0,
@@ -681,12 +691,8 @@ export function buildLeaderStatements(
         cod: baseCod,
         count: 1,
         reason: assignedToSecondary > 0 ? "재방문 1차(2차분 차감)" : "재방문 1차 전액",
-      });
+      }, first);
     }
-    const resolved = shares
-      .map((s) => ({ share: s, target: resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>) }))
-      .filter((s) => isCountableLeader(byId.get(s.target)));
-    allocs.push({ d: first, shares: resolved });
   }
 
   const out: LeaderStmtData[] = [];
