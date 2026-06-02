@@ -1854,6 +1854,11 @@ export default function Records() {
                                   1차: {r.date_existing}
                                 </span>
                               )}
+                              {isSecond && (r.leader1_name_existing || r.leader2_name_existing || r.leader3_name_existing) && (
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 팀장">
+                                  1차 팀장: {[r.leader1_name_existing, r.leader2_name_existing, r.leader3_name_existing].filter(Boolean).join("·")}
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 className="text-[10px] px-1.5 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10"
