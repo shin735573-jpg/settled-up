@@ -24,6 +24,7 @@ import Verify from "./pages/Verify";
 import Settings from "./pages/Settings";
 import SpecTests from "./pages/SpecTests";
 import OcrTest from "./pages/OcrTest";
+import SaveConflicts from "./pages/SaveConflicts";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
