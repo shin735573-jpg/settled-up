@@ -196,15 +196,30 @@ export function RevisitShareDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="rounded-md border bg-primary/5 p-4">
-            <div className="text-xs text-muted-foreground">1차 고정금액 (분배 한도)</div>
-            <div className="mt-1 text-3xl font-bold tabular-nums">
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="text-xs font-medium text-muted-foreground">
+                1차 청구금액 (수정 불가 · 분배 한도)
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {first.date} · {first.customer_name || "-"} / {first.region || "-"}
+              </div>
+            </div>
+            <div className="mt-1 text-3xl font-bold tabular-nums text-primary">
               {baseTotal.toLocaleString()}<span className="text-base font-medium ml-1">원</span>
             </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              {first.date} · {first.customer_name || "-"} / {first.region || "-"}
-              <span className="ml-2">
-                (수도권 {Number(first.metro_fee).toLocaleString()} / 비고 {Number(first.note_amount).toLocaleString()} / 지방 {Number(first.regional_fee).toLocaleString()})
-              </span>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded border bg-background px-2 py-1.5">
+                <div className="text-muted-foreground">수도권</div>
+                <div className="font-semibold tabular-nums">{Number(first.metro_fee).toLocaleString()}원</div>
+              </div>
+              <div className="rounded border bg-background px-2 py-1.5">
+                <div className="text-muted-foreground">지방</div>
+                <div className="font-semibold tabular-nums">{Number(first.regional_fee).toLocaleString()}원</div>
+              </div>
+              <div className="rounded border bg-background px-2 py-1.5">
+                <div className="text-muted-foreground">비고</div>
+                <div className="font-semibold tabular-nums">{Number(first.note_amount).toLocaleString()}원</div>
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-between">
@@ -252,21 +267,21 @@ export function RevisitShareDialog({
           </div>
           <div className="grid grid-cols-3 gap-2 text-sm border-t pt-3">
             <div className="rounded-md border p-2 text-center">
-              <div className="text-xs text-muted-foreground">고정금액</div>
-              <div className="font-semibold tabular-nums">{baseTotal.toLocaleString()}원</div>
+              <div className="text-xs text-muted-foreground">1차 청구금액</div>
+              <div className="font-semibold tabular-nums text-primary">{baseTotal.toLocaleString()}원</div>
             </div>
             <div className="rounded-md border p-2 text-center">
-              <div className="text-xs text-muted-foreground">입력 합계</div>
-              <div className={`font-semibold tabular-nums ${overBudget ? "text-destructive" : ""}`}>
+              <div className="text-xs text-muted-foreground">팀장 분배 합계</div>
+              <div className={`font-semibold tabular-nums ${overBudget ? "text-destructive" : exactMatch ? "text-primary" : ""}`}>
                 {sumEntered.toLocaleString()}원
               </div>
             </div>
-            <div className={`rounded-md border p-2 text-center ${exactMatch ? "bg-primary/10 border-primary/30" : overBudget ? "bg-destructive/10 border-destructive/30" : ""}`}>
+            <div className={`rounded-md border p-2 text-center ${exactMatch ? "bg-primary/10 border-primary/30" : overBudget ? "bg-destructive/10 border-destructive/30" : "bg-amber-500/10 border-amber-500/30"}`}>
               <div className="text-xs text-muted-foreground">
-                {overBudget ? "초과" : "남은 금액"}
+                {exactMatch ? "일치 · 저장 가능" : overBudget ? "초과" : "차액 (저장 불가)"}
               </div>
-              <div className={`font-semibold tabular-nums ${overBudget ? "text-destructive" : exactMatch ? "text-primary" : ""}`}>
-                {Math.abs(remaining).toLocaleString()}원
+              <div className={`font-semibold tabular-nums ${overBudget ? "text-destructive" : exactMatch ? "text-primary" : "text-amber-700 dark:text-amber-400"}`}>
+                {exactMatch ? "0원" : `${overBudget ? "+" : "-"}${Math.abs(remaining).toLocaleString()}원`}
               </div>
             </div>
           </div>
