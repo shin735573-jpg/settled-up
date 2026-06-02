@@ -14,7 +14,7 @@ import {
   type StmtLeader,
 } from "./statementData";
 import { allocateRow } from "./splitAllocation";
-import { isCountableLeader, resolveSettleId, type SummaryLeader } from "./summaryAggregation";
+import { resolveSettleId, type SummaryLeader } from "./summaryAggregation";
 
 export type VerifyIssue = {
   severity: "error" | "warning";
@@ -76,6 +76,12 @@ function computeLeaderDeliveryOriginalTotal(
   const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
 
   return deliveries.reduce((sum, d) => {
+    // 팀장이 전혀 입력되지 않은 행은 allocateRow 가 빈 배열을 돌려준다 →
+    // 업체 합계엔 들어 있는데 팀장 합계엔 빠져 100% 차이 발생.
+    // 동일한 모집단을 유지하기 위해 미배정 행도 전체 fee 를 그대로 합산한다.
+    if (!d.leader1_id) {
+      return sum + deliveryBaseAmount(d);
+    }
     const shares = allocateRow(
       {
         leader1_id: d.leader1_id,
@@ -99,9 +105,12 @@ function computeLeaderDeliveryOriginalTotal(
       },
     );
 
+    // 검산은 "원본 배송원금이 어디로 갔는가" 를 본다 →
+    // 거부기사/가상기사/정산제외/대납(settle_to) 팀장의 몫도 모두 포함해야
+    // 업체 합계와 동일 모집단이 된다. settle_to_id 체인은 resolveSettleId 로 흡수.
     const rowTotal = shares.reduce((rowSum, s) => {
-      const target = resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>);
-      if (!isCountableLeader(byId.get(target))) return rowSum;
+      // resolve 만 호출(귀속 확인용) — 결과 필터 없이 무조건 합산
+      resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>);
       return rowSum + Number(s.metro || 0) + Number(s.regional || 0) + Number(s.note_amount || 0);
     }, 0);
     return sum + rowTotal;
