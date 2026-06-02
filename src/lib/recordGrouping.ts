@@ -183,44 +183,47 @@ export function validateMergePlan(
 export function buildUpdatePatches(
   plan: MergePlanItem[],
   groupsByKey: Map<string, GroupRow[]>,
-): Array<{ id: string; patch: Partial<GroupRow> }> {
+): { patches: Array<{ id: string; patch: Partial<GroupRow> }>; deleteIds: string[] } {
   const out: Array<{ id: string; patch: Partial<GroupRow> }> = [];
+  const deletes: string[] = [];
   for (const p of plan) {
     const rows = groupsByKey.get(p.groupKey) ?? [];
     if (p.action === "keep_separate") continue;
     if (p.action === "dedupe") continue; // 삭제는 별도 흐름
-    // merge_two_person: 그룹에서 leader1이 서로 다른 행이 있으면 자동으로 leader2 후보로 사용
-    let autoLeader2: string | null = null;
-    if (p.action === "merge_two_person") {
-      const leaderIds = Array.from(
-        new Set(rows.map((r) => s(r.leader1_id)).filter(Boolean)),
-      );
-      if (leaderIds.length >= 2) {
-        // 첫 행 기준으로 다른 팀장1을 leader2로
-        const base = s(rows[0]?.leader1_id);
-        autoLeader2 = leaderIds.find((id) => id !== base) ?? null;
+    // 통합 = 2개 이상이 1개로 합쳐짐. 첫 행을 기준으로 남기고 나머지는 삭제.
+    const targets = rows.filter((r) => p.targetIds.includes(r.id));
+    if (targets.length === 0) continue;
+    const baseRow = targets[0];
+    const others = targets.slice(1);
+    const patch: Partial<GroupRow> = {};
+    // 금액 합산 (통합 후 최종 청구금액)
+    const sumField = (k: keyof GroupRow) =>
+      targets.reduce((acc, r) => acc + num(r[k]), 0);
+    patch.metro_fee = sumField("metro_fee");
+    patch.note_amount = sumField("note_amount");
+    patch.regional_fee = sumField("regional_fee");
+    patch.cod_amount = sumField("cod_amount");
+    if (p.action === "merge_companion") {
+      patch.companion = true;
+      patch.two_person = false;
+    } else if (p.action === "merge_two_person") {
+      patch.two_person = true;
+      patch.companion = false;
+      if (!s(baseRow.leader2_id)) {
+        const leaderIds = Array.from(
+          new Set(targets.map((r) => s(r.leader1_id)).filter(Boolean)),
+        );
+        const base = s(baseRow.leader1_id);
+        const autoLeader2 = leaderIds.find((id) => id !== base) ?? null;
+        const l2 = s(p.leader2Id) || autoLeader2;
+        if (l2) patch.leader2_id = l2;
       }
+      if (!s(baseRow.split_type)) patch.split_type = "반반";
     }
-    for (const r of rows) {
-      if (!p.targetIds.includes(r.id)) continue;
-      const patch: Partial<GroupRow> = {};
-      if (p.action === "merge_companion") {
-        patch.companion = true;
-        patch.two_person = false;
-      } else if (p.action === "merge_two_person") {
-        patch.two_person = true;
-        patch.companion = false;
-        if (!s(r.leader2_id)) {
-          const l2 = s(p.leader2Id) || autoLeader2;
-          if (l2) patch.leader2_id = l2;
-        }
-        // 분할은 자동 "반반"으로 처리 (반반 정산 자동 계산)
-        if (!s(r.split_type)) patch.split_type = "반반";
-      }
-      if (Object.keys(patch).length > 0) out.push({ id: r.id, patch });
-    }
+    out.push({ id: baseRow.id, patch });
+    for (const r of others) deletes.push(r.id);
   }
-  return out;
+  return { patches: out, deleteIds: deletes };
 }
 
 export const statusLabel: Record<RowStatus, string> = {
