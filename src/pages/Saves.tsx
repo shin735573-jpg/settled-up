@@ -1508,7 +1508,7 @@ function CompanyPreview({
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.id} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
+              <tr key={r.id} data-row-id={r.id} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.date.slice(5)}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{c.name}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.region ?? ""}</td>
@@ -1671,7 +1671,7 @@ function LeaderPreview({
               const vResolved = (vId && virtualLeaderMap?.get(vId)) || vName || "";
               if (vResolved.trim()) addPartner(vResolved, true);
               return (
-              <tr key={r.delivery.id + "-" + i} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
+              <tr key={r.delivery.id + "-" + i} data-row-id={r.delivery.id} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.delivery.date.slice(5)}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.delivery.company_name ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.delivery.region ?? ""}</td>
