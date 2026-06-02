@@ -1174,6 +1174,8 @@ export default function Records() {
   const companiesById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const formCompany = form.company_id ? companiesById.get(form.company_id) : null;
   const formHasCod = formCompany?.has_cod !== false; // 미등록은 기본 표시
+  // 단일폼이 재방문 2차+ 행: 1차 정보(업체/고객/지역/지역구분/품목)는 잠금.
+  const isFollowupForm = Boolean(form.revisit_group_id) && Number(form.revisit_visit_no || 1) > 1;
 
   // 지역구분이 바뀌면 배송비 값을 해당 칸으로 자동 이동 (단일 입력 보장)
   useEffect(() => {
