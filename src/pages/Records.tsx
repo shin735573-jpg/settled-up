@@ -1999,9 +1999,11 @@ export default function Records() {
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
+                                  disabled={isFollowup}
                                   className={cn(
                                     "h-8 w-full rounded-md border text-xs tabular-nums px-2",
-                                    cur > 0 ? "bg-primary/10 border-primary font-semibold" : "bg-background text-muted-foreground"
+                                    cur > 0 ? "bg-primary/10 border-primary font-semibold" : "bg-background text-muted-foreground",
+                                    isFollowup && "opacity-50 cursor-not-allowed"
                                   )}
                                 >
                                   {cur > 0 ? `${cur.toLocaleString()}원` : "착불 선택"}
