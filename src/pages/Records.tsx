@@ -1541,8 +1541,11 @@ export default function Records() {
     if (!row || row.revisit_visit_no === 2 || row.revisit_group_local) return;
     const name = (row.customer_name || "").trim();
     const region = (row.region || "").trim();
-    if (!name) return;
-    const key = `${idx}|${name.toLowerCase()}|${region.toLowerCase()}`;
+    // 매칭 기준에 따라 필수 입력값 확인
+    if (revisitMatchMode === "name" && !name) return;
+    if (revisitMatchMode === "region" && !region) return;
+    if (revisitMatchMode === "both" && (!name || !region)) return;
+    const key = `${idx}|${revisitMatchMode}|${name.toLowerCase()}|${region.toLowerCase()}`;
     if (detectedKeyRef.current.has(key)) return;
     detectedKeyRef.current.add(key);
     setRevisitDetectLoading(true);
@@ -1550,10 +1553,14 @@ export default function Records() {
     let q = supabase
       .from("deliveries")
       .select("*")
-      .ilike("customer_name", name)
       .order("date", { ascending: false })
       .limit(20);
-    if (region) q = q.ilike("region", `%${region}%`);
+    if (revisitMatchMode === "name" || revisitMatchMode === "both") {
+      if (name) q = q.ilike("customer_name", name);
+    }
+    if (revisitMatchMode === "region" || revisitMatchMode === "both") {
+      if (region) q = q.ilike("region", `%${region}%`);
+    }
     const { data, error } = await q;
     setRevisitDetectLoading(false);
     if (error || !data || data.length === 0) { setRevisitDetectIdx(null); return; }
