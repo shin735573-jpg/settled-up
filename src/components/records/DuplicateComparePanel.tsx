@@ -403,9 +403,9 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       // 절대 null/빈값으로 leader1/leader2를 덮어쓰지 않는다.
       // 기존 base 값이 있는데 edited가 비어 있으면 base 값을 그대로 유지한다.
       const safeLeader1Id = nrm(effectiveEdited.leader1_id) ? effectiveEdited.leader1_id : (base.leader1_id ?? null);
-      const safeLeader1Name = nrm(effectiveEdited.leader1_name) ? effectiveEdited.leader1_name : (effectiveEdited.leader1_name ?? base.leader1_name ?? null);
+      const safeLeader1Name = nrm(effectiveEdited.leader1_name) ? effectiveEdited.leader1_name : (nrm(base.leader1_name) ? base.leader1_name : null);
       const safeLeader2Id = nrm(effectiveEdited.leader2_id) ? effectiveEdited.leader2_id : (base.leader2_id ?? null);
-      const safeLeader2Name = nrm(effectiveEdited.leader2_name) ? effectiveEdited.leader2_name : (effectiveEdited.leader2_name ?? base.leader2_name ?? null);
+      const safeLeader2Name = nrm(effectiveEdited.leader2_name) ? effectiveEdited.leader2_name : (nrm(base.leader2_name) ? base.leader2_name : null);
       const update = {
         date: effectiveEdited.date,
         company_id: effectiveEdited.company_id ?? null,
