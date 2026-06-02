@@ -1047,6 +1047,14 @@ export default function Records() {
     checkedAt?: string;
   }>({ status: "idle", exact: 0, suspect: 0, matches: [] });
   const [formDupChecking, setFormDupChecking] = useState(false);
+  // 폼 입력값이 바뀌면 이전 중복 체크 결과는 무효화
+  useEffect(() => {
+    setFormDupCheck((s) => (s.status === "idle" ? s : { status: "idle", exact: 0, suspect: 0, matches: [] }));
+  }, [
+    form.date, form.company_id, form.customer_name, form.region, form.item,
+    form.metro_fee, form.regional_fee, form.note_amount, form.cod_amount,
+    form.leader1_id, form.leader2_id, form.split_type, form.two_person, form.paid,
+  ]);
   // 한 팀장 여러건 일괄 입력
   type BulkRow = {
     company_id: string;
