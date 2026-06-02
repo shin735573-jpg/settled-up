@@ -345,6 +345,7 @@ type FormState = {
   leader1_id: string;
   leader2_id: string;
   leader3_id: string;
+  virtual_leader_id: string;
   customer_name: string;
   region: string;
   region_type: RegionType;
@@ -375,6 +376,7 @@ const emptyForm = (): FormState => ({
   leader1_id: "",
   leader2_id: "",
   leader3_id: "",
+  virtual_leader_id: "",
   customer_name: "",
   region: "",
   region_type: "unknown",
@@ -478,7 +480,14 @@ const RECORDS_COLUMNS: RecordsColumn[] = [
   { key: "company", label: "업체", width: 120, cellCls: "whitespace-nowrap",
     render: (r) => r.company_name },
   { key: "leader1", label: "팀장1", width: 110, cellCls: "whitespace-nowrap",
-    render: (r, { displayLeaderById }) => displayLeaderById(r.leader1_id, r.leader1_name) },
+    render: (r, { displayLeaderById }) => (
+      <div>
+        <div>{displayLeaderById(r.leader1_id, r.leader1_name)}</div>
+        {r.virtual_leader_name && (
+          <div className="text-[10px] text-muted-foreground">가상: {r.virtual_leader_name}</div>
+        )}
+      </div>
+    ) },
   { key: "leader2", label: "팀장2", width: 110, cellCls: "whitespace-nowrap",
     render: (r, { displayLeaderById }) => displayLeaderById(r.leader2_id, r.leader2_name) },
   { key: "leader3", label: "팀장3", width: 110, cellCls: "whitespace-nowrap",
@@ -953,6 +962,7 @@ export default function Records() {
       leader1_id: "",
       leader2_id: "",
       leader3_id: "",
+      virtual_leader_id: "",
       two_person: false,
       split_type: "",
       paid: false,
@@ -1161,6 +1171,7 @@ export default function Records() {
       leader1_id: r.leader1_id || "",
       leader2_id: r.leader2_id || "",
       leader3_id: r.leader3_id || "",
+      virtual_leader_id: (r as any).virtual_leader_id || "",
       customer_name: r.customer_name || "",
       region: r.region || "",
       region_type: (r.region_type as RegionType) || classifyRegion(r.region || ""),
@@ -1291,6 +1302,8 @@ export default function Records() {
       revisit_required: form.revisit_required,
       revisit_done: form.revisit_done,
       alba_deduction: parseNum(form.alba_deduction) || 0,
+      virtual_leader_id: form.virtual_leader_id || null,
+      virtual_leader_name: leaderName(form.virtual_leader_id),
       revisit_group_id: form.revisit_group_id,
       revisit_visit_no: form.revisit_visit_no || 1,
     };
@@ -1416,6 +1429,8 @@ export default function Records() {
       leader2_name: leaderName(bulkShared.leader2_id),
       leader3_id: bulkShared.leader3_id || null,
       leader3_name: leaderName(bulkShared.leader3_id),
+      virtual_leader_id: (bulkShared as any).virtual_leader_id || null,
+      virtual_leader_name: leaderName((bulkShared as any).virtual_leader_id || ""),
       customer_name: lockedExisting ? (source?.customer_name || r.customer_name.trim() || null) : (r.customer_name.trim() || null),
       region: lockedExisting ? (source?.region || r.region.trim() || null) : (r.region.trim() || null),
       region_type: lockedExisting ? ((source?.region_type || r.region_type) === "unknown" ? null : (source?.region_type || r.region_type)) : (r.region_type === "unknown" ? null : r.region_type),
@@ -1963,6 +1978,17 @@ export default function Records() {
                     }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
+                  {i === 1 && (
+                    <div className="mt-1 space-y-0.5">
+                      <Label className="text-[11px] text-muted-foreground">가상기사 (정산 제외 · 업체 미표시)</Label>
+                      <LeaderCombobox
+                        leaders={selectableLeaders}
+                        value={(bulkShared as any).virtual_leader_id || ""}
+                        onChange={(v) => setBulkShared({ ...bulkShared, virtual_leader_id: v } as any)}
+                        placeholder="(선택)"
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2515,6 +2541,17 @@ export default function Records() {
                   {isCompanyRejected && (
                     <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                       해당 업체는 선택한 팀장을 거부팀장으로 등록한 업체입니다. (거부기사 표시 적용)
+                    </div>
+                  )}
+                  {i === 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      <Label className="text-[11px] text-muted-foreground">가상기사 (정산 제외 · 업체 미표시)</Label>
+                      <LeaderCombobox
+                        leaders={selectableLeaders}
+                        value={form.virtual_leader_id || ""}
+                        onChange={(v) => setForm({ ...form, virtual_leader_id: v })}
+                        placeholder="(선택) 혼자 간 2인배송 등"
+                      />
                     </div>
                   )}
                 </div>
