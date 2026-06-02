@@ -2525,6 +2525,17 @@ export default function Records() {
                       해당 업체는 선택한 팀장을 거부팀장으로 등록한 업체입니다. (거부기사 표시 적용)
                     </div>
                   )}
+                  {i === 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      <Label className="text-[11px] text-muted-foreground">가상기사 (정산 제외 · 업체 미표시)</Label>
+                      <LeaderCombobox
+                        leaders={selectableLeaders}
+                        value={form.virtual_leader_id || ""}
+                        onChange={(v) => setForm({ ...form, virtual_leader_id: v })}
+                        placeholder="(선택) 혼자 간 2인배송 등"
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
