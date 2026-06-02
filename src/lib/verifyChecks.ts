@@ -169,10 +169,15 @@ export function runVerify(input: VerifyInput): VerifyResult {
 
   // 업체 배송총합 vs 팀장 배송총합 (반올림 1원 이내 허용)
   if (Math.abs(totalsDiff) > 1) {
+    // 어느 행이 차이를 만드는지 행 단위로 다시 비교해서 진단 메시지에 포함
+    const offenders = diffRowsByLeaderShare(deliveries, leaders, special, oeunkyuSpecial).slice(0, 5);
+    const detail = offenders.length
+      ? ` — 의심 행 ${offenders.length}건: ${offenders.map((o) => `${o.date} ${o.company ?? "?"}/${o.customer ?? "?"}(${o.diff > 0 ? "+" : ""}${o.diff})`).join(", ")}`
+      : "";
     issues.push({
       severity: "error",
       code: "TOTALS_MISMATCH",
-      message: `업체 배송총합(${companyDeliveryTotal}) ≠ 팀장 배송총합(${leaderDeliveryTotal}), 차이 ${totalsDiff}`,
+      message: `업체 배송총합(${companyDeliveryTotal}) ≠ 팀장 배송총합(${leaderDeliveryTotal}), 차이 ${totalsDiff}${detail}`,
     });
   }
 
