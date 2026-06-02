@@ -2894,11 +2894,17 @@ export default function Records() {
               <div
                 role="button"
                 tabIndex={0}
-                onClick={() => setForm((f) => ({ ...f, revisit_required: !f.revisit_required }))}
+                onClick={() => {
+                  const next = !form.revisit_required;
+                  setForm((f) => ({ ...f, revisit_required: next }));
+                  if (next && !form.revisit_group_id) verifyRevisitForForm();
+                }}
                 onKeyDown={(e) => {
                   if (e.key === " " || e.key === "Enter") {
                     e.preventDefault();
-                    setForm((f) => ({ ...f, revisit_required: !f.revisit_required }));
+                    const next = !form.revisit_required;
+                    setForm((f) => ({ ...f, revisit_required: next }));
+                    if (next && !form.revisit_group_id) verifyRevisitForForm();
                   }
                 }}
                 className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer select-none"
