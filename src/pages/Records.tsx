@@ -861,6 +861,7 @@ function CodPicker({
 
 export default function Records() {
   const { user } = useAuth();
+  const { confirm: confirmSave, dialog: saveConfirmDialog } = useSaveConfirm();
   // 사용자 지정 수도권 키워드 캐시 동기화
   useEffect(() => {
     setMetroKeywordsCache(loadMetroKeywords(user?.id || "anon"));
