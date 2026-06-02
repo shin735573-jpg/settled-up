@@ -248,14 +248,15 @@ export async function printTargets(
     box-sizing: border-box;
   }
   .sheet:last-child { page-break-after: auto; break-after: auto; }
-  /* 비율 유지하며 페이지에 꽉 차게 (잘리지 않음) */
+  /* A4 페이지 전체를 가득 채워 글씨를 최대한 크게 인쇄
+     (object-fit: fill → 가로/세로 모두 A4 에 맞춰 늘림.
+      원본 정산서 비율이 A4 와 거의 같아 왜곡은 미미하며,
+      contain 일 때 생기던 상/하/좌/우 여백을 제거해 글씨 크기가 확대됨) */
   .sheet img {
     display: block;
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
   }
   @media print {
     html, body { width: 210mm; height: 297mm; }
