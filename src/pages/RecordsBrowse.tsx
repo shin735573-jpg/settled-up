@@ -390,6 +390,7 @@ function SlotPicker({
                       className={cn("px-2 py-1.5 cursor-pointer flex items-center gap-2", used ? "opacity-40 cursor-not-allowed" : "hover:bg-accent")}
                     >
                       <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <Badge variant="default" className="h-4 px-1 text-[9px] shrink-0">업체</Badge>
                       <span className="truncate">{c.name}</span>
                       {used && <span className="ml-auto text-[10px] text-muted-foreground">사용중</span>}
                     </div>
@@ -409,6 +410,7 @@ function SlotPicker({
                       className={cn("px-2 py-1.5 cursor-pointer flex items-center gap-2", used ? "opacity-40 cursor-not-allowed" : "hover:bg-accent")}
                     >
                       <Users className="h-3.5 w-3.5 text-secondary-foreground shrink-0" />
+                      <Badge variant="secondary" className="h-4 px-1 text-[9px] shrink-0">팀장</Badge>
                       <span className="truncate">{l.name}</span>
                       {used && <span className="ml-auto text-[10px] text-muted-foreground">사용중</span>}
                     </div>
