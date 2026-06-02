@@ -299,7 +299,11 @@ export function buildCompanyStatements(
   for (const c of companies) {
     if (!c.active) continue;
     // 정산주기 게이트
-    if (c.settlement_cycle === "monthly" && period !== "all") continue;
+    //  - biweekly 업체는 "월전체(all)" 보기에서 제외 (h1/h2 두 청구서로 따로 발행됨)
+    //  - monthly 업체는 원칙적으로 "월전체(all)" 보기에서 1건으로 발행하지만,
+    //    h1/h2 보기에서도 해당 보름 내 실제 배송행이 있으면 그 행들만 묶어 청구서를 발행한다.
+    //    (업체정산 화면 표시·팀장정산 청구합계와 정합을 맞추기 위함)
+    //    실제 행 유무는 아래에서 row 누적 후 length 로 판정한다.
     if (c.settlement_cycle !== "monthly" && period === "all") continue;
 
     const rejectIds = new Set(
