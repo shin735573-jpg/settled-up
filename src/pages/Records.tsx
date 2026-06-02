@@ -1557,11 +1557,17 @@ export default function Records() {
       effectiveSrc = { ...src, revisit_group_id: newGid, revisit_required: true, revisit_done: true, revisit_visit_no: 1 };
     }
     const clone = build2ndBulkRowFromSrc(effectiveSrc);
-    setBulkRows((rows) => rows.map((x, i) => (i === idx ? clone : x)));
+    // 현재 입력 행은 그대로 두고, 바로 아래에 잠금된 2차 행(원본 1차 내용 그대로, 금액만 수정 가능)을 자동 생성.
+    // 팀장이 1차와 달라도 _existing 필드에 보관되어 함께 표시됨.
+    setBulkRows((rows) => {
+      const next = [...rows];
+      next.splice(idx + 1, 0, clone);
+      return next;
+    });
     setRevisitDetectOpen(false);
     setRevisitDetectCandidates([]);
     setRevisitDetectIdx(null);
-    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행으로 변환됨`);
+    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행이 아래에 추가됨 (금액만 수정 가능)`);
   };
 
   // 종합 오류 검사 실행
