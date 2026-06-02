@@ -1458,8 +1458,8 @@ export default function Records() {
     setRevisitLoading(false);
   };
 
-  // 후보 선택 → bulk 그리드에 잠금된 2차 행 추가
-  const addRevisitFromExisting = (src: any) => {
+  // src 배송 행을 잠금된 2차 BulkRow 로 변환
+  const build2ndBulkRowFromSrc = (src: any): BulkRow => {
     const localId =
       (typeof crypto !== "undefined" && (crypto as any).randomUUID)
         ? (crypto as any).randomUUID()
@@ -1467,7 +1467,7 @@ export default function Records() {
     const sourceRegionType =
       (src.region_type as RegionType | null) ||
       (Number(src.regional_fee || 0) > 0 ? "regional" : Number(src.metro_fee || 0) > 0 ? "metro" : classifyRegion(src.region || ""));
-    const clone: BulkRow = {
+    return {
       company_id: src.company_id || "",
       customer_name: src.customer_name || "",
       region: src.region || "",
@@ -1498,9 +1498,66 @@ export default function Records() {
       paid_existing: !!src.paid,
       two_person_existing: !!src.two_person,
     };
-    setBulkRows((rows) => [...rows, clone]);
+  };
+
+  // 후보 선택 → bulk 그리드에 잠금된 2차 행 추가
+  const addRevisitFromExisting = (src: any) => {
+    setBulkRows((rows) => [...rows, build2ndBulkRowFromSrc(src)]);
     setRevisitPickerOpen(false);
     toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행 추가됨`);
+  };
+
+  // 입력 중인 행의 customer/region 으로 과거 배송 매칭 조회
+  const detectRevisitForRow = async (idx: number) => {
+    const row = bulkRows[idx];
+    if (!row || row.revisit_visit_no === 2 || row.revisit_group_local) return;
+    const name = (row.customer_name || "").trim();
+    const region = (row.region || "").trim();
+    if (!name) return;
+    const key = `${idx}|${name.toLowerCase()}|${region.toLowerCase()}`;
+    if (detectedKeyRef.current.has(key)) return;
+    detectedKeyRef.current.add(key);
+    setRevisitDetectLoading(true);
+    setRevisitDetectIdx(idx);
+    let q = supabase
+      .from("deliveries")
+      .select("*")
+      .ilike("customer_name", name)
+      .order("date", { ascending: false })
+      .limit(20);
+    if (region) q = q.ilike("region", `%${region}%`);
+    const { data, error } = await q;
+    setRevisitDetectLoading(false);
+    if (error || !data || data.length === 0) { setRevisitDetectIdx(null); return; }
+    setRevisitDetectCandidates(data);
+    setRevisitDetectOpen(true);
+  };
+
+  // 감지된 후보 선택 → 현재 행을 잠금된 2차로 교체. 원본이 revisit_group_id 없으면 그룹 ID를 부여하고 1차로 표시.
+  const confirmDetectedRevisit = async (src: any) => {
+    const idx = revisitDetectIdx;
+    if (idx == null) return;
+    let effectiveSrc = src;
+    if (!src.revisit_group_id) {
+      const newGid = makeUuid();
+      const { error } = await supabase
+        .from("deliveries")
+        .update({
+          revisit_group_id: newGid,
+          revisit_required: true,
+          revisit_done: true,
+          revisit_visit_no: 1,
+        })
+        .eq("id", src.id);
+      if (error) { toast.error(`1차 표시 실패: ${error.message}`); return; }
+      effectiveSrc = { ...src, revisit_group_id: newGid, revisit_required: true, revisit_done: true, revisit_visit_no: 1 };
+    }
+    const clone = build2ndBulkRowFromSrc(effectiveSrc);
+    setBulkRows((rows) => rows.map((x, i) => (i === idx ? clone : x)));
+    setRevisitDetectOpen(false);
+    setRevisitDetectCandidates([]);
+    setRevisitDetectIdx(null);
+    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행으로 변환됨`);
   };
 
   // 종합 오류 검사 실행
