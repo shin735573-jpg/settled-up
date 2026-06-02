@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 import { computeRevisitRedistribution } from "@/lib/revisitRedistribute";
+import { traceSummaryMismatch } from "@/lib/summaryMismatchTrace";
+import { SummaryMismatchPanel } from "@/components/SummaryMismatchPanel";
 
 type Delivery = any;
 type Company = {
