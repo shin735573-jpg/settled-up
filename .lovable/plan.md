@@ -1,54 +1,54 @@
-## 저장 전 요약 확인 다이얼로그
+# 재방문 정산 정리
 
-### 범위
+## 동작 정의
+- **업체 청구**: 재방문 그룹은 1차 행의 배송비(수도권/비고/지방)만 그대로 청구. 2차 행은 업체 청구서에 미반영. (현재 동작 유지)
+- **팀장 정산**: 재방문 그룹 전체에 분배되는 총액 = **1차 행의 금액**.
+  - 분배는 "재방문 완료 처리" 시 **팀장별 금액을 수기 입력**한 값으로 정산.
+  - 수기 분배가 입력되지 않은 그룹은 **1차 행의 팀장1에게 전액 귀속**.
+  - 2차 행에 별도 입력된 금액/팀장은 정산에 사용하지 않음(메모 보존만).
+- **착불(COD)**: 1차 행의 cod_amount만 정산/청구에 반영(중복 방지).
 
-앱 전체에서 **사용자가 명시적으로 "저장" 버튼을 누르는 굵직한 저장 동작**에 요약 다이얼로그를 추가합니다. 인라인 셀 편집(설정 화면의 라벨/금액 자동 저장 같은 디바운스 저장)이나 즉시 토글(체크박스 활성/비활성)에는 적용하지 않습니다 — 매번 묻게 되면 오히려 작업이 불가능해집니다.
+## 데이터
+`deliveries` 테이블에 컬럼 추가:
+- `revisit_manual_shares jsonb` — 1차 행에만 저장. 예:
+  ```json
+  [{"leader_id":"...","leader_name":"홍길동","amount":40000},
+   {"leader_id":"...","leader_name":"김철수","amount":20000}]
+  ```
+- `revisit_distributed boolean default false` — 수기 분배 완료 여부.
 
-### 적용 대상
+## UI
+1. **재방문 분배 입력 다이얼로그** (신규 컴포넌트)
+   - 헤더: 1차 날짜·고객·지역·1차 총액 표시
+   - 본문: 팀장 추가 행(LeaderCombobox + 금액 입력). 그룹 내 등장 팀장(1차+2차) 자동 프리필.
+   - 합계 / 1차 총액 대비 차액 실시간 표시(차액 0이 아니어도 저장 가능, 경고만)
+   - 저장 시 1차 행 update: `revisit_manual_shares`, `revisit_distributed=true`, 2차 행 `revisit_done=true` 자동.
 
-| 화면 | 동작 | 요약 내용 |
-|---|---|---|
-| 배송기록 — 단건 폼 | 신규 저장 / 수정 | 날짜·업체·고객·팀장·금액 합계, 재방문 여부 |
-| 배송기록 — 여러건 입력 | 전체 저장 | 건수, 업체별 합계, 총 금액, 재방문 그룹 수 |
-| 배송기록 — 붙여넣기 | 저장 | 건수, 오류 제외 건수, 총 금액 |
-| 휴무일 | 추가 | 날짜·범위·대상 팀장 |
-| 본사정산 | 정산 항목 저장 | 업체·금액·기간 |
-| 팀장정산 | 기간 공제 저장 | 팀장·항목·금액 |
+2. **진입점 2곳**
+   - `Records.tsx` 단일폼 "재방문 진행" 토글 옆에 "분배 입력" 버튼 (revisit_group_id 있을 때만)
+   - `RecordsBrowse.tsx` 재방문 배지 옆에 작은 "분배" 버튼
 
-### 적용 제외
+## 정산 로직 변경 (`src/lib/statementData.ts`)
+`buildLeaderStatements`에서:
+- 입력 deliveries를 `revisit_group_id`로 그룹화.
+- 재방문 그룹은 개별 행 `allocateRow` 호출에서 제외하고, **그룹 합성 행 1건**으로 다음과 같이 처리:
+  - 금액 베이스 = 1차 행의 metro/note/regional/cod
+  - 수기 분배가 있으면: 각 leader_id에 대해 `LeaderShare` 생성(1차 region_type 기준 metro 또는 regional에 amount 배치, note_amount/cod=0, 마지막 한 명에게 잔액 보정). cod는 1차 팀장1에게 별도 share로 귀속.
+  - 수기 분배가 없으면: 1차 행 그대로 `allocateRow`처럼 처리하되 leader1만 전액 (실질적으로 기존 single-leader 결과와 동일).
+- 비재방문 행은 기존 경로 유지.
 
-- 설정 화면의 인라인 편집 (업체/팀장 목록의 라벨·금액·체크박스 — 디바운스 자동 저장이라 매번 확인하면 입력 불가)
-- 단순 삭제 (이미 별도 confirm이 있음)
-- 즉시 토글 (선결제/2인배송 같은 행 단위 토글)
+## 마이그레이션 / 타입
+- 신규 SQL 마이그레이션: `ALTER TABLE deliveries ADD COLUMN revisit_manual_shares jsonb, ADD COLUMN revisit_distributed boolean NOT NULL DEFAULT false;`
+- types.ts는 자동 갱신.
 
-### 다이얼로그 디자인
+## 영향 파일
+- `supabase/migrations/<new>.sql`
+- `src/lib/statementData.ts` (`buildLeaderStatements` 수정, 타입에 두 컬럼 추가)
+- `src/pages/Records.tsx` (분배 다이얼로그, 진입 버튼, payload 매핑)
+- `src/pages/RecordsBrowse.tsx` (분배 버튼)
+- 신규 `src/components/RevisitShareDialog.tsx`
+- 테스트: `src/lib/statementData.test.ts`에 재방문 시 수기 분배/미입력 케이스 추가
 
-```text
-┌─ 저장 확인 ────────────────────────┐
-│ 다음 내용으로 저장합니다           │
-│                                    │
-│ • 건수: 12건                       │
-│ • 업체: 마조드까사 외 3곳          │
-│ • 총액: 1,450,000원                │
-│ • 재방문: 2그룹                    │
-│                                    │
-│         [취소]   [저장]            │
-└────────────────────────────────────┘
-```
-
-- shadcn `AlertDialog` 사용 (이미 프로젝트에 있음)
-- `Enter` = 저장, `Esc` = 취소
-
-### 기술 구현
-
-1. `src/components/SaveConfirmDialog.tsx` 신규 공통 컴포넌트
-   - props: `open`, `title`, `summary: {label, value}[]`, `onConfirm`, `onCancel`, `saving`
-2. 각 저장 함수 패턴 변경:
-   - 기존: 버튼 클릭 → 즉시 `await supabase.insert(...)`
-   - 변경: 버튼 클릭 → 요약 계산 → 다이얼로그 open → 확인 시 기존 저장 함수 실행
-3. 위 대상 화면에 다이얼로그 상태(`confirmOpen`, `pendingPayload`) 추가
-4. 한 번에 한 화면씩 단계적으로 적용 — Records 단건/여러건 폼이 가장 사용 빈도 높으므로 1순위
-
-### 설정에서 끄기 옵션 (선택)
-
-너무 잦으면 끌 수 있도록 설정 → "저장 전 확인" 토글을 추가할 수도 있지만, 일단 기본 ON으로만 깔고 사용해보신 뒤 필요하면 추가하는 것을 권장합니다.
+## 제외
+- 한눈요약/HQ 화면 로직 변경 없음(`buildLeaderStatements` 결과를 그대로 사용하므로 자동 반영).
+- 업체 청구 로직은 현재 동작 그대로 유지(변경 없음, 주석만 보강).
