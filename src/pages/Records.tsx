@@ -2279,6 +2279,7 @@ export default function Records() {
   return (
     <div className="space-y-4" ref={recordsRootRef}>
       {saveConfirmDialog}
+      <FirstTimeSetupAlert companyCount={companies.length} leaderCount={leaders.length} />
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">기록입력</h1>
         <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40 flex-1 sm:flex-none" />
