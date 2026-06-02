@@ -1728,11 +1728,29 @@ export default function Records() {
     };
   };
 
-  // 후보 선택 → bulk 그리드에 잠금된 2차 행 추가
-  const addRevisitFromExisting = (src: any) => {
-    setBulkRows((rows) => [...rows, build2ndBulkRowFromSrc(src)]);
+  // 후보 선택 → bulk 그리드에 잠금된 "다음 차수" 행 추가
+  // src 는 그룹의 최신 차수 행이므로 다음 차수 = src.visit_no + 1
+  const addRevisitFromExisting = async (src: any) => {
+    let firstRow = src;
+    let nextVisit = Number(src.revisit_visit_no || 1) + 1;
+    if (src.revisit_group_id) {
+      const { data: groupRows } = await supabase
+        .from("deliveries")
+        .select("*")
+        .eq("revisit_group_id", src.revisit_group_id)
+        .order("revisit_visit_no", { ascending: true });
+      if (groupRows && groupRows.length > 0) {
+        const first = groupRows.find((g) => Number(g.revisit_visit_no || 1) === 1) || groupRows[0];
+        const maxV = groupRows.reduce((m, g) => Math.max(m, Number(g.revisit_visit_no || 1)), 1);
+        firstRow = first;
+        nextVisit = maxV + 1;
+      }
+    }
+    const row = build2ndBulkRowFromSrc(firstRow);
+    row.revisit_visit_no = nextVisit;
+    setBulkRows((rows) => [...rows, row]);
     setRevisitPickerOpen(false);
-    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행 추가됨`);
+    toast.success(`${firstRow.company_name} ${firstRow.customer_name || ""} ${nextVisit}차 행 추가됨`);
   };
 
   // 입력 중인 행의 customer/region 으로 과거 배송 매칭 조회
