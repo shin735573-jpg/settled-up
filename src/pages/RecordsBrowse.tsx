@@ -135,6 +135,8 @@ export default function RecordsBrowse() {
     let base = records;
     if (sel.kind === "company") {
       base = base.filter((r) => r.company_id === sel.id);
+      // 업체 관점: 재방문 그룹은 1차 행만 표시 (2차 이후는 업체에 청구/노출하지 않음)
+      base = keepRevisitPrimaryOnly(base);
       if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
       return base;
     }
