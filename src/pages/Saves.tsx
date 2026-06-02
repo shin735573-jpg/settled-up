@@ -38,10 +38,10 @@ import {
 } from "@/lib/statementValidation";
 import { validateSettlementInvariants } from "@/lib/settlementInvariants";
 import { toast } from "@/hooks/use-toast";
-import { exportSingle, exportZip, type ExportTarget } from "@/lib/statementExport";
+import { exportSingle, exportZip, printTargets, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Cloud, CloudOff, FolderOpen, FolderCheck } from "lucide-react";
+import { Cloud, CloudOff, FolderOpen, FolderCheck, Printer } from "lucide-react";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 import {
   pickSaveDirectory,
@@ -578,6 +578,39 @@ export default function Saves() {
     "정산서 재생성", "both-all",
     () => doExportAll("both", true),
   );
+
+  // ─── 인쇄 (저장되는 사진과 동일 이미지) ───────────────────
+  async function doPrint(kind: "company" | "leader", ids?: string[]) {
+    const all = collectNodes(kind);
+    const targets = ids ? all.filter((t) => ids.includes(t.id)) : all;
+    if (targets.length === 0) {
+      toast({ title: "인쇄 대상 없음", variant: "destructive" });
+      return;
+    }
+    setExportingMsg(`${kind === "company" ? "업체" : "팀장"} 인쇄 준비 중…`);
+    try {
+      const { count, pages } = await printTargets(
+        targets,
+        (done, total, name) => setExportingMsg(`${done}/${total} ${name}`),
+      );
+      toast({ title: "인쇄 다이얼로그 열림", description: `${count}건 · ${pages}장` });
+    } catch (e) {
+      toast({ title: "인쇄 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
+    } finally {
+      setExportingMsg("");
+    }
+  }
+  const onPrintCompanyOne = () => selectedCompany && doPrint("company", [selectedCompany.company.id]);
+  const onPrintCompanyAll = () => {
+    const ids = companyStmts.filter((s) => s.finalClaim > 0).map((s) => s.company.id);
+    doPrint("company", ids);
+  };
+  const onPrintLeaderOne = () => selectedLeader && doPrint("leader", [selectedLeader.leader.id]);
+  const onPrintLeaderAll = () => {
+    const ids = leaderStmts.filter((s) => s.deliveryCount > 0).map((s) => s.leader.id);
+    doPrint("leader", ids);
+  };
+
   const onCheckOnly = () => {
     const result = runChecksFor("both-all");
     setCheckTitle("저장 전 오류 검사 결과 (업체 + 팀장)");
@@ -680,6 +713,20 @@ export default function Saves() {
           <GateButton reason={blockedReason} onClick={onSaveLeaderAll} disabled={leaderStmts.length === 0 || isLocked("leader") || saveBlocked}>팀장 전체 사진 저장</GateButton>
           <GateButton reason={blockedReason} variant="secondary" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader") || saveBlocked}>정산서 재생성</GateButton>
           <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 border-t pt-3">
+          <Button size="lg" variant="outline" className="h-14" onClick={onPrintCompanyOne} disabled={!selectedCompany}>
+            <Printer className="mr-2 h-4 w-4" /> 업체 인쇄
+          </Button>
+          <Button size="lg" variant="outline" className="h-14" onClick={onPrintCompanyAll} disabled={companyStmts.length === 0}>
+            <Printer className="mr-2 h-4 w-4" /> 업체 전체 인쇄
+          </Button>
+          <Button size="lg" variant="outline" className="h-14" onClick={onPrintLeaderOne} disabled={!selectedLeader}>
+            <Printer className="mr-2 h-4 w-4" /> 팀장 인쇄
+          </Button>
+          <Button size="lg" variant="outline" className="h-14" onClick={onPrintLeaderAll} disabled={leaderStmts.length === 0}>
+            <Printer className="mr-2 h-4 w-4" /> 팀장 전체 인쇄
+          </Button>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3 text-sm">
           <div className="flex items-center gap-2">

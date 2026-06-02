@@ -204,3 +204,64 @@ export async function exportZip(
   saveAs(blob, filename);
   return { filename, count: targets.length };
 }
+
+/**
+ * 저장되는 JPG 와 동일한 이미지를 새 창에 띄워 인쇄한다.
+ * - renderJpg 를 그대로 사용하므로 저장 사진과 1:1 일치
+ * - 페이지마다 줄바꿈(@page A4) 적용
+ */
+export async function printTargets(
+  targets: ExportTarget[],
+  onProgress?: (done: number, total: number, name: string) => void,
+): Promise<{ count: number; pages: number }> {
+  if (!targets.length) return { count: 0, pages: 0 };
+
+  // 팝업은 사용자 제스처 동기 흐름 안에서 열어야 차단되지 않는다.
+  const win = window.open("", "_blank", "width=900,height=1200");
+  if (!win) throw new Error("팝업이 차단되었습니다. 브라우저 팝업 차단을 해제해 주세요.");
+
+  win.document.open();
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서 인쇄</title>
+<style>
+  @page { size: A4 portrait; margin: 8mm; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .sheet { display: block; width: 100%; page-break-after: always; break-after: page; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .sheet img { display: block; width: 100%; height: auto; }
+  .loading { font: 14px system-ui, sans-serif; padding: 24px; color: #444; }
+</style></head><body><div id="root"><div class="loading">정산서 이미지 준비 중…</div></div></body></html>`);
+  win.document.close();
+
+  const root = win.document.getElementById("root")!;
+  root.innerHTML = "";
+
+  let pageCount = 0;
+  let i = 0;
+  for (const t of targets) {
+    onProgress?.(i, targets.length, t.name);
+    for (const node of t.pages) {
+      const blob = await renderJpg(node);
+      const url = URL.createObjectURL(blob);
+      const wrap = win.document.createElement("div");
+      wrap.className = "sheet";
+      const img = win.document.createElement("img");
+      img.src = url;
+      // 이미지 로드 완료 대기 — print 호출 전 모든 이미지가 그려져 있어야 함
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+      });
+      wrap.appendChild(img);
+      root.appendChild(wrap);
+      pageCount++;
+    }
+    i++;
+  }
+  onProgress?.(targets.length, targets.length, "");
+
+  // 인쇄 다이얼로그 호출 (window.print 는 동기 — 다이얼로그 닫힐 때까지 블록)
+  win.focus();
+  try { win.print(); } catch { /* noop */ }
+
+  return { count: targets.length, pages: pageCount };
+}
