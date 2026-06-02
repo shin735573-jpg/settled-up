@@ -104,6 +104,7 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
   const [open, setOpen] = useState(true);
   const [query, setQuery] = useState("");
   const [preVat, setPreVat] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<{
     row: TVBRow;
     componentKey: ComponentKey;
@@ -125,6 +126,19 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
     : result.components;
   const reconstructedDisplay = componentsDisplay.reduce((s, c) => s + c.signedAmount, 0);
   const reconcileOk = Math.abs(reconstructedDisplay - diffDisplay) <= 1;
+
+  const activeKeys =
+    selectedKeys.size === 0
+      ? new Set(componentsDisplay.map((c) => c.key))
+      : selectedKeys;
+  const isFiltering = selectedKeys.size > 0;
+  const toggleKey = (key: string) =>
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <div className="rounded border border-amber-500 bg-amber-500/10 px-3 py-2 text-sm text-foreground">
@@ -184,8 +198,15 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
               <tbody>
                 {componentsDisplay.map((c) => {
                   const hot = c.amount > 0;
+                  const selected = activeKeys.has(c.key);
+                  const dim = isFiltering && !selected;
                   return (
-                    <tr key={c.key} className="border-b border-border/40">
+                    <tr
+                      key={c.key}
+                      onClick={() => toggleKey(c.key)}
+                      className={`border-b border-border/40 cursor-pointer hover:bg-muted/50 ${selected && isFiltering ? "bg-amber-500/15" : ""} ${dim ? "opacity-40" : ""}`}
+                      title={selected && isFiltering ? "클릭하여 필터에서 제외" : isFiltering ? "클릭하여 필터에 추가" : "클릭하여 이 원인만 보기"}
+                    >
                       <td className="px-1 py-1">{c.label}</td>
                       <td className="px-1 py-1 text-right tabular-nums">{c.amount.toLocaleString()}</td>
                       <td className={`px-1 py-1 text-right tabular-nums ${hot ? "font-semibold" : "text-muted-foreground"}`}>
@@ -212,6 +233,32 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
             </table>
           </div>
 
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="text-xs text-muted-foreground mr-1">원인 필터:</span>
+            <button
+              type="button"
+              onClick={() => setSelectedKeys(new Set())}
+              className={`rounded border px-2 py-0.5 text-xs ${!isFiltering ? "border-amber-500 bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold" : "border-border bg-background text-muted-foreground hover:bg-muted/50"}`}
+            >
+              전체
+            </button>
+            {componentsDisplay
+              .filter((c) => c.amount > 0)
+              .map((c) => {
+                const on = activeKeys.has(c.key);
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => toggleKey(c.key)}
+                    className={`rounded border px-2 py-0.5 text-xs ${on && isFiltering ? "border-amber-500 bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold" : "border-border bg-background text-muted-foreground hover:bg-muted/50"}`}
+                  >
+                    {c.label} <span className="opacity-70">({c.rows.length})</span>
+                  </button>
+                );
+              })}
+          </div>
+
           <input
             type="text"
             value={query}
@@ -221,7 +268,9 @@ export function TotalVsBilledMismatchBanner({ result }: { result: TotalVsBilledC
           />
 
           <div className="grid gap-2">
-            {componentsDisplay.filter((c) => c.amount > 0).map((c) => (
+            {componentsDisplay
+              .filter((c) => c.amount > 0 && activeKeys.has(c.key))
+              .map((c) => (
               <ComponentBlock
                 key={c.key}
                 label={c.label}
