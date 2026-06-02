@@ -298,6 +298,29 @@ export default function RecordsBrowse() {
           <div className="text-xs text-muted-foreground">조회 범위: <span className="font-semibold">{rangeLabel}</span></div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-1 pt-2 border-t">
+          <span className="text-xs text-muted-foreground mr-1">유형 필터:</span>
+          {([
+            { v: "all", label: "전체" },
+            { v: "virtual", label: "가상기사 건만" },
+            { v: "revisit", label: "재방문 건만" },
+          ] as const).map((opt) => (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => setTypeFilter(opt.v)}
+              className={cn(
+                "text-xs px-2 py-1 rounded border",
+                typeFilter === opt.v
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-accent",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         {rangeMode !== "day" && availableDates.length > 0 && (
           <div className="flex flex-wrap items-center gap-1 pt-2 border-t">
             <span className="text-xs text-muted-foreground mr-1">하루별 보기:</span>
