@@ -202,6 +202,40 @@ export function runVerify(input: VerifyInput): VerifyResult {
         company: norm(d.company_name),
       });
     }
+    // 추가 금액 검수 (사용자 요청 #2)
+    const feeSum = Number(d.metro_fee || 0) + Number(d.regional_fee || 0) + Number(d.note_amount || 0);
+    if (feeSum <= 0 && cod <= 0) {
+      issues.push({
+        severity: "warning", code: "ZERO_ALL",
+        message: "배송비와 착불이 모두 0원",
+        deliveryId: d.id, date: d.date,
+        customer: displayCustomerName(d.customer_name), company: norm(d.company_name),
+      });
+    }
+    if (feeSum <= 0 && cod > 0) {
+      issues.push({
+        severity: "warning", code: "COD_ONLY",
+        message: "배송비 없이 착불만 입력",
+        deliveryId: d.id, date: d.date,
+        customer: displayCustomerName(d.customer_name), company: norm(d.company_name),
+      });
+    }
+    if (feeSum > 0 && cod > feeSum) {
+      issues.push({
+        severity: "warning", code: "COD_GT_FEE",
+        message: `착불(${cod})이 배송비합계(${feeSum})보다 큼`,
+        deliveryId: d.id, date: d.date,
+        customer: displayCustomerName(d.customer_name), company: norm(d.company_name),
+      });
+    }
+    if (d.paid && cod > 0) {
+      issues.push({
+        severity: "warning", code: "PAID_BUT_COD",
+        message: `결제완료인데 착불 ${cod}원 남아 있음`,
+        deliveryId: d.id, date: d.date,
+        customer: displayCustomerName(d.customer_name), company: norm(d.company_name),
+      });
+    }
     const dupKey = [
       d.date,
       d.company_id || norm(d.company_name),
@@ -221,17 +255,17 @@ export function runVerify(input: VerifyInput): VerifyResult {
         !!arr[0].revisit_group_id &&
         arr.every((x) => x.revisit_group_id === arr[0].revisit_group_id);
       if (allSameGroup) continue;
-      for (const d of arr) {
-        issues.push({
-          severity: "warning",
-          code: "DUPLICATE",
-          message: `중복 의심 (${arr.length}건) ${key}`,
-          deliveryId: d.id,
-          date: d.date,
-          customer: displayCustomerName(d.customer_name),
-          company: norm(d.company_name),
-        });
-      }
+      // 같은 묶음은 1건만 표시 (사용자 요청 #8)
+      const head = arr[0];
+      issues.push({
+        severity: "warning",
+        code: "DUPLICATE",
+        message: `중복 의심 (${arr.length}건) ${key}`,
+        deliveryId: head.id,
+        date: head.date,
+        customer: displayCustomerName(head.customer_name),
+        company: norm(head.company_name),
+      });
     }
   }
 
