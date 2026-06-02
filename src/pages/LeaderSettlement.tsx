@@ -397,6 +397,18 @@ export default function LeaderSettlement() {
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0;
     rows.forEach((r) => {
       if (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds)) return;
+      // 재방문 그룹은 override 기준으로 계산 (raw에서도 1차 청구 한도 내에서 분배)
+      const ov = revisitOverride.get(r.id);
+      if (ov !== undefined) {
+        if (ov.length === 0) return;
+        const mine = ov.filter((s) => s.leader_id === lid);
+        if (mine.length === 0) return;
+        let m = 0, n = 0, rg = 0, c = 0;
+        mine.forEach((s) => { m += s.metro; n += s.note_amount; rg += s.regional; c += s.cod; });
+        metro += m; noteAmt += n; regional += rg; cod += c;
+        count += 1;
+        return;
+      }
       const shares = allocateRow({
         leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
         split_type: r.split_type, two_person: r.two_person,
