@@ -1313,6 +1313,8 @@ export default function Records() {
       two_person: !!(r as any).two_person,
       is_missing: !!r.is_missing,
       missing_reason: r.missing_reason || "",
+      settle_month: parseMissingReason(r.missing_reason).settleMonth || "",
+      settle_half: (parseMissingReason(r.missing_reason).half ?? "FULL") as MissingHalf,
       revisit_required: !!(r as any).revisit_required,
       revisit_done: !!(r as any).revisit_done,
       revisit_group_id: (r as any).revisit_group_id ?? null,
