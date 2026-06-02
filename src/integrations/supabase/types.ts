@@ -108,6 +108,8 @@ export type Database = {
         Row: {
           alba_deduction: number
           cod_amount: number
+          companion: boolean
+          companion_reason: string | null
           company_id: string | null
           company_name: string
           created_at: string
@@ -147,6 +149,8 @@ export type Database = {
         Insert: {
           alba_deduction?: number
           cod_amount?: number
+          companion?: boolean
+          companion_reason?: string | null
           company_id?: string | null
           company_name: string
           created_at?: string
@@ -186,6 +190,8 @@ export type Database = {
         Update: {
           alba_deduction?: number
           cod_amount?: number
+          companion?: boolean
+          companion_reason?: string | null
           company_id?: string | null
           company_name?: string
           created_at?: string

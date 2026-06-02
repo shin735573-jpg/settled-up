@@ -1,42 +1,51 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { X, Search, Building2, Users, Maximize2, Pencil } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { LeaderCombobox } from "@/components/LeaderCombobox";
+import { Search, Pencil, AlertTriangle, Users, Trash2 } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { groupSuspectDuplicates, type DuplicateGroup } from "@/lib/duplicateCheck";
-import { AlertTriangle, ChevronDown } from "lucide-react";
 import {
-  computeRevisitRedistribution,
-  getRevisitFeeForLeader,
-} from "@/lib/revisitRedistribute";
-import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
+  groupByLooseKey,
+  classifyGroupRow,
+  recommendAction,
+  validateMergePlan,
+  buildUpdatePatches,
+  exactKey,
+  totalFee,
+  statusLabel,
+  actionLabel,
+  type GroupRow,
+  type LooseGroup,
+  type RowStatus,
+  type RecommendedAction,
+  type MergePlanItem,
+} from "@/lib/recordGrouping";
 
-type Company = { id: string; name: string; active: boolean };
-type Leader = { id: string; name: string; active: boolean; is_virtual?: boolean };
-type Delivery = any;
+type Leader = { id: string; name: string; active: boolean; is_virtual?: boolean; aliases?: string[] };
 
-type Sel =
-  | { kind: "company"; id: string; name: string }
-  | { kind: "leader"; id: string; name: string };
-
-const SLOT_COUNT = 6;
-
-type RangeMode = "month" | "day" | "range";
-
-const todayStr = () => new Date().toISOString().slice(0, 10);
-const addDays = (iso: string, n: number) => {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 const monthStart = (m: string) => m + "-01";
 const monthEndExclusive = (m: string) => {
   const d = new Date(m + "-01");
@@ -44,922 +53,841 @@ const monthEndExclusive = (m: string) => {
   return d.toISOString().slice(0, 10);
 };
 
-const gridColsByCount = (n: number) => {
-  if (n <= 1) return "grid-cols-1";
-  if (n === 2) return "grid-cols-2";
-  if (n === 3) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
-  if (n === 4) return "grid-cols-1 md:grid-cols-2";
-  return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"; // 5,6
+const STATUS_COLOR: Record<RowStatus, string> = {
+  normal: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  exact_duplicate: "bg-red-100 text-red-700 border-red-200",
+  suspect_duplicate: "bg-amber-100 text-amber-700 border-amber-200",
+  leader2_missing: "bg-orange-100 text-orange-700 border-orange-200",
+  two_person_mismatch: "bg-rose-100 text-rose-700 border-rose-200",
+  companion_needed: "bg-sky-100 text-sky-700 border-sky-200",
 };
 
-// 같은 고객+업체 기준으로 재방문 그룹의 순번(N회차)을 계산
-function buildRevisitOrdinalMap(records: any[]): Map<string, number> {
-  const norm = (s: any) => String(s ?? "").trim().toLowerCase();
-  // key = customer|company → Map<groupId, earliestDate>
-  const byCustomer = new Map<string, Map<string, string>>();
-  for (const r of records) {
-    const gid = r.revisit_group_id;
-    if (!gid) continue;
-    const key = `${norm(r.customer_name)}|${norm(r.company_name)}`;
-    let m = byCustomer.get(key);
-    if (!m) { m = new Map(); byCustomer.set(key, m); }
-    const prev = m.get(gid);
-    if (!prev || String(r.date) < prev) m.set(gid, String(r.date));
-  }
-  // groupId → ordinal
-  const ord = new Map<string, number>();
-  for (const m of byCustomer.values()) {
-    const sorted = [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-    sorted.forEach(([gid], i) => ord.set(gid, i + 1));
-  }
-  return ord;
-}
+const RECOMMEND_COLOR: Record<RecommendedAction, string> = {
+  dedupe: "bg-red-50 border-red-300 text-red-700",
+  merge_companion: "bg-sky-50 border-sky-300 text-sky-700",
+  merge_two_person: "bg-violet-50 border-violet-300 text-violet-700",
+  keep_separate: "bg-muted text-muted-foreground border",
+};
+
+type FilterStatus = "all" | RowStatus;
 
 export default function RecordsBrowse() {
   const navigate = useNavigate();
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
-  const [records, setRecords] = useState<Delivery[]>([]);
-  const [rangeMode, setRangeMode] = useState<RangeMode>("month");
-  const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [filterDay, setFilterDay] = useState<string>(() => todayStr());
-  const [rangeStart, setRangeStart] = useState<string>(() => {
-    const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10);
-  });
-  const [rangeEnd, setRangeEnd] = useState<string>(() => todayStr());
-  const [dailyFilter, setDailyFilter] = useState<string>(""); // 패널 내부 추가 일자 필터 (YYYY-MM-DD)
-  const [typeFilter, setTypeFilter] = useState<"all" | "virtual" | "revisit">("all");
-  const [slots, setSlots] = useState<(Sel | null)[]>(() => Array(SLOT_COUNT).fill(null));
+  const [records, setRecords] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [detail, setDetail] = useState<Sel | null>(null);
+  const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
+  const [pendingActions, setPendingActions] = useState<Map<string, MergePlanItem>>(new Map());
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const [{ data: c }, { data: l }] = await Promise.all([
-        supabase.from("companies").select("id,name,active").order("name"),
-        supabase.from("team_leaders").select("id,name,active,is_virtual").order("name"),
-      ]);
-      setCompanies(((c as Company[]) || []).filter((x) => x.active));
-      setLeaders(((l as Leader[]) || []).filter((x) => x.active));
-    })();
-  }, []);
+  // 일괄 적용 모달
+  const [bulkOpen, setBulkOpen] = useState<null | RecommendedAction>(null);
+  const [bulkLeader2, setBulkLeader2] = useState("");
+  const [bulkReason, setBulkReason] = useState("");
+  const [bulkSplit, setBulkSplit] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      let start = "", end = "";
-      if (rangeMode === "month") {
-        start = monthStart(filterMonth);
-        end = monthEndExclusive(filterMonth);
-      } else if (rangeMode === "day") {
-        start = filterDay;
-        end = addDays(filterDay, 1);
-      } else {
-        const s = rangeStart, e = rangeEnd;
-        const lo = s <= e ? s : e;
-        const hi = s <= e ? e : s;
-        start = lo;
-        end = addDays(hi, 1);
-      }
-      const { data } = await supabase
+  // 직접 수정 폼
+  const [editForm, setEditForm] = useState<GroupRow | null>(null);
+
+  // 로드
+  const reload = async () => {
+    setLoading(true);
+    const start = monthStart(filterMonth);
+    const end = monthEndExclusive(filterMonth);
+    const [{ data: dl }, { data: ll }] = await Promise.all([
+      supabase
         .from("deliveries")
         .select("*")
         .gte("date", start)
         .lt("date", end)
         .order("date", { ascending: false })
-        .limit(5000);
-      setRecords(data || []);
-      setDailyFilter("");
-      setLoading(false);
-    })();
-  }, [rangeMode, filterMonth, filterDay, rangeStart, rangeEnd]);
+        .limit(5000),
+      supabase.from("team_leaders").select("id,name,active,is_virtual,aliases").order("name"),
+    ]);
+    setRecords((dl as GroupRow[]) || []);
+    setLeaders(((ll as Leader[]) || []).filter((l) => l.active));
+    setLoading(false);
+  };
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterMonth]);
 
-  const setSlot = (idx: number, sel: Sel | null) =>
-    setSlots((prev) => prev.map((s, i) => (i === idx ? sel : s)));
-  const clearAll = () => setSlots(Array(SLOT_COUNT).fill(null));
+  // 그룹 계산
+  const groups: LooseGroup[] = useMemo(() => groupByLooseKey(records), [records]);
 
-  const recordsFor = (sel: Sel): Delivery[] => {
-    let base = records;
-    const virtualIdsAll = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
-    const isVirtualRow = (r: Delivery): boolean => {
-      if (r.virtual_leader_id) return true;
-      return [r.leader1_id, r.leader2_id, r.leader3_id].some(
-        (id) => !!id && virtualIdsAll.has(id),
-      );
-    };
-    const isRevisitRow = (r: Delivery): boolean => !!r.revisit_group_id;
-    if (typeFilter === "virtual") base = base.filter(isVirtualRow);
-    else if (typeFilter === "revisit") base = base.filter(isRevisitRow);
-    if (sel.kind === "company") {
-      base = base.filter((r) => r.company_id === sel.id);
-      // 업체 관점: 재방문 2차+ 행은 업체에 청구하지 않으므로 화면에서도 숨긴다.
-      // (팀장 정산 로직과 데이터 저장은 영향 없음)
-      base = base.filter(
-        (r) => !(r.revisit_group_id && Number(r.revisit_visit_no) >= 2),
-      );
-      if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
-      return base;
-    }
-    // 팀장 관점:
-    // - 재방문 1차 행 → 1차 팀장에게만 표시 (차감 후 본인 몫)
-    // - 재방문 2차+ 행 → 해당 회차 팀장에게 그 회차 자체 행/금액으로 표시
-    // - 오은규 배송은 오동선으로 합산 정산되므로 오동선 상세에 함께 포함
-    const odongseonId = leaders.find((l) => l.name.trim() === "오동선")?.id ?? null;
-    const oeunkyuId = leaders.find((l) => l.name.trim() === "오은규")?.id ?? null;
-    const includeOeunkyu = !!odongseonId && !!oeunkyuId && sel.id === odongseonId;
-    const targetIds = new Set<string>([sel.id]);
-    if (includeOeunkyu && oeunkyuId) targetIds.add(oeunkyuId);
-    const virtualIds = virtualIdsAll;
-    const revisitOverride = computeRevisitRedistribution(records, virtualIds);
-
-    // 행 기준으로 "이 팀장이 가상기사 자리에 들어와 있는지" 판단.
-    //  - 등록 팀장이라도 row.virtual_leader_id 칸으로 들어왔으면 그 행에서는 가상기사임
-    //  - is_virtual=true 인 팀장은 항상 가상기사
-    const selIsVirtualOnRow = (r: Delivery): boolean => {
-      if (virtualIds.has(sel.id)) return true;
-      if (r.virtual_leader_id && r.virtual_leader_id === sel.id) return true;
-      return false;
-    };
-    const zeroFees = (r: Delivery): Delivery => ({
-      ...r, metro_fee: 0, regional_fee: 0, note_amount: 0, cod_amount: 0,
+  // 검색/필터 적용
+  const visibleGroups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return groups.filter((g) => {
+      if (q) {
+        const hay = [g.customer, g.region, g.item, g.date].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (statusFilter !== "all") {
+        const has = g.rows.some((r) => classifyGroupRow(r, g.rows).includes(statusFilter));
+        if (!has) return false;
+      }
+      return true;
     });
+  }, [groups, search, statusFilter]);
 
-    const out: Delivery[] = [];
-    for (const r of base) {
-      const ov = revisitOverride.get(r.id);
-      if (ov !== undefined) {
-        if (ov.length === 0) {
-          // 2차+ 행 → 본인이 이 회차 팀장이면 그 회차 자체 행/금액으로 표시
-          if (r.leader1_id && targetIds.has(r.leader1_id)) {
-            out.push(selIsVirtualOnRow(r) ? zeroFees(r) : r);
-          }
-          continue;
-        }
-        // 1차 행 → 본인이 1차 팀장일 때만 본인 몫으로 표시
-        if (!r.leader1_id || !targetIds.has(r.leader1_id)) continue;
-        if (selIsVirtualOnRow(r)) { out.push(zeroFees(r)); continue; }
-        const fee = getRevisitFeeForLeader(r.id, revisitOverride, targetIds);
-        if (!fee) continue;
-        out.push({
-          ...r,
-          metro_fee: fee.metro,
-          regional_fee: fee.regional,
-          note_amount: fee.note_amount,
-          cod_amount: fee.cod,
-        });
-        continue;
-      }
-      // 일반 행: leader1/2/3 중 하나에 본인(또는 오은규)이 포함되면 표시
-      const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
-      if (ids.some((x) => x && targetIds.has(x))) {
-        // 본인이 이 행에서 가상기사 자리 → 보이되 정산 금액 0
-        out.push(selIsVirtualOnRow(r) ? zeroFees(r) : r);
-      }
-    }
-    base = out;
-    if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
-    return base;
+  const groupsByKey = useMemo(() => {
+    const m = new Map<string, GroupRow[]>();
+    for (const g of groups) m.set(g.key, g.rows);
+    return m;
+  }, [groups]);
+
+  const selectedGroup = useMemo(
+    () => groups.find((g) => g.key === selectedGroupKey) ?? null,
+    [groups, selectedGroupKey],
+  );
+
+  // 행에 부여된 액션이 있으면 우선 표시
+  const actionFor = (key: string) => pendingActions.get(key)?.action;
+
+  // ─── 액션 핸들러 ──────────────────────────────────────
+  const queueAction = (group: LooseGroup, action: RecommendedAction, extra?: Partial<MergePlanItem>) => {
+    setPendingActions((prev) => {
+      const m = new Map(prev);
+      m.set(group.key, {
+        groupKey: group.key,
+        action,
+        targetIds: group.rows.map((r) => r.id),
+        ...extra,
+      });
+      return m;
+    });
   };
 
-  // 현재 로드된 데이터 안에서 존재하는 날짜들 (drill-down용)
-  const availableDates = useMemo(() => {
-    const s = new Set<string>();
-    for (const r of records) if (r.date) s.add(r.date);
-    return Array.from(s).sort().reverse();
-  }, [records]);
+  const clearAction = (key: string) => {
+    setPendingActions((prev) => {
+      const m = new Map(prev);
+      m.delete(key);
+      return m;
+    });
+  };
 
-  const rangeLabel = useMemo(() => {
-    if (rangeMode === "month") return `${filterMonth} (월)`;
-    if (rangeMode === "day") return `${filterDay} (하루)`;
-    return `${rangeStart} ~ ${rangeEnd}`;
-  }, [rangeMode, filterMonth, filterDay, rangeStart, rangeEnd]);
+  // 중복 체크 (월 단위)
+  const runDuplicateCheck = () => {
+    let exact = 0, suspect = 0;
+    for (const g of groups) {
+      const keys = g.rows.map(exactKey);
+      const uniq = new Set(keys);
+      if (uniq.size < keys.length) exact++;
+      else suspect++;
+    }
+    toast.info(`검사 완료 · 그룹 ${groups.length}건 (정확중복 ${exact} / 유사중복 ${suspect})`);
+  };
 
-  const filledCount = slots.filter(Boolean).length;
-  const usedKeys = new Set(slots.filter(Boolean).map((s) => `${s!.kind}:${s!.id}`));
+  // 일괄 적용
+  const applyBulk = () => {
+    if (!bulkOpen) return;
+    const action = bulkOpen;
+    const targets = visibleGroups.filter((g) => checkedKeys.has(g.key));
+    if (!targets.length) {
+      toast.error("좌측에서 그룹을 1개 이상 체크하세요.");
+      return;
+    }
+    for (const g of targets) {
+      queueAction(g, action, {
+        companionReason: bulkReason || undefined,
+        leader2Id: bulkLeader2 || undefined,
+        splitType: bulkSplit || undefined,
+      });
+    }
+    toast.success(`${targets.length}개 그룹에 ${actionLabel[action]} 예약됨`);
+    setBulkOpen(null);
+    setBulkLeader2(""); setBulkReason(""); setBulkSplit("");
+  };
 
-  const duplicateGroups = useMemo(() => groupSuspectDuplicates(records), [records]);
+  // 최종 적용
+  const applyAllChanges = async () => {
+    const plan = [...pendingActions.values()];
+    const patches = buildUpdatePatches(plan, groupsByKey);
+    if (!patches.length) {
+      toast.info("변경할 내용이 없습니다.");
+      return;
+    }
+    setSaving(true);
+    let ok = 0, fail = 0;
+    for (const { id, patch } of patches) {
+      const cleanPatch: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === undefined) continue;
+        if (["metro_fee", "regional_fee", "note_amount", "cod_amount"].includes(k)) {
+          cleanPatch[k] = Number(v as number | string) || 0;
+        } else {
+          cleanPatch[k] = v;
+        }
+      }
+      const { error } = await supabase
+        .from("deliveries")
+        .update({ ...cleanPatch, updated_at: new Date().toISOString() } as any)
+        .eq("id", id);
+      if (error) {
+        fail++;
+        if (error.code === "23505") {
+          toast.error(`동일 내용이 이미 등록되어 있어 일부 건이 저장되지 않았습니다 (id ${id.slice(0, 8)})`);
+        }
+      } else ok++;
+    }
+    setSaving(false);
+    setReviewOpen(false);
+    setPendingActions(new Map());
+    setCheckedKeys(new Set());
+    toast.success(`적용 완료 · 성공 ${ok}건 / 실패 ${fail}건`);
+    await reload();
+  };
+
+  const validateIssues = useMemo(() => {
+    return validateMergePlan([...pendingActions.values()], groupsByKey);
+  }, [pendingActions, groupsByKey]);
+
+  // 직접 수정 저장
+  const saveEdit = async () => {
+    if (!editForm) return;
+    setSaving(true);
+    const { id, ...rest } = editForm;
+    const { error } = await supabase
+      .from("deliveries")
+      .update({
+        leader1_id: rest.leader1_id || null,
+        leader2_id: rest.leader2_id || null,
+        two_person: !!rest.two_person,
+        companion: !!rest.companion,
+        companion_reason: rest.companion_reason ?? null,
+        split_type: rest.split_type ?? null,
+        metro_fee: Number(rest.metro_fee) || 0,
+        regional_fee: Number(rest.regional_fee) || 0,
+        note_amount: Number(rest.note_amount) || 0,
+        cod_amount: Number(rest.cod_amount) || 0,
+        paid: !!rest.paid,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    setSaving(false);
+    if (error) {
+      if (error.code === "23505") toast.error("동일 내용이 이미 등록되어 있습니다.");
+      else toast.error("저장 실패: " + error.message);
+      return;
+    }
+    toast.success("저장 완료");
+    setEditForm(null);
+    await reload();
+  };
+
+  // 중복 제거 (그룹 내 완전중복 1건만 남기고 나머지 삭제)
+  const dedupeGroup = async (group: LooseGroup) => {
+    const seen = new Set<string>();
+    const toDelete: string[] = [];
+    for (const row of group.rows) {
+      const k = exactKey(row);
+      if (seen.has(k)) toDelete.push(row.id);
+      else seen.add(k);
+    }
+    if (!toDelete.length) {
+      toast.info("그룹 안에 완전중복이 없습니다.");
+      return;
+    }
+    if (!window.confirm(`완전중복 ${toDelete.length}건을 삭제합니다. 진행할까요?`)) return;
+    const { error } = await supabase.from("deliveries").delete().in("id", toDelete);
+    if (error) toast.error("삭제 실패: " + error.message);
+    else {
+      toast.success(`${toDelete.length}건 삭제됨`);
+      await reload();
+    }
+  };
+
+  // ─── 렌더 ──────────────────────────────────────────────
+  const checkedGroupCount = checkedKeys.size;
+  const queuedCount = pendingActions.size;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0">배송내역 조회</h1>
-        <Badge variant="secondary">{records.length}건</Badge>
-        {filledCount > 0 && (
-          <Button variant="outline" size="sm" onClick={clearAll}>전체 비우기</Button>
-        )}
-      </div>
-
-      <Card className="p-3 md:p-4 space-y-3">
+    <div className="space-y-3">
+      {/* 상단 툴바 */}
+      <Card className="p-3 md:p-4">
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
-            <Label className="text-xs">조회 단위</Label>
-            <div className="inline-flex rounded-md border overflow-hidden">
-              {(["month", "range", "day"] as RangeMode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setRangeMode(m)}
-                  className={cn(
-                    "px-3 py-1.5 text-xs font-medium",
-                    rangeMode === m ? "bg-primary text-primary-foreground" : "bg-background hover:bg-accent",
-                  )}
-                >
-                  {m === "month" ? "월별" : m === "range" ? "기간" : "하루"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {rangeMode === "month" && (
-            <div className="space-y-1">
-              <Label className="text-xs">월 선택</Label>
-              <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40 h-9" />
-            </div>
-          )}
-          {rangeMode === "day" && (
-            <div className="space-y-1">
-              <Label className="text-xs">날짜</Label>
-              <Input type="date" value={filterDay} onChange={(e) => setFilterDay(e.target.value)} className="w-44 h-9" />
-            </div>
-          )}
-          {rangeMode === "range" && (
-            <>
-              <div className="space-y-1">
-                <Label className="text-xs">시작일</Label>
-                <Input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} className="w-44 h-9" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">종료일</Label>
-                <Input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className="w-44 h-9" />
-              </div>
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={() => { const t = todayStr(); setRangeStart(t); setRangeEnd(t); }}>오늘</Button>
-                <Button size="sm" variant="outline" onClick={() => { setRangeStart(addDays(todayStr(), -6)); setRangeEnd(todayStr()); }}>최근 7일</Button>
-                <Button size="sm" variant="outline" onClick={() => { setRangeStart(addDays(todayStr(), -29)); setRangeEnd(todayStr()); }}>최근 30일</Button>
-              </div>
-            </>
-          )}
-
-          <div className="flex-1" />
-          <div className="text-xs text-muted-foreground">조회 범위: <span className="font-semibold">{rangeLabel}</span></div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1 pt-2 border-t">
-          <span className="text-xs text-muted-foreground mr-1">유형 필터:</span>
-          {([
-            { v: "all", label: "전체" },
-            { v: "virtual", label: "가상기사 건만" },
-            { v: "revisit", label: "재방문 건만" },
-          ] as const).map((opt) => (
-            <button
-              key={opt.v}
-              type="button"
-              onClick={() => setTypeFilter(opt.v)}
-              className={cn(
-                "text-xs px-2 py-1 rounded border",
-                typeFilter === opt.v
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background hover:bg-accent",
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {rangeMode !== "day" && availableDates.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1 pt-2 border-t">
-            <span className="text-xs text-muted-foreground mr-1">하루별 보기:</span>
-            <button
-              type="button"
-              onClick={() => setDailyFilter("")}
-              className={cn(
-                "text-xs px-2 py-1 rounded border",
-                dailyFilter === "" ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent",
-              )}
-            >
-              전체
-            </button>
-            {availableDates.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setDailyFilter(d === dailyFilter ? "" : d)}
-                className={cn(
-                  "text-xs px-2 py-1 rounded border tabular-nums",
-                  dailyFilter === d ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent",
-                )}
-              >
-                {d.slice(5)}
-              </button>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <Card className="p-3 md:p-4">
-        <div className="text-xs text-muted-foreground mb-2">
-          1~6번 칸을 각각 업체 또는 팀장으로 지정해 동시에 비교하세요. 헤더 확대 아이콘으로 상세보기.
-        </div>
-        <div className={cn("grid gap-2", "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3")}>
-          {slots.map((sel, idx) => (
-            <SlotPicker
-              key={idx}
-              index={idx}
-              value={sel}
-              companies={companies}
-              leaders={leaders}
-              usedKeys={usedKeys}
-              onChange={(v) => setSlot(idx, v)}
+            <Label className="text-xs">월 선택</Label>
+            <Input
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="w-40 h-9"
             />
-          ))}
+          </div>
+          <div className="space-y-1 flex-1 min-w-[200px]">
+            <Label className="text-xs">검색 (고객/배송지/품목)</Label>
+            <div className="relative">
+              <Search className="h-3.5 w-3.5 absolute left-2 top-3 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="검색어"
+                className="h-9 pl-7"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">상태 필터</Label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as FilterStatus)}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
+              <option value="all">전체</option>
+              {(Object.keys(statusLabel) as RowStatus[]).map((k) => (
+                <option key={k} value={k}>{statusLabel[k]}</option>
+              ))}
+            </select>
+          </div>
+          <Button variant="outline" onClick={runDuplicateCheck} disabled={loading}>
+            중복 체크
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={checkedGroupCount === 0}>
+                일괄작업 ({checkedGroupCount}) ▾
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuLabel>선택 그룹 일괄 처리</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setBulkOpen("merge_companion")}>
+                동행 통합
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setBulkOpen("merge_two_person")}>
+                2인배송 통합
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setBulkOpen("keep_separate")}>
+                별도 유지
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  for (const k of checkedKeys) clearAction(k);
+                  toast.success("예약 액션 취소됨");
+                }}
+              >
+                예약 액션 취소
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            onClick={() => setReviewOpen(true)}
+            disabled={queuedCount === 0}
+          >
+            저장 전 검토 ({queuedCount})
+          </Button>
+        </div>
+        <div className="text-xs text-muted-foreground mt-2">
+          그룹 {groups.length}건 · 표시 {visibleGroups.length}건 · 예약 {queuedCount}건
+          {loading && " · 불러오는 중…"}
         </div>
       </Card>
 
-      {filledCount === 0 ? (
-        <Card className="p-12 text-center text-muted-foreground">
-          <Search className="h-10 w-10 mx-auto mb-2 opacity-40" />
-          위의 1~6번 칸에서 업체나 팀장을 선택하면 비교 패널이 여기에 나타납니다.
-        </Card>
-      ) : (() => {
-        const entries = slots
-          .map((sel, idx) => ({ sel, idx }))
-          .filter((x): x is { sel: Sel; idx: number } => !!x.sel);
-        const companyEntries = entries.filter((e) => e.sel.kind === "company");
-        const leaderEntries = entries.filter((e) => e.sel.kind === "leader");
-        const renderGroup = (
-          title: string,
-          Icon: typeof Building2,
-          group: { sel: Sel; idx: number }[],
-        ) =>
-          group.length === 0 ? null : (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                <Icon className="h-4 w-4" />
-                <span>{title}</span>
-                <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">{group.length}</Badge>
-              </div>
-              <div className={cn("grid gap-4", gridColsByCount(group.length))}>
-                {group.map(({ sel, idx }) => (
-                  <div key={`${idx}-${sel.kind}-${sel.id}`} className="min-w-0 w-full">
-                    <PanelCard
-                      index={idx}
-                      sel={sel}
-                      records={recordsFor(sel)}
-                      loading={loading}
-                      onClose={() => setSlot(idx, null)}
-                      onDetail={() => setDetail(sel)}
-                      onEdit={(id) => navigate(`/records?edit=${id}`)}
-                    />
-                  </div>
-                ))}
-              </div>
+      {/* 2-패널 */}
+      <div className="grid gap-3 lg:grid-cols-[420px_1fr]">
+        {/* 좌측: 그룹 리스트 */}
+        <Card className="p-2 max-h-[calc(100vh-220px)] overflow-y-auto">
+          {visibleGroups.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              표시할 그룹이 없습니다.
             </div>
-          );
-        return (
-          <div className="space-y-5">
-            {renderGroup("업체", Building2, companyEntries)}
-            {renderGroup("팀장", Users, leaderEntries)}
-          </div>
-        );
-      })()}
+          ) : (
+            <ul className="space-y-1.5">
+              {visibleGroups.map((g) => {
+                const tags = new Set<RowStatus>();
+                for (const r of g.rows) classifyGroupRow(r, g.rows).forEach((t) => tags.add(t));
+                const rec = recommendAction(g.rows);
+                const queued = pendingActions.get(g.key);
+                return (
+                  <li
+                    key={g.key}
+                    className={cn(
+                      "border rounded-md p-2 cursor-pointer hover:bg-accent",
+                      selectedGroupKey === g.key && "border-primary ring-1 ring-primary/30 bg-accent/50",
+                    )}
+                    onClick={() => setSelectedGroupKey(g.key)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={checkedKeys.has(g.key)}
+                        onCheckedChange={(v) => {
+                          setCheckedKeys((prev) => {
+                            const m = new Set(prev);
+                            if (v) m.add(g.key); else m.delete(g.key);
+                            return m;
+                          });
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 text-sm font-medium">
+                          <span className="tabular-nums">{g.date}</span>
+                          <span className="truncate">{g.customer}</span>
+                          <Badge variant="secondary" className="h-4 px-1 text-[10px]">{g.rows.length}건</Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {g.region || "-"} · {g.item}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {[...tags].filter((t) => t !== "normal").map((t) => (
+                            <span key={t} className={cn("text-[10px] px-1.5 py-0.5 rounded border", STATUS_COLOR[t])}>
+                              {statusLabel[t]}
+                            </span>
+                          ))}
+                          {tags.size === 1 && tags.has("normal") && (
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded border", STATUS_COLOR.normal)}>
+                              정상
+                            </span>
+                          )}
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded border ml-auto", RECOMMEND_COLOR[rec])}>
+                            추천: {actionLabel[rec]}
+                          </span>
+                        </div>
+                        {queued && (
+                          <div className="mt-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/30 inline-block">
+                            예약: {actionLabel[queued.action]}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
 
-      <DuplicateGroupsPanel
-        groups={duplicateGroups}
-        onEdit={(id) => navigate(`/records?edit=${id}`)}
-      />
+        {/* 우측: 선택 그룹 비교 */}
+        <Card className="p-3 md:p-4">
+          {!selectedGroup ? (
+            <div className="p-10 text-center text-muted-foreground">
+              <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
+              왼쪽에서 그룹을 선택하면 같은 묶음 기록들을 나란히 비교할 수 있습니다.
+            </div>
+          ) : (
+            <ComparePanel
+              group={selectedGroup}
+              leaders={leaders}
+              queued={pendingActions.get(selectedGroup.key)}
+              onQueue={(action, extra) => queueAction(selectedGroup, action, extra)}
+              onClearAction={() => clearAction(selectedGroup.key)}
+              onEditRow={(row) => setEditForm({ ...row })}
+              onJumpToRecords={(id) => navigate(`/records?edit=${id}`)}
+              onDedupe={() => dedupeGroup(selectedGroup)}
+            />
+          )}
+        </Card>
+      </div>
 
-      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent className="max-w-5xl">
+      {/* 일괄 적용 다이얼로그 */}
+      <Dialog open={!!bulkOpen} onOpenChange={(o) => !o && setBulkOpen(null)}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {detail && (
-                <span className="flex items-center gap-2">
-                  {detail.kind === "company" ? <Building2 className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                  <span>{detail.name}</span>
-                  <Badge variant="outline">{detail.kind === "company" ? "업체" : "팀장"}</Badge>
-                  <span className="text-xs text-muted-foreground ml-auto">{rangeLabel}{dailyFilter ? ` · ${dailyFilter}` : ""}</span>
-                </span>
-              )}
+              일괄 적용 — {bulkOpen ? actionLabel[bulkOpen] : ""}
             </DialogTitle>
           </DialogHeader>
-          {detail && (
-            <DetailView
-              sel={detail}
-              records={recordsFor(detail)}
-              loading={loading}
-              onEdit={(id) => navigate(`/records?edit=${id}`)}
-            />
+          <div className="space-y-3 text-sm">
+            <div>대상 그룹 {checkedGroupCount}개에 일괄 적용합니다.</div>
+            {bulkOpen === "merge_companion" && (
+              <div className="space-y-1">
+                <Label className="text-xs">동행 사유</Label>
+                <Input value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} placeholder="예: 엘리베이터 고장" />
+              </div>
+            )}
+            {bulkOpen === "merge_two_person" && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs">팀장2 (비어있는 행만 채움)</Label>
+                  <LeaderCombobox leaders={leaders} value={bulkLeader2} onChange={setBulkLeader2} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">분할 방식</Label>
+                  <select
+                    value={bulkSplit}
+                    onChange={(e) => setBulkSplit(e.target.value)}
+                    className="h-9 w-full rounded-md border bg-background px-2"
+                  >
+                    <option value="">(변경 없음)</option>
+                    <option value="반반">반반</option>
+                    <option value="2인배송">2인배송</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(null)}>취소</Button>
+            <Button onClick={applyBulk}>예약</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 최종 검토 다이얼로그 */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>저장 전 최종 검토</DialogTitle>
+          </DialogHeader>
+          <ReviewBody
+            plan={[...pendingActions.values()]}
+            groupsByKey={groupsByKey}
+            issues={validateIssues}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewOpen(false)}>다시 검토</Button>
+            <Button
+              onClick={applyAllChanges}
+              disabled={saving || validateIssues.some((i) => i.severity === "error")}
+            >
+              {saving ? "적용 중…" : "수정 적용"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 직접 수정 다이얼로그 */}
+      <Dialog open={!!editForm} onOpenChange={(o) => !o && setEditForm(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>직접 수정 — {editForm?.customer_name} ({editForm?.id?.slice(0, 8)})</DialogTitle>
+          </DialogHeader>
+          {editForm && (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <Field label="팀장1">
+                <LeaderCombobox
+                  leaders={leaders}
+                  value={editForm.leader1_id ?? ""}
+                  onChange={(id) => setEditForm({ ...editForm, leader1_id: id || null })}
+                />
+              </Field>
+              <Field label="팀장2">
+                <LeaderCombobox
+                  leaders={leaders}
+                  value={editForm.leader2_id ?? ""}
+                  onChange={(id) => setEditForm({ ...editForm, leader2_id: id || null })}
+                />
+              </Field>
+              <Field label="2인배송">
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={!!editForm.two_person}
+                    onCheckedChange={(v) => setEditForm({ ...editForm, two_person: !!v })}
+                  />
+                  <span className="text-xs">예</span>
+                </label>
+              </Field>
+              <Field label="동행">
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={!!editForm.companion}
+                    onCheckedChange={(v) => setEditForm({ ...editForm, companion: !!v })}
+                  />
+                  <span className="text-xs">예</span>
+                </label>
+              </Field>
+              <Field label="동행 사유" full>
+                <Input
+                  value={editForm.companion_reason ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, companion_reason: e.target.value })}
+                />
+              </Field>
+              <Field label="분할 방식">
+                <select
+                  value={editForm.split_type ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, split_type: e.target.value || null })}
+                  className="h-9 w-full rounded-md border bg-background px-2"
+                >
+                  <option value="">(없음)</option>
+                  <option value="반반">반반</option>
+                  <option value="2인배송">2인배송</option>
+                </select>
+              </Field>
+              <Field label="결제">
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={!!editForm.paid}
+                    onCheckedChange={(v) => setEditForm({ ...editForm, paid: !!v })}
+                  />
+                  <span className="text-xs">완료</span>
+                </label>
+              </Field>
+              <Field label="수도권배송비">
+                <Input
+                  type="number"
+                  value={String(editForm.metro_fee ?? 0)}
+                  onChange={(e) => setEditForm({ ...editForm, metro_fee: Number(e.target.value) || 0 })}
+                />
+              </Field>
+              <Field label="지방배송비">
+                <Input
+                  type="number"
+                  value={String(editForm.regional_fee ?? 0)}
+                  onChange={(e) => setEditForm({ ...editForm, regional_fee: Number(e.target.value) || 0 })}
+                />
+              </Field>
+              <Field label="비고금액">
+                <Input
+                  type="number"
+                  value={String(editForm.note_amount ?? 0)}
+                  onChange={(e) => setEditForm({ ...editForm, note_amount: Number(e.target.value) || 0 })}
+                />
+              </Field>
+              <Field label="착불">
+                <Input
+                  type="number"
+                  value={String(editForm.cod_amount ?? 0)}
+                  onChange={(e) => setEditForm({ ...editForm, cod_amount: Number(e.target.value) || 0 })}
+                />
+              </Field>
+            </div>
           )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditForm(null)}>취소</Button>
+            <Button onClick={saveEdit} disabled={saving}>저장</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-function SlotPicker({
-  index,
-  value,
-  companies,
-  leaders,
-  usedKeys,
-  onChange,
-}: {
-  index: number;
-  value: Sel | null;
-  companies: Company[];
-  leaders: Leader[];
-  usedKeys: Set<string>;
-  onChange: (v: Sel | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
-  const nq = norm(q);
-  const filteredCompanies = companies.filter((c) => !nq || norm(c.name).includes(nq)).slice(0, 30);
-  const filteredLeaders = leaders.filter((l) => !nq || norm(l.name).includes(nq)).slice(0, 30);
-
-  const pick = (sel: Sel) => {
-    onChange(sel);
-    setOpen(false);
-    setQ("");
-  };
-
+function Field({ label, full, children }: { label: string; full?: boolean; children: React.ReactNode }) {
   return (
-    <div className="border rounded-md p-2 bg-background relative">
-      <div className="flex items-center gap-2 mb-1">
-        <Badge className="h-5 px-1.5 text-[11px]">{index + 1}번</Badge>
-        {value ? (
-          <>
-            {value.kind === "company" ? <Building2 className="h-3.5 w-3.5 text-primary" /> : <Users className="h-3.5 w-3.5 text-secondary-foreground" />}
-            <span className="font-semibold truncate flex-1" title={value.name}>{value.name}</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onChange(null)} aria-label="비우기">
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </>
-        ) : (
-          <span className="text-xs text-muted-foreground flex-1">비어 있음</span>
-        )}
-      </div>
-      <div className="relative">
-        <Input
-          value={q}
-          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          placeholder={value ? "변경: 업체/팀장 검색" : "업체 또는 팀장 검색"}
-          className="h-8 text-xs"
-        />
-        {open && (q || filteredCompanies.length + filteredLeaders.length > 0) && (
-          <div className="absolute z-50 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-lg text-sm">
-            {filteredCompanies.length > 0 && (
-              <>
-                <div className="px-2 py-1 text-[10px] uppercase tracking-wide bg-muted text-muted-foreground sticky top-0">업체</div>
-                {filteredCompanies.map((c) => {
-                  const used = usedKeys.has(`company:${c.id}`);
-                  return (
-                    <div
-                      key={c.id}
-                      onMouseDown={(e) => { e.preventDefault(); if (!used) pick({ kind: "company", id: c.id, name: c.name }); }}
-                      className={cn("px-2 py-1.5 cursor-pointer flex items-center gap-2", used ? "opacity-40 cursor-not-allowed" : "hover:bg-accent")}
-                    >
-                      <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <Badge variant="default" className="h-4 px-1 text-[9px] shrink-0">업체</Badge>
-                      <span className="truncate">{c.name}</span>
-                      {used && <span className="ml-auto text-[10px] text-muted-foreground">사용중</span>}
-                    </div>
-                  );
-                })}
-              </>
-            )}
-            {filteredLeaders.length > 0 && (
-              <>
-                <div className="px-2 py-1 text-[10px] uppercase tracking-wide bg-muted text-muted-foreground sticky top-0">팀장</div>
-                {filteredLeaders.map((l) => {
-                  const used = usedKeys.has(`leader:${l.id}`);
-                  return (
-                    <div
-                      key={l.id}
-                      onMouseDown={(e) => { e.preventDefault(); if (!used) pick({ kind: "leader", id: l.id, name: l.name }); }}
-                      className={cn("px-2 py-1.5 cursor-pointer flex items-center gap-2", used ? "opacity-40 cursor-not-allowed" : "hover:bg-accent")}
-                    >
-                      <Users className="h-3.5 w-3.5 text-secondary-foreground shrink-0" />
-                      <Badge variant="secondary" className="h-4 px-1 text-[9px] shrink-0">팀장</Badge>
-                      <span className="truncate">{l.name}</span>
-                      {used && <span className="ml-auto text-[10px] text-muted-foreground">사용중</span>}
-                    </div>
-                  );
-                })}
-              </>
-            )}
-            {filteredCompanies.length + filteredLeaders.length === 0 && (
-              <div className="px-3 py-2 text-muted-foreground">결과 없음</div>
-            )}
-          </div>
-        )}
-      </div>
+    <div className={cn("space-y-1", full && "col-span-2")}>
+      <Label className="text-xs">{label}</Label>
+      {children}
     </div>
   );
 }
 
-function PanelCard({
-  index,
-  sel,
-  records,
-  loading,
-  onClose,
-  onDetail,
-  onEdit,
+function ComparePanel({
+  group, leaders, queued, onQueue, onClearAction, onEditRow, onJumpToRecords, onDedupe,
 }: {
-  index: number;
-  sel: Sel;
-  records: Delivery[];
-  loading: boolean;
-  onClose: () => void;
-  onDetail: () => void;
-  onEdit: (id: string) => void;
+  group: LooseGroup;
+  leaders: Leader[];
+  queued?: MergePlanItem;
+  onQueue: (action: RecommendedAction, extra?: Partial<MergePlanItem>) => void;
+  onClearAction: () => void;
+  onEditRow: (row: GroupRow) => void;
+  onJumpToRecords: (id: string) => void;
+  onDedupe: () => void;
 }) {
-  const totals = useMemo(() => {
-    let metro = 0, note = 0, regional = 0, cod = 0;
-    for (const r of records) {
-      metro += Number(r.metro_fee || 0);
-      note += Number(r.note_amount || 0);
-      regional += Number(r.regional_fee || 0);
-      cod += Number(r.cod_amount || 0);
-    }
-    return { metro, note, regional, cod, sum: metro + note + regional };
-  }, [records]);
+  const rec = recommendAction(group.rows);
+  // 동행 통합 사유 / 2인 통합용 팀장2 입력
+  const [reason, setReason] = useState(queued?.companionReason ?? "");
+  const [leader2, setLeader2] = useState(queued?.leader2Id ?? "");
+  useEffect(() => {
+    setReason(queued?.companionReason ?? "");
+    setLeader2(queued?.leader2Id ?? "");
+  }, [queued?.groupKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const revisitOrd = useMemo(() => buildRevisitOrdinalMap(records), [records]);
+  const fields: { key: keyof GroupRow | "fee"; label: string; render: (r: GroupRow) => React.ReactNode; }[] = [
+    { key: "date", label: "날짜", render: (r) => String(r.date ?? "").slice(0, 10) },
+    { key: "customer_name", label: "고객명", render: (r) => r.customer_name },
+    { key: "region", label: "배송지", render: (r) => r.region || "-" },
+    { key: "item", label: "품목", render: (r) => r.item },
+    { key: "leader1_name", label: "팀장1", render: (r) => r.leader1_name || "-" },
+    { key: "leader2_name", label: "팀장2", render: (r) => r.leader2_name || "-" },
+    { key: "two_person", label: "2인배송", render: (r) => (r.two_person ? "예" : "-") },
+    { key: "companion", label: "동행", render: (r) => (r.companion ? "예" : "-") },
+    { key: "split_type", label: "분할", render: (r) => r.split_type || "-" },
+    { key: "metro_fee", label: "수도권", render: (r) => fmt(Number(r.metro_fee || 0)) },
+    { key: "regional_fee", label: "지방", render: (r) => fmt(Number(r.regional_fee || 0)) },
+    { key: "note_amount", label: "비고금액", render: (r) => fmt(Number(r.note_amount || 0)) },
+    { key: "cod_amount", label: "착불", render: (r) => fmt(Number(r.cod_amount || 0)) },
+    { key: "fee", label: "총액", render: (r) => fmt(totalFee(r)) },
+  ];
 
-  return (
-    <Card className="flex flex-col overflow-hidden">
-      <div className={cn(
-        "px-3 py-2 border-b flex items-center justify-between",
-        sel.kind === "company" ? "bg-primary/10" : "bg-secondary",
-      )}>
-        <Badge className="mr-2 h-5 px-1.5 text-[11px] shrink-0">{index + 1}</Badge>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-70">
-            {sel.kind === "company" ? "업체" : "팀장"}
-          </div>
-          <div className="font-bold truncate">{sel.name}</div>
-        </div>
-        <div className="text-right text-xs shrink-0">
-          <div className="font-semibold">{records.length}건</div>
-          <div className="text-muted-foreground tabular-nums">{fmt(totals.sum)}</div>
-        </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7 ml-1 shrink-0" onClick={onDetail} aria-label="상세보기">
-          <Maximize2 className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 ml-1 shrink-0" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="overflow-auto max-h-[60vh]">
-        <table className="w-full text-xs">
-          <thead className="bg-muted sticky top-0">
-            <tr className="text-left">
-              <th className="p-2 whitespace-nowrap">날짜</th>
-              {sel.kind === "leader" && <th className="p-2 whitespace-nowrap">업체</th>}
-              {sel.kind === "company" && <th className="p-2 whitespace-nowrap">팀장</th>}
-              <th className="p-2 whitespace-nowrap">고객</th>
-              <th className="p-2 whitespace-nowrap">배송지</th>
-              <th className="p-2 whitespace-nowrap">품목</th>
-              <th className="p-2 text-right whitespace-nowrap">배송비</th>
-              <th className="p-2 text-right whitespace-nowrap">착불</th>
-              <th className="p-2 text-center whitespace-nowrap w-10"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
-            ) : records.length === 0 ? (
-              <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
-            ) : records.map((r) => {
-              const fee = Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
-              const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
-              const leadersTxt = [r.leader1_name, leader2Disp, r.leader3_name].filter(Boolean).join("·");
-              const virtualName = r.virtual_leader_name || "";
-              return (
-                <tr key={r.id} className="border-t hover:bg-muted/40">
-                  <td className="p-2 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <span>{r.date}</span>
-                      {r.revisit_group_id && (
-                        <>
-                          <Badge
-                            variant={Number(r.revisit_visit_no) >= 2 ? "default" : "secondary"}
-                            className="text-[10px] px-1.5 py-0 leading-4"
-                          >
-                            {Number(r.revisit_visit_no) >= 2 ? `재방문 ${Number(r.revisit_visit_no)}차` : "방문 1차"}
-                          </Badge>
-                          {revisitOrd.get(r.revisit_group_id) && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 leading-4">
-                              {revisitOrd.get(r.revisit_group_id)}회
-                            </Badge>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </td>
-                  {sel.kind === "leader" && (
-                    <td className="p-2 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="inline-flex items-center gap-1">
-                          <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>
-                          {r.company_name || "-"}
-                        </span>
-                        {virtualName && (
-                          <span className="text-[10px] text-amber-700 font-medium mt-0.5">
-                            가상기사: {virtualName}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                  {sel.kind === "company" && (
-                    <td className="p-2 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1">
-                        <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
-                        {leadersTxt || "-"}
-                      </span>
-                    </td>
-                  )}
-                  <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
-                  <td className="p-2 whitespace-nowrap max-w-[140px] truncate" title={r.region || ""}>{r.region || "-"}</td>
-                  <td className="p-2 whitespace-nowrap max-w-[200px] truncate" title={r.item || ""}>{r.item || "-"}</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(fee)}</td>
-                  <td className="p-2 text-right tabular-nums">{fmt(Number(r.cod_amount || 0))}</td>
-                  <td className="p-2 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => onEdit(r.id)}
-                      aria-label="편집"
-                      title="등록 화면에서 편집"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          {records.length > 0 && (
-            <tfoot className="bg-muted/60 font-semibold">
-              <tr>
-                <td className="p-2" colSpan={sel.kind === "company" || sel.kind === "leader" ? 5 : 5}>합계</td>
-                <td className="p-2 text-right tabular-nums">{fmt(totals.sum)}</td>
-                <td className="p-2 text-right tabular-nums">{fmt(totals.cod)}</td>
-                <td className="p-2"></td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
-      </div>
-    </Card>
-  );
-}
+  // 행 간 값이 다른 셀 강조
+  const diffMap = new Map<string, boolean>();
+  for (const f of fields) {
+    const vals = group.rows.map((r) =>
+      f.key === "fee" ? totalFee(r) : (r as any)[f.key],
+    );
+    const uniq = new Set(vals.map((v) => String(v ?? "")));
+    if (uniq.size > 1) diffMap.set(String(f.key), true);
+  }
 
-function DetailView({ sel, records, loading, onEdit }: { sel: Sel; records: Delivery[]; loading: boolean; onEdit: (id: string) => void }) {
-  const totals = useMemo(() => {
-    let metro = 0, note = 0, regional = 0, cod = 0;
-    for (const r of records) {
-      metro += Number(r.metro_fee || 0);
-      note += Number(r.note_amount || 0);
-      regional += Number(r.regional_fee || 0);
-      cod += Number(r.cod_amount || 0);
-    }
-    return { metro, note, regional, cod, sum: metro + note + regional };
-  }, [records]);
-  const revisitOrd = useMemo(() => buildRevisitOrdinalMap(records), [records]);
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-        <Stat label="건수" value={`${records.length}건`} />
-        <Stat label="수도권" value={fmt(totals.metro)} />
-        <Stat label="지방" value={fmt(totals.regional)} />
-        <Stat label="기록란" value={fmt(totals.note)} />
-        <Stat label="착불 합계" value={fmt(totals.cod)} highlight />
+      <div className="flex items-start gap-2 flex-wrap">
+        <div>
+          <div className="text-sm font-semibold">{group.date} · {group.customer} · {group.region || "-"} · {group.item}</div>
+          <div className="text-xs text-muted-foreground">{group.rows.length}건 비교 — 추천: <span className="font-medium">{actionLabel[rec]}</span></div>
+        </div>
+        <div className="ml-auto flex items-center gap-1.5">
+          {queued && (
+            <span className="text-xs px-2 py-1 rounded bg-primary/10 border border-primary/30 text-primary">
+              예약됨: {actionLabel[queued.action]}
+            </span>
+          )}
+          {queued && (
+            <Button size="sm" variant="ghost" onClick={onClearAction}>취소</Button>
+          )}
+        </div>
       </div>
-      <div className="overflow-auto max-h-[60vh] border rounded-md">
+
+      <div className="border rounded-md overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-muted sticky top-0">
-            <tr className="text-left">
-              <th className="p-2 whitespace-nowrap">날짜</th>
-              <th className="p-2 whitespace-nowrap">{sel.kind === "company" ? "팀장" : "업체"}</th>
-              <th className="p-2 whitespace-nowrap">고객</th>
-              <th className="p-2 whitespace-nowrap">배송지</th>
-              <th className="p-2 whitespace-nowrap">품목</th>
-              {sel.kind === "leader" ? (
-                <th className="p-2 text-right whitespace-nowrap">배송비</th>
-              ) : (
-                <>
-                  <th className="p-2 text-right whitespace-nowrap">수도권</th>
-                  <th className="p-2 text-right whitespace-nowrap">지방</th>
-                  <th className="p-2 text-right whitespace-nowrap">기록</th>
-                </>
-              )}
-              <th className="p-2 text-right whitespace-nowrap">착불</th>
-              {sel.kind !== "leader" && <th className="p-2 whitespace-nowrap">비고</th>}
-              <th className="p-2 text-center whitespace-nowrap w-10"></th>
+          <thead className="bg-muted/40">
+            <tr>
+              <th className="text-left px-2 py-1">필드</th>
+              {group.rows.map((r, i) => (
+                <th key={r.id} className="text-left px-2 py-1">
+                  <div className="flex items-center gap-1">
+                    <span>행 {i + 1}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground">[{String(r.id).slice(0, 6)}]</span>
+                    <Button size="sm" variant="ghost" className="h-5 px-1 ml-auto" onClick={() => onEditRow(r)}>
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-5 px-1" onClick={() => onJumpToRecords(r.id)}>
+                      ↗
+                    </Button>
+                  </div>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={sel.kind === "leader" ? 8 : 11} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
-            ) : records.length === 0 ? (
-              <tr><td colSpan={sel.kind === "leader" ? 8 : 11} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
-            ) : records.map((r) => {
-              const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
-              const leadersTxt = [r.leader1_name, leader2Disp, r.leader3_name].filter(Boolean).join("·");
-              const feeSum = Number(r.metro_fee || 0) + Number(r.regional_fee || 0) + Number(r.note_amount || 0);
+            {fields.map((f) => {
+              const diff = diffMap.get(String(f.key));
               return (
-                <tr key={r.id} className="border-t hover:bg-muted/40">
-                  <td className="p-2 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <span>{r.date}</span>
-                      {r.revisit_group_id && (
-                        <>
-                          <Badge
-                            variant={Number(r.revisit_visit_no) >= 2 ? "default" : "secondary"}
-                            className="text-[10px] px-1.5 py-0 leading-4"
-                          >
-                            {Number(r.revisit_visit_no) >= 2 ? `재방문 ${Number(r.revisit_visit_no)}차` : "방문 1차"}
-                          </Badge>
-                          {revisitOrd.get(r.revisit_group_id) && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 leading-4">
-                              {revisitOrd.get(r.revisit_group_id)}회
-                            </Badge>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-2 whitespace-nowrap">
-                    <div className="flex flex-col">
-                      <span className="inline-flex items-center gap-1">
-                        {sel.kind === "company"
-                          ? <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
-                          : <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>}
-                        {sel.kind === "company" ? (leadersTxt || "-") : (r.company_name || "-")}
-                      </span>
-                      {sel.kind === "leader" && r.virtual_leader_name && (
-                        <span className="text-[10px] text-amber-700 font-medium mt-0.5">
-                          가상기사: {r.virtual_leader_name}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
-                  <td className="p-2 whitespace-nowrap max-w-[180px] truncate" title={r.region || ""}>{r.region || "-"}</td>
-                  <td className="p-2 whitespace-nowrap max-w-[220px] truncate" title={r.item || ""}>{r.item || "-"}</td>
-                  {sel.kind === "leader" ? (
-                    <td className="p-2 text-right tabular-nums">{fmt(feeSum)}</td>
-                  ) : (
-                    <>
-                      <td className="p-2 text-right tabular-nums">{fmt(Number(r.metro_fee || 0))}</td>
-                      <td className="p-2 text-right tabular-nums">{fmt(Number(r.regional_fee || 0))}</td>
-                      <td className="p-2 text-right tabular-nums">{fmt(Number(r.note_amount || 0))}</td>
-                    </>
-                  )}
-                  <td className="p-2 text-right tabular-nums">{fmt(Number(r.cod_amount || 0))}</td>
-                  {sel.kind !== "leader" && (
-                    <td className="p-2 whitespace-nowrap max-w-[160px] truncate" title={r.note || ""}>{r.note || ""}</td>
-                  )}
-                  <td className="p-2 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => onEdit(r.id)}
-                      aria-label="편집"
-                      title="등록 화면에서 편집"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
+                <tr key={String(f.key)} className="border-t">
+                  <td className="px-2 py-1 font-medium text-muted-foreground whitespace-nowrap">{f.label}</td>
+                  {group.rows.map((r) => {
+                    const val = f.render(r);
+                    const isEmpty = val === "-" || val === "" || val == null;
+                    const isLeader2 = f.key === "leader2_name" && isEmpty;
+                    return (
+                      <td
+                        key={r.id + String(f.key)}
+                        className={cn(
+                          "px-2 py-1 tabular-nums",
+                          diff && "bg-amber-50",
+                          isLeader2 && "bg-red-50 text-red-700",
+                        )}
+                      >
+                        {val}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
+            <tr className="border-t bg-muted/20">
+              <td className="px-2 py-1 font-medium text-muted-foreground">상태</td>
+              {group.rows.map((r) => {
+                const tags = classifyGroupRow(r, group.rows);
+                return (
+                  <td key={r.id + "_status"} className="px-2 py-1 space-x-1">
+                    {tags.map((t) => (
+                      <span key={t} className={cn("inline-block text-[10px] px-1.5 py-0.5 rounded border mr-1", STATUS_COLOR[t])}>
+                        {statusLabel[t]}
+                      </span>
+                    ))}
+                  </td>
+                );
+              })}
+            </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* 액션 영역 */}
+      <div className="border rounded-md p-3 space-y-2 bg-muted/20">
+        <div className="text-xs font-semibold">통합/유지 판단</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">동행 사유 (동행 통합 시)</Label>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 엘리베이터 고장" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">팀장2 (2인배송 통합 시, 비어있는 행만 채움)</Label>
+            <LeaderCombobox leaders={leaders} value={leader2} onChange={setLeader2} />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => onQueue("merge_companion", { companionReason: reason })}
+          >
+            동행 통합 예약
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => onQueue("merge_two_person", { leader2Id: leader2 || undefined })}
+          >
+            2인배송 통합 예약
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onQueue("keep_separate")}>
+            별도 유지
+          </Button>
+          <Button variant="outline" size="sm" onClick={onDedupe}>
+            <Trash2 className="h-3 w-3 mr-1" /> 완전중복 삭제
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function ReviewBody({
+  plan, groupsByKey, issues,
+}: {
+  plan: MergePlanItem[];
+  groupsByKey: Map<string, GroupRow[]>;
+  issues: ReturnType<typeof validateMergePlan>;
+}) {
+  const count = (a: RecommendedAction) => plan.filter((p) => p.action === a).length;
+  const leader2Added = plan
+    .filter((p) => p.action === "merge_two_person" && p.leader2Id)
+    .reduce((s, p) => s + (groupsByKey.get(p.groupKey) ?? []).filter((r) => !r.leader2_id).length, 0);
   return (
-    <div className={cn("border rounded-md p-2", highlight && "bg-primary/10 border-primary/40")}>
+    <div className="space-y-3 text-sm">
+      <div className="grid grid-cols-2 gap-2">
+        <Stat label="수정 그룹 수" value={plan.length} />
+        <Stat label="동행 통합" value={count("merge_companion")} />
+        <Stat label="2인배송 통합" value={count("merge_two_person")} />
+        <Stat label="별도 유지" value={count("keep_separate")} />
+        <Stat label="팀장2 추가" value={leader2Added} />
+      </div>
+      {issues.length > 0 && (
+        <div className="border rounded-md p-2 space-y-1 bg-amber-50">
+          <div className="text-xs font-semibold flex items-center gap-1 text-amber-800">
+            <AlertTriangle className="h-3.5 w-3.5" /> 충돌/오류 {issues.length}건
+          </div>
+          <ul className="text-xs space-y-0.5">
+            {issues.map((i, idx) => (
+              <li key={idx} className={i.severity === "error" ? "text-red-700" : "text-amber-700"}>
+                · [{i.severity === "error" ? "차단" : "경고"}] {i.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="text-xs text-muted-foreground">
+        적용은 기존 행 update로 처리되며, insert는 발생하지 않습니다.
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="border rounded-md p-2">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="font-bold tabular-nums">{value}</div>
     </div>
-  );
-}
-
-function DuplicateGroupsPanel({
-  groups,
-  onEdit,
-}: {
-  groups: DuplicateGroup[];
-  onEdit: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const totalRows = groups.reduce((s, g) => s + g.rows.length, 0);
-  const exactGroups = groups.filter((g) => g.exactPairs > 0).length;
-  return (
-    <Card className="p-3 md:p-4">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="w-full flex items-center gap-2 text-left"
-          >
-            <AlertTriangle
-              className={cn(
-                "h-4 w-4",
-                groups.length === 0 ? "text-muted-foreground" : "text-amber-600",
-              )}
-            />
-            <span className="font-semibold text-sm">중복 의심 그룹</span>
-            <Badge variant={groups.length === 0 ? "secondary" : "destructive"} className="h-5 px-1.5 text-[11px]">
-              {groups.length}
-            </Badge>
-            {groups.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                · {totalRows}건 · 정확중복 그룹 {exactGroups}
-              </span>
-            )}
-            <span className="flex-1" />
-            <ChevronDown
-              className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
-            />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          {groups.length === 0 ? (
-            <div className="text-xs text-muted-foreground py-4 text-center">
-              현재 조회 범위에서 중복 의심 그룹이 없습니다.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {groups.map((g) => (
-                <div key={g.key} className="border rounded-md">
-                  <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-muted/40 border-b text-xs">
-                    <Badge variant={g.exactPairs > 0 ? "destructive" : "outline"} className="h-5 px-1.5 text-[11px]">
-                      {g.exactPairs > 0 ? `정확중복` : `의심`}
-                    </Badge>
-                    <span className="font-semibold tabular-nums">{g.date}</span>
-                    <span>· {g.company || "?"}</span>
-                    <span>· {g.customer || "?"}</span>
-                    {g.region && <span className="text-muted-foreground">({g.region})</span>}
-                    <span>· {g.item || "?"}</span>
-                    <span className="tabular-nums">· 배송 {fmt(g.fee)}원</span>
-                    <span className="ml-auto text-muted-foreground">{g.rows.length}건</span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/20">
-                        <tr className="text-left">
-                          <th className="px-2 py-1">ID</th>
-                          <th className="px-2 py-1">팀장1</th>
-                          <th className="px-2 py-1">팀장2</th>
-                          <th className="px-2 py-1 text-right">착불</th>
-                          <th className="px-2 py-1">분할</th>
-                          <th className="px-2 py-1">결제</th>
-                          <th className="px-2 py-1">비고</th>
-                          <th className="px-2 py-1"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {g.rows.map((r: any) => (
-                          <tr key={r.id} className="border-t">
-                            <td className="px-2 py-1 font-mono text-[10px]">{String(r.id).slice(0, 8)}</td>
-                            <td className="px-2 py-1">{r.leader1_name || "-"}</td>
-                            <td className="px-2 py-1">{r.leader2_name || "-"}</td>
-                            <td className="px-2 py-1 text-right tabular-nums">{fmt(Number(r.cod_amount || 0))}</td>
-                            <td className="px-2 py-1">{r.split_type || "-"}</td>
-                            <td className="px-2 py-1">{r.paid ? "Y" : "N"}</td>
-                            <td className="px-2 py-1 truncate max-w-[200px]">{r.note || ""}</td>
-                            <td className="px-2 py-1 text-right">
-                              <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => onEdit(r.id)}>
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
   );
 }
