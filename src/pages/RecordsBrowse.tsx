@@ -477,7 +477,19 @@ function PanelCard({
               const leadersTxt = [r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join("·");
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
-                  <td className="p-2 whitespace-nowrap">{r.date}</td>
+                  <td className="p-2 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <span>{r.date}</span>
+                      {r.revisit_group_id && (
+                        <Badge
+                          variant={Number(r.revisit_visit_no) === 2 ? "default" : "secondary"}
+                          className="text-[10px] px-1.5 py-0 leading-4"
+                        >
+                          재방문 {Number(r.revisit_visit_no) === 2 ? "2차" : "1차"}
+                        </Badge>
+                      )}
+                    </div>
+                  </td>
                   {sel.kind === "leader" && <td className="p-2 whitespace-nowrap">{r.company_name || "-"}</td>}
                   {sel.kind === "company" && <td className="p-2 whitespace-nowrap">{leadersTxt || "-"}</td>}
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
@@ -556,7 +568,19 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
               const feeSum = Number(r.metro_fee || 0) + Number(r.regional_fee || 0) + Number(r.note_amount || 0);
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
-                  <td className="p-2 whitespace-nowrap">{r.date}</td>
+                  <td className="p-2 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <span>{r.date}</span>
+                      {r.revisit_group_id && (
+                        <Badge
+                          variant={Number(r.revisit_visit_no) === 2 ? "default" : "secondary"}
+                          className="text-[10px] px-1.5 py-0 leading-4"
+                        >
+                          재방문 {Number(r.revisit_visit_no) === 2 ? "2차" : "1차"}
+                        </Badge>
+                      )}
+                    </div>
+                  </td>
                   <td className="p-2 whitespace-nowrap">{sel.kind === "company" ? (leadersTxt || "-") : (r.company_name || "-")}</td>
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[180px] truncate" title={r.region || ""}>{r.region || "-"}</td>
