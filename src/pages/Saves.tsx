@@ -744,6 +744,7 @@ export default function Saves() {
       try {
         await doExportAll("both", false);
         markAutoSavedFor(month, period);
+        recordAuditAfter("auto", `자동 저장 (${month} ${period})`, false);
       } finally {
         autoSavingRef.current = null;
       }
