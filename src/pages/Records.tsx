@@ -1549,6 +1549,11 @@ export default function Records() {
       toast.error("2인배송은 팀장2 또는 가상기사가 필요합니다.");
       return;
     }
+    // 반반 정산은 팀장2가 반드시 필요
+    if (form.split_type === "반반" && !form.leader2_id) {
+      toast.error("반반 정산은 팀장2가 필요합니다.");
+      return;
+    }
     // 가상기사 검증: 같은 날, 같은 업체에서 그 팀장이 실제 배송을 하고 있으면 가상기사 등록 불가
     if (form.virtual_leader_id) {
       const vLeader = leaders.find((l) => l.id === form.virtual_leader_id);
