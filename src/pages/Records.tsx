@@ -961,6 +961,10 @@ export default function Records() {
   });
   const [bulkSaving, setBulkSaving] = useState(false);
   const bulkCompanyRefs = useRef<Array<HTMLInputElement | null>>([]);
+  // 재방문 완료 등록 다이얼로그
+  const [revisitPickerOpen, setRevisitPickerOpen] = useState(false);
+  const [revisitCandidates, setRevisitCandidates] = useState<any[]>([]);
+  const [revisitLoading, setRevisitLoading] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
