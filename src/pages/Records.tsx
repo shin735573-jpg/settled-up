@@ -1070,6 +1070,42 @@ export default function Records() {
     // 기준이 바뀌면 이전에 "검사완료"로 표시된 키 캐시 비움
     detectedKeyRef.current.clear();
   }, [revisitMatchMode]);
+  // 단일폼이 2차+ 행으로 설정되면 1차 행을 자동 조회해서 읽기 전용 패널을 띄운다
+  useEffect(() => {
+    const gid = form.revisit_group_id;
+    const v = Number(form.revisit_visit_no || 1);
+    if (!gid || v <= 1) {
+      setFormFirstRow(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("deliveries")
+        .select("id,date,company_name,customer_name,region,region_type,item,leader1_name,leader2_name,leader3_name,metro_fee,note_amount,regional_fee,cod_amount,revisit_visit_no")
+        .eq("revisit_group_id", gid)
+        .order("revisit_visit_no", { ascending: true });
+      if (cancelled || error || !data || data.length === 0) return;
+      const first = (data as any[]).find((r) => Number(r.revisit_visit_no ?? 1) === 1) || data[0];
+      setFormFirstRow({
+        id: first.id,
+        date: first.date,
+        company_name: first.company_name ?? null,
+        customer_name: first.customer_name ?? null,
+        region: first.region ?? null,
+        region_type: first.region_type ?? null,
+        item: first.item ?? null,
+        leader1_name: first.leader1_name ?? null,
+        leader2_name: first.leader2_name ?? null,
+        leader3_name: first.leader3_name ?? null,
+        metro_fee: Number(first.metro_fee || 0),
+        note_amount: Number(first.note_amount || 0),
+        regional_fee: Number(first.regional_fee || 0),
+        cod_amount: Number(first.cod_amount || 0),
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [form.revisit_group_id, form.revisit_visit_no]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
