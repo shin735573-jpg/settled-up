@@ -1459,6 +1459,28 @@ export default function Records() {
       }
       return [base];
     });
+    // 요약 다이얼로그
+    const totalAmt = payloads.reduce(
+      (s, p: any) =>
+        s + Number(p.metro_fee || 0) + Number(p.regional_fee || 0) +
+        Number(p.note_amount || 0) + Number(p.cod_amount || 0),
+      0,
+    );
+    const companyNames = Array.from(new Set(payloads.map((p: any) => p.company_name).filter(Boolean)));
+    const companyLabel = companyNames.length <= 1
+      ? (companyNames[0] || "-")
+      : `${companyNames[0]} 외 ${companyNames.length - 1}곳`;
+    const revisitGroups = new Set(payloads.filter((p: any) => p.revisit_required).map((p: any) => p.revisit_group_id)).size;
+    const summary = [
+      { label: "저장 건수", value: `${payloads.length}건 (입력 ${rows.length}건)` },
+      { label: "날짜", value: bulkShared.date },
+      { label: "업체", value: companyLabel },
+      { label: "팀장", value: [bulkShared.leader1_id, bulkShared.leader2_id, bulkShared.leader3_id].map(leaderName).filter(Boolean).join("·") || "-" },
+      { label: "총액", value: `${fmt(totalAmt)}원` },
+      ...(revisitGroups > 0 ? [{ label: "재방문", value: `${revisitGroups}그룹` }] : []),
+    ];
+    const ok = await confirmSave({ title: "여러건 저장 확인", summary });
+    if (!ok) return;
     setBulkSaving(true);
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
