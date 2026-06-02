@@ -123,6 +123,10 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   const [tab, setTab] = useState<"exact" | "similar" | "note_similar">("exact");
   const [askAmount, setAskAmount] = useState<MergeMode | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // 통합 저장 직전 "최종 청구금액 확인" 단계
+  const [amountConfirmOpen, setAmountConfirmOpen] = useState(false);
+  const [editingFinalAmount, setEditingFinalAmount] = useState(false);
+  const [finalAmountInput, setFinalAmountInput] = useState<string>("");
   const [saving, setSaving] = useState(false);
   // 좌우 비교 패널에서 사용자가 개별 닫기한 의심 행 id 목록
   const [hiddenSuspectIds, setHiddenSuspectIds] = useState<Set<string>>(new Set());
