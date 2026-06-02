@@ -109,6 +109,9 @@ export default function Saves() {
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"company" | "leader">("company");
+  const visiblePreviewRef = useRef<HTMLDivElement | null>(null);
+  const [highlightRowId, setHighlightRowId] = useState<string | null>(null);
   const [companyQuery, setCompanyQuery] = useState<string>("");
   const [leaderQuery, setLeaderQuery] = useState<string>("");
   const normSearch = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "");
@@ -199,6 +202,38 @@ export default function Saves() {
 
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
+
+  // ─── 검사 결과 → 해당 정산서/행으로 이동 ────────────────
+  function jumpToFinding(locator: import("@/lib/statementValidation").FindingLocator) {
+    // 1) 다이얼로그 닫기
+    setCheckResult(null);
+    setPendingSave(null);
+    setPendingPartial(null);
+    // 2) 탭 + 선택 동기화
+    setTab(locator.kind);
+    if (locator.kind === "company") setSelectedCompanyId(locator.id);
+    else setSelectedLeaderId(locator.id);
+    // 3) 렌더 이후 스크롤/하이라이트
+    const tryScroll = (retries: number) => {
+      const root = visiblePreviewRef.current;
+      if (!root) {
+        if (retries > 0) setTimeout(() => tryScroll(retries - 1), 80);
+        return;
+      }
+      if (locator.rowId) {
+        const tr = root.querySelector<HTMLElement>(`[data-row-id="${locator.rowId}"]`);
+        if (tr) {
+          tr.scrollIntoView({ behavior: "smooth", block: "center" });
+          setHighlightRowId(locator.rowId);
+          window.setTimeout(() => setHighlightRowId(null), 3000);
+          return;
+        }
+        if (retries > 0) { setTimeout(() => tryScroll(retries - 1), 80); return; }
+      }
+      root.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    requestAnimationFrame(() => tryScroll(8));
+  }
 
   // 가상기사 id → 이름 매핑 — LeaderPreview 에서 동행팀장 표시 시 "가상" 뱃지를 붙이기 위해 사용.
   const virtualLeaderMap = useMemo(() => {
@@ -920,7 +955,10 @@ export default function Saves() {
         </div>
       </Card>
 
-      <Tabs defaultValue="company" className="space-y-3">
+      {highlightRowId && (
+        <style>{`[data-row-id="${highlightRowId}"] { outline: 3px solid hsl(var(--destructive)); outline-offset: -1px; background-color: hsl(var(--destructive) / 0.18) !important; animation: rowFlash 0.6s ease-in-out 0s 3; } @keyframes rowFlash { 0%,100% { background-color: hsl(var(--destructive) / 0.18); } 50% { background-color: hsl(var(--destructive) / 0.35); } }`}</style>
+      )}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "company" | "leader")} className="space-y-3">
         <TabsList>
           <TabsTrigger value="company">업체 정산서 ({companyStmts.length})</TabsTrigger>
           <TabsTrigger value="leader">팀장 정산서 ({leaderStmts.length})</TabsTrigger>
@@ -980,7 +1018,7 @@ export default function Saves() {
               </ScrollArea>
             </Card>
 
-            <Card className="p-4">
+            <Card className="p-4" ref={tab === "company" ? visiblePreviewRef : undefined}>
               {selectedCompany ? (
                 <CompanyPreview data={selectedCompany} />
               ) : (
@@ -1046,7 +1084,7 @@ export default function Saves() {
               </ScrollArea>
             </Card>
 
-            <Card className="p-4">
+            <Card className="p-4" ref={tab === "leader" ? visiblePreviewRef : undefined}>
               {selectedLeader ? (
                 <LeaderPreview data={selectedLeader} virtualLeaderMap={virtualLeaderMap} />
               ) : (
@@ -1168,7 +1206,15 @@ export default function Saves() {
           )}
           <ScrollArea className="max-h-[360px] pr-3">
             <ul className="space-y-1 text-sm">
-              {checkResult?.findings.map((f, i) => (
+              {checkResult?.findings.map((f, i) => {
+                const loc = f.locator;
+                const locName =
+                  loc?.kind === "company"
+                    ? (companyStmts.find((s) => s.company.id === loc.id)?.company.name ?? loc.id)
+                    : loc?.kind === "leader"
+                    ? (leaderStmts.find((s) => s.leader.id === loc.id)?.leader.name ?? loc.id)
+                    : null;
+                return (
                 <li
                   key={i}
                   className={
@@ -1178,10 +1224,32 @@ export default function Saves() {
                       : "border-yellow-300 bg-yellow-50 text-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-200")
                   }
                 >
-                  <span className="mr-1 font-semibold">{f.severity === "error" ? "오류" : "경고"}</span>
-                  {f.message}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="mr-1 font-semibold">{f.severity === "error" ? "오류" : "경고"}</span>
+                      {f.message}
+                      {loc && (
+                        <div className="mt-0.5 text-[11px] opacity-80">
+                          위치 — {loc.kind === "company" ? "업체" : "팀장"} 정산서: {locName}
+                          {loc.rowId ? " · 해당 행" : ""}
+                        </div>
+                      )}
+                    </div>
+                    {loc && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 shrink-0 px-2 text-[11px]"
+                        onClick={() => jumpToFinding(loc)}
+                      >
+                        이동
+                      </Button>
+                    )}
+                  </div>
                 </li>
-              ))}
+                );
+              })}
               {checkResult && checkResult.findings.length === 0 && (
                 <li className="text-center text-muted-foreground">검사 완료 — 발견된 항목 없음</li>
               )}
@@ -1505,7 +1573,7 @@ function CompanyPreview({
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.id} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
+              <tr key={r.id} data-row-id={r.id} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.date.slice(5)}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{c.name}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.region ?? ""}</td>
@@ -1668,7 +1736,7 @@ function LeaderPreview({
               const vResolved = (vId && virtualLeaderMap?.get(vId)) || vName || "";
               if (vResolved.trim()) addPartner(vResolved, true);
               return (
-              <tr key={r.delivery.id + "-" + i} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
+              <tr key={r.delivery.id + "-" + i} data-row-id={r.delivery.id} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.delivery.date.slice(5)}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.delivery.company_name ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.delivery.region ?? ""}</td>

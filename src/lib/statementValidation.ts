@@ -10,7 +10,20 @@ import type {
 } from "./statementData";
 import { matchesCompany } from "./companyMatch";
 
-export type Finding = { severity: "error" | "warning"; message: string };
+export type FindingLocator = {
+  /** 어떤 정산서로 이동할지 */
+  kind: "company" | "leader";
+  /** 해당 정산서 id */
+  id: string;
+  /** 강조할 원본 배송행 id (있으면 자동 스크롤 + 하이라이트) */
+  rowId?: string;
+};
+export type Finding = {
+  severity: "error" | "warning";
+  message: string;
+  /** 클릭 시 이동할 위치 (없으면 이동 불가) */
+  locator?: FindingLocator;
+};
 export type CheckResult = {
   errors: string[];
   warnings: string[];
@@ -24,8 +37,13 @@ function emptyResult(): CheckResult {
   return { errors: [], warnings: [], findings: [], ok: true };
 }
 
-function push(r: CheckResult, severity: Finding["severity"], message: string) {
-  r.findings.push({ severity, message });
+function push(
+  r: CheckResult,
+  severity: Finding["severity"],
+  message: string,
+  locator?: FindingLocator,
+) {
+  r.findings.push({ severity, message, locator });
   if (severity === "error") r.errors.push(message);
   else r.warnings.push(message);
   r.ok = r.errors.length === 0;
@@ -36,16 +54,17 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
   const r = emptyResult();
   const c = data.company;
   const prefix = `[${c.name}]`;
+  const locCompany = (rowId?: string): FindingLocator => ({ kind: "company", id: c.id, rowId });
 
   // 1) 해당 업체 데이터만 포함되었는지
   for (const row of data.rows) {
     if (!matchesCompany({ company_id: row.company_id, company_name: row.company_name ?? null }, { id: c.id, name: c.name })) {
-      push(r, "error", `${prefix} 다른 업체 데이터가 포함되었습니다: ${row.date} ${row.company_name ?? "?"}`);
+      push(r, "error", `${prefix} 다른 업체 데이터가 포함되었습니다: ${row.date} ${row.company_name ?? "?"}`, locCompany(row.id));
     }
   }
 
   // 2) 거부팀장 / 별칭 — build 단계에서 채워진 errors 승격
-  for (const e of data.errors) push(r, "error", `${prefix} ${e}`);
+  for (const e of data.errors) push(r, "error", `${prefix} ${e}`, locCompany());
 
   // 3) 거부팀장 실명이 업체 제출용에 노출되었는지 (별칭 처리 결과 검증)
   const rejectIds = new Set(
@@ -58,7 +77,7 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
         { id: row.leader2_id, name: row.leader2_name, shown: row.display_leader2 },
       ].forEach(({ id, name, shown }) => {
         if (id && rejectIds.has(id) && name && shown === name) {
-          push(r, "error", `${prefix} 거부팀장 실명 노출: ${name} (${row.date})`);
+          push(r, "error", `${prefix} 거부팀장 실명 노출: ${name} (${row.date})`, locCompany(row.id));
         }
       });
     }
@@ -68,7 +87,7 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
   for (const row of data.rows) {
     for (const s of [row.display_leader1, row.display_leader2]) {
       if (s && VIRTUAL_TERMS.some((t) => s.includes(t))) {
-        push(r, "error", `${prefix} 가상기사/가상팀장 문구 노출: "${s}" (${row.date})`);
+        push(r, "error", `${prefix} 가상기사/가상팀장 문구 노출: "${s}" (${row.date})`, locCompany(row.id));
       }
     }
   }
@@ -76,7 +95,7 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
   // 5) 계산서 미발행 업체에 부가세/계산서 금액이 채워졌으면 오류
   if (!c.issues_invoice) {
     if (data.vat !== 0 || data.claimWithVat !== 0) {
-      push(r, "error", `${prefix} 계산서 미발행 업체에 부가세/청구 금액이 표시됨`);
+      push(r, "error", `${prefix} 계산서 미발행 업체에 부가세/청구 금액이 표시됨`, locCompany());
     }
   }
 
@@ -86,7 +105,7 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
 
   // 7) 데이터 없음은 경고
   if (data.rows.length === 0) {
-    push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`);
+    push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`, locCompany());
   }
 
   return r;
@@ -109,24 +128,25 @@ export function validateLeaderStatement(
   const r = emptyResult();
   const l = data.leader;
   const prefix = `[${l.name}]`;
+  const locLeader = (rowId?: string): FindingLocator => ({ kind: "leader", id: l.id, rowId });
 
   // 1) 정산제외 팀장에 대해 호출됐다면 오류
   if ((l.settle_status ?? "included") === "excluded") {
-    push(r, "error", `${prefix} 정산제외 팀장 정산서는 생성할 수 없습니다`);
+    push(r, "error", `${prefix} 정산제외 팀장 정산서는 생성할 수 없습니다`, locLeader());
   }
 
   // 2) 오은규 단독 정산서 (특수정산 ON 상태) 금지
   if (ctx.oeunkyuSpecial && ctx.oeunkyuId && l.id === ctx.oeunkyuId) {
-    push(r, "error", `${prefix} 오은규 정산서는 생성할 수 없습니다 (오동선에 합산)`);
+    push(r, "error", `${prefix} 오은규 정산서는 생성할 수 없습니다 (오동선에 합산)`, locLeader());
   }
 
   // 3) 해당 정산기사 기준 데이터만 들어갔는지 (분배 weight 합이 0보다 큼)
   for (const row of data.rows) {
     if (row.share.weight <= 0) {
-      push(r, "error", `${prefix} 분배 비율 0 행 포함: ${row.delivery.date}`);
+      push(r, "error", `${prefix} 분배 비율 0 행 포함: ${row.delivery.date}`, locLeader(row.delivery.id));
     }
     if (row.share.weight > 1.0001) {
-      push(r, "error", `${prefix} 중복 계산 (weight>${row.share.weight.toFixed(2)}): ${row.delivery.date}`);
+      push(r, "error", `${prefix} 중복 계산 (weight>${row.share.weight.toFixed(2)}): ${row.delivery.date}`, locLeader(row.delivery.id));
     }
   }
 
@@ -144,7 +164,7 @@ export function validateLeaderStatement(
         row.delivery.leader3_id === ctx.shindongseokId;
       // 본인이 직접 입력된 경우는 분배 후 weight 0.5 이하여야 정상
       if (involved && row.share.weight > 0.5001) {
-        push(r, "error", `${prefix} 강형주/신동석 팀 분배 오류 (weight=${row.share.weight.toFixed(2)}, 날짜 ${row.delivery.date})`);
+        push(r, "error", `${prefix} 강형주/신동석 팀 분배 오류 (weight=${row.share.weight.toFixed(2)}, 날짜 ${row.delivery.date})`, locLeader(row.delivery.id));
       }
     }
   }
@@ -155,7 +175,7 @@ export function validateLeaderStatement(
     const hasOeunkyuRow = data.rows.some((r2) => r2.isOeunkyuTransfer);
     // 경고: 한 건도 없으면 단순 안내
     if (!hasOeunkyuRow) {
-      push(r, "warning", `${prefix} 오은규에서 넘어온 건이 정산서에 없음 (해당 기간에 오은규 배송이 0건이면 정상)`);
+      push(r, "warning", `${prefix} 오은규에서 넘어온 건이 정산서에 없음 (해당 기간에 오은규 배송이 0건이면 정상)`, locLeader());
     }
   }
 
@@ -164,7 +184,7 @@ export function validateLeaderStatement(
 
   // 7) 빈 정산서
   if (data.rows.length === 0) {
-    push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`);
+    push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`, locLeader());
   }
 
   // 8) 팀장 정산서 부가세 표시 규칙 (사양 10-10/11/12)
@@ -174,12 +194,12 @@ export function validateLeaderStatement(
   if (!l.issues_invoice) {
     // 미발급 팀장: 부가세 문구/금액 절대 금지 — data.vat/payoutWithVat 는 0이어야 함
     if (data.vat !== 0) {
-      push(r, "error", `${prefix} 계산서 미발급 팀장에 부가세 표시 금지`);
+      push(r, "error", `${prefix} 계산서 미발급 팀장에 부가세 표시 금지`, locLeader());
     }
   } else {
     // 발급 팀장: 총합배송비 > 0 인데 부가세 미표시면 오류
     if (totalDelivery > 0 && expectedVat <= 0) {
-      push(r, "error", `${prefix} 계산서 발급 팀장에 부가세/부가세포함총배송비 누락`);
+      push(r, "error", `${prefix} 계산서 발급 팀장에 부가세/부가세포함총배송비 누락`, locLeader());
     }
   }
 
