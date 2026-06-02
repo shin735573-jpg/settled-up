@@ -14,7 +14,7 @@ import {
   type StmtLeader,
 } from "./statementData";
 import { allocateRow } from "./splitAllocation";
-import { isCountableLeader, resolveSettleId, type SummaryLeader } from "./summaryAggregation";
+import { resolveSettleId, type SummaryLeader } from "./summaryAggregation";
 
 export type VerifyIssue = {
   severity: "error" | "warning";
@@ -66,6 +66,45 @@ export const displayCustomerName = (s: unknown) => {
 const deliveryBaseAmount = (d: StmtDelivery) =>
   Number(d.metro_fee || 0) + Number(d.regional_fee || 0) + Number(d.note_amount || 0);
 
+function leaderShareTotalForRow(
+  d: StmtDelivery,
+  byId: Map<string, StmtLeader>,
+  virtualIds: Set<string>,
+  special: ReturnType<typeof detectSpecialLeaderIds>,
+  oeunkyuSpecial: boolean,
+): number {
+  // 팀장이 전혀 입력되지 않은 행은 allocateRow 가 빈 배열을 돌려준다 →
+  // 업체 합계엔 들어 있는데 팀장 합계엔 빠져 100% 차이 발생.
+  // 동일한 모집단을 유지하기 위해 미배정 행도 전체 fee 를 그대로 합산한다.
+  if (!d.leader1_id) return deliveryBaseAmount(d);
+  const shares = allocateRow(
+    {
+      leader1_id: d.leader1_id,
+      leader2_id: d.leader2_id,
+      leader3_id: d.leader3_id,
+      split_type: d.split_type,
+      two_person: d.two_person ?? false,
+      metro_fee: Number(d.metro_fee || 0),
+      note_amount: Number(d.note_amount || 0),
+      regional_fee: Number(d.regional_fee || 0),
+      cod_amount: Number(d.cod_amount || 0),
+      virtual_leader_id: d.virtual_leader_id ?? null,
+    },
+    {
+      shindongseokId: special.shindongseokId,
+      ganghyungjuId: special.ganghyungjuId,
+      oeunkyuId: oeunkyuSpecial ? special.oeunkyuId : null,
+      odongseonId: oeunkyuSpecial ? special.odongseonId : null,
+      kimyongikId: special.kimyongikId,
+      virtualIds,
+    },
+  );
+  return shares.reduce((rowSum, s) => {
+    resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>);
+    return rowSum + Number(s.metro || 0) + Number(s.regional || 0) + Number(s.note_amount || 0);
+  }, 0);
+}
+
 function computeLeaderDeliveryOriginalTotal(
   deliveries: StmtDelivery[],
   leaders: StmtLeader[],
@@ -74,38 +113,38 @@ function computeLeaderDeliveryOriginalTotal(
 ) {
   const byId = new Map(leaders.map((l) => [l.id, l]));
   const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+  return deliveries.reduce(
+    (sum, d) => sum + leaderShareTotalForRow(d, byId, virtualIds, special, oeunkyuSpecial),
+    0,
+  );
+}
 
-  return deliveries.reduce((sum, d) => {
-    const shares = allocateRow(
-      {
-        leader1_id: d.leader1_id,
-        leader2_id: d.leader2_id,
-        leader3_id: d.leader3_id,
-        split_type: d.split_type,
-        two_person: d.two_person ?? false,
-        metro_fee: Number(d.metro_fee || 0),
-        note_amount: Number(d.note_amount || 0),
-        regional_fee: Number(d.regional_fee || 0),
-        cod_amount: Number(d.cod_amount || 0),
-        virtual_leader_id: d.virtual_leader_id ?? null,
-      },
-      {
-        shindongseokId: special.shindongseokId,
-        ganghyungjuId: special.ganghyungjuId,
-        oeunkyuId: oeunkyuSpecial ? special.oeunkyuId : null,
-        odongseonId: oeunkyuSpecial ? special.odongseonId : null,
-        kimyongikId: special.kimyongikId,
-        virtualIds,
-      },
-    );
-
-    const rowTotal = shares.reduce((rowSum, s) => {
-      const target = resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>);
-      if (!isCountableLeader(byId.get(target))) return rowSum;
-      return rowSum + Number(s.metro || 0) + Number(s.regional || 0) + Number(s.note_amount || 0);
-    }, 0);
-    return sum + rowTotal;
-  }, 0);
+/** 업체측 행별 fee 와 팀장 분배 합이 다른 행을 추출 (진단용) */
+function diffRowsByLeaderShare(
+  deliveries: StmtDelivery[],
+  leaders: StmtLeader[],
+  special: ReturnType<typeof detectSpecialLeaderIds>,
+  oeunkyuSpecial: boolean,
+) {
+  const byId = new Map(leaders.map((l) => [l.id, l]));
+  const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+  const out: { id: string; date: string; company: string | null; customer: string | null; diff: number }[] = [];
+  for (const d of deliveries) {
+    const company = deliveryBaseAmount(d);
+    const leader = leaderShareTotalForRow(d, byId, virtualIds, special, oeunkyuSpecial);
+    const diff = company - leader;
+    if (Math.abs(diff) > 0) {
+      out.push({
+        id: d.id,
+        date: d.date,
+        company: d.company_name ?? null,
+        customer: d.customer_name ?? null,
+        diff,
+      });
+    }
+  }
+  out.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+  return out;
 }
 
 export function runVerify(input: VerifyInput): VerifyResult {
@@ -160,10 +199,15 @@ export function runVerify(input: VerifyInput): VerifyResult {
 
   // 업체 배송총합 vs 팀장 배송총합 (반올림 1원 이내 허용)
   if (Math.abs(totalsDiff) > 1) {
+    // 어느 행이 차이를 만드는지 행 단위로 다시 비교해서 진단 메시지에 포함
+    const offenders = diffRowsByLeaderShare(deliveries, leaders, special, oeunkyuSpecial).slice(0, 5);
+    const detail = offenders.length
+      ? ` — 의심 행 ${offenders.length}건: ${offenders.map((o) => `${o.date} ${o.company ?? "?"}/${o.customer ?? "?"}(${o.diff > 0 ? "+" : ""}${o.diff})`).join(", ")}`
+      : "";
     issues.push({
       severity: "error",
       code: "TOTALS_MISMATCH",
-      message: `업체 배송총합(${companyDeliveryTotal}) ≠ 팀장 배송총합(${leaderDeliveryTotal}), 차이 ${totalsDiff}`,
+      message: `업체 배송총합(${companyDeliveryTotal}) ≠ 팀장 배송총합(${leaderDeliveryTotal}), 차이 ${totalsDiff}${detail}`,
     });
   }
 
