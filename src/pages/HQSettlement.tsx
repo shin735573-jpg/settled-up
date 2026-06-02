@@ -23,6 +23,7 @@ import PrintButton from "@/components/PrintButton";
 import { Switch } from "@/components/ui/switch";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 import { toast } from "@/hooks/use-toast";
+import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 
 type Period = "h1" | "h2" | "all";
 type Delivery = any;
@@ -242,13 +243,31 @@ export default function HQSettlement() {
   }, [settlementPeriodRows, byId, shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds]);
   const validRows = useMemo(() => allocations.filter((a) => a.hasValid), [allocations]);
 
+  // 업체 청구 중복 제거: 재방문 그룹은 1차 행만 카운트 (팀장 정산은 모든 차수 그대로 유지)
+  const companyPrimaryIds = useMemo(
+    () => new Set(keepRevisitPrimaryOnly(settlementPeriodRows).map((r: Delivery) => r.id)),
+    [settlementPeriodRows],
+  );
+  const companyPeriodRows = useMemo(
+    () => settlementPeriodRows.filter((r: Delivery) => companyPrimaryIds.has(r.id)),
+    [settlementPeriodRows, companyPrimaryIds],
+  );
+  const companyMonthRows = useMemo(
+    () => keepRevisitPrimaryOnly(rows as Delivery[]),
+    [rows],
+  );
+  const companyYearRows = useMemo(
+    () => keepRevisitPrimaryOnly(settlementYearRows as Delivery[]),
+    [settlementYearRows],
+  );
+
   // ── 업체 배송비 총액 = 본사 총배송비(적재비 제외)와 동일
   const companyDeliveryTotal = useMemo(
-    () => settlementPeriodRows.reduce((s, r) => {
+    () => companyPeriodRows.reduce((s, r) => {
       if (((r.item as string) || "").trim() === "적재비") return s;
       return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
     }, 0),
-    [settlementPeriodRows],
+    [companyPeriodRows],
   );
 
   // ── 본사 직영 배송비 (신동석 + 삼호) — 본사 수익에 추가 가산
@@ -363,8 +382,9 @@ export default function HQSettlement() {
   };
   const companyDetails = useMemo<CompanyDetail[]>(() => {
     const visible = companies.filter((c) => c.active);
+    const companyValidRows = validRows.filter(({ row }) => companyPrimaryIds.has(row.id));
     return visible.map((c) => {
-      const list = validRows.filter(
+      const list = companyValidRows.filter(
         ({ row: r }) => r.company_id === c.id || r.company_name === c.name,
       );
       const fee = list.reduce(
@@ -386,7 +406,7 @@ export default function HQSettlement() {
       };
     }).filter((x) => x.count > 0 || x.prevCarry > 0)
       .sort((a, b) => b.fee - a.fee);
-  }, [companies, validRows, codCarry]);
+  }, [companies, validRows, codCarry, companyPrimaryIds]);
 
   // ── 적재비 합계
   const loadingTotal = loadingCosts.reduce((s, x) => s + Number(x.amount || 0), 0);
@@ -443,7 +463,7 @@ export default function HQSettlement() {
   const expenseTotal = fixedTotal + additionalTotal + minGuaranteeTopUp;
 
   // ── 본사 총배송비 (참고용, 계산 미포함) — 적재비 행은 제외
-  const totalDeliveryFee = periodRows.reduce(
+  const totalDeliveryFee = keepRevisitPrimaryOnly(periodRows as Delivery[]).reduce(
     (s, r) => {
       if (isVirtualSettlementRow(r, virtualIds)) return s;
       if (((r.item as string) || "").trim() === "적재비") return s;
@@ -452,7 +472,7 @@ export default function HQSettlement() {
   );
 
   // ── 월전체 본사 총배송비 (적재비 제외)
-  const monthlyDeliveryFee = rows.reduce(
+  const monthlyDeliveryFee = companyMonthRows.reduce(
     (s, r) => {
       if (isVirtualSettlementRow(r, virtualIds)) return s;
       if (((r.item as string) || "").trim() === "적재비") return s;
@@ -463,11 +483,11 @@ export default function HQSettlement() {
   // ── 연간(12개월) 총매출 — 기간/월 선택과 무관하게 항상 표시
   const yearLabel = month.slice(0, 4);
   const yearCompanyDeliveryTotal = useMemo(
-    () => settlementYearRows.reduce((s, r) => {
+    () => companyYearRows.reduce((s, r) => {
       if (((r.item as string) || "").trim() === "적재비") return s;
       return s + Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
     }, 0),
-    [settlementYearRows],
+    [companyYearRows],
   );
   const yearLoadingTotal = useMemo(
     () => settlementYearRows.reduce((s, r) => {
@@ -481,7 +501,7 @@ export default function HQSettlement() {
   // ── 연간 업체별 배송비
   const yearCompanyDeliveryFees = useMemo(() => {
     const map = new Map<string, number>();
-    for (const r of settlementYearRows) {
+    for (const r of companyYearRows) {
       if (((r.item as string) || "").trim() === "적재비") continue;
       const cid = r.company_id || "";
       const amt = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);
@@ -491,7 +511,7 @@ export default function HQSettlement() {
       .map(([cid, amt]) => ({ cid, name: companies.find((c) => c.id === cid)?.name || "(미지정)", amt }))
       .sort((a, b) => b.amt - a.amt);
     return arr;
-  }, [settlementYearRows, companies]);
+  }, [companyYearRows, companies]);
 
   // ── 연간 행별 팀장 분배 (수수료 계산용)
   const yearAllocations = useMemo(() => {
@@ -514,7 +534,7 @@ export default function HQSettlement() {
   // ── 월별 매출 (1~12월): 업체 총배송비 / 수수료 / 적재비 / 합계
   const yearMonthly = useMemo(() => {
     const arr = Array.from({ length: 12 }, () => ({ company: 0, commission: 0, loading: 0 }));
-    for (const r of settlementYearRows) {
+    for (const r of companyYearRows) {
       const m = Number((r.date || "").slice(5, 7));
       if (!m || m < 1 || m > 12) continue;
       const amt = Number(r.metro_fee) + Number(r.note_amount) + Number(r.regional_fee);

@@ -15,6 +15,7 @@ import PrintButton from "@/components/PrintButton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
+import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 
 type Delivery = any;
 type Company = {
@@ -171,8 +172,14 @@ export default function Summary() {
   // 업체 요약: 활성 업체, 행의 유효성으로 일치 보장
   const companyAgg = useMemo(() => {
     const visible = companies.filter((c) => c.active);
+    // 업체 청구는 재방문 그룹당 1건 — 1차 행만 남기고 2차+ 제외
+    const companyValidRows = (() => {
+      const primary = keepRevisitPrimaryOnly(validRows.map(({ row }) => row));
+      const primaryIds = new Set(primary.map((r) => r.id));
+      return validRows.filter(({ row }) => primaryIds.has(row.id));
+    })();
     const arr = visible.map((c) => {
-      const list = validRows.filter(
+      const list = companyValidRows.filter(
         ({ row: r }) => r.company_id === c.id || r.company_name === c.name,
       );
       const fee = list.reduce(
