@@ -1641,13 +1641,15 @@ export default function Records() {
                           }}
                           placeholder="업체"
                           inputRef={(el) => { bulkCompanyRefs.current[idx] = el; }}
+                          disabled={isSecond}
                         />
                       </td>
-                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} /></td>
+                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} disabled={isSecond} /></td>
                       <td className="p-1">
                         <Input
                           className="h-8"
                           value={r.region}
+                          disabled={isSecond}
                           onChange={(e) => {
                             const v = e.target.value;
                             const next = classifyRegion(v);
@@ -1660,14 +1662,16 @@ export default function Records() {
                           }}
                         />
                       </td>
-                      <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} /></td>
+                      <td className="p-1"><Input className="h-8" value={r.item} onChange={(e) => upd({ item: e.target.value })} disabled={isSecond} /></td>
                       <td className="p-1 text-center">
                         <button
                           type="button"
-                          onClick={() => upd({ two_person: !r.two_person })}
+                          onClick={() => { if (!isSecond) upd({ two_person: !r.two_person }); }}
+                          disabled={isSecond}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
-                            r.two_person ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                            r.two_person ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
+                            isSecond && "opacity-50 cursor-not-allowed"
                           )}
                         >
                           {r.two_person ? "2인배송" : "—"}
