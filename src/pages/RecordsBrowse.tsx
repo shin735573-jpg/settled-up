@@ -249,9 +249,6 @@ export default function RecordsBrowse() {
     }
     for (const g of targets) {
       queueAction(g, action, {
-        companionReason: bulkReason || undefined,
-        leader2Id: bulkLeader2 || undefined,
-        splitType: bulkSplit || undefined,
       });
     }
     toast.success(`${targets.length}개 그룹에 ${actionLabel[action]} 예약됨`);
