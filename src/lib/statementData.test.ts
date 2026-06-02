@@ -184,7 +184,7 @@ describe("행사철수 특수일 처리", () => {
     expect(stmt.feeTotal).toBe(50000);
   });
 
-  it("재방문 그룹: 수기분배 미입력 시 1차 팀장1에게 전액 귀속, 2차 팀장은 0", () => {
+  it("재방문 그룹: 수기분배 미입력 시 2차 행 금액은 2차 팀장에게, 나머지는 1차 팀장에게 자동 분배", () => {
     const leaders = [mkLeader("L1", "A팀장"), mkLeader("L2", "B팀장")];
     const deliveries: StmtDelivery[] = [
       mkRow({
@@ -199,8 +199,10 @@ describe("행사철수 특수일 처리", () => {
     const stmts = buildLeaderStatements(deliveries, leaders, "h1", { oeunkyuSpecial: true });
     const a = stmts.find((s) => s.leader.id === "L1")!;
     const b = stmts.find((s) => s.leader.id === "L2")!;
-    expect(a.realFee).toBe(50000); // 1차 금액 전액
-    expect(b.realFee).toBe(0);      // 2차 팀장은 미분배 시 정산 제외
+    // 1차 청구 50,000원 = 1차 팀장(20,000) + 2차 팀장(30,000)
+    expect(a.realFee).toBe(20000);
+    expect(b.realFee).toBe(30000);
+    expect(a.realFee + b.realFee).toBe(50000);
   });
 
   it("재방문 그룹: 수기분배 입력 시 각 팀장에게 지정 금액 분배", () => {
