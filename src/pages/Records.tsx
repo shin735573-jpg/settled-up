@@ -1867,7 +1867,7 @@ export default function Records() {
                             <>
                               <span className={cn(
                                 "text-[10px] px-1.5 py-0.5 rounded font-semibold",
-                                isFollowup ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                                isFollowup ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
                               )}>
                                 {`${visitNo}차배송`}
                               </span>
