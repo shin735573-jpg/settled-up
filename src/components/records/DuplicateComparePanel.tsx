@@ -350,12 +350,16 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
         effectiveEdited = { ...edited, note_amount: Math.max(0, n(edited.note_amount) + diff) };
       }
     }
-    if (hasBlocking) {
+    effectiveEdited = fillLeadersOnto(effectiveEdited);
+    const effectivePlan = plan.map((item) => ({ ...item, next: effectiveEdited as DupDelivery }));
+    const effectiveErrors = validateMergePlan(effectivePlan);
+    const effectiveBlocking = effectiveErrors.filter((e) => e.level === "error");
+    if (effectiveBlocking.length > 0) {
       toast.error("저장 전 오류를 먼저 해결해주세요.");
       return;
     }
     // 최종 유효성 재확인 (자동 반영 후에도 누락된 부분이 없는지)
-    const finalErrors = validateMergePlan(plan);
+    const finalErrors = validateMergePlan(effectivePlan);
     const finalBlocking = finalErrors.filter((e) => e.level === "error");
     if (finalBlocking.length > 0) {
       toast.error(`저장 불가: ${finalBlocking[0].message}`);
