@@ -30,6 +30,7 @@ import {
   verifyResultCsv,
   type VerifyResult,
 } from "@/lib/verifyChecks";
+import { getVerifyRange } from "@/lib/verifyRange";
 import { getCurrentHalf } from "@/lib/autoPeriod";
 import { toast } from "@/hooks/use-toast";
 
@@ -58,18 +59,13 @@ export default function Verify() {
     if (!uid) return;
     setLoading(true);
     try {
-      const [y, m] = month.split("-").map(Number);
-      const from = `${month}-01`;
-      const last = new Date(y, m, 0).getDate();
-      const to = `${month}-${String(last).padStart(2, "0")}`;
-      const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
-      const commonKeys = period === "all"
-        ? [`${month}-first`, `${month}-second`]
-        : [`${month}-${period === "h1" ? "first" : "second"}`];
+      const range = getVerifyRange(month, period);
+      if (!range) { setLoading(false); return; }
+      const { from, toExclusive, periodKey, commonPeriodKeys: commonKeys } = range;
       const [cs, ls, ds, cds, ovs, pds] = await Promise.all([
         supabase.from("companies").select("*").eq("user_id", uid).order("name"),
         supabase.from("team_leaders").select("*").eq("user_id", uid).order("name"),
-        supabase.from("deliveries").select("*").eq("user_id", uid).gte("date", from).lte("date", to),
+        supabase.from("deliveries").select("*").eq("user_id", uid).gte("date", from).lt("date", toExclusive),
         supabase.from("common_deductions").select("id,label,amount,active").eq("user_id", uid).order("sort_order"),
         supabase.from("leader_common_overrides").select("leader_id,common_deduction_id,period_key,amount").eq("user_id", uid).in("period_key", commonKeys),
         supabase.from("leader_period_deductions").select("leader_id,period_key,label,amount").eq("user_id", uid).eq("period_key", periodKey),
@@ -88,10 +84,9 @@ export default function Verify() {
   useEffect(() => { loadData(); /* eslint-disable-next-line */ }, [uid, month, period]);
 
   const deductionCtx: DeductionContext = useMemo(() => {
-    const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
-    const commonPeriodKeys = period === "all"
-      ? [`${month}-first`, `${month}-second`]
-      : [`${month}-${period === "h1" ? "first" : "second"}`];
+    const range = getVerifyRange(month, period);
+    const periodKey = range?.periodKey ?? "all";
+    const commonPeriodKeys = range?.commonPeriodKeys ?? [];
     return { commonDeductions, commonOverrides, periodDeductions, periodKey, commonPeriodKeys };
   }, [commonDeductions, commonOverrides, periodDeductions, period, month]);
 
