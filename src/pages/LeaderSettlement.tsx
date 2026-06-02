@@ -5,6 +5,8 @@ import { sortLeadersByFeeAsc } from "@/lib/leaderSort";
 import { totalLeaderSettlementDeliveryFee, totalUnifiedDeliveryFee, computeCompanyBilledByCompany } from "@/lib/totalFee";
 import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
 import { TotalFeeMismatchBanner } from "@/components/TotalFeeMismatchBanner";
+import { crossCheckCompanyBilled } from "@/lib/companyBilledCrossCheck";
+import { CompanyBilledMismatchBanner } from "@/components/CompanyBilledMismatchBanner";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
@@ -151,6 +153,7 @@ export default function LeaderSettlement() {
     id: string; name: string; issues_invoice: boolean;
     vat_included: boolean;
     settlement_cycle: string;
+    active: boolean;
     rejected_leader_id: string | null;
     rejected_leader_id_2: string | null;
     rejected_leader_id_3: string | null;
@@ -189,7 +192,7 @@ export default function LeaderSettlement() {
       const [{ data: l }, { data: cd }, { data: co }] = await Promise.all([
         supabase.from("team_leaders").select("*").order("name"),
         supabase.from("common_deductions").select("id,label,amount,active").order("sort_order"),
-        supabase.from("companies").select("id,name,issues_invoice,vat_included,settlement_cycle,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
+        supabase.from("companies").select("id,name,active,issues_invoice,vat_included,settlement_cycle,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
       ]);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
       setCommonDeductions((cd as CommonDeduction[]) || []);
