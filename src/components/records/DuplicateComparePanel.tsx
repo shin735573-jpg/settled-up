@@ -303,8 +303,18 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   const errors = useMemo(() => validateMergePlan(plan), [plan]);
   const hasBlocking = errors.some((e) => e.level === "error");
 
-  async function save() {
+  async function save(overrideFinalTotal?: number) {
     if (!edited || !base) return;
+    // 통합 시 사용자가 "최종 청구금액 확인" 단계에서 금액을 직접 수정한 경우,
+    // 차액을 note_amount에 흡수시켜 최종 합계가 일치하도록 한다.
+    let effectiveEdited: Row = edited;
+    if (overrideFinalTotal != null) {
+      const current = feeTotal(edited);
+      const diff = overrideFinalTotal - current;
+      if (diff !== 0) {
+        effectiveEdited = { ...edited, note_amount: Math.max(0, n(edited.note_amount) + diff) };
+      }
+    }
     if (hasBlocking) {
       toast.error("저장 전 오류를 먼저 해결해주세요.");
       return;
@@ -345,26 +355,26 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     setSaving(true);
     try {
       const update = {
-        date: edited.date,
-        company_id: edited.company_id ?? null,
-        company_name: edited.company_name ?? null,
-        customer_name: edited.customer_name ?? null,
-        region: edited.region ?? null,
-        item: edited.item ?? null,
-        note: edited.note ?? null,
-        leader1_id: edited.leader1_id ?? null,
-        leader1_name: edited.leader1_name ?? null,
-        leader2_id: edited.leader2_id ?? null,
-        leader2_name: edited.leader2_name ?? null,
-        split_type: edited.split_type ?? null,
-        two_person: !!edited.two_person,
-        companion: !!edited.companion,
-        companion_reason: edited.companion_reason ?? null,
-        metro_fee: n(edited.metro_fee),
-        regional_fee: n(edited.regional_fee),
-        note_amount: n(edited.note_amount),
-        cod_amount: n(edited.cod_amount),
-        paid: !!edited.paid,
+        date: effectiveEdited.date,
+        company_id: effectiveEdited.company_id ?? null,
+        company_name: effectiveEdited.company_name ?? null,
+        customer_name: effectiveEdited.customer_name ?? null,
+        region: effectiveEdited.region ?? null,
+        item: effectiveEdited.item ?? null,
+        note: effectiveEdited.note ?? null,
+        leader1_id: effectiveEdited.leader1_id ?? null,
+        leader1_name: effectiveEdited.leader1_name ?? null,
+        leader2_id: effectiveEdited.leader2_id ?? null,
+        leader2_name: effectiveEdited.leader2_name ?? null,
+        split_type: effectiveEdited.split_type ?? null,
+        two_person: !!effectiveEdited.two_person,
+        companion: !!effectiveEdited.companion,
+        companion_reason: effectiveEdited.companion_reason ?? null,
+        metro_fee: n(effectiveEdited.metro_fee),
+        regional_fee: n(effectiveEdited.regional_fee),
+        note_amount: n(effectiveEdited.note_amount),
+        cod_amount: n(effectiveEdited.cod_amount),
+        paid: !!effectiveEdited.paid,
       } as never;
       // 기존 row update — 절대 insert 하지 않음
       const { error } = await supabase.from("deliveries").update(update).eq("id", base.id);
