@@ -2109,11 +2109,10 @@ export default function Records() {
                           type="button"
                           onClick={() => {
                             // 재방문 진행 클릭 시:
-                            // - 현재 활성 행은 다음 차수(N+1)로 승격되어 사용자가 계속 입력 가능.
-                            // - 바로 아래에 직전 차수(N)의 "잠금 복제본"이 자동 생성됨.
-                            //   잠금 복제본은 비고금액만 수정 가능, 나머지는 모두 잠김.
-                            // 활성 행이 잠금 행이면 (예: 후보 가져오기로 들어온 행) 동작 안 함.
-                            if (isFollowup) return;
+                            // - 현재 행은 그대로 N차배송(예: 1차배송)으로 유지됨.
+                            // - 바로 아래에 같은 내용의 다음 차수(N+1) "잠금 복제본"이 자동 생성됨.
+                            //   복제본은 금액/비고만 수정 가능, 나머지는 모두 잠김.
+                            // 활성 행이 이미 잠금 행이어도 그 위에 새 차수를 더 만들 수 있어야 하므로 허용.
                             setBulkRows((rows) => {
                               const next = [...rows];
                               const cur = rows[idx];
@@ -2124,25 +2123,23 @@ export default function Records() {
                                   ? (crypto as any).randomUUID()
                                   : `${Date.now()}-${Math.random().toString(16).slice(2)}`
                               );
-                              // 직전 차수의 잠금 복제본 (이미 완료된 과거 방문으로 표시)
-                              const lockedPrev: BulkRow = {
+                              // 현재 행: 1차(또는 현재 차수)로 그대로 유지. 그룹/요청 표시만 보장.
+                              next[idx] = {
                                 ...cur,
                                 revisit_required: true,
-                                revisit_done: true,
                                 revisit_group_local: groupLocal,
                                 revisit_visit_no: curVisitNo,
-                                revisit_locked: true,
                               };
-                              next.splice(idx + 1, 0, lockedPrev);
-                              // 활성 행: 다음 차수로 승격, 계속 진행 중 (revisit_done=false)
-                              next[idx] = {
+                              // 바로 아래: 다음 차수의 잠금 복제본 (내용 자동 생성, 금액/비고만 수정 가능)
+                              const nextLocked: BulkRow = {
                                 ...cur,
                                 revisit_required: true,
                                 revisit_done: false,
                                 revisit_group_local: groupLocal,
                                 revisit_visit_no: nextVisitNo,
-                                revisit_locked: false,
+                                revisit_locked: true,
                               };
+                              next.splice(idx + 1, 0, nextLocked);
                               return next;
                             });
                           }}
