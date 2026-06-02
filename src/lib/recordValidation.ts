@@ -506,7 +506,7 @@ export function validateTeamParity(
         regional_fee: isNumLike(r.regional_fee).n,
         cod_amount: isNumLike(r.cod_amount).n,
       },
-      { ganghyungjuId, shindongseokId },
+      { ganghyungjuId, shindongseokId, virtualIds },
     );
 
     const g = shares.find((s) => s.leader_id === ganghyungjuId);
