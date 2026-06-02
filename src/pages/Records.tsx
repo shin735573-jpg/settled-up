@@ -1481,7 +1481,13 @@ export default function Records() {
       paid: form.paid,
       two_person: form.two_person,
       is_missing: form.is_missing,
-      missing_reason: form.is_missing ? (form.missing_reason || null) : null,
+      missing_reason: form.is_missing
+        ? (buildMissingReason({
+            settleMonth: form.settle_month || null,
+            half: form.settle_half,
+            reason: form.missing_reason,
+          }) || null)
+        : null,
       revisit_required: form.revisit_required,
       revisit_done: form.revisit_done,
       alba_deduction: parseNum(form.alba_deduction) || 0,
