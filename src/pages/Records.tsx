@@ -1543,16 +1543,45 @@ export default function Records() {
     const { data, error } = await q;
     setRevisitDetectLoading(false);
     if (error || !data || data.length === 0) { setRevisitDetectIdx(null); return; }
-    setRevisitDetectCandidates(data);
+    // 같은 그룹에 1차가 있으면 그것만 후보로, 그룹 없는 단건은 그대로 후보. 항상 "최초 배송"이 보이도록 정리.
+    const byGroup = new Map<string, any>();
+    const singles: any[] = [];
+    for (const r of data) {
+      if (r.revisit_group_id) {
+        const existing = byGroup.get(r.revisit_group_id);
+        // visit_no=1 우선, 없으면 가장 작은 visit_no
+        if (!existing || Number(r.revisit_visit_no || 1) < Number(existing.revisit_visit_no || 1)) {
+          byGroup.set(r.revisit_group_id, r);
+        }
+      } else {
+        singles.push(r);
+      }
+    }
+    const candidates = [...byGroup.values(), ...singles].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    setRevisitDetectCandidates(candidates);
     setRevisitDetectOpen(true);
   };
 
-  // 감지된 후보 선택 → 현재 행을 잠금된 2차로 교체. 원본이 revisit_group_id 없으면 그룹 ID를 부여하고 1차로 표시.
+  // 감지된 후보 선택 → 항상 그룹의 최초 1차 배송을 가져와 잠금된 다음 차수 행을 자동 생성.
   const confirmDetectedRevisit = async (src: any) => {
     const idx = revisitDetectIdx;
     if (idx == null) return;
     let effectiveSrc = src;
-    if (!src.revisit_group_id) {
+    let nextVisitNo = 2;
+    if (src.revisit_group_id) {
+      // 그룹 전체 조회 → 최초 1차를 source 로, 다음 차수 번호 계산
+      const { data: groupRows } = await supabase
+        .from("deliveries")
+        .select("*")
+        .eq("revisit_group_id", src.revisit_group_id)
+        .order("revisit_visit_no", { ascending: true });
+      if (groupRows && groupRows.length > 0) {
+        const first = groupRows.find((g) => Number(g.revisit_visit_no || 1) === 1) || groupRows[0];
+        const maxV = groupRows.reduce((m, g) => Math.max(m, Number(g.revisit_visit_no || 1)), 1);
+        effectiveSrc = first;
+        nextVisitNo = maxV + 1;
+      }
+    } else {
       const newGid =
         (typeof crypto !== "undefined" && (crypto as any).randomUUID)
           ? (crypto as any).randomUUID()
@@ -1570,6 +1599,7 @@ export default function Records() {
       effectiveSrc = { ...src, revisit_group_id: newGid, revisit_required: true, revisit_done: true, revisit_visit_no: 1 };
     }
     const clone = build2ndBulkRowFromSrc(effectiveSrc);
+    clone.revisit_visit_no = nextVisitNo;
     // 현재 입력 행은 그대로 두고, 바로 아래에 잠금된 2차 행(원본 1차 내용 그대로, 금액만 수정 가능)을 자동 생성.
     // 팀장이 1차와 달라도 _existing 필드에 보관되어 함께 표시됨.
     setBulkRows((rows) => {
@@ -1580,7 +1610,7 @@ export default function Records() {
     setRevisitDetectOpen(false);
     setRevisitDetectCandidates([]);
     setRevisitDetectIdx(null);
-    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행이 아래에 추가됨 (금액만 수정 가능)`);
+    toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차 행이 아래에 추가됨 (최초 1차 내용 그대로, 금액만 수정 가능)`);
   };
 
   // 종합 오류 검사 실행
