@@ -3243,6 +3243,14 @@ export default function Records() {
           </div>
         </DialogContent>
       </Dialog>
+      <RevisitShareDialog
+        open={revisitShareOpen}
+        onOpenChange={setRevisitShareOpen}
+        first={revisitShareFirst}
+        extraLeaders={revisitShareExtraLeaders}
+        leaders={selectableLeaders}
+        onSaved={loadAll}
+      />
     </div>
   );
 }
