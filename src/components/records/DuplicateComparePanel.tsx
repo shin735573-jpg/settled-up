@@ -159,46 +159,41 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     return allRows.filter((r) => selectedSuspectIds.has(r.id));
   }, [allRows, selectedSuspectIds]);
 
-  // 단일 자동 채움 함수 — 통합 의도가 있을 때 leader1/leader2를 채움.
-  // 통합 의도 = mergeMode가 통합 모드 OR two_person/companion 체크박스가 켜짐
-  //          OR 의심행을 1건 이상 선택함
-  // 절대 기존 값을 null로 덮어쓰지 않는다.
+  const displayedSuspects: Row[] = useMemo(() => ([
+    ...(suspects.exact as Row[]),
+    ...(suspects.similar as Row[]),
+    ...(suspects.noteSimilar as Row[]),
+  ]), [suspects.exact, suspects.similar, suspects.noteSimilar]);
+
+  const row2ForMerge = useMemo(() => {
+    return selectedSuspects[0] ?? displayedSuspects[0] ?? null;
+  }, [selectedSuspects, displayedSuspects]);
+
+  const leaderCandidatesOf = (row: Row | null | undefined) => ([
+    { id: row?.leader1_id, name: row?.leader1_name },
+    { id: row?.leader2_id, name: row?.leader2_name },
+  ]).filter((c) => nrm(c.id));
+
+  // 통합 시 팀장 매핑의 최우선 규칙:
+  // 행1(기준 row)의 팀장 → 팀장1, 행2(선택/첫 의심 row)의 팀장 → 팀장2.
+  // row에 팀장이 없을 때만 다른 의심행에서 보충하고, 빈 값으로 덮어쓰지 않는다.
   function fillLeadersOnto(e: Row): Row {
     const wantsMerge = mergeMode === "two_person" || mergeMode === "companion"
       || !!e.two_person || !!e.companion || selectedSuspects.length > 0;
     if (!wantsMerge) return e;
     let next: Row = e;
-    // 1) leader1 보충
-    if (!nrm(next.leader1_id)) {
-      const p1: Row[] = [base as Row, ...selectedSuspects, ...(suspects.exact as Row[]), ...(suspects.similar as Row[]), ...(suspects.noteSimilar as Row[])];
-      const c1 = p1
-        .filter(Boolean)
-        .map((s) => ({ id: s?.leader1_id, name: s?.leader1_name }))
-        .find((c) => nrm(c?.id));
-      if (c1?.id) next = { ...next, leader1_id: c1.id, leader1_name: c1.name ?? next.leader1_name ?? null };
+    const fallbackRows: Row[] = [base as Row, row2ForMerge as Row, ...selectedSuspects, ...displayedSuspects].filter(Boolean);
+    const row1Leader = leaderCandidatesOf(base as Row)[0]
+      ?? fallbackRows.flatMap(leaderCandidatesOf)[0];
+    if (row1Leader?.id) {
+      next = { ...next, leader1_id: row1Leader.id, leader1_name: row1Leader.name ?? next.leader1_name ?? null };
     }
-    // 2) leader2 보충 — 의심행의 leader1/leader2 모두 후보로
-    if (!nrm(next.leader2_id)) {
-      const pool: Row[] = [
-        ...selectedSuspects,
-        ...(suspects.exact as Row[]),
-        ...(suspects.similar as Row[]),
-        ...(suspects.noteSimilar as Row[]),
-      ];
-      const candidates = pool.flatMap((s) => ([
-        { id: s?.leader1_id, name: s?.leader1_name },
-        { id: s?.leader2_id, name: s?.leader2_name },
-      ]));
-      const seen = new Set<string>();
-      const cand = candidates.find((c) => {
-        const id = nrm(c?.id);
-        if (!id) return false;
-        if (id === nrm(next.leader1_id)) return false;
-        if (seen.has(id)) return false;
-        seen.add(id);
-        return true;
-      });
-      if (cand?.id) next = { ...next, leader2_id: cand.id, leader2_name: cand.name ?? null };
+
+    const leader1Id = nrm(next.leader1_id);
+    const row2Leader = leaderCandidatesOf(row2ForMerge).find((c) => nrm(c.id) !== leader1Id)
+      ?? fallbackRows.flatMap(leaderCandidatesOf).find((c) => nrm(c.id) && nrm(c.id) !== leader1Id);
+    if (row2Leader?.id) {
+      next = { ...next, leader2_id: row2Leader.id, leader2_name: row2Leader.name ?? next.leader2_name ?? null };
     }
     return next;
   }
