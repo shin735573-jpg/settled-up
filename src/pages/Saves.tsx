@@ -1560,13 +1560,13 @@ function CompanyPreview({
         )}
       </div>
       <div className="overflow-hidden rounded-xl border border-border/60">
-        <table className="w-full text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1190 }}>
+        <table className="w-full text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1030 }}>
           <colgroup>
-            {[70,140,120,100,100,140,160,200,110].map((w,i)=>(<col key={i} style={{ width: w }} />))}
+            {[70,85,85,140,120,220,200,110].map((w,i)=>(<col key={i} style={{ width: w }} />))}
           </colgroup>
           <thead className="bg-muted/60">
             <tr>
-              {["날짜","업체","배송지","팀장1","팀장2","고객명","품목","비고","배송비"].map((h) => (
+              {["날짜","팀장1","팀장2","고객명","배송지","품목","비고","배송비"].map((h) => (
                 <th key={h} className="px-2 py-2 text-center font-semibold uppercase tracking-wider text-[10px] text-muted-foreground whitespace-nowrap border-b border-border/60">{h}</th>
               ))}
             </tr>
@@ -1575,18 +1575,17 @@ function CompanyPreview({
             {rows.map((r, i) => (
               <tr key={r.id} data-row-id={r.id} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.date.slice(5)}</td>
-                <td className="px-2 py-1.5 text-center align-middle truncate">{c.name}</td>
-                <td className="px-2 py-1.5 text-center align-middle truncate">{r.region ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.display_leader1 ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.display_leader2 ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.customer_name ?? ""}</td>
+                <td className="px-2 py-1.5 text-center align-middle truncate">{r.region ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.item ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.note ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle tabular-nums font-medium">{fmt(r.delivery_fee)}</td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={9} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
+              <tr><td colSpan={8} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
         </table>
