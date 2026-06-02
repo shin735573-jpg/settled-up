@@ -2408,7 +2408,7 @@ export default function Records() {
               </tbody>
               <tfoot className="bg-muted/50 font-semibold">
                 <tr className="border-t">
-                  <td className="p-2 text-right" colSpan={7}>합계</td>
+                  <td className="p-2 text-right" colSpan={8}>합계</td>
                   <td className="p-2 text-right">
                     {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.metro_fee) || 0) + (parseNum(r.regional_fee) || 0), 0))}
                   </td>
