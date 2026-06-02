@@ -85,9 +85,14 @@ export const normalizeLoadingFeeRowLeaders = <T extends {
   two_person?: boolean | null;
 }>(row: T, assignee: LoadingFeeAssignee | string | null): T => {
   if (!isLoadingFeeItem(row.item)) return row;
-  const a: LoadingFeeAssignee = typeof assignee === "string" || assignee == null
-    ? { ids: new Set(assignee ? [assignee] : []), primary: assignee ?? null }
-    : assignee;
+  let a: LoadingFeeAssignee;
+  if (assignee == null) {
+    a = { ids: new Set<string>(), primary: null };
+  } else if (typeof assignee === "string") {
+    a = { ids: new Set<string>([assignee]), primary: assignee };
+  } else {
+    a = assignee;
+  }
   // 이미 어느 삼호에 귀속되어 있으면 그 ID 유지
   const target = row.leader1_id && a.ids.has(row.leader1_id) ? row.leader1_id : a.primary;
   if (!target) return row;
