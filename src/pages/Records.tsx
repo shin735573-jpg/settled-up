@@ -59,18 +59,30 @@ import {
   formatDuplicateConfirm,
   hasAnyDuplicates,
   findBulkDuplicates,
+  summarizeBulk,
   type DupDelivery,
 } from "@/lib/duplicateCheck";
 import { AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+// PostgREST/Postgres 에러를 한국어로 보여준다.
+//  - 23505: dedupe_key 유니크 위반 (DB 레벨 중복 차단)
+function friendlyInsertError(error: { code?: string; message?: string } | null): string | null {
+  if (!error) return null;
+  if (error.code === "23505" || /duplicate key|unique constraint/i.test(error.message || "")) {
+    return "동일한 내용의 기록이 이미 등록되어 있어 저장할 수 없습니다. (중복 차단)";
+  }
+  return error.message || "저장 중 오류가 발생했습니다";
+}
+
 // 대량 저장(여러건 저장 / 엑셀 붙여넣기) 전에 후보 행들을 기존 DB와 비교해
-// 정확/의심 중복을 확인하고, 사용자 confirm을 받는다.
-// - true: 사용자가 진행 동의 (또는 중복 없음)
-// - false: 사용자가 취소
-async function confirmBulkDuplicates(
-  candidates: DupDelivery[],
-): Promise<boolean> {
+// 정확/의심 중복을 분류한다.
+//  - 완전 중복은 자동으로 제외 (사용자에게 알림)
+//  - 유사 중복은 사용자 confirm 후 진행
+// 반환: { proceed, rowsToSave } — rowsToSave 는 입력과 동일한 shape (T 보존)
+async function confirmBulkDuplicates<T extends DupDelivery>(
+  candidates: T[],
+): Promise<{ proceed: boolean; rowsToSave: T[] }> {
   try {
     const pairs = Array.from(new Set(
       candidates
@@ -80,23 +92,48 @@ async function confirmBulkDuplicates(
       const [date, company_id] = s.split("|");
       return { date, company_id };
     });
-    if (pairs.length === 0) return true;
-    const dates = Array.from(new Set(pairs.map((p) => p.date)));
-    const companyIds = Array.from(new Set(pairs.map((p) => p.company_id)));
-    const { data: existing } = await supabase
-      .from("deliveries")
-      .select("id,date,company_id,company_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,paid,note")
-      .in("date", dates)
-      .in("company_id", companyIds);
-    const pool = (existing || []).filter((e: any) =>
-      pairs.some((p) => p.date === e.date && p.company_id === e.company_id),
-    ) as DupDelivery[];
-    const { exact, suspect } = findBulkDuplicates(candidates, pool);
-    if (!hasAnyDuplicates(exact, suspect)) return true;
-    return confirm(formatDuplicateConfirm(exact, suspect));
+    let pool: DupDelivery[] = [];
+    if (pairs.length > 0) {
+      const dates = Array.from(new Set(pairs.map((p) => p.date)));
+      const companyIds = Array.from(new Set(pairs.map((p) => p.company_id)));
+      const { data: existing } = await supabase
+        .from("deliveries")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
+        .in("date", dates)
+        .in("company_id", companyIds);
+      pool = (existing || []).filter((e: any) =>
+        pairs.some((p) => p.date === e.date && p.company_id === e.company_id),
+      ) as DupDelivery[];
+    }
+    const s = summarizeBulk(candidates as DupDelivery[], pool);
+    if (s.exactDupCount === 0 && s.suspectCount === 0) {
+      return { proceed: true, rowsToSave: candidates };
+    }
+    const summaryMsg =
+      `총 ${s.total}건 · 신규 저장 ${s.newCount}건` +
+      (s.exactDupCount > 0 ? ` · 완전 중복 제외 ${s.exactDupCount}건` : "") +
+      (s.suspectCount > 0 ? ` · 유사 중복 경고 ${s.suspectCount}건` : "");
+    if (s.exactDupCount > 0) {
+      toast.warning(summaryMsg);
+    }
+    if (s.suspectCount > 0) {
+      const proceed = confirm(
+        `${summaryMsg}\n\n` +
+        formatDuplicateConfirm([], s.suspectMatches),
+      );
+      if (!proceed) return { proceed: false, rowsToSave: candidates };
+    }
+    // exact dup 인덱스를 가진 후보 제거 → newRows + suspectRows 만 저장
+    const keepSet = new Set<DupDelivery>([...s.newRows, ...s.suspectRows]);
+    const rowsToSave = candidates.filter((c) => keepSet.has(c as DupDelivery));
+    if (rowsToSave.length === 0) {
+      toast.error("모든 행이 완전 중복이라 저장할 항목이 없습니다");
+      return { proceed: false, rowsToSave: [] };
+    }
+    return { proceed: true, rowsToSave };
   } catch {
     // 중복 검사 실패는 저장을 막지 않는다.
-    return true;
+    return { proceed: true, rowsToSave: candidates };
   }
 }
 
