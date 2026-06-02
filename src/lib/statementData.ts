@@ -304,6 +304,9 @@ export function buildCompanyStatements(
       .forEach((d) => {
         const remap = (id: string | null, name: string | null): string => {
           if (!id) return name ?? "";
+          const lead0 = byId.get(id);
+          // 가상팀장(예: 혼자 간 2인배송용)은 업체 청구서에 표기되지 않음
+          if (lead0?.is_virtual) return "";
           if (!rejectIds.has(id)) return byId.get(id)?.name ?? name ?? "";
           const lead = byId.get(id);
           const alias = lead?.aliases?.[0];
