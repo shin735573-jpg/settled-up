@@ -2758,6 +2758,16 @@ export default function Records() {
             </div>
 
             <div className="space-y-1">
+              <Label title="업체 청구서에는 표시되지 않습니다">알바공제 <span className="text-[10px] text-muted-foreground">(업체 미표시)</span></Label>
+              <AmountTextInput
+                className="text-right tabular-nums"
+                value={form.alba_deduction}
+                onChange={(v) => setForm({ ...form, alba_deduction: v })}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="space-y-1">
               <Label>배송비총액 (자동)</Label>
               <Input value={fmt(total)} readOnly className="bg-muted font-semibold" />
             </div>
