@@ -149,4 +149,22 @@ describe("duplicateCheck", () => {
     expect(s.newCount).toBe(1);
     expect(s.exactDupCount).toBe(2);
   });
+
+  it("groupSuspectDuplicates 는 같은 키의 행이 2건 이상일 때만 그룹화", () => {
+    const rows = [
+      base({ id: "a" }),
+      base({ id: "b" }), // a와 정확 중복
+      base({ id: "c", cod_amount: 5000 }), // a와 의심 중복
+      base({ id: "d", customer_name: "다른고객" }), // 단일
+    ];
+    const groups = groupSuspectDuplicates(rows);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].rows).toHaveLength(3);
+    expect(groups[0].exactPairs).toBeGreaterThanOrEqual(1);
+  });
+
+  it("groupSuspectDuplicates 는 중복 없으면 빈 배열", () => {
+    const rows = [base({ id: "a" }), base({ id: "b", customer_name: "딴사람" })];
+    expect(groupSuspectDuplicates(rows)).toHaveLength(0);
+  });
 });
