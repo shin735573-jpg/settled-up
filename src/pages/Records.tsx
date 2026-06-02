@@ -3111,6 +3111,7 @@ type ParsedRow = {
 function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defaultMonth, onSaved, onReload }: {
   open: boolean; onClose: () => void; companies: Company[]; leaders: Leader[]; holidays: Holiday[]; userId: string; defaultMonth?: string; onSaved: () => void; onReload: () => void | Promise<void>;
 }) {
+  const { confirm: confirmSave, dialog: saveConfirmDialog } = useSaveConfirm();
   const [text, setText] = useState("");
   // 주문 메모 자유 입력 (자동 분석 → 붙여넣기 칸에 KV 블록으로 추가)
   const [memoText, setMemoText] = useState("");
