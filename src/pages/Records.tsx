@@ -1464,6 +1464,8 @@ export default function Records() {
 
   // URL ?edit={id} 로 진입한 경우 해당 행을 자동으로 폼에 로드
   const editParam = searchParams.get("edit");
+  const [editHighlight, setEditHighlight] = useState(false);
+  const editFormRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!editParam) return;
     let cancelled = false;
@@ -1479,6 +1481,12 @@ export default function Records() {
       } else {
         editRow(data as Delivery);
         toast.success("배송내역을 편집 모드로 불러왔습니다");
+        // 폼이 마운트된 다음 프레임에 스크롤 + 강조 효과
+        setTimeout(() => {
+          editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          setEditHighlight(true);
+          window.setTimeout(() => setEditHighlight(false), 2500);
+        }, 50);
       }
       const next = new URLSearchParams(searchParams);
       next.delete("edit");
