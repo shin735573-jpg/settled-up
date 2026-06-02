@@ -1898,15 +1898,8 @@ export default function Records() {
         value: "업체 청구는 1차만, 2차 금액은 팀장 정산 분배에만 반영",
       });
     }
-    const ok = await confirmSave({
-      title: form.id ? "수정 전 최종 검토" : "저장 전 최종 검토",
-      summary,
-      confirmLabel: form.id ? "최종 저장" : "최종 저장",
-      description: "입력한 내용이 맞는지 다시 확인해주세요. 중복 의심 여부를 다시 검사했습니다. 이상이 없으면 최종 저장하세요.",
-      cancelLabel: "다시 수정 / 취소",
-    });
-    if (!ok) return;
-    // 두 팀장 통합 저장의 경우, 위의 상세 확인 대신 "최종 청구금액" 한 항목만 재확인.
+    // 두 팀장 통합(2인배송/반반/형주동석/3분할 + 팀장1·팀장2 자동 50:50 등) 의 경우에는
+    // 상세 검토 다이얼로그 대신 "최종 청구금액"만 재확인하는 간단 다이얼로그를 띄운다.
     const isTwoLeaderIntegration =
       !!form.leader1_id && !!form.leader2_id && !form.leader3_id && !form.virtual_leader_id;
     if (isTwoLeaderIntegration) {
@@ -1917,15 +1910,24 @@ export default function Records() {
       const res = await new Promise<{ ok: boolean; newTotal: number } | null>((resolve) => {
         setIntEditAmt(String(totalAmt));
         setIntEditing(false);
-        setIntegrationConfirm({ totalAmt, l1Name, l2Name, splitMode: splitMode as any, resolve });
+        setIntegrationConfirm({ totalAmt, l1Name, l2Name, splitMode, resolve });
       });
       if (!res || !res.ok) return;
       if (res.newTotal !== totalAmt) {
         const diff = res.newTotal - totalAmt;
-        // 금액 차이는 metro_fee 에 반영 (다른 항목은 그대로 유지)
+        // 금액 차이는 수도권배송비(metro_fee) 항목에 반영 — 다른 항목(비고/지방/착불)은 유지
         metroN = Math.max(0, metroN + diff);
         payload.metro_fee = metroN;
       }
+    } else {
+      const ok = await confirmSave({
+        title: form.id ? "수정 전 최종 검토" : "저장 전 최종 검토",
+        summary,
+        confirmLabel: "최종 저장",
+        description: "입력한 내용이 맞는지 다시 확인해주세요. 중복 의심 여부를 다시 검사했습니다. 이상이 없으면 최종 저장하세요.",
+        cancelLabel: "다시 수정 / 취소",
+      });
+      if (!ok) return;
     }
     if (saving) return; // 더블탭 방지: 이미 저장 중이면 무시
     setSaving(true);
