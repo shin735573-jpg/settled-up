@@ -164,18 +164,34 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   useEffect(() => {
     if (mergeMode !== "two_person" && mergeMode !== "companion") return;
     if (!edited) return;
-    if (nrm(edited.leader2_id)) return; // 이미 있으면 보존
-    const pool: Row[] = selectedSuspects.length > 0
-      ? selectedSuspects
-      : ([...suspects.exact, ...suspects.similar] as Row[]);
-    const cand = pool
-      .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
-      .find((c) => nrm(c.id) && c.id !== edited.leader1_id);
+    // 1) leader1이 비어 있으면 base 또는 의심행에서 보충 (덮어쓰기 금지, 비었을 때만)
+    if (!nrm(edited.leader1_id)) {
+      const p1: Row[] = [base as Row, ...selectedSuspects, ...(suspects.exact as Row[]), ...(suspects.similar as Row[]), ...(suspects.noteSimilar as Row[])];
+      const c1 = p1.map((s) => ({ id: s?.leader1_id, name: s?.leader1_name })).find((c) => nrm(c?.id));
+      if (c1?.id) {
+        setEdited((e) => e ? { ...e, leader1_id: c1.id!, leader1_name: c1.name ?? e.leader1_name ?? null } : e);
+        return;
+      }
+    }
+    // 2) leader2가 비어 있으면 의심행/기존 모든 풀에서 base.leader1과 다른 값으로 채움
+    if (nrm(edited.leader2_id)) return;
+    const pool: Row[] = [
+      ...selectedSuspects,
+      ...(suspects.exact as Row[]),
+      ...(suspects.similar as Row[]),
+      ...(suspects.noteSimilar as Row[]),
+    ];
+    // 후보: leader1 / leader2 모두 검사
+    const candidates = pool.flatMap((s) => ([
+      { id: s.leader1_id, name: s.leader1_name },
+      { id: s.leader2_id, name: s.leader2_name },
+    ]));
+    const cand = candidates.find((c) => nrm(c.id) && c.id !== edited.leader1_id);
     if (cand?.id) {
-      setEdited((e) => e ? { ...e, leader2_id: cand.id, leader2_name: cand.name ?? null } : e);
+      setEdited((e) => e ? { ...e, leader2_id: cand.id!, leader2_name: cand.name ?? null } : e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mergeMode, selectedSuspectIds, suspects.exact.length, suspects.similar.length]);
+  }, [mergeMode, selectedSuspectIds, suspects.exact.length, suspects.similar.length, suspects.noteSimilar.length, edited?.leader1_id, edited?.leader2_id]);
 
   // 합산 미리보기
   const autoSum = useMemo(() => {
@@ -206,14 +222,28 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
           two_person: mode === "two_person" ? true : false,
           companion: mode === "companion" ? true : !!e.companion && mode !== "two_person" ? e.companion : false,
         };
+        // leader1 자동 보충 (비어 있을 때만; 기존 값 절대 덮어쓰지 않음)
+        if (!nrm(next.leader1_id)) {
+          const p1: Row[] = [base as Row, ...selectedSuspects, ...(suspects.exact as Row[]), ...(suspects.similar as Row[]), ...(suspects.noteSimilar as Row[])];
+          const c1 = p1.map((s) => ({ id: s?.leader1_id, name: s?.leader1_name })).find((c) => nrm(c?.id));
+          if (c1?.id) {
+            next.leader1_id = c1.id;
+            next.leader1_name = c1.name ?? null;
+          }
+        }
         // leader2 자동 채움 (비어 있을 때만; 기존 값은 보존)
         if (!nrm(next.leader2_id)) {
-          const pool: Row[] = selectedSuspects.length > 0
-            ? selectedSuspects
-            : ([...suspects.exact, ...suspects.similar] as Row[]);
-          const cand = pool
-            .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
-            .find((c) => nrm(c.id) && c.id !== next.leader1_id);
+          const pool: Row[] = [
+            ...selectedSuspects,
+            ...(suspects.exact as Row[]),
+            ...(suspects.similar as Row[]),
+            ...(suspects.noteSimilar as Row[]),
+          ];
+          const candidates = pool.flatMap((s) => ([
+            { id: s.leader1_id, name: s.leader1_name },
+            { id: s.leader2_id, name: s.leader2_name },
+          ]));
+          const cand = candidates.find((c) => nrm(c.id) && c.id !== next.leader1_id);
           if (cand?.id) {
             next.leader2_id = cand.id;
             next.leader2_name = cand.name ?? null;
@@ -326,34 +356,47 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       toast.error(`저장 불가: ${finalBlocking[0].message}`);
       return;
     }
-    if (mergeMode === "two_person") {
-      if (!edited.two_person) {
-        toast.error("2인배송 통합인데 '2인배송 여부'가 꺼져 있습니다.");
-        return;
-      }
-      if (!nrm(edited.leader2_id)) {
-        toast.error("팀장2 자동 등록에 실패했습니다. 의심행을 선택하거나 팀장2를 직접 지정하세요.");
-        return;
-      }
-    }
-    if (mergeMode === "companion" && !edited.companion) {
-      toast.error("동행 통합인데 '동행여부'가 꺼져 있습니다.");
-      return;
-    }
-    // 통합 공통: 통합 전 두 행에 팀장이 2명 있었다면 통합 후 반드시 둘 다 남아야 함
+    // 통합 공통 안전장치: 통합 전 행들에 있던 팀장 정보가 반드시 최종 1건에 보존되어야 한다
     if (mergeMode === "two_person" || mergeMode === "companion") {
+      // 1) 팀장1 필수
+      if (!nrm(effectiveEdited.leader1_id)) {
+        toast.error("통합 후 팀장1 자동 등록에 실패했습니다. 팀장1을 지정한 뒤 저장하세요.");
+        return;
+      }
+      // 2) 통합 전 두 행에 팀장이 2명 이상 있었다면 팀장2 필수
       const allLeaderIds = new Set<string>();
       [base, ...selectedSuspects].forEach((r) => {
         if (nrm(r.leader1_id)) allLeaderIds.add(String(r.leader1_id));
         if (nrm(r.leader2_id)) allLeaderIds.add(String(r.leader2_id));
       });
-      if (allLeaderIds.size >= 2 && !nrm(edited.leader2_id)) {
-        toast.error("통합 후 팀장2 값이 누락되었습니다. 팀장2를 지정한 뒤 저장하세요.");
+      if (allLeaderIds.size >= 2 && !nrm(effectiveEdited.leader2_id)) {
+        toast.error("통합 후 팀장2 자동 등록에 실패했습니다. 팀장2를 지정한 뒤 저장하세요.");
+        return;
+      }
+      // 3) 2인배송 통합 추가 검증
+      if (mergeMode === "two_person") {
+        if (!effectiveEdited.two_person) {
+          toast.error("2인배송 통합인데 '2인배송 여부'가 꺼져 있습니다.");
+          return;
+        }
+        if (!nrm(effectiveEdited.leader2_id)) {
+          toast.error("통합 후 팀장2 자동 등록에 실패했습니다. 의심행을 선택하거나 팀장2를 직접 지정하세요.");
+          return;
+        }
+      }
+      if (mergeMode === "companion" && !effectiveEdited.companion) {
+        toast.error("동행 통합인데 '동행여부'가 꺼져 있습니다.");
         return;
       }
     }
     setSaving(true);
     try {
+      // 절대 null/빈값으로 leader1/leader2를 덮어쓰지 않는다.
+      // 기존 base 값이 있는데 edited가 비어 있으면 base 값을 그대로 유지한다.
+      const safeLeader1Id = nrm(effectiveEdited.leader1_id) ? effectiveEdited.leader1_id : (base.leader1_id ?? null);
+      const safeLeader1Name = nrm(effectiveEdited.leader1_name) ? effectiveEdited.leader1_name : (effectiveEdited.leader1_name ?? base.leader1_name ?? null);
+      const safeLeader2Id = nrm(effectiveEdited.leader2_id) ? effectiveEdited.leader2_id : (base.leader2_id ?? null);
+      const safeLeader2Name = nrm(effectiveEdited.leader2_name) ? effectiveEdited.leader2_name : (effectiveEdited.leader2_name ?? base.leader2_name ?? null);
       const update = {
         date: effectiveEdited.date,
         company_id: effectiveEdited.company_id ?? null,
@@ -362,10 +405,10 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
         region: effectiveEdited.region ?? null,
         item: effectiveEdited.item ?? null,
         note: effectiveEdited.note ?? null,
-        leader1_id: effectiveEdited.leader1_id ?? null,
-        leader1_name: effectiveEdited.leader1_name ?? null,
-        leader2_id: effectiveEdited.leader2_id ?? null,
-        leader2_name: effectiveEdited.leader2_name ?? null,
+        leader1_id: safeLeader1Id,
+        leader1_name: safeLeader1Name,
+        leader2_id: safeLeader2Id,
+        leader2_name: safeLeader2Name,
         split_type: effectiveEdited.split_type ?? null,
         two_person: !!effectiveEdited.two_person,
         companion: !!effectiveEdited.companion,
