@@ -741,12 +741,6 @@ export default function RecordsBrowse() {
                   <span className="text-xs">예</span>
                 </label>
               </Field>
-              <Field label="동행 사유" full>
-                <Input
-                  value={editForm.companion_reason ?? ""}
-                  onChange={(e) => setEditForm({ ...editForm, companion_reason: e.target.value })}
-                />
-              </Field>
               <Field label="분할 방식">
                 <select
                   value={editForm.split_type ?? ""}
