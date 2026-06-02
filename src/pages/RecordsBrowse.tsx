@@ -660,31 +660,15 @@ export default function RecordsBrowse() {
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <div>대상 그룹 {checkedGroupCount}개에 일괄 적용합니다.</div>
-            {bulkOpen === "merge_companion" && (
-              <div className="space-y-1">
-                <Label className="text-xs">동행 사유</Label>
-                <Input value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} placeholder="예: 엘리베이터 고장" />
+            {bulkOpen === "merge_two_person" && (
+              <div className="text-xs text-muted-foreground">
+                2인배송 통합을 예약하면 팀장2는 그룹 내 다른 팀장1로 자동 채워지고, 반반 정산이 자동 적용됩니다.
               </div>
             )}
-            {bulkOpen === "merge_two_person" && (
-              <>
-                <div className="space-y-1">
-                  <Label className="text-xs">팀장2 (비어있는 행만 채움)</Label>
-                  <LeaderCombobox leaders={leaders} value={bulkLeader2} onChange={setBulkLeader2} />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">분할 방식</Label>
-                  <select
-                    value={bulkSplit}
-                    onChange={(e) => setBulkSplit(e.target.value)}
-                    className="h-9 w-full rounded-md border bg-background px-2"
-                  >
-                    <option value="">(변경 없음)</option>
-                    <option value="반반">반반</option>
-                    <option value="2인배송">2인배송</option>
-                  </select>
-                </div>
-              </>
+            {bulkOpen === "merge_companion" && (
+              <div className="text-xs text-muted-foreground">
+                동행 통합으로 처리됩니다. 별도의 사유 입력은 필요하지 않습니다.
+              </div>
             )}
           </div>
           <DialogFooter>
