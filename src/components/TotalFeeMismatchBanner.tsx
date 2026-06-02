@@ -120,6 +120,9 @@ export function TotalFeeMismatchBanner({
                             >
                               <span className="truncate">
                                 {r.date ?? "-"} · {r.company_name ?? "-"} · {r.item ?? "-"} · {r.leader1_name ?? "-"}
+                                {r.reason && (
+                                  <span className="ml-1 text-[11px] text-muted-foreground">— {r.reason}</span>
+                                )}
                               </span>
                               <span className="flex items-center gap-2 whitespace-nowrap">
                                 <span className="tabular-nums">{r.fee.toLocaleString()}원</span>
