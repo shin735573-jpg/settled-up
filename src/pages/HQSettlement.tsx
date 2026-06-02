@@ -101,6 +101,7 @@ const DEFAULT_EXPENSES: Expenses = {
 
 export default function HQSettlement() {
   const { user } = useAuth();
+  const { confirm: confirmSave, dialog: saveConfirmDialog } = useSaveConfirm();
   const uid = user?.id ?? "anon";
   const initial = useMemo(() => getCurrentHalf(), []);
   const [autoPeriod, setAutoPeriod] = useState<boolean>(() => {
