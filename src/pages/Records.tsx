@@ -1603,10 +1603,11 @@ export default function Records() {
                   const total = (parseNum(r.metro_fee) || 0) + (parseNum(r.note_amount) || 0) + (parseNum(r.regional_fee) || 0) + (parseNum(r.cod_amount) || 0);
                   const upd = (patch: Partial<BulkRow>) =>
                     setBulkRows((rows) => rows.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
+                  const isSecond = r.revisit_visit_no === 2;
                   return (
                      <tr
                        key={idx}
-                       className="border-t"
+                       className={cn("border-t", isSecond && "bg-muted/30")}
                        onKeyDown={(e) => {
                          if (e.key !== "Enter") return;
                          if (e.defaultPrevented) return;
