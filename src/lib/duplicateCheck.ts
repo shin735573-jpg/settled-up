@@ -19,6 +19,7 @@ export type DupDelivery = {
   leader2_id?: string | null;
   split_type?: string | null;
   two_person?: boolean | null;
+  companion?: boolean | null;
   paid?: boolean | null;
   note?: string | null;
 };
@@ -287,4 +288,228 @@ export function groupSuspectDuplicates(rows: DupDelivery[]): DuplicateGroup[] {
   // 정확중복 쌍 많은 순 → 날짜 내림차순
   groups.sort((a, b) => b.exactPairs - a.exactPairs || b.date.localeCompare(a.date));
   return groups;
+}
+
+// =============================================================
+// 선택한 1건 기준 중복의심 검색 (기록입력 우측 패널용)
+// =============================================================
+
+export type SuspectStatus =
+  | "exact"            // 완전 중복
+  | "similar"          // 유사 중복
+  | "note_similar"     // 비고 유사
+  | "leader_missing"   // 팀장 누락 의심
+  | "companion_candidate"   // 동행 통합 후보
+  | "two_person_candidate"  // 2인배송 통합 후보
+  | "two_person_mismatch"   // 2인배송 불일치
+  | "companion_needed"      // 동행 확인 필요
+  | "settlement_mismatch"   // 정산 불일치
+  | "reference";       // 참고건(품목 다름 등)
+
+export type RecommendedAction =
+  | "merge_companion"
+  | "merge_two_person"
+  | "keep_separate"
+  | "dedupe"
+  | "none";
+
+const normLower = (v: unknown) => norm(v).toLowerCase();
+const dateOnly = (v: unknown) => norm(v).slice(0, 10);
+const tokens = (s: string) => s.toLowerCase().split(/[\s,./|·\-_()[\]{}]+/).filter(Boolean);
+const noteSimilarity = (a: string, b: string): number => {
+  const sa = a.trim();
+  const sb = b.trim();
+  if (!sa && !sb) return 1;
+  if (!sa || !sb) return 0;
+  if (sa === sb) return 1;
+  if (sa.includes(sb) || sb.includes(sa)) return 0.8;
+  const ta = new Set(tokens(sa));
+  const tb = new Set(tokens(sb));
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let inter = 0;
+  for (const t of ta) if (tb.has(t)) inter++;
+  const union = new Set([...ta, ...tb]).size;
+  return union === 0 ? 0 : inter / union;
+};
+
+// 핵심 그룹 기준: 날짜 + 고객 + 배송지 + 품목
+const sameGroupKey = (a: DupDelivery, b: DupDelivery) =>
+  dateOnly(a.date) === dateOnly(b.date)
+  && normLower(a.customer_name) === normLower(b.customer_name)
+  && normLower(a.region) === normLower(b.region)
+  && normLower(a.item) === normLower(b.item);
+
+// 비고유사 후보: 날짜+고객+배송지 같음 (품목은 다를 수도)
+const sameLoosenedKey = (a: DupDelivery, b: DupDelivery) =>
+  dateOnly(a.date) === dateOnly(b.date)
+  && normLower(a.customer_name) === normLower(b.customer_name)
+  && normLower(a.region) === normLower(b.region);
+
+export type SuspectSearchResult = {
+  exact: DupDelivery[];
+  similar: DupDelivery[];
+  noteSimilar: DupDelivery[];
+  reference: DupDelivery[]; // 고객/배송지 같지만 품목 다름
+};
+
+export function findDuplicateSuspects(
+  base: DupDelivery,
+  all: DupDelivery[],
+): SuspectSearchResult {
+  const out: SuspectSearchResult = { exact: [], similar: [], noteSimilar: [], reference: [] };
+  for (const r of all) {
+    if (sameId(r, base)) continue;
+    if (dateOnly(r.date) !== dateOnly(base.date)) continue;
+    // 같은 그룹(품목까지 같음)
+    if (sameGroupKey(r, base)) {
+      const fullExact = findExactDuplicates(base, [r]).length > 0;
+      if (fullExact) { out.exact.push(r); continue; }
+      // 다른 필드 1개 이상 다름 → similar
+      out.similar.push(r);
+      continue;
+    }
+    // 품목 다른 경우: 고객+배송지 같으면 참고건
+    if (sameLoosenedKey(r, base)) {
+      // 비고가 부분 유사하면 noteSimilar로 격상
+      const sim = noteSimilarity(norm(r.note), norm(base.note));
+      if (sim >= 0.5) out.noteSimilar.push(r);
+      else out.reference.push(r);
+    }
+  }
+  return out;
+}
+
+export function classifySuspect(base: DupDelivery, suspect: DupDelivery): SuspectStatus[] {
+  const tags: SuspectStatus[] = [];
+  const isExact = findExactDuplicates(base, [suspect]).length > 0;
+  if (isExact) tags.push("exact");
+  const grouped = sameGroupKey(base, suspect);
+  const loose = sameLoosenedKey(base, suspect);
+  if (!grouped && loose) tags.push("reference");
+  if (grouped && !isExact) tags.push("similar");
+  if (!grouped && loose) {
+    const sim = noteSimilarity(norm(base.note), norm(suspect.note));
+    if (sim >= 0.5) tags.push("note_similar");
+  }
+  // 팀장 관련
+  const baseL1 = norm(base.leader1_id);
+  const baseL2 = norm(base.leader2_id);
+  const susL1 = norm(suspect.leader1_id);
+  const susL2 = norm(suspect.leader2_id);
+  if (grouped) {
+    if ((!baseL2 && susL1 && susL1 !== baseL1) || (!susL2 && baseL1 && baseL1 !== susL1)) {
+      tags.push("leader_missing");
+    }
+    // 팀장만 다른 경우: 통합 후보
+    if (baseL1 !== susL1 || baseL2 !== susL2) {
+      if (norm(base.split_type) === "반반" || norm(suspect.split_type) === "반반") {
+        tags.push("two_person_candidate");
+      } else {
+        tags.push("companion_candidate");
+      }
+    }
+    if (!!base.two_person !== !!suspect.two_person) tags.push("two_person_mismatch");
+    if (!!base.companion !== !!suspect.companion) tags.push("companion_needed");
+    // 정산 불일치: 반반이라면서 팀장2가 없음
+    const needsLeader2 = norm(base.split_type) === "반반" || !!base.two_person;
+    if (needsLeader2 && !baseL2) tags.push("settlement_mismatch");
+  }
+  return tags;
+}
+
+export function recommendAction(base: DupDelivery, suspect: DupDelivery): RecommendedAction {
+  const tags = classifySuspect(base, suspect);
+  if (tags.includes("exact")) return "dedupe";
+  if (tags.includes("two_person_candidate")) return "merge_two_person";
+  if (tags.includes("companion_candidate")) return "merge_companion";
+  if (tags.includes("similar") || tags.includes("note_similar")) return "keep_separate";
+  return "none";
+}
+
+export const SUSPECT_STATUS_LABEL: Record<SuspectStatus, string> = {
+  exact: "완전 중복",
+  similar: "유사 중복",
+  note_similar: "비고 유사",
+  leader_missing: "팀장 누락 의심",
+  companion_candidate: "동행 통합 후보",
+  two_person_candidate: "2인배송 통합 후보",
+  two_person_mismatch: "2인배송 불일치",
+  companion_needed: "동행 확인 필요",
+  settlement_mismatch: "정산 불일치",
+  reference: "참고건",
+};
+
+// 통합 시 금액 자동 합산
+export type MergedAmounts = {
+  metro_fee: number;
+  note_amount: number;
+  regional_fee: number;
+  cod_amount: number;
+  total: number;
+};
+
+export function sumMergedAmounts(rows: DupDelivery[]): MergedAmounts {
+  const metro = rows.reduce((s, r) => s + num(r.metro_fee), 0);
+  const note = rows.reduce((s, r) => s + num(r.note_amount), 0);
+  const regional = rows.reduce((s, r) => s + num(r.regional_fee), 0);
+  const cod = rows.reduce((s, r) => s + num(r.cod_amount), 0);
+  return {
+    metro_fee: metro,
+    note_amount: note,
+    regional_fee: regional,
+    cod_amount: cod,
+    total: metro + note + regional,
+  };
+}
+
+// 최종 저장 전 검증
+export type MergeValidationError = { id?: string; message: string; level: "error" | "warning" };
+
+export type MergePlanItem = {
+  base: DupDelivery;        // 수정 대상(기존 row)
+  next: DupDelivery;        // 적용할 값
+  action: "merge_companion" | "merge_two_person" | "keep_separate" | "edit";
+  amountMode?: "sum" | "manual";
+  manualTotal?: number | null;
+};
+
+export function validateMergePlan(items: MergePlanItem[]): MergeValidationError[] {
+  const errors: MergeValidationError[] = [];
+  for (const it of items) {
+    const { next, action, amountMode, manualTotal } = it;
+    const id = norm(it.base.id) || undefined;
+    if (action === "merge_two_person") {
+      if (!norm(next.leader2_id)) errors.push({ id, message: "2인배송 통합인데 팀장2가 없습니다.", level: "error" });
+      if (!next.two_person) errors.push({ id, message: "2인배송 통합인데 2인배송 여부가 꺼져 있습니다.", level: "error" });
+    }
+    if (norm(next.split_type) === "반반" && !norm(next.leader2_id)) {
+      errors.push({ id, message: "반반 정산인데 팀장2가 없습니다.", level: "error" });
+    }
+    if (action === "merge_companion" && !next.companion) {
+      errors.push({ id, message: "동행 통합인데 동행여부가 꺼져 있습니다.", level: "error" });
+    }
+    if ((action === "merge_two_person" || action === "merge_companion") && !amountMode) {
+      errors.push({ id, message: "금액 처리 방식(합산/직접입력)을 선택해주세요.", level: "error" });
+    }
+    if (amountMode === "manual" && (manualTotal == null || !Number.isFinite(Number(manualTotal)))) {
+      errors.push({ id, message: "직접입력 청구금액이 비어 있습니다.", level: "error" });
+    }
+    if (!!next.two_person && norm(next.split_type) === "반반") {
+      const total = num(next.metro_fee) + num(next.note_amount) + num(next.regional_fee);
+      if (amountMode === "manual" && manualTotal != null && Math.abs(Number(manualTotal) - total) > 0.5) {
+        // 직접입력은 허용하지만 계산 합과 다르면 경고
+        errors.push({ id, message: `청구금액(${manualTotal})과 자동합산(${total})이 다릅니다.`, level: "warning" });
+      }
+    }
+  }
+  return errors;
+}
+
+// Postgres 23505 → 한국어 메시지
+export function mapDuplicateError(error: { code?: string; message?: string } | null | undefined): string | null {
+  if (!error) return null;
+  if (error.code === "23505" || /duplicate key|dedupe_key|unique/.test(String(error.message || ""))) {
+    return "이미 동일한 내용의 배송 기록이 있어 저장할 수 없습니다. (날짜·고객·배송지·품목·비고·금액·팀장 모두 같음)";
+  }
+  return null;
 }

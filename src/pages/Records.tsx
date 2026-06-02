@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { CompanyCombobox } from "@/components/CompanyCombobox";
 import { LeaderCombobox } from "@/components/LeaderCombobox";
+import DuplicateComparePanel from "@/components/records/DuplicateComparePanel";
 import { RevisitShareDialog, type RevisitFirstRow } from "@/components/RevisitShareDialog";
 import { RevisitGroupPanel } from "@/components/RevisitGroupPanel";
 import { AmountTextInput } from "@/components/AmountTextInput";
@@ -1271,6 +1272,9 @@ export default function Records() {
   const [searchLeader, setSearchLeader] = useState("");
   const [searchDate, setSearchDate] = useState<Date | undefined>(undefined);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // 중복의심 비교/통합 패널 (선택한 1건 기준)
+  const [comparePanelOpen, setComparePanelOpen] = useState(false);
+  const [compareBaseId, setCompareBaseId] = useState<string | null>(null);
   // 동(洞) 단독 입력 시 수도권/지방 선택 다이얼로그
   const [dongPrompt, setDongPrompt] = useState<string | null>(null);
 
@@ -3908,6 +3912,24 @@ export default function Records() {
               >
                 <Trash2 className="h-4 w-4 mr-1" /> 선택 삭제
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-2"
+                onClick={() => {
+                  const first = Array.from(selectedIds)[0];
+                  if (!first) {
+                    alert("기록 1건을 선택해주세요.");
+                    return;
+                  }
+                  setCompareBaseId(first);
+                  setComparePanelOpen(true);
+                }}
+                disabled={selectedIds.size === 0}
+                title="선택한 기록 1건 기준으로 중복의심 비교/통합"
+              >
+                <ScanSearch className="h-4 w-4 mr-1" /> 중복의심 비교
+              </Button>
             </div>
             {(searchCompany || searchCustomer || searchLeader || searchDate) && filteredRecords.length === 0 && (
               <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
@@ -4236,6 +4258,13 @@ export default function Records() {
         extraLeaders={revisitShareExtraLeaders}
         leaders={selectableLeaders}
         onSaved={load}
+      />
+      <DuplicateComparePanel
+        open={comparePanelOpen}
+        onOpenChange={(o) => { setComparePanelOpen(o); if (!o) setCompareBaseId(null); }}
+        base={(records as any[]).find((r) => r.id === compareBaseId) || null}
+        allRows={records as any[]}
+        onSaved={() => { void load(); }}
       />
     </div>
   );
