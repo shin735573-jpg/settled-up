@@ -13,6 +13,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Records from "./pages/Records";
 import RecordsBrowse from "./pages/RecordsBrowse";
+import MergeHistory from "./pages/MergeHistory";
 import MobileHome from "./pages/MobileHome";
 import CompanySettlement from "./pages/CompanySettlement";
 import LeaderSettlement from "./pages/LeaderSettlement";
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/" element={<RouteErrorBoundary routeName="MobileHome (/)"><MobileHome /></RouteErrorBoundary>} />
               <Route path="/records" element={<RouteErrorBoundary routeName="Records (/records)"><Records /></RouteErrorBoundary>} />
               <Route path="/records-browse" element={<RouteErrorBoundary routeName="RecordsBrowse (/records-browse)"><RecordsBrowse /></RouteErrorBoundary>} />
+              <Route path="/merge-history" element={<RouteErrorBoundary routeName="MergeHistory (/merge-history)"><MergeHistory /></RouteErrorBoundary>} />
               <Route path="/company-settlement" element={<RouteErrorBoundary routeName="CompanySettlement (/company-settlement)"><CompanySettlement /></RouteErrorBoundary>} />
               <Route path="/leader-settlement" element={<RouteErrorBoundary routeName="LeaderSettlement (/leader-settlement)"><LeaderSettlement /></RouteErrorBoundary>} />
               <Route path="/summary" element={<RouteErrorBoundary routeName="Summary (/summary)"><Summary /></RouteErrorBoundary>} />
