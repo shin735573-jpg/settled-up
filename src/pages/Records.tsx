@@ -2930,6 +2930,7 @@ export default function Records() {
                   }));
                 }}
                 placeholder="업체명 입력 (부분검색·↑↓ 선택)"
+                disabled={isFollowupForm}
               />
             </div>
 
