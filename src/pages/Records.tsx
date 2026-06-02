@@ -1272,6 +1272,9 @@ export default function Records() {
   const [searchLeader, setSearchLeader] = useState("");
   const [searchDate, setSearchDate] = useState<Date | undefined>(undefined);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // 중복의심 비교/통합 패널 (선택한 1건 기준)
+  const [comparePanelOpen, setComparePanelOpen] = useState(false);
+  const [compareBaseId, setCompareBaseId] = useState<string | null>(null);
   // 동(洞) 단독 입력 시 수도권/지방 선택 다이얼로그
   const [dongPrompt, setDongPrompt] = useState<string | null>(null);
 
