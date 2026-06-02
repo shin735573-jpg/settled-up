@@ -982,8 +982,8 @@ export default function LeaderSettlement() {
           <LeaderSummaryCard label="총팀장수" value={topSummary.totalLeaders.toLocaleString()} />
           <LeaderSummaryCard label="총배송건수" value={topSummary.totalCount.toLocaleString()} />
           <LeaderSummaryCard label="총착불금액" value={fmt(topSummary.totalCod)} accent />
-          <LeaderSummaryCard label="총배송비" value={fmt(topSummary.totalFee)} bold />
-          <LeaderSummaryCard label="업체총배송비" value={fmt(topSummary.companyTotalFee)} bold red />
+          <LeaderSummaryCard label="총배송비(정산용)" value={fmt(topSummary.totalFee)} bold />
+          <LeaderSummaryCard label="업체청구금액(실제)" value={fmt(topSummary.actualCompanyBilledTotal)} bold red />
         </div>
       )}
 
