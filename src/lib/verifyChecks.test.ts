@@ -61,11 +61,73 @@ describe("verifyChecks", () => {
       deductionCtx: emptyCtx,
     });
     expect(r.hiddenRevisitCount).toBe(1);
+    // 업체 표시 합계는 1차 130,000만 반영, 2차 65,000은 제외
+    expect(r.companyDisplayTotal).toBe(130000);
     const csv = companiesCsv(r.companyStmts);
     // 1차만 표시
     const dataLines = csv.split(/\r\n/).filter((l) => l.includes("송인호"));
     expect(dataLines).toHaveLength(1);
     expect(dataLines[0]).toContain("130000");
+  });
+
+  it("재방문 2차 65,000원은 업체 표시 합계에서 제외되지만 deliveries에는 유지되어 팀장 검산에 사용된다", () => {
+    const leaders = [mkLeader("L1", "맹광식"), mkLeader("L2", "오은규")];
+    const deliveries = [
+      mkRow({
+        id: "r1", date: "2026-05-22", leader1_id: "L1", leader1_name: "맹광식",
+        metro_fee: 130000, revisit_group_id: "G1", revisit_visit_no: 1,
+      }),
+      mkRow({
+        id: "r2", date: "2026-05-22", leader1_id: "L2", leader1_name: "오은규",
+        metro_fee: 65000, revisit_group_id: "G1", revisit_visit_no: 2,
+      }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders, period: "h2",
+      deductionCtx: emptyCtx,
+    });
+    expect(r.companyDisplayTotal).toBe(130000);
+    expect(r.hiddenRevisitCount).toBe(1);
+    expect(r.deliveryCount).toBe(2);
+  });
+
+  it("업체 표시 합계와 팀장 실지급 합계의 단순 차액을 오류로 만들지 않는다", () => {
+    const leaders = [mkLeader("L1", "맹광식")];
+    const deliveries = [
+      mkRow({ date: "2026-05-05", leader1_id: "L1", leader1_name: "맹광식", metro_fee: 100000 }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders, period: "h1",
+      deductionCtx: emptyCtx,
+    });
+    expect(r.errorCount).toBe(0);
+    // 두 값은 서로 다른 기준이므로 별도 노출되어야 함
+    expect(typeof r.companyDisplayTotal).toBe("number");
+    expect(typeof r.leaderShareTotal).toBe("number");
+  });
+
+  it("2026-05 월전체 fixtures: 업체 표시 합계 26,660,000 / 숨겨진 재방문 2차+ 1건", () => {
+    const leaders = [mkLeader("L1", "맹광식"), mkLeader("L2", "오은규")];
+    // 일반 배송 26,595,000원 + 1차 재방문 65,000원 = 업체 표시 26,660,000원
+    const deliveries: StmtDelivery[] = [
+      mkRow({ date: "2026-05-03", leader1_id: "L1", leader1_name: "맹광식", metro_fee: 10000000 }),
+      mkRow({ date: "2026-05-10", leader1_id: "L1", leader1_name: "맹광식", metro_fee: 8000000, regional_fee: 500000, note_amount: 95000 }),
+      mkRow({ date: "2026-05-20", leader1_id: "L1", leader1_name: "맹광식", metro_fee: 8000000 }),
+      mkRow({
+        date: "2026-05-22", leader1_id: "L1", leader1_name: "맹광식",
+        metro_fee: 65000, revisit_group_id: "G1", revisit_visit_no: 1,
+      }),
+      mkRow({
+        date: "2026-05-22", leader1_id: "L2", leader1_name: "오은규",
+        metro_fee: 65000, revisit_group_id: "G1", revisit_visit_no: 2,
+      }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders, period: "all",
+      deductionCtx: { ...emptyCtx, periodKey: "all", commonPeriodKeys: ["2026-05-first", "2026-05-second"] },
+    });
+    expect(r.companyDisplayTotal).toBe(26660000);
+    expect(r.hiddenRevisitCount).toBe(1);
   });
 
   it("공통공제 50,000원: h1=50000, h2=50000, all=100000", () => {
