@@ -668,6 +668,7 @@ export default function HQSettlement() {
 
   return (
     <div className="space-y-4" ref={rootRef}>
+      {saveConfirmDialog}
       {/* 헤더 */}
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">본사정산</h1>
