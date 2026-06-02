@@ -1366,6 +1366,14 @@ export default function Records() {
       { label: "총액", value: `${fmt(totalAmt)}원` },
       ...(form.revisit_required ? [{ label: "재방문", value: form.revisit_group_id ? "기존 그룹" : "1차+2차 동시 생성" }] : []),
     ];
+    // 규칙: 재방문 그룹의 2차+ 행은 금액이 0이어야 함 (1차 행에서만 청구).
+    if (form.revisit_group_id && Number(form.revisit_visit_no || 1) > 1 && totalAmt > 0) {
+      toast.warning(
+        `재방문 규칙 경고: ${form.revisit_visit_no || 2}차 행에 입력된 금액(${fmt(totalAmt)}원)은 정산/청구에 반영되지 않습니다. 분배는 1차 행의 "분배 입력"으로 처리하세요.`,
+        { duration: 8000 },
+      );
+      summary.push({ label: "재방문 경고", value: `${form.revisit_visit_no || 2}차 금액 무시됨` });
+    }
     const ok = await confirmSave({
       title: form.id ? "수정 확인" : "저장 확인",
       summary,
