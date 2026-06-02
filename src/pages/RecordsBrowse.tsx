@@ -524,8 +524,22 @@ function PanelCard({
                       )}
                     </div>
                   </td>
-                  {sel.kind === "leader" && <td className="p-2 whitespace-nowrap">{r.company_name || "-"}</td>}
-                  {sel.kind === "company" && <td className="p-2 whitespace-nowrap">{leadersTxt || "-"}</td>}
+                  {sel.kind === "leader" && (
+                    <td className="p-2 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1">
+                        <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>
+                        {r.company_name || "-"}
+                      </span>
+                    </td>
+                  )}
+                  {sel.kind === "company" && (
+                    <td className="p-2 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1">
+                        <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
+                        {leadersTxt || "-"}
+                      </span>
+                    </td>
+                  )}
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[140px] truncate" title={r.region || ""}>{r.region || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[200px] truncate" title={r.item || ""}>{r.item || "-"}</td>
