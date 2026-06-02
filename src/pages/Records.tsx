@@ -1460,8 +1460,9 @@ export default function Records() {
         // 2차(재방문)는 팀장이 1차와 달라도 OK — 현재 입력일의 공유 팀장 값을 사용
         leader1_id: bulkShared.leader1_id || null,
       leader1_name: leaderName(bulkShared.leader1_id),
-      leader2_id: bulkShared.leader2_id || null,
-      leader2_name: leaderName(bulkShared.leader2_id),
+      // 가상기사가 지정된 행(2인배송)은 팀장2 자리에 가상기사를 자동 입력
+      leader2_id: ((r.two_person && bulkShared.virtual_leader_id) ? bulkShared.virtual_leader_id : (bulkShared.leader2_id || null)),
+      leader2_name: leaderName((r.two_person && bulkShared.virtual_leader_id) ? bulkShared.virtual_leader_id : bulkShared.leader2_id),
       leader3_id: bulkShared.leader3_id || null,
       leader3_name: leaderName(bulkShared.leader3_id),
       virtual_leader_id: (r.virtual_leader_id || (r.two_person ? bulkShared.virtual_leader_id : "")) || null,
