@@ -44,6 +44,7 @@ import {
 import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-react";
 import OcrCheckPanel, { type ExtractedRow } from "@/components/OcrCheckPanel";
 import { isSkippablePasteRow, parsePastedTableText } from "@/lib/pasteGrid";
+import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 
 type Company = {
   id: string;
