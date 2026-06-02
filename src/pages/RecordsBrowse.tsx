@@ -13,6 +13,7 @@ import {
   computeRevisitRedistribution,
   getRevisitFeeForLeader,
 } from "@/lib/revisitRedistribute";
+import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 
 type Company = { id: string; name: string; active: boolean };
 type Leader = { id: string; name: string; active: boolean; is_virtual?: boolean };
@@ -135,6 +136,8 @@ export default function RecordsBrowse() {
     let base = records;
     if (sel.kind === "company") {
       base = base.filter((r) => r.company_id === sel.id);
+      // 업체 관점: 재방문 그룹은 1차 행만 표시 (2차 이후는 업체에 청구/노출하지 않음)
+      base = keepRevisitPrimaryOnly(base);
       if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
       return base;
     }
@@ -558,13 +561,13 @@ function PanelCard({
                   <td className="p-2 whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <span>{r.date}</span>
-                      {r.revisit_group_id && (
+                      {r.revisit_group_id && Number(r.revisit_visit_no) >= 2 && (
                         <>
                           <Badge
-                            variant={Number(r.revisit_visit_no) === 2 ? "default" : "secondary"}
+                            variant="default"
                             className="text-[10px] px-1.5 py-0 leading-4"
                           >
-                            재방문 {Number(r.revisit_visit_no) === 2 ? "2차" : "1차"}
+                            재방문 {Number(r.revisit_visit_no)}차
                           </Badge>
                           {revisitOrd.get(r.revisit_group_id) && (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 leading-4">
@@ -671,13 +674,13 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
                   <td className="p-2 whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <span>{r.date}</span>
-                      {r.revisit_group_id && (
+                      {r.revisit_group_id && Number(r.revisit_visit_no) >= 2 && (
                         <>
                           <Badge
-                            variant={Number(r.revisit_visit_no) === 2 ? "default" : "secondary"}
+                            variant="default"
                             className="text-[10px] px-1.5 py-0 leading-4"
                           >
-                            재방문 {Number(r.revisit_visit_no) === 2 ? "2차" : "1차"}
+                            재방문 {Number(r.revisit_visit_no)}차
                           </Badge>
                           {revisitOrd.get(r.revisit_group_id) && (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 leading-4">
