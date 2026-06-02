@@ -977,6 +977,12 @@ export default function Records() {
   const [revisitPickerOpen, setRevisitPickerOpen] = useState(false);
   const [revisitCandidates, setRevisitCandidates] = useState<any[]>([]);
   const [revisitLoading, setRevisitLoading] = useState(false);
+  // 입력 중 동일 고객/지역 자동 감지 다이얼로그
+  const [revisitDetectOpen, setRevisitDetectOpen] = useState(false);
+  const [revisitDetectIdx, setRevisitDetectIdx] = useState<number | null>(null);
+  const [revisitDetectCandidates, setRevisitDetectCandidates] = useState<any[]>([]);
+  const [revisitDetectLoading, setRevisitDetectLoading] = useState(false);
+  const detectedKeyRef = useRef<Set<string>>(new Set());
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
@@ -1452,8 +1458,8 @@ export default function Records() {
     setRevisitLoading(false);
   };
 
-  // 후보 선택 → bulk 그리드에 잠금된 2차 행 추가
-  const addRevisitFromExisting = (src: any) => {
+  // src 배송 행을 잠금된 2차 BulkRow 로 변환
+  const build2ndBulkRowFromSrc = (src: any): BulkRow => {
     const localId =
       (typeof crypto !== "undefined" && (crypto as any).randomUUID)
         ? (crypto as any).randomUUID()
@@ -1461,7 +1467,7 @@ export default function Records() {
     const sourceRegionType =
       (src.region_type as RegionType | null) ||
       (Number(src.regional_fee || 0) > 0 ? "regional" : Number(src.metro_fee || 0) > 0 ? "metro" : classifyRegion(src.region || ""));
-    const clone: BulkRow = {
+    return {
       company_id: src.company_id || "",
       customer_name: src.customer_name || "",
       region: src.region || "",
@@ -1492,9 +1498,69 @@ export default function Records() {
       paid_existing: !!src.paid,
       two_person_existing: !!src.two_person,
     };
-    setBulkRows((rows) => [...rows, clone]);
+  };
+
+  // 후보 선택 → bulk 그리드에 잠금된 2차 행 추가
+  const addRevisitFromExisting = (src: any) => {
+    setBulkRows((rows) => [...rows, build2ndBulkRowFromSrc(src)]);
     setRevisitPickerOpen(false);
     toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행 추가됨`);
+  };
+
+  // 입력 중인 행의 customer/region 으로 과거 배송 매칭 조회
+  const detectRevisitForRow = async (idx: number) => {
+    const row = bulkRows[idx];
+    if (!row || row.revisit_visit_no === 2 || row.revisit_group_local) return;
+    const name = (row.customer_name || "").trim();
+    const region = (row.region || "").trim();
+    if (!name) return;
+    const key = `${idx}|${name.toLowerCase()}|${region.toLowerCase()}`;
+    if (detectedKeyRef.current.has(key)) return;
+    detectedKeyRef.current.add(key);
+    setRevisitDetectLoading(true);
+    setRevisitDetectIdx(idx);
+    let q = supabase
+      .from("deliveries")
+      .select("*")
+      .ilike("customer_name", name)
+      .order("date", { ascending: false })
+      .limit(20);
+    if (region) q = q.ilike("region", `%${region}%`);
+    const { data, error } = await q;
+    setRevisitDetectLoading(false);
+    if (error || !data || data.length === 0) { setRevisitDetectIdx(null); return; }
+    setRevisitDetectCandidates(data);
+    setRevisitDetectOpen(true);
+  };
+
+  // 감지된 후보 선택 → 현재 행을 잠금된 2차로 교체. 원본이 revisit_group_id 없으면 그룹 ID를 부여하고 1차로 표시.
+  const confirmDetectedRevisit = async (src: any) => {
+    const idx = revisitDetectIdx;
+    if (idx == null) return;
+    let effectiveSrc = src;
+    if (!src.revisit_group_id) {
+      const newGid =
+        (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+          ? (crypto as any).randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const { error } = await supabase
+        .from("deliveries")
+        .update({
+          revisit_group_id: newGid,
+          revisit_required: true,
+          revisit_done: true,
+          revisit_visit_no: 1,
+        })
+        .eq("id", src.id);
+      if (error) { toast.error(`1차 표시 실패: ${error.message}`); return; }
+      effectiveSrc = { ...src, revisit_group_id: newGid, revisit_required: true, revisit_done: true, revisit_visit_no: 1 };
+    }
+    const clone = build2ndBulkRowFromSrc(effectiveSrc);
+    setBulkRows((rows) => rows.map((x, i) => (i === idx ? clone : x)));
+    setRevisitDetectOpen(false);
+    setRevisitDetectCandidates([]);
+    setRevisitDetectIdx(null);
+    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행으로 변환됨`);
   };
 
   // 종합 오류 검사 실행
@@ -1841,12 +1907,13 @@ export default function Records() {
                         />
                         )}
                       </td>
-                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} disabled={isSecond} /></td>
+                      <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} onBlur={() => detectRevisitForRow(idx)} disabled={isSecond} /></td>
                       <td className="p-1">
                         <Input
                           className="h-8"
                           value={r.region}
                           disabled={isSecond}
+                          onBlur={() => detectRevisitForRow(idx)}
                           onChange={(e) => {
                             const v = e.target.value;
                             const next = classifyRegion(v);
@@ -2746,6 +2813,66 @@ export default function Records() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRevisitPickerOpen(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); } }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>재방문 여부 확인</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="text-xs text-muted-foreground">
+              같은 고객/지역의 과거 배송 기록이 발견되었습니다. 재방문이면 원본을 선택해 잠금된 2차 행으로 자동 변환합니다.
+            </div>
+            <div className="max-h-[55vh] overflow-auto border rounded-md">
+              <table className="w-full text-xs">
+                <thead className="bg-muted sticky top-0">
+                  <tr className="text-left">
+                    <th className="p-2">날짜</th>
+                    <th className="p-2">업체</th>
+                    <th className="p-2">고객</th>
+                    <th className="p-2">지역</th>
+                    <th className="p-2">상품</th>
+                    <th className="p-2">팀장</th>
+                    <th className="p-2 text-right">금액</th>
+                    <th className="p-2 w-32"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {revisitDetectLoading && (
+                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">검색 중…</td></tr>
+                  )}
+                  {!revisitDetectLoading && revisitDetectCandidates.length === 0 && (
+                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">매칭된 과거 배송이 없습니다.</td></tr>
+                  )}
+                  {!revisitDetectLoading && revisitDetectCandidates.map((r) => {
+                    const amt =
+                      Number(r.metro_fee || 0) + Number(r.regional_fee || 0) +
+                      Number(r.note_amount || 0) + Number(r.cod_amount || 0);
+                    return (
+                      <tr key={r.id} className="border-t hover:bg-muted/40">
+                        <td className="p-2 whitespace-nowrap">{r.date}</td>
+                        <td className="p-2">{r.company_name}</td>
+                        <td className="p-2">{r.customer_name || ""}</td>
+                        <td className="p-2">{r.region || ""}</td>
+                        <td className="p-2 max-w-[200px] truncate" title={r.item || ""}>{r.item || ""}</td>
+                        <td className="p-2">{[r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join(", ")}</td>
+                        <td className="p-2 text-right tabular-nums">{fmt(amt)}</td>
+                        <td className="p-2">
+                          <Button size="sm" onClick={() => confirmDetectedRevisit(r)}>재방문으로</Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); }}>
+              재방문 아님 (새 배송으로 입력)
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
