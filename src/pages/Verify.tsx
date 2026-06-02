@@ -36,7 +36,6 @@ import { getCurrentHalf } from "@/lib/autoPeriod";
 import {
   isInEffectivePeriod,
   settleOverridePrefix,
-  hasSettlementOverride,
   withEffectiveDate,
 } from "@/lib/missingOverride";
 import { toast } from "@/hooks/use-toast";
