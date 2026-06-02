@@ -1351,12 +1351,26 @@ export default function Records() {
       metroN + regionalN +
       (parseNum(form.note_amount) || 0) +
       (parseNum(form.cod_amount) || 0);
+    const effectiveLeader2Id =
+      (form.two_person && form.virtual_leader_id && !form.leader2_id)
+        ? form.virtual_leader_id
+        : form.leader2_id;
+    const l2Name = leaderName(effectiveLeader2Id);
+    const l2Display = l2Name
+      ? `${l2Name}${(form.two_person && form.virtual_leader_id && !form.leader2_id) ? " (가상)" : ""}`
+      : "-";
     const summary = [
       { label: "구분", value: form.id ? "수정" : "신규 저장" },
       { label: "날짜", value: form.date },
       { label: "업체", value: company.name },
       { label: "고객/지역", value: `${form.customer_name || "-"} / ${form.region || "-"}` },
-      { label: "팀장", value: [form.leader1_id, form.leader2_id, form.leader3_id].map(leaderName).filter(Boolean).join("·") || "-" },
+      { label: "팀장1", value: leaderName(form.leader1_id) || "-" },
+      { label: "팀장2", value: l2Display },
+      { label: "팀장3", value: leaderName(form.leader3_id) || "-" },
+      ...(form.virtual_leader_id && form.leader2_id
+        ? [{ label: "가상기사", value: leaderName(form.virtual_leader_id) || "-" }]
+        : []),
+      { label: "2인배송", value: form.two_person ? "예" : "아니오" },
       { label: "총액", value: `${fmt(totalAmt)}원` },
       ...(form.revisit_required ? [{ label: "재방문", value: form.revisit_group_id ? "기존 그룹" : "1차+2차 동시 생성" }] : []),
     ];
