@@ -390,6 +390,7 @@ function SlotPicker({
                       className={cn("px-2 py-1.5 cursor-pointer flex items-center gap-2", used ? "opacity-40 cursor-not-allowed" : "hover:bg-accent")}
                     >
                       <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <Badge variant="default" className="h-4 px-1 text-[9px] shrink-0">업체</Badge>
                       <span className="truncate">{c.name}</span>
                       {used && <span className="ml-auto text-[10px] text-muted-foreground">사용중</span>}
                     </div>
@@ -409,6 +410,7 @@ function SlotPicker({
                       className={cn("px-2 py-1.5 cursor-pointer flex items-center gap-2", used ? "opacity-40 cursor-not-allowed" : "hover:bg-accent")}
                     >
                       <Users className="h-3.5 w-3.5 text-secondary-foreground shrink-0" />
+                      <Badge variant="secondary" className="h-4 px-1 text-[9px] shrink-0">팀장</Badge>
                       <span className="truncate">{l.name}</span>
                       {used && <span className="ml-auto text-[10px] text-muted-foreground">사용중</span>}
                     </div>
@@ -522,8 +524,22 @@ function PanelCard({
                       )}
                     </div>
                   </td>
-                  {sel.kind === "leader" && <td className="p-2 whitespace-nowrap">{r.company_name || "-"}</td>}
-                  {sel.kind === "company" && <td className="p-2 whitespace-nowrap">{leadersTxt || "-"}</td>}
+                  {sel.kind === "leader" && (
+                    <td className="p-2 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1">
+                        <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>
+                        {r.company_name || "-"}
+                      </span>
+                    </td>
+                  )}
+                  {sel.kind === "company" && (
+                    <td className="p-2 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1">
+                        <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
+                        {leadersTxt || "-"}
+                      </span>
+                    </td>
+                  )}
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[140px] truncate" title={r.region || ""}>{r.region || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[200px] truncate" title={r.item || ""}>{r.item || "-"}</td>
@@ -621,7 +637,14 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
                       )}
                     </div>
                   </td>
-                  <td className="p-2 whitespace-nowrap">{sel.kind === "company" ? (leadersTxt || "-") : (r.company_name || "-")}</td>
+                  <td className="p-2 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1">
+                      {sel.kind === "company"
+                        ? <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
+                        : <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>}
+                      {sel.kind === "company" ? (leadersTxt || "-") : (r.company_name || "-")}
+                    </span>
+                  </td>
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[180px] truncate" title={r.region || ""}>{r.region || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[220px] truncate" title={r.item || ""}>{r.item || "-"}</td>
