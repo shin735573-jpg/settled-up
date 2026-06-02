@@ -18,6 +18,11 @@ import { allocateRow, feeForShare } from "@/lib/splitAllocation";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
 import PrintButton from "@/components/PrintButton";
+import {
+  isInEffectivePeriod as __isInEffectivePeriod,
+  settleOverridePrefix as __settleOverridePrefix,
+  withEffectiveDate as __withEffectiveDate,
+} from "@/lib/missingOverride";
 import { Switch } from "@/components/ui/switch";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 
