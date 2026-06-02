@@ -54,6 +54,7 @@ const App = () => (
               <Route path="/settings" element={<RouteErrorBoundary routeName="Settings (/settings)"><Settings /></RouteErrorBoundary>} />
               <Route path="/spec-tests" element={<RouteErrorBoundary routeName="SpecTests (/spec-tests)"><SpecTests /></RouteErrorBoundary>} />
               <Route path="/ocr-test" element={<RouteErrorBoundary routeName="OcrTest (/ocr-test)"><OcrTest /></RouteErrorBoundary>} />
+              <Route path="/save-conflicts" element={<RouteErrorBoundary routeName="SaveConflicts (/save-conflicts)"><SaveConflicts /></RouteErrorBoundary>} />
             </Route>
             <Route path="*" element={<RouteErrorBoundary routeName="NotFound"><NotFound /></RouteErrorBoundary>} />
           </Routes>
