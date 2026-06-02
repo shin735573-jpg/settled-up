@@ -1332,7 +1332,7 @@ function CompanyPreview({
                 <td className="px-2 py-1.5 text-center align-middle truncate">{c.name}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.region ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.display_leader1 ?? ""}</td>
-                <td className="px-2 py-1.5 text-center align-middle truncate">{[r.display_leader2, r.display_leader3].filter((x) => x && String(x).trim()).join(" / ")}</td>
+                <td className="px-2 py-1.5 text-center align-middle truncate">{r.display_leader2 ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.customer_name ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.item ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.note ?? ""}</td>
