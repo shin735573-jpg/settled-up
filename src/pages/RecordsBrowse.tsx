@@ -157,17 +157,32 @@ export default function RecordsBrowse() {
     const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
     const revisitOverride = computeRevisitRedistribution(records, virtualIds);
 
+    // 행 기준으로 "이 팀장이 가상기사 자리에 들어와 있는지" 판단.
+    //  - 등록 팀장이라도 row.virtual_leader_id 칸으로 들어왔으면 그 행에서는 가상기사임
+    //  - is_virtual=true 인 팀장은 항상 가상기사
+    const selIsVirtualOnRow = (r: Delivery): boolean => {
+      if (virtualIds.has(sel.id)) return true;
+      if (r.virtual_leader_id && r.virtual_leader_id === sel.id) return true;
+      return false;
+    };
+    const zeroFees = (r: Delivery): Delivery => ({
+      ...r, metro_fee: 0, regional_fee: 0, note_amount: 0, cod_amount: 0,
+    });
+
     const out: Delivery[] = [];
     for (const r of base) {
       const ov = revisitOverride.get(r.id);
       if (ov !== undefined) {
         if (ov.length === 0) {
           // 2차+ 행 → 본인이 이 회차 팀장이면 그 회차 자체 행/금액으로 표시
-          if (r.leader1_id && targetIds.has(r.leader1_id)) out.push(r);
+          if (r.leader1_id && targetIds.has(r.leader1_id)) {
+            out.push(selIsVirtualOnRow(r) ? zeroFees(r) : r);
+          }
           continue;
         }
         // 1차 행 → 본인이 1차 팀장일 때만 본인 몫으로 표시
         if (!r.leader1_id || !targetIds.has(r.leader1_id)) continue;
+        if (selIsVirtualOnRow(r)) { out.push(zeroFees(r)); continue; }
         const fee = getRevisitFeeForLeader(r.id, revisitOverride, targetIds);
         if (!fee) continue;
         out.push({
@@ -181,7 +196,10 @@ export default function RecordsBrowse() {
       }
       // 일반 행: leader1/2/3 중 하나에 본인(또는 오은규)이 포함되면 표시
       const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
-      if (ids.some((x) => x && targetIds.has(x))) out.push(r);
+      if (ids.some((x) => x && targetIds.has(x))) {
+        // 본인이 이 행에서 가상기사 자리 → 보이되 정산 금액 0
+        out.push(selIsVirtualOnRow(r) ? zeroFees(r) : r);
+      }
     }
     base = out;
     if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
