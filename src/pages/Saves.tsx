@@ -37,6 +37,14 @@ import {
   type CheckResult,
 } from "@/lib/statementValidation";
 import { validateSettlementInvariants } from "@/lib/settlementInvariants";
+import {
+  appendValidationAudit,
+  getValidationAudits,
+  clearValidationAudits,
+  summarizeAudit,
+  type AuditEntry,
+  type AuditScope,
+} from "@/lib/validationAudit";
 import { toast } from "@/hooks/use-toast";
 import { exportSingle, exportZip, printTargets, type ExportTarget } from "@/lib/statementExport";
 import { Switch } from "@/components/ui/switch";
@@ -269,6 +277,11 @@ export default function Saves() {
       const dir = await getReadyDir();
       const { filename } = await exportSingle(target, month, period, regenerate, { uploadOneDrive: uploadOD, saveDirectory: dir });
       toast({ title: "저장 완료", description: filename });
+      recordAuditAfter(
+        kind === "company" ? "company-one" : "leader-one",
+        `${kind === "company" ? "업체" : "팀장"} 단건 저장 — ${name}`,
+        regenerate,
+      );
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
@@ -321,6 +334,11 @@ export default function Saves() {
         skippedLeaders: skippedLeaders.map((s) => ({ name: s.leader.name, reason: "정산내역 없음" })),
       });
       toast({ title: "저장 완료", description: `${filename} (${count}건 저장, ${skipCount}건 제외)` });
+      recordAuditAfter(
+        kind === "company" ? "company-all" : kind === "leader" ? "leader-all" : "both-all",
+        `${kind === "company" ? "업체 전체" : kind === "leader" ? "팀장 전체" : "업체+팀장 전체"} 저장${regenerate ? " (재생성)" : ""}`,
+        regenerate,
+      );
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
@@ -429,6 +447,51 @@ export default function Saves() {
   const [pendingSave, setPendingSave] = useState<null | (() => void)>(null);
   const [pendingPartial, setPendingPartial] = useState<null | { fn: () => void; count: number; label: string }>(null);
   const [checkTitle, setCheckTitle] = useState<string>("");
+
+  // ─── 합계 검증 이력 (v1/v2/v3 …) ──────────────────────────
+  const [audits, setAudits] = useState<AuditEntry[]>([]);
+  const [auditOpen, setAuditOpen] = useState(false);
+  useEffect(() => {
+    setAudits(getValidationAudits(month, period));
+  }, [month, period]);
+
+  /**
+   * 저장 / 재생성 완료 직후 합계 검증을 자동으로 다시 실행하고 v1/v2/v3 비교 기록을 남긴다.
+   * 직전 버전과 경고/오류 차이(해소·신규)는 모듈에서 자동 계산된다.
+   */
+  function recordAuditAfter(scope: AuditScope, title: string, regenerate: boolean): AuditEntry | null {
+    try {
+      const after = runChecksFor("both-all");
+      const entry = appendValidationAudit({
+        month, period, scope, title, regenerate,
+        errors: after.errors,
+        warnings: after.warnings,
+      });
+      setAudits(getValidationAudits(month, period));
+      const summary = summarizeAudit(entry);
+      if (entry.version === 1) {
+        toast({ title: `검증 기록 v1 — ${title}`, description: summary });
+      } else if (entry.resolvedWarnings.length + entry.resolvedErrors.length > 0 && entry.newWarnings.length + entry.newErrors.length === 0) {
+        toast({
+          title: `검증 v${entry.version} — 해소 ${entry.resolvedWarnings.length + entry.resolvedErrors.length}건`,
+          description: summary,
+        });
+      } else if (entry.newWarnings.length + entry.newErrors.length > 0) {
+        toast({
+          title: `검증 v${entry.version} — 신규 ${entry.newWarnings.length + entry.newErrors.length}건`,
+          description: summary,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `검증 v${entry.version} — 변동 없음`, description: summary });
+      }
+      return entry;
+    } catch (e) {
+      // 검증 기록 실패는 저장 성공 자체를 막지 않는다.
+      console.warn("validation audit failed", e);
+      return null;
+    }
+  }
 
   /**
    * scope:
@@ -568,6 +631,11 @@ export default function Saves() {
         { uploadOneDrive: uploadOD, saveDirectory: await getReadyDir() },
       );
       toast({ title: "저장 완료", description: `${filename} (${count}건, 오류 ${all.length - count}건 제외)` });
+      recordAuditAfter(
+        kind === "company" ? "company-all" : kind === "leader" ? "leader-all" : "both-all",
+        `오류 없는 ${kind === "company" ? "업체" : kind === "leader" ? "팀장" : "항목"}만 저장${regenerate ? " (재생성)" : ""}`,
+        regenerate,
+      );
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
@@ -738,6 +806,41 @@ export default function Saves() {
           <GateButton reason={blockedReason} onClick={onSaveLeaderAll} disabled={leaderStmts.length === 0 || isLocked("leader") || saveBlocked}>팀장 전체 사진 저장</GateButton>
           <GateButton reason={blockedReason} variant="secondary" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader") || saveBlocked}>정산서 재생성</GateButton>
           <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
+        </div>
+        <div className="mt-3 border-t pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm">
+              <div className="font-medium">합계 검증 이력 (v1 / v2 / v3 …)</div>
+              <div className="text-xs text-muted-foreground">
+                저장·재생성 직후 자동으로 검증을 다시 실행하고 직전 버전과 비교한 기록입니다.
+                ({month} {PERIOD_LABEL[period]} · 총 {audits.length}건)
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {audits.length > 0 && (() => {
+                const last = audits[audits.length - 1];
+                const tone =
+                  last.newWarnings.length + last.newErrors.length > 0 ? "destructive" :
+                  last.warnings.length + last.errors.length === 0 ? "default" : "secondary";
+                return (
+                  <Badge variant={tone as "default" | "secondary" | "destructive"}>
+                    최신 v{last.version} · 경고 {last.warnings.length} / 오류 {last.errors.length}
+                  </Badge>
+                );
+              })()}
+              <Button size="sm" variant="outline" onClick={() => setAuditOpen(true)} disabled={audits.length === 0}>
+                이력 보기
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => {
+                if (audits.length === 0) return;
+                if (!window.confirm(`${month} ${PERIOD_LABEL[period]} 검증 이력 ${audits.length}건을 삭제할까요?`)) return;
+                clearValidationAudits(month, period);
+                setAudits([]);
+              }} disabled={audits.length === 0}>
+                초기화
+              </Button>
+            </div>
+          </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 border-t pt-3">
           <Button size="lg" variant="outline" className="h-14" onClick={onPrintCompanyOne} disabled={!selectedCompany}>
@@ -1107,6 +1210,73 @@ export default function Saves() {
                 경고 확인 후 저장 진행
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={auditOpen} onOpenChange={setAuditOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>합계 검증 이력 — {month} {PERIOD_LABEL[period]}</DialogTitle>
+            <DialogDescription>
+              저장·재생성 직후 자동 재실행한 검증 결과입니다. 직전 버전 대비 해소/신규 항목을 함께 표시합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[480px] pr-3">
+            <ul className="space-y-2 text-sm">
+              {[...audits].reverse().map((a) => {
+                const tone =
+                  a.newWarnings.length + a.newErrors.length > 0
+                    ? "border-destructive/50 bg-destructive/10"
+                    : a.resolvedWarnings.length + a.resolvedErrors.length > 0
+                    ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30"
+                    : "border-border bg-muted/30";
+                return (
+                  <li key={`${a.version}-${a.at}`} className={`rounded border p-3 ${tone}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge>v{a.version}</Badge>
+                        <span className="font-medium">{a.title}</span>
+                        {a.regenerate && <Badge variant="secondary">재생성</Badge>}
+                      </div>
+                      <div className="text-xs text-muted-foreground tabular-nums">
+                        {new Date(a.at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">{summarizeAudit(a)}</div>
+                    {(a.resolvedWarnings.length > 0 || a.resolvedErrors.length > 0) && (
+                      <div className="mt-2">
+                        <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">해소된 항목</div>
+                        <ul className="ml-3 list-disc text-xs">
+                          {a.resolvedErrors.map((m, i) => <li key={`re${i}`}>오류 — {m}</li>)}
+                          {a.resolvedWarnings.map((m, i) => <li key={`rw${i}`}>경고 — {m}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {(a.newWarnings.length > 0 || a.newErrors.length > 0) && (
+                      <div className="mt-2">
+                        <div className="text-xs font-semibold text-destructive">신규 발생 항목</div>
+                        <ul className="ml-3 list-disc text-xs">
+                          {a.newErrors.map((m, i) => <li key={`ne${i}`}>오류 — {m}</li>)}
+                          {a.newWarnings.map((m, i) => <li key={`nw${i}`}>경고 — {m}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {a.warnings.length === 0 && a.errors.length === 0 && (
+                      <div className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                        ✓ 잔여 경고/오류 없음
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+              {audits.length === 0 && (
+                <li className="text-center text-muted-foreground py-6">아직 기록 없음 — 저장 또는 재생성 시 자동으로 추가됩니다.</li>
+              )}
+            </ul>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAuditOpen(false)}>닫기</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
