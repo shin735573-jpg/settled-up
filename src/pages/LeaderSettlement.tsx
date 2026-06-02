@@ -265,6 +265,7 @@ export default function LeaderSettlement() {
   }, [commonKeysJoined]);
 
   const leadersById = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+  const samhoId = useMemo(() => findLoadingFeeAssigneeId(leaders), [leaders]);
 
   /** 신동석/강형주 팀장 ID — 정식명 또는 별칭(동석/형주)으로 매칭. 재분배에 사용. */
   const findLeaderIdByNames = (names: string[]): string | null => {
