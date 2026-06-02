@@ -1001,6 +1001,8 @@ export default function Records() {
   // 입력 중 동일 고객/지역 자동 감지 다이얼로그
   const [revisitDetectOpen, setRevisitDetectOpen] = useState(false);
   const [revisitDetectIdx, setRevisitDetectIdx] = useState<number | null>(null);
+  // 단일폼에서 자동 감지된 경우 true → 다이얼로그에서 "재방문으로" 선택 시 폼에 채워줌
+  const [revisitDetectForForm, setRevisitDetectForForm] = useState(false);
   const [revisitDetectCandidates, setRevisitDetectCandidates] = useState<any[]>([]);
   const [revisitDetectLoading, setRevisitDetectLoading] = useState(false);
   // 재방문 팀장 분배 입력 다이얼로그
@@ -1834,7 +1836,8 @@ export default function Records() {
   // 감지된 후보 선택 → 항상 그룹의 최초 1차 배송을 가져와 잠금된 다음 차수 행을 자동 생성.
   const confirmDetectedRevisit = async (src: any) => {
     const idx = revisitDetectIdx;
-    if (idx == null) return;
+    const forForm = revisitDetectForForm;
+    if (idx == null && !forForm) return;
     let effectiveSrc = src;
     let nextVisitNo = 2;
     if (src.revisit_group_id) {
@@ -1867,19 +1870,42 @@ export default function Records() {
       if (error) { toast.error(`1차 표시 실패: ${error.message}`); return; }
       effectiveSrc = { ...src, revisit_group_id: newGid, revisit_required: true, revisit_done: true, revisit_visit_no: 1 };
     }
-    const clone = build2ndBulkRowFromSrc(effectiveSrc);
-    clone.revisit_visit_no = nextVisitNo;
-    // 현재 입력 행은 그대로 두고, 바로 아래에 잠금된 2차 행(원본 1차 내용 그대로, 금액만 수정 가능)을 자동 생성.
-    // 팀장이 1차와 달라도 _existing 필드에 보관되어 함께 표시됨.
-    setBulkRows((rows) => {
-      const next = [...rows];
-      next.splice(idx + 1, 0, clone);
-      return next;
-    });
+    if (forForm) {
+      // 단일폼: 폼을 다음 차수로 세팅 (1차 내용 그대로, 금액만 비워 새로 입력)
+      setForm((f) => ({
+        ...f,
+        company_id: effectiveSrc.company_id || f.company_id,
+        customer_name: effectiveSrc.customer_name || f.customer_name,
+        region: effectiveSrc.region || f.region,
+        region_type: (effectiveSrc.region_type as RegionType) || f.region_type,
+        item: effectiveSrc.item || f.item,
+        leader1_id: effectiveSrc.leader1_id || f.leader1_id,
+        leader2_id: effectiveSrc.leader2_id || f.leader2_id,
+        leader3_id: effectiveSrc.leader3_id || f.leader3_id,
+        revisit_group_id: effectiveSrc.revisit_group_id,
+        revisit_visit_no: nextVisitNo,
+        revisit_required: true,
+        revisit_done: false,
+        metro_fee: "",
+        regional_fee: "",
+        note_amount: "",
+        cod_amount: "",
+      }));
+      toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차로 설정됨 (1차 내용 자동 채움)`);
+    } else if (idx != null) {
+      const clone = build2ndBulkRowFromSrc(effectiveSrc);
+      clone.revisit_visit_no = nextVisitNo;
+      setBulkRows((rows) => {
+        const next = [...rows];
+        next.splice(idx + 1, 0, clone);
+        return next;
+      });
+      toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차 행이 아래에 추가됨 (최초 1차 내용 그대로, 금액만 수정 가능)`);
+    }
     setRevisitDetectOpen(false);
     setRevisitDetectCandidates([]);
     setRevisitDetectIdx(null);
-    toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차 행이 아래에 추가됨 (최초 1차 내용 그대로, 금액만 수정 가능)`);
+    setRevisitDetectForForm(false);
   };
 
   // 단일폼 자동 매칭: 같은 키 반복 호출 방지용
@@ -1909,9 +1935,9 @@ export default function Records() {
     formMatchKeyRef.current = key;
     let q = supabase
       .from("deliveries")
-      .select("id,date,company_name,customer_name,region,revisit_group_id,revisit_visit_no")
+      .select("*")
       .order("date", { ascending: false })
-      .limit(5);
+      .limit(20);
     if ((revisitMatchMode === "name" || revisitMatchMode === "both") && name) q = q.ilike("customer_name", name);
     if ((revisitMatchMode === "region" || revisitMatchMode === "both") && region) q = q.ilike("region", `%${region}%`);
     const { data, error } = await q;
@@ -1922,11 +1948,24 @@ export default function Records() {
       );
       return;
     }
-    const top = data[0];
-    toast.info(
-      `재방문 매칭 발견: ${top.date} ${top.company_name} ${top.customer_name || ""} (${top.revisit_group_id ? `${top.revisit_visit_no || 1}차` : "단건"}) 외 ${data.length - 1}건 — "재방문요청" 체크 시 다음 차수로 등록`,
-      { duration: 6000 },
-    );
+    // 그룹 중복 제거: 같은 group_id는 가장 빠른 차수만, 단건은 그대로
+    const byGroup = new Map<string, any>();
+    const singles: any[] = [];
+    for (const r of data as any[]) {
+      if (r.revisit_group_id) {
+        const cur = byGroup.get(r.revisit_group_id);
+        if (!cur || Number(r.revisit_visit_no || 1) < Number(cur.revisit_visit_no || 1)) {
+          byGroup.set(r.revisit_group_id, r);
+        }
+      } else {
+        singles.push(r);
+      }
+    }
+    const candidates = [...byGroup.values(), ...singles].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    setRevisitDetectCandidates(candidates);
+    setRevisitDetectIdx(null);
+    setRevisitDetectForForm(true);
+    setRevisitDetectOpen(true);
   };
 
   // 종합 오류 검사 실행
@@ -3418,7 +3457,7 @@ export default function Records() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); } }}>
+      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setRevisitDetectForForm(false); } }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>재방문 여부 확인</DialogTitle>
@@ -3472,7 +3511,7 @@ export default function Records() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); }}>
+            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setRevisitDetectForForm(false); }}>
               재방문 아님 (새 배송으로 입력)
             </Button>
           </DialogFooter>
