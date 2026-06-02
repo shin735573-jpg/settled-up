@@ -66,7 +66,7 @@ export function useSaveConfirm() {
 
   const dialog = (
     <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) onCancel(); }}>
-      <AlertDialogContent className="max-w-3xl">
+      <AlertDialogContent className="max-w-[98vw] w-[98vw] sm:max-w-[98vw]">
         <AlertDialogHeader>
           <AlertDialogTitle>{pending?.title || "저장 확인"}</AlertDialogTitle>
           <AlertDialogDescription>
@@ -84,8 +84,8 @@ export function useSaveConfirm() {
           </ul>
         </div>
         {pending?.details && pending.details.rows.length > 0 && (
-          <div className="mt-2 max-h-[50vh] overflow-auto rounded-md border">
-            <table className="w-full text-xs">
+          <div className="mt-2 max-h-[60vh] overflow-auto rounded-md border">
+            <table className="w-full text-xs whitespace-nowrap">
               <thead className="sticky top-0 bg-muted">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-medium text-muted-foreground w-8">#</th>
@@ -110,7 +110,7 @@ export function useSaveConfirm() {
                       <td
                         key={c.key}
                         className={
-                          "px-2 py-1 align-top " +
+                          "px-2 py-1 align-top truncate " +
                           (c.align === "right" ? "text-right tabular-nums" : c.align === "center" ? "text-center" : "text-left") +
                           (c.className ? " " + c.className : "")
                         }
