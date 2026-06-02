@@ -1372,6 +1372,17 @@ export default function Records() {
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
     if (error) { toast.error(error.message); return; }
+    // 저장된 1차에 2차 후속 등록한 경우 → 해당 1차의 revisit_done=true 로 표시
+    const existingGroupIds = Array.from(
+      new Set(rows.map((r) => r.revisit_group_id_existing).filter(Boolean) as string[]),
+    );
+    if (existingGroupIds.length > 0) {
+      await supabase
+        .from("deliveries")
+        .update({ revisit_done: true })
+        .in("revisit_group_id", existingGroupIds)
+        .eq("revisit_visit_no", 1);
+    }
     toast.success(`${rows.length}건 저장 완료`);
     const dc = bulkShared.default_company_id;
     setBulkRows([emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc)]);
