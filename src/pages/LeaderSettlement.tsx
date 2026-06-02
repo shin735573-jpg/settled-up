@@ -261,6 +261,130 @@ export default function LeaderSettlement() {
     () => rows.filter((r) => !isVirtualSettlementRow(r, virtualIds)),
     [rows, virtualIds],
   );
+
+  /**
+   * 재방문 그룹 재분배 오버라이드.
+   * - 업체 청구는 1차 행 금액만 사용(중복 청구 방지 — 다른 화면의 keepRevisitPrimaryOnly와 동일 원칙).
+   * - 팀장 정산은 차수별로 분배:
+   *   · 2차+ 행에 입력된 금액은 그 행 팀장1에게 지급 (단, 1차 청구금액 한도 내)
+   *   · 1차 팀장1은 baseTotal(1차 metro+regional) − 2차 분배 합계
+   *   · 비고/착불은 1차 팀장1 고정
+   * - 수기분배(revisit_manual_shares)가 있으면 그것을 우선 적용.
+   * rowId → 해당 행의 override shares. null/undefined면 일반 allocateRow 사용.
+   */
+  type RevisitShare = {
+    leader_id: string;
+    metro: number;
+    note_amount: number;
+    regional: number;
+    cod: number;
+    reason: string;
+  };
+  const revisitOverride = useMemo(() => {
+    const map = new Map<string, RevisitShare[]>();
+    const groups = new Map<string, Delivery[]>();
+    for (const r of rows) {
+      const gid = r.revisit_group_id;
+      if (!gid) continue;
+      const arr = groups.get(gid) || [];
+      arr.push(r);
+      groups.set(gid, arr);
+    }
+    for (const [, group] of groups) {
+      const sorted = [...group].sort(
+        (a, b) => Number(a.revisit_visit_no ?? 1) - Number(b.revisit_visit_no ?? 1),
+      );
+      const first = sorted[0];
+      if (!first) continue;
+      const baseMetro = num(first.metro_fee);
+      const baseRegional = num(first.regional_fee);
+      const baseNote = num(first.note_amount);
+      const baseCod = num(first.cod_amount);
+      const useMetro = baseMetro >= baseRegional;
+      const baseTotal = baseMetro + baseRegional;
+      const firstLeader = first.leader1_id;
+      const firstLeaderValid =
+        !!firstLeader && !virtualIds.has(firstLeader);
+
+      // 수기분배 우선
+      const manualRaw = Array.isArray(first.revisit_manual_shares)
+        ? (first.revisit_manual_shares as Array<{ leader_id?: string; amount?: number }>)
+        : null;
+      const manual = manualRaw
+        ? manualRaw.filter(
+            (m) => m && m.leader_id && !virtualIds.has(m.leader_id) && num(m.amount) > 0,
+          )
+        : null;
+
+      // 2차+ 행은 override = [] (정산에서 빠짐 — 모든 금액은 1차 행 override에 합쳐 표시)
+      for (let i = 1; i < sorted.length; i++) {
+        map.set(sorted[i].id, []);
+      }
+
+      if (manual && manual.length > 0) {
+        const shares: RevisitShare[] = manual.map((m) => ({
+          leader_id: m.leader_id as string,
+          metro: useMetro ? num(m.amount) : 0,
+          note_amount: 0,
+          regional: useMetro ? 0 : num(m.amount),
+          cod: 0,
+          reason: "재방문 수기분배",
+        }));
+        if (firstLeaderValid && (baseNote !== 0 || baseCod !== 0)) {
+          shares.push({
+            leader_id: firstLeader as string,
+            metro: 0,
+            note_amount: baseNote,
+            regional: 0,
+            cod: baseCod,
+            reason: "재방문 비고/착불(1차 팀장1)",
+          });
+        }
+        map.set(first.id, shares);
+        continue;
+      }
+
+      if (!firstLeaderValid) {
+        map.set(first.id, []);
+        continue;
+      }
+
+      // 자동 분배
+      let assignedToSecondary = 0;
+      const shares: RevisitShare[] = [];
+      for (let i = 1; i < sorted.length; i++) {
+        const sec = sorted[i];
+        const secLeader = sec.leader1_id;
+        if (!secLeader || virtualIds.has(secLeader)) continue;
+        if (secLeader === firstLeader) continue; // 동일 팀장 → 차감 없음
+        const secAmt = num(sec.metro_fee) + num(sec.note_amount) + num(sec.regional_fee);
+        if (secAmt <= 0) continue;
+        const capped = Math.min(secAmt, Math.max(0, baseTotal - assignedToSecondary));
+        if (capped <= 0) continue;
+        assignedToSecondary += capped;
+        shares.push({
+          leader_id: secLeader,
+          metro: useMetro ? capped : 0,
+          note_amount: 0,
+          regional: useMetro ? 0 : capped,
+          cod: 0,
+          reason: "재방문 2차 분배",
+        });
+      }
+      const firstRemaining = Math.max(0, baseTotal - assignedToSecondary);
+      shares.push({
+        leader_id: firstLeader as string,
+        metro: useMetro ? firstRemaining : 0,
+        note_amount: baseNote,
+        regional: useMetro ? 0 : firstRemaining,
+        cod: baseCod,
+        reason: assignedToSecondary > 0 ? "재방문 1차(2차분 차감)" : "재방문 1차 전액",
+      });
+      map.set(first.id, shares);
+    }
+    return map;
+  }, [rows, virtualIds]);
+
   const isHyungjuDongseokLeader = (lid: string): boolean => lid === shindongseokId || lid === ganghyungjuId;
   const commonDefaultAmountFor = (lid: string, cd: CommonDeduction): number => {
     // 강형주/신동석은 한 팀 재분배 대상이므로 쓰레기비용 공통공제 50,000원을 기본 고정하지 않는다.
