@@ -2380,6 +2380,9 @@ export default function Records() {
                   <td className="p-2 text-right">
                     {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.cod_amount) || 0), 0))}
                   </td>
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.alba_deduction) || 0), 0))}
+                  </td>
                   <td colSpan={4} />
                   <td className="p-2 text-right">
                     {fmt(bulkRows.reduce(
