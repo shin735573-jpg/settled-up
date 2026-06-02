@@ -247,6 +247,10 @@ export default function LeaderSettlement() {
   const oeunkyuId = useMemo(() => findLeaderIdByNames(["오은규"]), [leaders]);
   const odongseonId = useMemo(() => findLeaderIdByNames(["오동선"]), [leaders]);
   const kimyongikId = useMemo(() => findLeaderIdByNames(["김용익"]), [leaders]);
+  const virtualIds = useMemo(
+    () => new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id)),
+    [leaders],
+  );
   const sdsOpts = { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds };
   const isHyungjuDongseokLeader = (lid: string): boolean => lid === shindongseokId || lid === ganghyungjuId;
   const commonDefaultAmountFor = (lid: string, cd: CommonDeduction): number => {
