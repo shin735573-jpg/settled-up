@@ -592,24 +592,73 @@ export default function RecordsBrowse() {
           )}
         </Card>
 
-        {/* 우측: 선택 그룹 비교 */}
+        {/* 우측: 비교 패널 — 최대 6개 좌→우 가로 배치, 좁으면 가로 스크롤 */}
         <Card className="p-3 md:p-4">
-          {!selectedGroup ? (
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <div className="text-sm font-semibold">
+              비교 패널 ({selectedKeys.length}/{MAX_COMPARE_PANELS})
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                좌측 목록을 클릭해 패널을 추가/제거하세요. 최대 {MAX_COMPARE_PANELS}개까지 비교 가능.
+              </span>
+              {selectedKeys.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => { setSelectedKeys([]); setSelectedGroupKey(null); }}>
+                  전체 닫기
+                </Button>
+              )}
+            </div>
+          </div>
+          {selectedKeys.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
               <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
-              왼쪽에서 그룹을 선택하면 같은 묶음 기록들을 나란히 비교할 수 있습니다.
+              왼쪽 목록에서 그룹을 클릭하면 비교 패널이 좌→우로 추가됩니다. 최대 {MAX_COMPARE_PANELS}개까지 동시에 띄울 수 있어요.
             </div>
           ) : (
-            <ComparePanel
-              group={selectedGroup}
-              leaders={leaders}
-              queued={pendingActions.get(selectedGroup.key)}
-              onQueue={(action, extra) => queueAction(selectedGroup, action, extra)}
-              onClearAction={() => clearAction(selectedGroup.key)}
-              onEditRow={(row) => setEditForm({ ...row })}
-              onJumpToRecords={(id) => navigate(`/records?edit=${id}`)}
-              onDedupe={() => dedupeGroup(selectedGroup)}
-            />
+            <div className="overflow-x-auto">
+              <div className="flex gap-3 items-stretch min-w-min pb-2">
+                {selectedKeys.map((k) => {
+                  const g = groups.find((x) => x.key === k);
+                  if (!g) return null;
+                  const focused = selectedGroupKey === k;
+                  return (
+                    <div
+                      key={k}
+                      className={cn(
+                        "w-[320px] shrink-0 border rounded-md bg-background flex flex-col",
+                        focused ? "ring-2 ring-primary border-primary" : "border-border",
+                      )}
+                      onClick={() => setSelectedGroupKey(k)}
+                    >
+                      <GroupSummaryPanel
+                        group={g}
+                        onClose={() => closePanel(k)}
+                        onOpenDetail={(row) => setEditForm({ ...row })}
+                        onJumpToRecords={(id) => navigate(`/records?edit=${id}`)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* 포커스된 패널의 상세 비교/액션 영역 (그룹 내 행별 차이) */}
+          {selectedGroup && (
+            <div className="mt-4 border-t pt-3">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">
+                포커스 그룹 상세 — {selectedGroup.date} · {selectedGroup.customer}
+              </div>
+              <ComparePanel
+                group={selectedGroup}
+                leaders={leaders}
+                queued={pendingActions.get(selectedGroup.key)}
+                onQueue={(action, extra) => queueAction(selectedGroup, action, extra)}
+                onClearAction={() => clearAction(selectedGroup.key)}
+                onEditRow={(row) => setEditForm({ ...row })}
+                onJumpToRecords={(id) => navigate(`/records?edit=${id}`)}
+                onDedupe={() => dedupeGroup(selectedGroup)}
+              />
+            </div>
           )}
         </Card>
       </div>
