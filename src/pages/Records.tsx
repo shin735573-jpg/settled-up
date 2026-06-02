@@ -2142,7 +2142,7 @@ export default function Records() {
                           )}
                           title="클릭 시 같은 내용의 다음 차수 행이 바로 아래에 복제 생성됩니다 (2차·3차·… 무제한 체이닝)"
                         >
-                          {r.revisit_done ? `+${visitNo + 1}차` : `+${visitNo + 1}차`}
+                          {r.revisit_done ? "완료" : `+${visitNo + 1}차`}
                         </button>
                       </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
