@@ -4,6 +4,21 @@
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  buildCompanyStatements,
+  buildLeaderStatements,
+  detectSpecialLeaderIds,
+  setSpecialOneTimeItems,
+  type PeriodKey,
+  type StmtCompany,
+  type StmtDelivery,
+  type StmtLeader,
+  type StmtCommonDeduction,
+  type StmtCommonOverride,
+  type StmtPeriodDeduction,
+  type DeductionContext,
+} from "./statementData";
+import { loadCompanySettings } from "./companySettings";
 
 /** 백업 대상 테이블 정의 — 추가/변경 시 여기만 수정 */
 const TABLES: Array<{ name: string; sheet: string }> = [
