@@ -83,27 +83,31 @@ describe("recordGrouping", () => {
     expect(issues.find((x) => x.severity === "error")).toBeFalsy();
   });
 
-  it("buildUpdatePatches: 동행 통합 시 companion=true, two_person=false (사유 입력 없음)", () => {
+  it("buildUpdatePatches: 동행 통합 시 1개 row만 남기고 나머지는 삭제", () => {
     const g = [r({ id: "a" }), r({ id: "b" })];
     const map = new Map([["k1", g]]);
-    const patches = buildUpdatePatches(
+    const { patches, deleteIds } = buildUpdatePatches(
       [{ groupKey: "k1", action: "merge_companion", targetIds: ["a", "b"] }],
       map,
     );
-    expect(patches).toHaveLength(2);
+    expect(patches).toHaveLength(1);
+    expect(patches[0].id).toBe("a");
     expect(patches[0].patch.companion).toBe(true);
     expect(patches[0].patch.two_person).toBe(false);
-    expect(patches[0].patch.companion_reason).toBeUndefined();
+    expect(deleteIds).toEqual(["b"]);
   });
 
   it("buildUpdatePatches: 2인배송 통합 시 팀장2 없으면 채워줌", () => {
-    const g = [r({ id: "a" })];
+    const g = [r({ id: "a" }), r({ id: "b", leader1_id: "L2" })];
     const map = new Map([["k1", g]]);
-    const patches = buildUpdatePatches(
-      [{ groupKey: "k1", action: "merge_two_person", targetIds: ["a"], leader2Id: "L9" }],
+    const { patches, deleteIds } = buildUpdatePatches(
+      [{ groupKey: "k1", action: "merge_two_person", targetIds: ["a", "b"] }],
       map,
     );
+    expect(patches).toHaveLength(1);
     expect(patches[0].patch.two_person).toBe(true);
-    expect(patches[0].patch.leader2_id).toBe("L9");
+    expect(patches[0].patch.leader2_id).toBe("L2");
+    expect(patches[0].patch.split_type).toBe("반반");
+    expect(deleteIds).toEqual(["b"]);
   });
 });

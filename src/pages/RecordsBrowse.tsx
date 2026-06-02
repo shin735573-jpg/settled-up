@@ -259,8 +259,8 @@ export default function RecordsBrowse() {
   // 최종 적용
   const applyAllChanges = async () => {
     const plan = [...pendingActions.values()];
-    const patches = buildUpdatePatches(plan, groupsByKey);
-    if (!patches.length) {
+    const { patches, deleteIds } = buildUpdatePatches(plan, groupsByKey);
+    if (!patches.length && !deleteIds.length) {
       toast.info("변경할 내용이 없습니다.");
       return;
     }
@@ -287,11 +287,24 @@ export default function RecordsBrowse() {
         }
       } else ok++;
     }
+    // 통합으로 합쳐진 나머지 행은 실제로 삭제 (1개 row만 남도록)
+    let deleted = 0;
+    if (deleteIds.length > 0) {
+      const { error: delErr } = await supabase
+        .from("deliveries")
+        .delete()
+        .in("id", deleteIds);
+      if (delErr) {
+        toast.error("통합 중복 행 삭제 실패: " + delErr.message);
+      } else {
+        deleted = deleteIds.length;
+      }
+    }
     setSaving(false);
     setReviewOpen(false);
     setPendingActions(new Map());
     setCheckedKeys(new Set());
-    toast.success(`적용 완료 · 성공 ${ok}건 / 실패 ${fail}건`);
+    toast.success(`적용 완료 · 업데이트 ${ok}건 / 통합삭제 ${deleted}건 / 실패 ${fail}건`);
     await reload();
   };
 

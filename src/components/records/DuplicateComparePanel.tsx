@@ -334,7 +334,24 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
         toast.error(friendly || `저장 실패: ${error.message}`);
         return;
       }
-      toast.success("저장 완료");
+      // 통합 = 2개가 1개로 합쳐짐. 선택된 의심행은 실제로 삭제.
+      let mergedDeleted = 0;
+      if ((mergeMode === "companion" || mergeMode === "two_person") && selectedSuspects.length > 0) {
+        const ids = selectedSuspects.map((s) => s.id).filter((id) => id && id !== base.id);
+        if (ids.length > 0) {
+          const { error: delErr } = await supabase.from("deliveries").delete().in("id", ids);
+          if (delErr) {
+            toast.error("통합 중복 행 삭제 실패: " + delErr.message);
+            return;
+          }
+          mergedDeleted = ids.length;
+        }
+      }
+      toast.success(
+        mergedDeleted > 0
+          ? `통합 완료 · 1건으로 합쳐짐 (삭제 ${mergedDeleted}건)`
+          : "저장 완료",
+      );
       setReviewOpen(false);
       onOpenChange(false);
       onSaved?.();
