@@ -202,7 +202,7 @@ describe("verifyChecks", () => {
     expect(r.issues.find((i) => i.code === "TOTALS_MISMATCH")).toBeUndefined();
   });
 
-  it("재방문 2차+ 포함 fixture: 업체 배송총합과 팀장 배송총합이 일치", () => {
+  it("재방문 2차+ 1건은 업체표시합계에서 숨겨져도 원총합 검산에는 포함되어 차이 0원", () => {
     const leaders = [mkLeader("L1", "맹광식"), mkLeader("L2", "오은규")];
     const deliveries = [
       mkRow({
@@ -211,17 +211,33 @@ describe("verifyChecks", () => {
       }),
       mkRow({
         id: "r2", date: "2026-05-22", leader1_id: "L2", leader1_name: "오은규",
-        metro_fee: 0, revisit_group_id: "G1", revisit_visit_no: 2,
+        metro_fee: 65000, revisit_group_id: "G1", revisit_visit_no: 2,
       }),
     ];
     const r = runVerify({
       deliveries, companies: [company], leaders, period: "h2", deductionCtx: emptyCtx,
     });
     expect(r.totalsDiff).toBe(0);
-    expect(r.companyDeliveryTotal).toBe(130000);
-    expect(r.leaderDeliveryTotal).toBe(130000);
+    expect(r.companyDisplayTotal).toBe(130000);
+    expect(r.companyDeliveryTotal).toBe(195000);
+    expect(r.leaderDeliveryTotal).toBe(195000);
     // 업체 CSV에서는 2차 숨김 유지
     expect(r.hiddenRevisitCount).toBe(1);
+  });
+
+  it("settle_to_id가 있는 하위 팀장 배송도 상위 팀장 귀속 원총합에 포함된다", () => {
+    const parent = mkLeader("P1", "상위팀장");
+    const child = { ...mkLeader("C1", "하위팀장"), settle_to_id: "P1" } as StmtLeader;
+    const deliveries = [
+      mkRow({ date: "2026-05-20", leader1_id: "C1", leader1_name: "하위팀장", metro_fee: 350000 }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders: [parent, child], period: "h2", deductionCtx: emptyCtx,
+    });
+    expect(r.companyDeliveryTotal).toBe(350000);
+    expect(r.leaderDeliveryTotal).toBe(350000);
+    expect(r.totalsDiff).toBe(0);
+    expect(r.issues.find((i) => i.code === "TOTALS_MISMATCH")).toBeUndefined();
   });
 
   it("수수료/착불/공제/실지급은 배송총합 비교에 섞이지 않는다", () => {
