@@ -768,9 +768,124 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
           <DialogFooter>
             <Button variant="ghost" onClick={() => setReviewOpen(false)} disabled={saving}>다시 수정</Button>
             <Button variant="outline" onClick={() => { setReviewOpen(false); onOpenChange(false); }} disabled={saving}>취소</Button>
-            <Button onClick={save} disabled={hasBlocking || saving}>
+            <Button
+              onClick={() => {
+                // 통합 모드인 경우 반드시 "최종 청구금액 확인" 단계를 거친다.
+                if (mergeMode === "companion" || mergeMode === "two_person") {
+                  setFinalAmountInput(String(feeTotal(edited) || 0));
+                  setEditingFinalAmount(false);
+                  setReviewOpen(false);
+                  setAmountConfirmOpen(true);
+                } else {
+                  void save();
+                }
+              }}
+              disabled={hasBlocking || saving}
+            >
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              적용 저장
+              {(mergeMode === "companion" || mergeMode === "two_person") ? "다음: 금액 확인" : "적용 저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 통합 저장 직전 — 최종 청구금액 확인 */}
+      <Dialog open={amountConfirmOpen} onOpenChange={(o) => { if (!o && !saving) setAmountConfirmOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>최종 청구금액 확인</DialogTitle>
+            <DialogDescription>
+              {mergeMode === "two_person" ? "2인배송 통합" : "동행 통합"}으로 저장합니다.
+              아래 최종 청구금액이 맞는지 반드시 확인해주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="rounded-lg border bg-primary/5 p-4">
+              <div className="text-xs text-muted-foreground mb-1">최종 청구금액</div>
+              {editingFinalAmount ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={finalAmountInput}
+                    onChange={(e) => setFinalAmountInput(e.target.value)}
+                    className="h-10 text-lg font-semibold"
+                    autoFocus
+                  />
+                  <span className="text-sm">원</span>
+                </div>
+              ) : (
+                <div className="text-2xl font-bold">
+                  {fmt(n(finalAmountInput))}원
+                </div>
+              )}
+            </div>
+            {(() => {
+              const total = n(finalAmountInput);
+              const half = Math.round(total / 2);
+              const isHalf = !!edited.two_person && nrm(edited.split_type) === "반반";
+              const l1 = isHalf ? half : total;
+              const l2 = isHalf ? total - half : 0;
+              return (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded border p-2">
+                    <div className="text-xs text-muted-foreground">팀장1 정산금</div>
+                    <div className="font-medium">
+                      {nrm(edited.leader1_name) || "—"}
+                    </div>
+                    <div className="text-base">{fmt(l1)}원</div>
+                  </div>
+                  <div className="rounded border p-2">
+                    <div className="text-xs text-muted-foreground">팀장2 정산금</div>
+                    <div className="font-medium">
+                      {nrm(edited.leader2_name) || (nrm(edited.leader2_id) ? edited.leader2_id?.slice(0, 8) : "—")}
+                    </div>
+                    <div className="text-base">{l2 ? `${fmt(l2)}원` : "—"}</div>
+                  </div>
+                </div>
+              );
+            })()}
+            {!editingFinalAmount && (
+              <div className="text-[11px] text-muted-foreground">
+                금액이 다르면 "금액 수정"을 눌러 직접 입력 후 최종 저장하세요.
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => setAmountConfirmOpen(false)} disabled={saving}>취소</Button>
+            {editingFinalAmount ? (
+              <Button variant="outline" onClick={() => setEditingFinalAmount(false)} disabled={saving}>
+                금액 적용
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setEditingFinalAmount(true)} disabled={saving}>
+                금액 수정
+              </Button>
+            )}
+            <Button
+              onClick={async () => {
+                if (editingFinalAmount) {
+                  // 편집 중이면 먼저 금액을 확정만 하고 저장은 다시 누르도록
+                  setEditingFinalAmount(false);
+                  return;
+                }
+                // 입력된 최종 금액을 edited에 반영 (note_amount에 차액 흡수)
+                const desired = n(finalAmountInput);
+                const current = feeTotal(edited);
+                if (desired !== current) {
+                  const diff = desired - current;
+                  setEdited((e) => e ? { ...e, note_amount: Math.max(0, n(e.note_amount) + diff) } : e);
+                  // setState는 비동기이므로 save() 안에서 다시 한 번 반영된 값 사용
+                  // 다음 tick에서 save 실행
+                  await new Promise((r) => setTimeout(r, 0));
+                }
+                await save();
+                setAmountConfirmOpen(false);
+              }}
+              disabled={saving}
+            >
+              {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              최종 저장
             </Button>
           </DialogFooter>
         </DialogContent>
