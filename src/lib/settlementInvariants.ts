@@ -11,6 +11,7 @@
 
 import { allocateRow } from "./splitAllocation";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "./itemRules";
+import { inPeriod, type Period } from "./summaryAggregation";
 import type {
   CompanyStmtData,
   DeductionContext,
@@ -112,15 +113,23 @@ export function validateSettlementInvariants(
 
   // ─────────────── 2) 착불 합산 ───────────────
   // 업체별 원본 cod 합 == companyStmt.codTotal
-  const codByCompany = new Map<string, number>();
-  for (const d of deliveries) {
-    if (isVirtualSettlementRow(d, opts.virtualIds)) continue;
-    const key = d.company_id || `name:${d.company_name ?? ""}`;
-    codByCompany.set(key, (codByCompany.get(key) ?? 0) + num(d.cod_amount));
-  }
+  //   · raw deliveries 는 정산월 전체(보름이 아니라 한달치) 가 들어올 수 있으므로
+  //     반드시 해당 청구서의 period 로 게이트해야 한다. (h1 청구서를 h2 cod 와 비교하면 100% 오류)
+  //   · 재방문 그룹은 업체 청구에서 1차 행만 표시 → cod 도 1차 행 기준. 2차 이후의 cod 는 청구서에 포함되지 않으므로 raw 에서도 제외한다.
   for (const cs of companyStmts) {
-    const raw = codByCompany.get(cs.company.id) ?? 0;
-    // 특수일품목(행사철수) 합산 후에도 cod는 보존됨
+    let raw = 0;
+    for (const d of deliveries) {
+      if (isVirtualSettlementRow(d, opts.virtualIds)) continue;
+      const sameCompany = d.company_id
+        ? d.company_id === cs.company.id
+        : (d.company_name ?? "") === cs.company.name;
+      if (!sameCompany) continue;
+      if (!inPeriod(d.date, cs.period as Period)) continue;
+      // 재방문 2차 이후 행은 업체 청구서에 포함되지 않음
+      const visitNo = Number((d as { revisit_visit_no?: number | null }).revisit_visit_no ?? 1);
+      if ((d as { revisit_group_id?: string | null }).revisit_group_id && visitNo > 1) continue;
+      raw += num(d.cod_amount);
+    }
     const stmtCod = num(cs.codTotal);
     if (Math.round(raw) !== Math.round(stmtCod)) {
       push(r, "error", `[착불] ${cs.company.name} 업체 착불 합 불일치: 원본 ${raw.toLocaleString()} vs 청구서 ${stmtCod.toLocaleString()}`);
