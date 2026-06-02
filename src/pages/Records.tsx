@@ -1810,7 +1810,7 @@ export default function Records() {
                           {r.two_person ? "2인배송" : "—"}
                         </button>
                       </td>
-                      <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} /></td>
+                       <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} disabled={isSecond} /></td>
                       <td className="p-1">
                         <AmountTextInput
                           className={cn(
@@ -1855,7 +1855,7 @@ export default function Records() {
                                     value={r.cod_amount}
                                     onChange={(v) => {
                                       const amt = parseNum(v) || 0;
-                                      upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                      upd(isSecond ? { cod_amount: v } : { cod_amount: v, note: applyCodToNote(r.note, amt) });
                                     }}
                                   />
                                   <div className="flex items-center gap-2">
@@ -1865,16 +1865,14 @@ export default function Records() {
                                       value={r.cod_amount}
                                       onChange={(v) => {
                                         const amt = parseNum(v) || 0;
-                                        upd({ cod_amount: v, note: applyCodToNote(r.note, amt) });
+                                        upd(isSecond ? { cod_amount: v } : { cod_amount: v, note: applyCodToNote(r.note, amt) });
                                       }}
                                     />
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() =>
-                                        upd({ cod_amount: "", note: applyCodToNote(r.note, 0) })
-                                      }
+                                      onClick={() => upd(isSecond ? { cod_amount: "" } : { cod_amount: "", note: applyCodToNote(r.note, 0) })}
                                     >
                                       삭제
                                     </Button>
