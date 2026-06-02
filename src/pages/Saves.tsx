@@ -1215,6 +1215,77 @@ export default function Saves() {
       </Dialog>
 
       <Dialog open={!!bulkResult} onOpenChange={(o) => { if (!o) setBulkResult(null); }}>
+        <DialogContent className="max-w-xl" />
+      </Dialog>
+      {/* placeholder removed */}
+      <Dialog open={auditOpen} onOpenChange={setAuditOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>합계 검증 이력 — {month} {PERIOD_LABEL[period]}</DialogTitle>
+            <DialogDescription>
+              저장·재생성 직후 자동 재실행한 검증 결과입니다. 직전 버전 대비 해소/신규 항목을 함께 표시합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[480px] pr-3">
+            <ul className="space-y-2 text-sm">
+              {[...audits].reverse().map((a) => {
+                const tone =
+                  a.newWarnings.length + a.newErrors.length > 0
+                    ? "border-destructive/50 bg-destructive/10"
+                    : a.resolvedWarnings.length + a.resolvedErrors.length > 0
+                    ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30"
+                    : "border-border bg-muted/30";
+                return (
+                  <li key={`${a.version}-${a.at}`} className={`rounded border p-3 ${tone}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge>v{a.version}</Badge>
+                        <span className="font-medium">{a.title}</span>
+                        {a.regenerate && <Badge variant="secondary">재생성</Badge>}
+                      </div>
+                      <div className="text-xs text-muted-foreground tabular-nums">
+                        {new Date(a.at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">{summarizeAudit(a)}</div>
+                    {(a.resolvedWarnings.length > 0 || a.resolvedErrors.length > 0) && (
+                      <div className="mt-2">
+                        <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">해소된 항목</div>
+                        <ul className="ml-3 list-disc text-xs">
+                          {a.resolvedErrors.map((m, i) => <li key={`re${i}`}>오류 — {m}</li>)}
+                          {a.resolvedWarnings.map((m, i) => <li key={`rw${i}`}>경고 — {m}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {(a.newWarnings.length > 0 || a.newErrors.length > 0) && (
+                      <div className="mt-2">
+                        <div className="text-xs font-semibold text-destructive">신규 발생 항목</div>
+                        <ul className="ml-3 list-disc text-xs">
+                          {a.newErrors.map((m, i) => <li key={`ne${i}`}>오류 — {m}</li>)}
+                          {a.newWarnings.map((m, i) => <li key={`nw${i}`}>경고 — {m}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {a.warnings.length === 0 && a.errors.length === 0 && (
+                      <div className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                        ✓ 잔여 경고/오류 없음
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+              {audits.length === 0 && (
+                <li className="text-center text-muted-foreground py-6">아직 기록 없음 — 저장 또는 재생성 시 자동으로 추가됩니다.</li>
+              )}
+            </ul>
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAuditOpen(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!bulkResult} onOpenChange={(o) => { if (!o) setBulkResult(null); }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>전체저장 결과</DialogTitle>
