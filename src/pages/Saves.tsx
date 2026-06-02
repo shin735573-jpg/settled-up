@@ -1048,7 +1048,7 @@ export default function Saves() {
 
             <Card className="p-4">
               {selectedLeader ? (
-                <LeaderPreview data={selectedLeader} />
+                <LeaderPreview data={selectedLeader} virtualLeaderMap={virtualLeaderMap} />
               ) : (
                 <div className="py-16 text-center text-sm text-muted-foreground">
                   팀장을 선택하세요.
@@ -1116,6 +1116,7 @@ export default function Saves() {
                 rowsSlice={slice}
                 pageIndex={idx + 1}
                 totalPages={pages.length}
+                virtualLeaderMap={virtualLeaderMap}
               />
             </div>
           ));
