@@ -169,6 +169,17 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     return selectedSuspects[0] ?? displayedSuspects[0] ?? null;
   }, [selectedSuspects, displayedSuspects]);
 
+  const mergeTargetRows = useMemo(() => {
+    const rows = selectedSuspects.length > 0 ? selectedSuspects : (row2ForMerge ? [row2ForMerge] : []);
+    const seen = new Set<string>();
+    return rows.filter((r) => {
+      const id = nrm(r.id);
+      if (!id || id === nrm(base?.id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [selectedSuspects, row2ForMerge, base?.id]);
+
   const leaderCandidatesOf = (row: Row | null | undefined) => ([
     { id: row?.leader1_id, name: row?.leader1_name },
     { id: row?.leader2_id, name: row?.leader2_name },
@@ -219,8 +230,8 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   // 합산 미리보기
   const autoSum = useMemo(() => {
     if (!edited) return null;
-    return sumMergedAmounts([edited, ...selectedSuspects]);
-  }, [edited, selectedSuspects]);
+    return sumMergedAmounts([edited, ...mergeTargetRows]);
+  }, [edited, mergeTargetRows]);
 
   function toggleSuspect(id: string) {
     setSelectedSuspectIds((s) => {
@@ -255,7 +266,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       setAmountMode("sum");
       setEdited((e) => {
         if (!e) return e;
-        const sum = sumMergedAmounts([e, ...selectedSuspects]);
+        const sum = sumMergedAmounts([e, ...mergeTargetRows]);
         return {
           ...e,
           metro_fee: sum.metro_fee,
@@ -264,7 +275,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
           cod_amount: sum.cod_amount,
         };
       });
-      setManualTotal(String(sumMergedAmounts([edited!, ...selectedSuspects]).total || ""));
+      setManualTotal(String(sumMergedAmounts([edited!, ...mergeTargetRows]).total || ""));
       setAskAmount(null);
     } else {
       setAmountMode(undefined);
