@@ -63,12 +63,11 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
     opts.virtualIds instanceof Set
       ? opts.virtualIds
       : new Set(opts.virtualIds || []);
-  // 가상기사는 분배 대상이 아님 — null 처리로 무시.
-  // (1) is_virtual=true 팀장, (2) 이 행의 virtual_leader_id로 입력된 팀장 모두 제외.
+  // 가상기사는 정산 대상이 아님 — 해당 자리만 null 처리해서 분배에서 빼고,
+  // 남은 실제 팀장(보통 팀장1)이 100%를 가져가도록 weight 로직이 자연스럽게 흘러가게 함.
+  // 이전에는 가상기사가 한 자리라도 있으면 행 전체를 정산 제외했으나,
+  // 규칙: "가상기사는 정산 X, 팀장1이 100% 정산" 에 맞춰 수정.
   const rowVirtualId = r.virtual_leader_id || null;
-  if (rowVirtualId || [r.leader1_id, r.leader2_id, r.leader3_id].some((id) => !!id && virtualSet.has(id))) {
-    return [];
-  }
   const stripV = (id: string | null | undefined): string | null => {
     if (!id) return null;
     if (virtualSet.has(id)) return null;
