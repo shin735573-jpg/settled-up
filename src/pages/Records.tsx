@@ -358,6 +358,10 @@ type FormState = {
   two_person: boolean;
   is_missing: boolean;
   missing_reason: string;
+  revisit_required: boolean;
+  revisit_done: boolean;
+  revisit_group_id: string | null;
+  revisit_visit_no: number;
 };
 
 const NONE = "__none__";
@@ -383,6 +387,10 @@ const emptyForm = (): FormState => ({
   two_person: false,
   is_missing: false,
   missing_reason: "",
+  revisit_required: false,
+  revisit_done: false,
+  revisit_group_id: null,
+  revisit_visit_no: 1,
 });
 
 type RecordsColumn = {
