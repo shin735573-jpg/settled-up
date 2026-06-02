@@ -1213,15 +1213,15 @@ export default function LeaderSettlement() {
                     <tr className="border-b">
                       <th className="text-left px-2 py-2 font-medium text-muted-foreground">업체명</th>
                       <th className="text-center px-2 py-2 font-medium text-muted-foreground w-20">건수</th>
-                      <th className="text-right px-2 py-2 font-medium text-muted-foreground w-32" title="실제 업체에 청구된 금액 (VAT 포함)">업체청구금액</th>
+                      <th className="text-right px-2 py-2 font-medium text-muted-foreground w-32" title="해당 팀장이 배송한 행의 수도권+비고+지방 합계">총배송비</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {detailByCompany.slice(0, 7).map((c) => (
+                    {[...detailByCompany].sort((a, b) => b.total - a.total).slice(0, 7).map((c) => (
                       <tr key={c.company} className="border-b last:border-0">
                         <td className="px-2 py-2 truncate max-w-[180px]">{c.company}</td>
                         <td className="px-2 py-2 text-center">{c.count.toLocaleString()}</td>
-                        <td className="px-2 py-2 text-right font-semibold">{fmt(c.actualBilled)}</td>
+                        <td className="px-2 py-2 text-right font-semibold">{fmt(c.total)}</td>
                       </tr>
                     ))}
                     {detailByCompany.length === 0 && (
