@@ -233,7 +233,7 @@ export default function MergeHistory() {
               </TableRow>
             )}
             {filtered.map((r) => {
-              const a = r.base_after || {};
+              const a: Snapshot = (r.base_after || { id: "" }) as Snapshot;
               return (
                 <TableRow key={r.id}>
                   <TableCell className="text-xs">
