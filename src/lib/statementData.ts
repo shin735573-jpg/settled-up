@@ -585,16 +585,44 @@ export function buildLeaderStatements(
         });
       }
     } else if (first.leader1_id && !virtualIds.has(first.leader1_id)) {
-      // 수기 분배 미입력: 1차 팀장1에게 전액 귀속
+      // 자동 분배 규칙:
+      //  · 업체 청구 = 1차 행 금액(baseTotal) 그대로
+      //  · 2차(이후) 행에 입력된 metro+note+regional 금액 = 해당 행 팀장1에게 지급, 1차 팀장1에서 차감
+      //  · 1차 팀장1 + 2차 팀장 합 = 1차 청구금액
+      //  · 비고/착불은 1차 팀장1에게 귀속(중복 청구 방지)
+      const baseTotal = baseMetro + baseRegional; // 비고는 별도(1차 팀장1 고정)
+      let assignedToSecondary = 0;
+      for (let i = 1; i < sorted.length; i++) {
+        const sec = sorted[i];
+        const secLeader = sec.leader1_id;
+        if (!secLeader || virtualIds.has(secLeader)) continue;
+        if (secLeader === first.leader1_id) continue; // 동일 팀장이면 차감 없음
+        const secAmt = Number(sec.metro_fee) + Number(sec.note_amount) + Number(sec.regional_fee);
+        if (secAmt <= 0) continue;
+        const capped = Math.min(secAmt, Math.max(0, baseTotal - assignedToSecondary));
+        if (capped <= 0) continue;
+        assignedToSecondary += capped;
+        shares.push({
+          leader_id: secLeader,
+          weight: 0,
+          metro: useMetro ? capped : 0,
+          note_amount: 0,
+          regional: useMetro ? 0 : capped,
+          cod: 0,
+          count: 1,
+          reason: "재방문 2차 분배",
+        });
+      }
+      const firstRemaining = Math.max(0, baseTotal - assignedToSecondary);
       shares.push({
         leader_id: first.leader1_id,
         weight: 1,
-        metro: baseMetro,
+        metro: useMetro ? firstRemaining : 0,
         note_amount: baseNote,
-        regional: baseRegional,
+        regional: useMetro ? 0 : firstRemaining,
         cod: baseCod,
         count: 1,
-        reason: "재방문 미분배(1차 팀장1 전액)",
+        reason: assignedToSecondary > 0 ? "재방문 1차(2차분 차감)" : "재방문 1차 전액",
       });
     }
     const resolved = shares
