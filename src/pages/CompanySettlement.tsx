@@ -235,14 +235,21 @@ export default function CompanySettlement() {
   }, [companies, period]);
 
   const companySummaries = useMemo(() => {
+    const q = query.trim().toLowerCase();
     return visibleCompanies
+      .filter((c) => {
+        if (!q) return true;
+        const name = (c.name || "").toLowerCase();
+        const acct = (c.account_number || "").toLowerCase();
+        return name.includes(q) || acct.includes(q);
+      })
       .map((c) => {
         const rs = companyBillableRows.filter((r) => matchesCompany(r, c));
         const cr = carryRows.filter((r) => matchesCompany(r, c));
         return { company: c, ...summarize(rs, cr) };
       })
       .sort((a, b) => b.count - a.count);
-  }, [visibleCompanies, companyBillableRows, carryRows]);
+  }, [visibleCompanies, companyBillableRows, carryRows, query]);
 
   // 자동검증 (업체 제출 관점)
   const audit = useMemo(
@@ -260,8 +267,21 @@ export default function CompanySettlement() {
   useArrowKeyNav(rootRef);
 
   const detailRows = useMemo(
-    () => (company ? companyBillableRows.filter((r) => matchesCompany(r, company)) : []),
-    [company, companyBillableRows]
+    () => {
+      if (!company) return [];
+      const base = companyBillableRows.filter((r) => matchesCompany(r, company));
+      const q = query.trim().toLowerCase();
+      if (!q) return base;
+      return base.filter((r: any) => {
+        const fields = [
+          r.customer_name, r.item, r.note, r.region,
+          r.leader1_name, r.leader2_name, r.leader3_name,
+          r.date, r.company_name,
+        ];
+        return fields.some((v) => (v || "").toString().toLowerCase().includes(q));
+      });
+    },
+    [company, companyBillableRows, query]
   );
   const detailSummary = useMemo(() => {
     if (!company) return null;
