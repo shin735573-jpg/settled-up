@@ -589,9 +589,8 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                 </label>
               ))}
             </RadioGroup>
-            {(mergeMode === "two_person" || mergeMode === "companion") && (
-              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-                <div className="font-medium mb-2">통합 전 팀장 수동 지정 (자동 추론이 틀리면 직접 선택)</div>
+            <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+              <div className="font-medium mb-2">통합 전 팀장 수동 지정 (통합 모드 진입 전에도 입력 가능)</div>
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="flex items-center gap-2">
                     <span className="w-12">팀장1</span>
@@ -641,11 +640,10 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                     </Button>
                   )}
                 </div>
-                <div className="mt-1 text-[11px] text-amber-800">
-                  여기서 직접 지정하면 자동 추론보다 우선합니다. 저장 시 그대로 반영됩니다.
-                </div>
+              <div className="mt-1 text-[11px] text-amber-800">
+                여기서 직접 지정하면 자동 추론보다 우선합니다. 저장 시 그대로 반영됩니다.
               </div>
-            )}
+            </div>
             {mergeMode === "two_person" && (
               <div className="mt-3 rounded-md border border-violet-300 bg-violet-50 p-2 text-xs text-violet-900">
                 <div className="font-medium mb-1">2인배송 통합 자동 반영 상태</div>
