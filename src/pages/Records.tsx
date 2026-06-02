@@ -1372,7 +1372,7 @@ export default function Records() {
           (typeof crypto !== "undefined" && (crypto as any).randomUUID)
             ? (crypto as any).randomUUID()
             : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const first = { ...payload, revisit_group_id: groupId, revisit_visit_no: 1, revisit_done: true };
+        const first = { ...payload, revisit_group_id: groupId, revisit_visit_no: 1, revisit_done: true, revisit_required: true };
         const second = { ...payload, revisit_group_id: groupId, revisit_visit_no: 2, revisit_done: false };
         ({ error } = await supabase.from("deliveries").insert([first, second]));
       } else {
