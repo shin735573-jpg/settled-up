@@ -741,7 +741,21 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                 <TabsTrigger value="exact">완전 일치 ({suspects.exact.length})</TabsTrigger>
                 <TabsTrigger value="similar">유사 건 ({suspects.similar.length})</TabsTrigger>
                 <TabsTrigger value="note_similar">비고 유사 ({suspects.noteSimilar.length})</TabsTrigger>
+                <TabsTrigger value="search">검색 ({searchResults.length})</TabsTrigger>
               </TabsList>
+              {tab === "search" && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="고객명·품목·배송지·비고·팀장·금액 등으로 중복 내용 검색 (공백 구분 AND)"
+                    className="h-8 text-xs"
+                  />
+                  {searchQuery && (
+                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setSearchQuery("")}>지우기</Button>
+                  )}
+                </div>
+              )}
               <TabsContent value={tab} className="mt-2">
                 {(() => {
                   const visibleSuspects = (activeList as Row[]).filter((s) => !hiddenSuspectIds.has(s.id));
