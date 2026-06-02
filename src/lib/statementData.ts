@@ -446,6 +446,8 @@ export function buildCompanyStatements(
       if (bucket) bucket.push(r); else specialBuckets.set(key, [r]);
     }
     for (const [bkey, bucket] of specialBuckets) {
+      // 같은 고객명 버킷 내에서 가장 빠른 날짜(보통 상차일)를 대표로 표기
+      bucket.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       const first = bucket[0];
       // 표시용 품목명은 별칭 정규화 결과 (예: 행사상차도 업체 청구서에서는 "행사철수"로 표기)
       const canonicalItem = bkey.split("|")[1] ?? (first.item ?? "");
