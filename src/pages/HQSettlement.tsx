@@ -540,19 +540,25 @@ export default function HQSettlement() {
 
   // 업체정산관리 요약
   const filteredCompanies = useMemo(() => {
+    const q = companySearch.trim().toLowerCase();
     return companyDetails.map((c) => {
       const status = companyStatus[c.id] ?? "unpaid";
       return { ...c, status };
-    }).filter((c) => companyFilter === "all" ? true : c.status === companyFilter);
-  }, [companyDetails, companyStatus, companyFilter]);
+    })
+      .filter((c) => companyFilter === "all" ? true : c.status === companyFilter)
+      .filter((c) => !q || (c.name || "").toLowerCase().includes(q));
+  }, [companyDetails, companyStatus, companyFilter, companySearch]);
 
   // 팀장정산관리 필터링
   const filteredLeaders = useMemo(() => {
+    const q = leaderSearch.trim().toLowerCase();
     return leaderDetails.map((l) => {
       const status = leaderStatus[l.id] ?? "pending";
       return { ...l, status };
-    }).filter((l) => leaderFilter === "all" ? true : l.status === leaderFilter);
-  }, [leaderDetails, leaderStatus, leaderFilter]);
+    })
+      .filter((l) => leaderFilter === "all" ? true : l.status === leaderFilter)
+      .filter((l) => !q || (l.name || "").toLowerCase().includes(q));
+  }, [leaderDetails, leaderStatus, leaderFilter, leaderSearch]);
 
   // 적재비 추가
   const addLoading = () => setLoadingCosts((p) => [...p, {
