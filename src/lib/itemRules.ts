@@ -25,20 +25,54 @@ export const isLeaderSettlementExcludedItem = (_item: unknown): boolean => false
 /** 적재비를 귀속시킬 팀장 이름 (변경 불가 고정 규칙). */
 export const loadingFeeAssigneeName = "삼호";
 
-/** leaders 목록에서 적재비 귀속 팀장(삼호) ID 를 찾는다. */
-export const findLoadingFeeAssigneeId = (
-  leaders: ReadonlyArray<{ id: string; name?: string | null }>,
-): string | null => {
+/**
+ * leaders 목록에서 적재비 귀속 팀장(삼호) ID 집합과 기본 ID 를 찾는다.
+ * "삼호"는 DB에 동명이인이 여러 명 등록될 수 있으므로 단일 ID 로 강제하면 안 된다.
+ *  - ids: 이름이 정확히 "삼호" 인 모든 활성 팀장 ID 집합
+ *  - primary: 기본 귀속 ID — 이미 어느 삼호에도 매핑되지 않은 적재비 행을 라우팅할 때 사용.
+ *            우선순위: settle_to_id 가 없고 active 인 팀장 중 가장 먼저 발견된 것.
+ */
+export type LoadingFeeAssignee = { ids: Set<string>; primary: string | null };
+
+export const findLoadingFeeAssignees = (
+  leaders: ReadonlyArray<{
+    id: string;
+    name?: string | null;
+    active?: boolean | null;
+    settle_to_id?: string | null;
+  }>,
+): LoadingFeeAssignee => {
+  const ids = new Set<string>();
+  let primary: string | null = null;
   for (const l of leaders) {
-    if (String(l.name ?? "").trim() === loadingFeeAssigneeName) return l.id;
+    if (String(l.name ?? "").trim() !== loadingFeeAssigneeName) continue;
+    ids.add(l.id);
+    if (primary) continue;
+    const isActive = l.active !== false;
+    const isSelfSettling = !l.settle_to_id;
+    if (isActive && isSelfSettling) primary = l.id;
   }
-  return null;
+  // active/self-settling 후보가 없으면 그냥 첫 번째 발견한 ID
+  if (!primary && ids.size > 0) primary = ids.values().next().value as string;
+  return { ids, primary };
 };
+
+/** 하위호환: 단일 ID 헬퍼 — primary 반환. */
+export const findLoadingFeeAssigneeId = (
+  leaders: Parameters<typeof findLoadingFeeAssignees>[0],
+): string | null => findLoadingFeeAssignees(leaders).primary;
 
 /**
  * 적재비 행의 팀장 필드를 삼호 단독으로 정규화한 사본을 돌려준다.
- * 적재비가 아니거나 samhoId 가 없으면 입력을 그대로 돌려준다.
- * (split/2인배송/가상기사 입력도 모두 무력화되어 전액 삼호에게 귀속된다.)
+ *  - 적재비가 아니면 그대로 반환.
+ *  - 이미 leader1_id 가 어느 "삼호" ID 라면 그 ID 를 유지 (동명이인 보존).
+ *  - 그렇지 않으면 primary 삼호 ID 로 강제 라우팅.
+ *  - 어느 경우든 leader2/3, 분할/2인배송, 가상기사 입력은 모두 비워서 전액 단독 귀속.
+ *  - 삼호 자체가 없으면 입력을 그대로 반환 (오작동보다 원본 보존이 안전).
+ *
+ * 두 번째 인자는 신/구 API 모두 지원:
+ *  - LoadingFeeAssignee 객체  → 권장 (동명이인까지 보존)
+ *  - string | null            → 레거시 (단일 ID; 항상 그 ID 로 강제)
  */
 export const normalizeLoadingFeeRowLeaders = <T extends {
   item?: unknown;
@@ -49,11 +83,17 @@ export const normalizeLoadingFeeRowLeaders = <T extends {
   virtual_leader_name?: string | null;
   split_type?: string | null;
   two_person?: boolean | null;
-}>(row: T, samhoId: string | null): T => {
-  if (!samhoId || !isLoadingFeeItem(row.item)) return row;
+}>(row: T, assignee: LoadingFeeAssignee | string | null): T => {
+  if (!isLoadingFeeItem(row.item)) return row;
+  const a: LoadingFeeAssignee = typeof assignee === "string" || assignee == null
+    ? { ids: new Set(assignee ? [assignee] : []), primary: assignee ?? null }
+    : assignee;
+  // 이미 어느 삼호에 귀속되어 있으면 그 ID 유지
+  const target = row.leader1_id && a.ids.has(row.leader1_id) ? row.leader1_id : a.primary;
+  if (!target) return row;
   return {
     ...row,
-    leader1_id: samhoId,
+    leader1_id: target,
     leader2_id: null,
     leader3_id: null,
     virtual_leader_id: null,
