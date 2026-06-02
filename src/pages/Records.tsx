@@ -906,6 +906,7 @@ export default function Records() {
     revisit_done: boolean;
     revisit_group_local: string;
     revisit_visit_no: number;
+    revisit_locked?: boolean;
     revisit_group_id_existing?: string;
     revisit_source_id_existing?: string;
     date_existing?: string;
@@ -1496,6 +1497,7 @@ export default function Records() {
       revisit_done: false,
       revisit_group_local: localId,
       revisit_visit_no: 2,
+      revisit_locked: true,
       revisit_group_id_existing: src.revisit_group_id,
       revisit_source_id_existing: src.id,
       date_existing: src.date,
@@ -1830,7 +1832,9 @@ export default function Records() {
                   const total = (parseNum(r.metro_fee) || 0) + (parseNum(r.note_amount) || 0) + (parseNum(r.regional_fee) || 0) + (parseNum(r.cod_amount) || 0);
                   const upd = (patch: Partial<BulkRow>) =>
                     setBulkRows((rows) => rows.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
-                  const isFollowup = (Number(r.revisit_visit_no) || 1) > 1;
+                  // isFollowup = "잠금된 이전 차수 행" (내용 전체 잠금, 비고금액만 수정 가능)
+                  // 활성 입력 행은 항상 현재 작성 중인 최신 차수 (revisit_locked=false)
+                  const isFollowup = !!r.revisit_locked;
                   const visitNo = Number(r.revisit_visit_no) || 1;
                   return (
                      <tr
@@ -1863,9 +1867,9 @@ export default function Records() {
                             <>
                               <span className={cn(
                                 "text-[10px] px-1.5 py-0.5 rounded font-semibold",
-                                isFollowup ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                                isFollowup ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
                               )}>
-                                {isFollowup ? `${visitNo}차배송` : "1차배송"}
+                                {`${visitNo}차배송`}
                               </span>
                               {isFollowup && r.date_existing && (
                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
@@ -1885,8 +1889,8 @@ export default function Records() {
                                   const gid = r.revisit_group_local;
                                   if (!gid) return;
                                   setBulkRows((rows) => {
-                                    // 같은 로컬 그룹의 후속(2차 이상) 행 모두 제거, 1차 행은 재방문 표시 해제
-                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && (Number(x.revisit_visit_no) || 1) > 1));
+                                    // 같은 로컬 그룹의 잠금 행(이전 차수) 모두 제거, 활성 행은 재방문 표시 해제 후 1차로 되돌림
+                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && x.revisit_locked));
                                     return filtered.map((x) => {
                                       if (x.revisit_group_local !== gid) return x;
                                       const { revisit_group_local, revisit_group_id_existing, revisit_source_id_existing,
@@ -1995,9 +1999,11 @@ export default function Records() {
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
+                                  disabled={isFollowup}
                                   className={cn(
                                     "h-8 w-full rounded-md border text-xs tabular-nums px-2",
-                                    cur > 0 ? "bg-primary/10 border-primary font-semibold" : "bg-background text-muted-foreground"
+                                    cur > 0 ? "bg-primary/10 border-primary font-semibold" : "bg-background text-muted-foreground",
+                                    isFollowup && "opacity-50 cursor-not-allowed"
                                   )}
                                 >
                                   {cur > 0 ? `${cur.toLocaleString()}원` : "착불 선택"}
@@ -2102,9 +2108,12 @@ export default function Records() {
                         <button
                           type="button"
                           onClick={() => {
-                            // 재방문 진행 클릭 시 → 현재 행 내용 그대로 복제한 다음 차수(N+1) 행을 바로 아래 생성.
-                            // 후속 차수 행은 팀장·업체·상품 등 내용은 잠금 처리, 금액만 수정 가능.
-                            // 1차 → 2차 → 3차 … 식으로 무제한 체이닝 가능.
+                            // 재방문 진행 클릭 시:
+                            // - 현재 활성 행은 다음 차수(N+1)로 승격되어 사용자가 계속 입력 가능.
+                            // - 바로 아래에 직전 차수(N)의 "잠금 복제본"이 자동 생성됨.
+                            //   잠금 복제본은 비고금액만 수정 가능, 나머지는 모두 잠김.
+                            // 활성 행이 잠금 행이면 (예: 후보 가져오기로 들어온 행) 동작 안 함.
+                            if (isFollowup) return;
                             setBulkRows((rows) => {
                               const next = [...rows];
                               const cur = rows[idx];
@@ -2115,22 +2124,24 @@ export default function Records() {
                                   ? (crypto as any).randomUUID()
                                   : `${Date.now()}-${Math.random().toString(16).slice(2)}`
                               );
-                              const clone: BulkRow = {
-                                ...cur,
-                                revisit_required: true,
-                                revisit_done: false,
-                                revisit_group_local: groupLocal,
-                                revisit_visit_no: nextVisitNo,
-                                // 금액은 현재 차수 입력값을 그대로 보여주고, 필요 시 다음 차수 금액으로 수정
-                              };
-                              next.splice(idx + 1, 0, clone);
-                              // 원본 행: 현재 차수 + 재방문 완료 + 같은 그룹 (차수는 보존)
-                              next[idx] = {
+                              // 직전 차수의 잠금 복제본 (이미 완료된 과거 방문으로 표시)
+                              const lockedPrev: BulkRow = {
                                 ...cur,
                                 revisit_required: true,
                                 revisit_done: true,
                                 revisit_group_local: groupLocal,
                                 revisit_visit_no: curVisitNo,
+                                revisit_locked: true,
+                              };
+                              next.splice(idx + 1, 0, lockedPrev);
+                              // 활성 행: 다음 차수로 승격, 계속 진행 중 (revisit_done=false)
+                              next[idx] = {
+                                ...cur,
+                                revisit_required: true,
+                                revisit_done: false,
+                                revisit_group_local: groupLocal,
+                                revisit_visit_no: nextVisitNo,
+                                revisit_locked: false,
                               };
                               return next;
                             });
