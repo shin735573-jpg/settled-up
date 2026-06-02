@@ -19,6 +19,8 @@ export type CategoryRow = {
   item?: string | null;
   leader1_name?: string | null;
   fee: number;
+  /** 이 행이 카테고리에 속한 구체 사유 (예: "two_person=true & virtual partner", "revisit visit_no=2") */
+  reason?: string;
 };
 
 export type CategoryBreakdown = {
@@ -85,7 +87,7 @@ export function crossCheckTotalFee(
   const onlyUnifiedRows: CategoryRow[] = [];
   const onlyLeaderRows: CategoryRow[] = [];
 
-  const toCat = (r: Row, fee: number): CategoryRow => ({
+  const toCat = (r: Row, fee: number, reason?: string): CategoryRow => ({
     id: r.id,
     date: r.date ?? null,
     company_name: r.company_name ?? null,
@@ -93,6 +95,7 @@ export function crossCheckTotalFee(
     item: r.item ?? null,
     leader1_name: r.leader1_name ?? null,
     fee,
+    reason,
   });
 
   for (const r of rows) {
@@ -100,20 +103,34 @@ export function crossCheckTotalFee(
     const isExcludedItem = isLeaderSettlementExcludedItem(r.item);
     const isVirtualSolo = !r.two_person && isVirtualSettlementRow(r, virtualIds);
     const isRevisitSecondary = !!r.revisit_group_id && !primaryIds.has(String(r.id));
+    const isVirtualPartner = !!r.two_person && isVirtualSettlementRow(r, virtualIds);
 
-    if (isExcludedItem)     excludedItemRows.push(toCat(r, fee));
-    if (isVirtualSolo)      virtualSoloRows.push(toCat(r, fee));
-    if (isRevisitSecondary) revisitSecondaryRows.push(toCat(r, fee));
+    if (isExcludedItem)     excludedItemRows.push(toCat(r, fee, `정산제외 품목 "${r.item ?? ""}"`));
+    if (isVirtualSolo)      virtualSoloRows.push(toCat(r, fee, "가상기사 단독(2인배송 아님)"));
+    if (isRevisitSecondary) revisitSecondaryRows.push(
+      toCat(r, fee, `재방문 visit_no=${r.revisit_visit_no ?? "?"} (gid=${String(r.revisit_group_id).slice(0, 8)}…)`),
+    );
 
     // 통합식(A) 행 포함 여부 — totalUnifiedDeliveryFee 규칙 재현
     //   재방문 그룹은 1차(=primaryIds 안에 있음) 만 포함
     const inA = !isExcludedItem && !isVirtualSolo &&
       (!r.revisit_group_id || primaryIds.has(String(r.id)));
     // 팀장정산식(B) 행 포함 여부 — primaryOnly 에서 적재비/가상기사 제외
-    const inB = !isExcludedItem && !isVirtualSolo && primaryIds.has(String(r.id));
+    //   (2인배송 행은 가상기사 파트너여도 포함되도록 totalLeaderSettlementDeliveryFee 와 동일 규칙)
+    const inB =
+      !isExcludedItem &&
+      !isVirtualSolo &&
+      (primaryIds.has(String(r.id)) || !r.revisit_group_id);
 
-    if (inA && !inB) onlyUnifiedRows.push(toCat(r, fee));
-    if (inB && !inA) onlyLeaderRows.push(toCat(r, fee));
+    if (inA && !inB) {
+      const reason = isVirtualPartner
+        ? "2인배송 + 가상기사 파트너 (통합식만 포함)"
+        : "정합 불일치 — 사유 미분류";
+      onlyUnifiedRows.push(toCat(r, fee, reason));
+    }
+    if (inB && !inA) {
+      onlyLeaderRows.push(toCat(r, fee, "재방문 1차 행 선택 규칙 불일치"));
+    }
   }
 
   const sumFee = (xs: CategoryRow[]) => xs.reduce((s, x) => s + x.fee, 0);
@@ -176,4 +193,50 @@ export function crossCheckTotalFee(
       ? undefined
       : `총배송비 검증 실패: 통합식 ${unified.toLocaleString()} vs 팀장정산식 ${leaderStyle.toLocaleString()} (차이 ${diff.toLocaleString()})`,
   };
+}
+
+/**
+ * 불일치 발생 시 콘솔에 카테고리·행 단위로 상세 로그를 자동 출력.
+ * - 동일 diff 에 대해 중복 로그가 쌓이지 않도록 useEffect 등에서 1회만 호출 권장.
+ */
+export function logTotalFeeMismatch(
+  result: TotalCrossCheck,
+  opts?: { unifiedLabel?: string; leaderLabel?: string; context?: string },
+): void {
+  if (result.ok) return;
+  const uL = opts?.unifiedLabel ?? "통합식";
+  const lL = opts?.leaderLabel ?? "팀장정산식";
+  const ctx = opts?.context ? ` [${opts.context}]` : "";
+  // eslint-disable-next-line no-console
+  console.groupCollapsed(
+    `[총배송비 불일치]${ctx} ${uL} ${result.unified.toLocaleString()} vs ${lL} ${result.leaderStyle.toLocaleString()} (차이 ${result.diff.toLocaleString()})`,
+  );
+  for (const c of result.categories) {
+    if (c.count === 0) continue;
+    // eslint-disable-next-line no-console
+    console.groupCollapsed(
+      `· ${c.label} — ${c.count}건 / ${c.amount.toLocaleString()}원 | ${uL}:${c.includedInUnified ? "포함" : "제외"} · ${lL}:${c.includedInLeaderStyle ? "포함" : "제외"} | 차이 영향 ${c.contribution > 0 ? "+" : ""}${c.contribution.toLocaleString()}원`,
+    );
+    // eslint-disable-next-line no-console
+    console.table(
+      c.rows.slice(0, 200).map((r) => ({
+        id: r.id ?? "",
+        date: r.date ?? "",
+        company: r.company_name ?? "",
+        customer: r.customer_name ?? "",
+        item: r.item ?? "",
+        leader1: r.leader1_name ?? "",
+        fee: r.fee,
+        reason: r.reason ?? "",
+      })),
+    );
+    if (c.rows.length > 200) {
+      // eslint-disable-next-line no-console
+      console.warn(`…외 ${c.rows.length - 200}건 생략됨`);
+    }
+    // eslint-disable-next-line no-console
+    console.groupEnd();
+  }
+  // eslint-disable-next-line no-console
+  console.groupEnd();
 }
