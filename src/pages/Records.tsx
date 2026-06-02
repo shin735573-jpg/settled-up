@@ -1732,8 +1732,26 @@ export default function Records() {
         .lt("revisit_visit_no", maxV);
     }
     toast.success(`${rows.length}건 저장 완료`);
-    const dc = bulkShared.default_company_id;
-    setBulkRows([emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc), emptyBulkRow(dc)]);
+    // 저장 후 입력란 전체 초기화 (공유 필드 + 행 모두)
+    setBulkShared({
+      date: new Date().toISOString().slice(0, 10),
+      default_company_id: "",
+      leader1_id: "",
+      leader2_id: "",
+      leader3_id: "",
+      virtual_leader_id: "",
+      two_person: false,
+      split_type: "",
+      paid: false,
+    });
+    setBulkRows([
+      emptyBulkRow(), emptyBulkRow(), emptyBulkRow(),
+      emptyBulkRow(), emptyBulkRow(), emptyBulkRow(), emptyBulkRow(),
+    ]);
+    try {
+      localStorage.removeItem("records.bulk.shared.draft");
+      localStorage.removeItem("records.bulk.rows.draft");
+    } catch { /* noop */ }
     load();
   };
 
