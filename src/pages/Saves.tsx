@@ -1533,11 +1533,13 @@ function LeaderPreview({
   rowsSlice,
   pageIndex,
   totalPages,
+  virtualLeaderMap,
 }: {
   data: ReturnType<typeof buildLeaderStatements>[number];
   rowsSlice?: { start: number; end: number };
   pageIndex?: number;
   totalPages?: number;
+  virtualLeaderMap?: Map<string, string>;
 }) {
   const l = data.leader;
   const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
