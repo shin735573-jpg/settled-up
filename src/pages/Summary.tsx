@@ -52,6 +52,12 @@ const LEADER_COLUMNS = [
   { key: "leader_share", label: "비중%", size: "90px" },
 ] as const;
 
+import {
+  isInEffectivePeriod as __isInEffectivePeriod,
+  settleOverridePrefix as __settleOverridePrefix,
+  withEffectiveDate as __withEffectiveDate,
+} from "@/lib/missingOverride";
+
 const inPeriod = (dateStr: string, period: Period): boolean => {
   const d = Number((dateStr || "").slice(8, 10));
   if (!d) return false;
@@ -90,21 +96,26 @@ export default function Summary() {
       const start = month + "-01";
       const next = new Date(start); next.setMonth(next.getMonth() + 1);
       const end = next.toISOString().slice(0, 10);
-      const [{ data: d }, { data: c }, { data: l }] = await Promise.all([
+      const [{ data: d }, { data: dOv }, { data: c }, { data: l }] = await Promise.all([
         supabase.from("deliveries").select("*").gte("date", start).lt("date", end),
+        // 누락분 정산 반영월 override 가 이 month 를 가리키는 행도 같이 수집
+        supabase.from("deliveries").select("*").ilike("missing_reason", `${__settleOverridePrefix(month)}%`),
         supabase.from("companies").select("id,name,active,issues_invoice,rejected_leader_id,rejected_leader_id_2,rejected_leader_id_3").order("name"),
         supabase.from("team_leaders").select("id,name,active,is_rejected,is_virtual,settle_to_id,aliases,settle_status,deduction_amount,trash_cost,region,fee_rate_metro,fee_rate_regional").order("name"),
       ]);
-      setRows(d || []);
+      const merged = new Map<string, any>();
+      for (const r of (d as any[]) || []) merged.set(r.id, r);
+      for (const r of (dOv as any[]) || []) merged.set(r.id, r);
+      setRows(Array.from(merged.values()).map((r) => __withEffectiveDate(r)));
       setCompanies((c as Company[]) || []);
       setLeaders(sortLeadersByFeeAsc((l as Leader[]) || []));
     })();
   }, [month]);
 
-  // 기간 필터
+  // 기간 필터 — 누락분 override 가 있는 행은 effective date 가 이미 반영돼 있음
   const periodRows = useMemo(
-    () => rows.filter((r) => inPeriod(r.date, period)),
-    [rows, period],
+    () => rows.filter((r) => __isInEffectivePeriod(r as { date?: string; missing_reason?: string | null }, month, period)),
+    [rows, period, month],
   );
 
   const findId = (names: string[]) => {

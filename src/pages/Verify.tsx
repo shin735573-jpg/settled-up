@@ -33,6 +33,11 @@ import {
 } from "@/lib/verifyChecks";
 import { getVerifyRange, normalizeMonthInput } from "@/lib/verifyRange";
 import { getCurrentHalf } from "@/lib/autoPeriod";
+import {
+  isInEffectivePeriod,
+  settleOverridePrefix,
+  withEffectiveDate,
+} from "@/lib/missingOverride";
 import { toast } from "@/hooks/use-toast";
 
 export default function Verify() {
@@ -67,17 +72,37 @@ export default function Verify() {
       const range = getVerifyRange(month, period);
       if (!range) { setLoading(false); return; }
       const { from, toExclusive, periodKey, commonPeriodKeys: commonKeys } = range;
-      const [cs, ls, ds, cds, ovs, pds] = await Promise.all([
+      const [cs, ls, ds, dsOv, cds, ovs, pds] = await Promise.all([
         supabase.from("companies").select("*").eq("user_id", uid).order("name"),
         supabase.from("team_leaders").select("*").eq("user_id", uid).order("name"),
         supabase.from("deliveries").select("*").eq("user_id", uid).gte("date", from).lt("date", toExclusive),
+        // 누락분 정산 반영월 override 가 이 달을 가리키는 배송기록 추가 수집
+        supabase.from("deliveries").select("*").eq("user_id", uid)
+          .ilike("missing_reason", `${settleOverridePrefix(month)}%`),
         supabase.from("common_deductions").select("id,label,amount,active").eq("user_id", uid).order("sort_order"),
         supabase.from("leader_common_overrides").select("leader_id,common_deduction_id,period_key,amount").eq("user_id", uid).in("period_key", commonKeys),
         supabase.from("leader_period_deductions").select("leader_id,period_key,label,amount").eq("user_id", uid).eq("period_key", periodKey),
       ]);
       setCompanies((cs.data ?? []) as unknown as StmtCompany[]);
       setLeaders((ls.data ?? []) as unknown as StmtLeader[]);
-      setDeliveries((ds.data ?? []) as unknown as StmtDelivery[]);
+      // 머지: 원래 date 가 범위 안인데 override 가 다른 달로 빠진 건은 제외,
+      // override 가 이 달로 들어온 건은 추가. dedupe by id. 이후 effective filter 로 정밀하게 거른다.
+      const dsList = (ds.data ?? []) as unknown as StmtDelivery[];
+      const ovList = (dsOv.data ?? []) as unknown as StmtDelivery[];
+      const mergedMap = new Map<string, StmtDelivery>();
+      for (const d of dsList) mergedMap.set(d.id, d);
+      for (const d of ovList) mergedMap.set(d.id, d);
+      const merged = Array.from(mergedMap.values())
+        .filter((d) =>
+          isInEffectivePeriod(
+            d as unknown as { date?: string; missing_reason?: string | null },
+            month,
+            period,
+          ),
+        )
+        // override 가 있는 행은 effective date 로 치환해서 기존 inPeriod(day) 검사에 통과되도록.
+        .map((d) => withEffectiveDate(d) as StmtDelivery);
+      setDeliveries(merged);
       setCommonDeductions((cds.data ?? []) as unknown as StmtCommonDeduction[]);
       setCommonOverrides((ovs.data ?? []) as unknown as StmtCommonOverride[]);
       setPeriodDeductions((pds.data ?? []) as unknown as StmtPeriodDeduction[]);

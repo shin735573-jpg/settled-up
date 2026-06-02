@@ -16,6 +16,11 @@ import PrintButton from "@/components/PrintButton";
 import { Switch } from "@/components/ui/switch";
 import { getCurrentHalf, useAutoPeriodSync } from "@/lib/autoPeriod";
 import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
+import {
+  isInEffectivePeriod,
+  settleOverridePrefix,
+  withEffectiveDate,
+} from "@/lib/missingOverride";
 
 type Period = "all" | "first" | "second" | "month";
 
@@ -118,10 +123,24 @@ export default function CompanySettlement() {
       let q = supabase.from("deliveries").select("*").order("date");
       if (range.start) q = q.gte("date", range.start);
       if (range.end) q = q.lt("date", range.end);
-      const { data } = await q;
-      setAllRows(data || []);
+      const [{ data }, { data: ovData }] = await Promise.all([
+        q,
+        supabase
+          .from("deliveries")
+          .select("*")
+          .ilike("missing_reason", `${settleOverridePrefix(month)}%`),
+      ]);
+      const periodKey: "h1" | "h2" | "all" =
+        period === "first" ? "h1" : period === "second" ? "h2" : "all";
+      const merged = new Map<string, any>();
+      for (const d of data || []) merged.set(d.id, d);
+      for (const d of ovData || []) merged.set(d.id, d);
+      const filtered = Array.from(merged.values())
+        .filter((d) => isInEffectivePeriod(d, month, periodKey))
+        .map((d) => withEffectiveDate(d));
+      setAllRows(filtered);
     })();
-  }, [range.start, range.end]);
+  }, [range.start, range.end, month, period]);
 
   // 이월착불금 = 기간 시작 이전의 미결제 착불 합계
   useEffect(() => {
@@ -129,10 +148,16 @@ export default function CompanySettlement() {
     (async () => {
       const { data } = await supabase
         .from("deliveries")
-        .select("company_id,company_name,cod_amount,paid,date")
+        .select("company_id,company_name,cod_amount,paid,date,missing_reason")
         .lt("date", range.start!)
         .eq("paid", false);
-      setCarryRows(data || []);
+      // 누락분 override 가 걸린 행은 원래 date 기준 carry 에서 제외 (다른 달로 정산을 넘겼으므로).
+      setCarryRows(
+        (data || []).filter((r) => {
+          const s = String((r as { missing_reason?: string | null }).missing_reason ?? "");
+          return !/^\s*\[SETTLE:\d{4}-\d{2}:(H1|H2|FULL)\]/.test(s);
+        }),
+      );
     })();
   }, [range.start]);
 

@@ -48,6 +48,52 @@ import { AlertTriangle, CheckCircle2, ShieldAlert, FileWarning } from "lucide-re
 import OcrCheckPanel, { type ExtractedRow } from "@/components/OcrCheckPanel";
 import { isSkippablePasteRow, parsePastedTableText } from "@/lib/pasteGrid";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
+import {
+  parseMissingReason,
+  buildMissingReason,
+  type MissingHalf,
+} from "@/lib/missingOverride";
+import {
+  findExactDuplicates,
+  findSuspectDuplicates,
+  formatDuplicateConfirm,
+  hasAnyDuplicates,
+  type DupDelivery,
+} from "@/lib/duplicateCheck";
+import { AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+function FirstTimeSetupAlert({
+  companyCount, leaderCount,
+}: { companyCount: number; leaderCount: number }) {
+  const navigate = useNavigate();
+  if (companyCount > 0 && leaderCount > 0) return null;
+  return (
+    <Card className="p-3 border-orange-400/60 bg-orange-50 dark:bg-orange-950/30">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
+        <div className="flex-1 text-sm space-y-1">
+          <div className="font-semibold text-orange-700 dark:text-orange-300">
+            기록입력을 시작하기 전에 설정이 필요합니다
+          </div>
+          {companyCount === 0 && (
+            <div className="text-xs text-muted-foreground">
+              • 업체가 하나도 없습니다. <b>업체가 없으면 기록 저장을 진행할 수 없습니다.</b>
+            </div>
+          )}
+          {leaderCount === 0 && (
+            <div className="text-xs text-muted-foreground">
+              • 팀장이 하나도 없습니다. <b>팀장이 없으면 자동 분류와 팀장 정산 확인이 제한됩니다.</b>
+            </div>
+          )}
+        </div>
+        <Button size="sm" variant="default" onClick={() => navigate("/settings")}>
+          설정으로 이동
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 type Company = {
   id: string;
@@ -364,6 +410,8 @@ type FormState = {
   two_person: boolean;
   is_missing: boolean;
   missing_reason: string;
+  settle_month: string;
+  settle_half: MissingHalf;
   revisit_required: boolean;
   revisit_done: boolean;
   revisit_group_id: string | null;
@@ -395,6 +443,8 @@ const emptyForm = (): FormState => ({
   two_person: false,
   is_missing: false,
   missing_reason: "",
+  settle_month: "",
+  settle_half: "FULL",
   revisit_required: false,
   revisit_done: false,
   revisit_group_id: null,
@@ -1295,6 +1345,8 @@ export default function Records() {
       two_person: !!(r as any).two_person,
       is_missing: !!r.is_missing,
       missing_reason: r.missing_reason || "",
+      settle_month: parseMissingReason(r.missing_reason).settleMonth || "",
+      settle_half: (parseMissingReason(r.missing_reason).half ?? "FULL") as MissingHalf,
       revisit_required: !!(r as any).revisit_required,
       revisit_done: !!(r as any).revisit_done,
       revisit_group_id: (r as any).revisit_group_id ?? null,
@@ -1338,6 +1390,9 @@ export default function Records() {
     if (!company) { toast.error("업체를 선택하세요"); return; }
     if (form.is_missing && !form.missing_reason.trim()) {
       toast.error("누락 사유를 입력해주세요"); return;
+    }
+    if (form.is_missing && !form.settle_month.trim()) {
+      toast.error("누락분은 정산 반영월을 선택해주세요"); return;
     }
     // 누락분 모드에서는 저장 직전 자동 검사
     if (form.is_missing) {
@@ -1458,7 +1513,13 @@ export default function Records() {
       paid: form.paid,
       two_person: form.two_person,
       is_missing: form.is_missing,
-      missing_reason: form.is_missing ? (form.missing_reason || null) : null,
+      missing_reason: form.is_missing
+        ? (buildMissingReason({
+            settleMonth: form.settle_month || null,
+            half: form.settle_half,
+            reason: form.missing_reason,
+          }) || null)
+        : null,
       revisit_required: form.revisit_required,
       revisit_done: form.revisit_done,
       alba_deduction: parseNum(form.alba_deduction) || 0,
@@ -1505,6 +1566,39 @@ export default function Records() {
     });
     if (!ok) return;
     setSaving(true);
+    // 저장 직전 중복 검사 (단건) — 정확/의심 중복이 발견되면 사용자 confirm
+    try {
+      const cand: DupDelivery = {
+        id: form.id,
+        date: form.date,
+        company_id: form.company_id,
+        company_name: company.name,
+        customer_name: form.customer_name,
+        item: form.item,
+        metro_fee: metroN,
+        note_amount: parseNum(form.note_amount) || 0,
+        regional_fee: regionalN,
+        cod_amount: parseNum(form.cod_amount) || 0,
+        leader1_id: form.leader1_id || null,
+        leader2_id: form.leader2_id || null,
+        split_type: form.split_type || null,
+        paid: form.paid,
+        note: form.note || null,
+      };
+      const { data: existing } = await supabase
+        .from("deliveries")
+        .select("id,date,company_id,company_name,customer_name,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,paid,note")
+        .eq("date", form.date)
+        .eq("company_id", form.company_id);
+      const ex = findExactDuplicates(cand, (existing || []) as DupDelivery[]);
+      const sus = findSuspectDuplicates(cand, (existing || []) as DupDelivery[]);
+      if (hasAnyDuplicates(ex, sus)) {
+        if (!confirm(formatDuplicateConfirm(ex, sus))) {
+          setSaving(false);
+          return;
+        }
+      }
+    } catch { /* 중복 검사 실패는 무시하고 진행 */ }
     let error;
     if (form.id) {
       ({ error } = await supabase.from("deliveries").update(payload).eq("id", form.id));
@@ -2217,6 +2311,7 @@ export default function Records() {
   return (
     <div className="space-y-4" ref={recordsRootRef}>
       {saveConfirmDialog}
+      <FirstTimeSetupAlert companyCount={companies.length} leaderCount={leaders.length} />
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold flex-1 min-w-full sm:min-w-0 whitespace-nowrap">기록입력</h1>
         <Input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-40 flex-1 sm:flex-none" />
@@ -2877,6 +2972,49 @@ export default function Records() {
               <X className="h-4 w-4 mr-1" />초기화
             </Button>
           </div>
+
+          {form.is_missing && (
+            <div className="rounded-md border-2 border-orange-400/60 bg-orange-50 dark:bg-orange-950/30 p-3 space-y-2">
+              <div className="text-sm font-semibold text-orange-700 dark:text-orange-300">
+                누락분 정산 반영 설정
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                배송일은 그대로 유지됩니다. 정산에는 아래 선택한 월/구간으로 포함됩니다.
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">누락 사유 *</Label>
+                  <Input
+                    value={form.missing_reason}
+                    onChange={(e) => setForm({ ...form, missing_reason: e.target.value })}
+                    placeholder="예: 누락 발견, 늦게 접수"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">정산 반영월 *</Label>
+                  <Input
+                    type="month"
+                    value={form.settle_month}
+                    onChange={(e) => setForm({ ...form, settle_month: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">반영 구간</Label>
+                  <Select
+                    value={form.settle_half}
+                    onValueChange={(v) => setForm({ ...form, settle_half: v as MissingHalf })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="H1">1~15일</SelectItem>
+                      <SelectItem value="H2">16~말일</SelectItem>
+                      <SelectItem value="FULL">월전체</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {formFirstRow && Number(form.revisit_visit_no || 1) > 1 && (() => {
             const baseTotal =
