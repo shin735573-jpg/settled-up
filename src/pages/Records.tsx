@@ -3720,6 +3720,7 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
 
   return (
     <>
+    {saveConfirmDialog}
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[98vw] w-[98vw] max-h-[95vh] sm:max-w-[98vw] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
