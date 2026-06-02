@@ -796,7 +796,20 @@ export default function LeaderSettlement() {
 
       {!leaderId && (
         <Card className="p-4">
-          <div className="text-sm text-muted-foreground mb-2">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div className="text-sm text-muted-foreground">{periodLabel} 기준 · 팀장명 클릭 시 상세보기</div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={leaderSearch}
+                onChange={(e) => setLeaderSearch(e.target.value)}
+                placeholder="팀장명 검색 (별칭 가능)"
+                className="h-8 w-56 text-xs"
+              />
+              {leaderSearch && (
+                <Button size="sm" variant="ghost" onClick={() => setLeaderSearch("")}>지우기</Button>
+              )}
+            </div>
+          </div>
           {leaderColAlignError && (
             <div className="mb-2 rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive font-medium">
               팀장정산 목록의 헤더와 데이터 컬럼 위치가 일치하지 않습니다.
