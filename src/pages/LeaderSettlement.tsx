@@ -662,6 +662,21 @@ export default function LeaderSettlement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masterRows, rows, companies]);
 
+  // 업체정산 ↔ 팀장정산 총배송비 100% 일치 자동검증 (저장/재생성·필터 변경 시마다)
+  const totalFeeCheck = useMemo(
+    () => crossCheckTotalFee(rows, virtualIds),
+    [rows, virtualIds],
+  );
+  const lastWarnedDiffRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!totalFeeCheck.ok && lastWarnedDiffRef.current !== totalFeeCheck.diff) {
+      toast.error(totalFeeCheck.message ?? "총배송비 검증 실패");
+      lastWarnedDiffRef.current = totalFeeCheck.diff;
+    } else if (totalFeeCheck.ok) {
+      lastWarnedDiffRef.current = null;
+    }
+  }, [totalFeeCheck]);
+
   // ===== 헤더-셀 컬럼 위치 검증 (개발용) =====
   useEffect(() => {
     if (leaderId) { setLeaderColAlignError(false); return; }
