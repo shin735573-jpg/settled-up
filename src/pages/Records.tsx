@@ -2113,6 +2113,44 @@ export default function Records() {
                 <span>{form.paid ? "결제완료" : "미결제"}</span>
               </div>
             </div>
+            <div className="space-y-1 flex flex-col">
+              <Label>재방문 필요</Label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setForm((f) => ({ ...f, revisit_required: !f.revisit_required }))}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    setForm((f) => ({ ...f, revisit_required: !f.revisit_required }));
+                  }
+                }}
+                className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer select-none"
+                title="신규 저장 시 같은 내용의 2차 방문 행이 바로 아래에 자동 생성됩니다 (업체 청구는 1건으로 합산)"
+              >
+                <Checkbox checked={form.revisit_required} tabIndex={-1} className="pointer-events-none" />
+                <span>{form.revisit_required ? "재방문 예정" : "—"}</span>
+              </div>
+            </div>
+            <div className="space-y-1 flex flex-col">
+              <Label>재방문 진행</Label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setForm((f) => ({ ...f, revisit_done: !f.revisit_done }))}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    setForm((f) => ({ ...f, revisit_done: !f.revisit_done }));
+                  }
+                }}
+                className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer select-none"
+                title="실제 재방문이 완료되었는지 표시"
+              >
+                <Checkbox checked={form.revisit_done} tabIndex={-1} className="pointer-events-none" />
+                <span>{form.revisit_done ? "완료" : "미완료"}</span>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
