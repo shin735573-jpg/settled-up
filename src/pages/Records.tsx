@@ -358,6 +358,10 @@ type FormState = {
   two_person: boolean;
   is_missing: boolean;
   missing_reason: string;
+  revisit_required: boolean;
+  revisit_done: boolean;
+  revisit_group_id: string | null;
+  revisit_visit_no: number;
 };
 
 const NONE = "__none__";
@@ -383,6 +387,10 @@ const emptyForm = (): FormState => ({
   two_person: false,
   is_missing: false,
   missing_reason: "",
+  revisit_required: false,
+  revisit_done: false,
+  revisit_group_id: null,
+  revisit_visit_no: 1,
 });
 
 type RecordsColumn = {
@@ -1115,6 +1123,10 @@ export default function Records() {
       two_person: !!(r as any).two_person,
       is_missing: !!r.is_missing,
       missing_reason: r.missing_reason || "",
+      revisit_required: !!(r as any).revisit_required,
+      revisit_done: !!(r as any).revisit_done,
+      revisit_group_id: (r as any).revisit_group_id ?? null,
+      revisit_visit_no: Number((r as any).revisit_visit_no ?? 1),
     });
     setFormOpen(true);
     setActiveTab("form");
@@ -1223,13 +1235,28 @@ export default function Records() {
       two_person: form.two_person,
       is_missing: form.is_missing,
       missing_reason: form.is_missing ? (form.missing_reason || null) : null,
+      revisit_required: form.revisit_required,
+      revisit_done: form.revisit_done,
+      revisit_group_id: form.revisit_group_id,
+      revisit_visit_no: form.revisit_visit_no || 1,
     };
     setSaving(true);
     let error;
     if (form.id) {
       ({ error } = await supabase.from("deliveries").update(payload).eq("id", form.id));
     } else {
-      ({ error } = await supabase.from("deliveries").insert(payload));
+      // 신규 저장 + "재방문 필요" 체크: 1차/2차 두 행을 같은 그룹으로 동시 저장
+      if (form.revisit_required && !form.revisit_group_id) {
+        const groupId =
+          (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+            ? (crypto as any).randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const first = { ...payload, revisit_group_id: groupId, revisit_visit_no: 1 };
+        const second = { ...payload, revisit_group_id: groupId, revisit_visit_no: 2, revisit_done: false };
+        ({ error } = await supabase.from("deliveries").insert([first, second]));
+      } else {
+        ({ error } = await supabase.from("deliveries").insert(payload));
+      }
     }
     setSaving(false);
     if (error) { toast.error(error.message); return; }
@@ -2084,6 +2111,44 @@ export default function Records() {
               >
                 <Checkbox checked={form.paid} tabIndex={-1} className="pointer-events-none" />
                 <span>{form.paid ? "결제완료" : "미결제"}</span>
+              </div>
+            </div>
+            <div className="space-y-1 flex flex-col">
+              <Label>재방문 필요</Label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setForm((f) => ({ ...f, revisit_required: !f.revisit_required }))}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    setForm((f) => ({ ...f, revisit_required: !f.revisit_required }));
+                  }
+                }}
+                className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer select-none"
+                title="신규 저장 시 같은 내용의 2차 방문 행이 바로 아래에 자동 생성됩니다 (업체 청구는 1건으로 합산)"
+              >
+                <Checkbox checked={form.revisit_required} tabIndex={-1} className="pointer-events-none" />
+                <span>{form.revisit_required ? "재방문 예정" : "—"}</span>
+              </div>
+            </div>
+            <div className="space-y-1 flex flex-col">
+              <Label>재방문 진행</Label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setForm((f) => ({ ...f, revisit_done: !f.revisit_done }))}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    setForm((f) => ({ ...f, revisit_done: !f.revisit_done }));
+                  }
+                }}
+                className="flex items-center gap-2 h-10 px-3 border rounded-md cursor-pointer select-none"
+                title="실제 재방문이 완료되었는지 표시"
+              >
+                <Checkbox checked={form.revisit_done} tabIndex={-1} className="pointer-events-none" />
+                <span>{form.revisit_done ? "완료" : "미완료"}</span>
               </div>
             </div>
           </div>

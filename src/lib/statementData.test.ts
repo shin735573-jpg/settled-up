@@ -162,4 +162,44 @@ describe("행사철수 특수일 처리", () => {
     expect(stmt.rows).toHaveLength(1);
     expect(stmt.realFee).toBe(10000);
   });
+
+  it("재방문 그룹: 업체 청구 1건으로 합산, 날짜는 1차 방문일", () => {
+    const leaders = [mkLeader("L1", "A팀장"), mkLeader("L2", "B팀장")];
+    const deliveries: StmtDelivery[] = [
+      mkRow({
+        date: "2026-06-05", item: "일반", leader1_id: "L1", leader1_name: "A팀장",
+        metro_fee: 50000, revisit_group_id: "g1", revisit_visit_no: 1,
+      }),
+      mkRow({
+        date: "2026-06-12", item: "일반", leader1_id: "L2", leader1_name: "B팀장",
+        metro_fee: 30000, revisit_group_id: "g1", revisit_visit_no: 2,
+      }),
+    ];
+    const [stmt] = buildCompanyStatements(deliveries, [company], leaders, "h1");
+    expect(stmt.rows).toHaveLength(1);
+    expect(stmt.rows[0].metro_fee).toBe(80000);
+    expect(stmt.rows[0].delivery_fee).toBe(80000);
+    expect(stmt.rows[0].date).toBe("2026-06-05");
+    expect(stmt.rows[0].display_leader1).toBe("A팀장");
+    expect(stmt.feeTotal).toBe(80000);
+  });
+
+  it("재방문 그룹: 팀장 정산은 각 행의 팀장이 본인 금액 그대로 받음", () => {
+    const leaders = [mkLeader("L1", "A팀장"), mkLeader("L2", "B팀장")];
+    const deliveries: StmtDelivery[] = [
+      mkRow({
+        date: "2026-06-05", item: "일반", leader1_id: "L1", leader1_name: "A팀장",
+        metro_fee: 50000, revisit_group_id: "g1", revisit_visit_no: 1,
+      }),
+      mkRow({
+        date: "2026-06-12", item: "일반", leader1_id: "L2", leader1_name: "B팀장",
+        metro_fee: 30000, revisit_group_id: "g1", revisit_visit_no: 2,
+      }),
+    ];
+    const stmts = buildLeaderStatements(deliveries, leaders, "h1", { oeunkyuSpecial: true });
+    const a = stmts.find((s) => s.leader.id === "L1")!;
+    const b = stmts.find((s) => s.leader.id === "L2")!;
+    expect(a.realFee).toBe(50000);
+    expect(b.realFee).toBe(30000);
+  });
 });

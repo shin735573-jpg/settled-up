@@ -129,6 +129,10 @@ export type Database = {
           region: string | null
           region_type: string | null
           regional_fee: number
+          revisit_done: boolean
+          revisit_group_id: string | null
+          revisit_required: boolean
+          revisit_visit_no: number
           split_type: string | null
           two_person: boolean
           updated_at: string
@@ -158,6 +162,10 @@ export type Database = {
           region?: string | null
           region_type?: string | null
           regional_fee?: number
+          revisit_done?: boolean
+          revisit_group_id?: string | null
+          revisit_required?: boolean
+          revisit_visit_no?: number
           split_type?: string | null
           two_person?: boolean
           updated_at?: string
@@ -187,6 +195,10 @@ export type Database = {
           region?: string | null
           region_type?: string | null
           regional_fee?: number
+          revisit_done?: boolean
+          revisit_group_id?: string | null
+          revisit_required?: boolean
+          revisit_visit_no?: number
           split_type?: string | null
           two_person?: boolean
           updated_at?: string
