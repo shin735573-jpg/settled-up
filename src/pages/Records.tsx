@@ -904,6 +904,7 @@ export default function Records() {
     note_amount: string;
     regional_fee: string;
     cod_amount: string;
+    alba_deduction: string;
     two_person: boolean;
     paid: boolean;
     revisit_required: boolean;
@@ -936,6 +937,7 @@ export default function Records() {
     note_amount: "",
     regional_fee: "",
     cod_amount: "",
+    alba_deduction: "",
     two_person: false,
     paid: false,
     revisit_required: false,
