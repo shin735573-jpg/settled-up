@@ -405,6 +405,7 @@ export default function RecordsBrowse() {
                       loading={loading}
                       onClose={() => setSlot(idx, null)}
                       onDetail={() => setDetail(sel)}
+                      onEdit={(id) => navigate(`/records?edit=${id}`)}
                     />
                   </div>
                 ))}
@@ -434,7 +435,12 @@ export default function RecordsBrowse() {
             </DialogTitle>
           </DialogHeader>
           {detail && (
-            <DetailView sel={detail} records={recordsFor(detail)} loading={loading} />
+            <DetailView
+              sel={detail}
+              records={recordsFor(detail)}
+              loading={loading}
+              onEdit={(id) => navigate(`/records?edit=${id}`)}
+            />
           )}
         </DialogContent>
       </Dialog>
