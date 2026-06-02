@@ -56,42 +56,7 @@ const alignClass = (a: "left" | "right" | "center") =>
 
 const fmtAmount = (n: number) => (n && n !== 0 ? fmt(n) : "-");
 
-// 재방문 그룹은 업체에 1회만 청구한다.
-// 같은 revisit_group_id의 행 중 visit_no가 가장 낮은(=1차) 행만 남기고
-// 2차 이후 행은 제외한다(팀장 정산에서만 사용됨).
-function keepRevisitPrimaryOnly<T extends {
-  revisit_group_id?: string | null;
-  revisit_visit_no?: number | null;
-  date?: string | null;
-}>(rows: T[]): T[] {
-  const primary = new Map<string, T>();
-  const result: T[] = [];
-  const order: Array<{ gid: string; pos: number }> = [];
-  rows.forEach((r, i) => {
-    const gid = r.revisit_group_id;
-    if (!gid) {
-      result.push(r);
-      return;
-    }
-    const cur = primary.get(gid);
-    if (!cur) {
-      primary.set(gid, r);
-      order.push({ gid, pos: result.length });
-      result.push(r);
-      return;
-    }
-    const va = Number(r.revisit_visit_no ?? 1);
-    const vb = Number(cur.revisit_visit_no ?? 1);
-    const better =
-      va < vb || (va === vb && (r.date || "") < (cur.date || ""));
-    if (better) {
-      primary.set(gid, r);
-      const slot = order.find((o) => o.gid === gid);
-      if (slot) result[slot.pos] = r;
-    }
-  });
-  return result;
-}
+import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 
 export default function CompanySettlement() {
   const initial = useMemo(() => getCurrentHalf(), []);
