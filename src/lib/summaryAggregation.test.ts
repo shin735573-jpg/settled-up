@@ -49,11 +49,11 @@ describe("isCountableLeader", () => {
   it("활성·비거부·비가상·정산포함·최종이면 true", () => {
     expect(isCountableLeader(baseLeader({ id: "L1", name: "A" }))).toBe(true);
   });
-  it("비활성/거부/정산제외/settle_to_id 있으면 false (가상기사는 정산 대상)", () => {
+  it("비활성/거부/가상/정산제외/settle_to_id 있으면 false", () => {
     expect(isCountableLeader(baseLeader({ id: "L1", name: "A", active: false }))).toBe(false);
     expect(isCountableLeader(baseLeader({ id: "L1", name: "A", is_rejected: true }))).toBe(false);
-    // 가상기사도 정산 대상에 포함됨 (2인배송 보조기사로 활용)
-    expect(isCountableLeader(baseLeader({ id: "L1", name: "A", is_virtual: true }))).toBe(true);
+    // 가상기사는 정산/내역 집계에서 절대 제외
+    expect(isCountableLeader(baseLeader({ id: "L1", name: "A", is_virtual: true }))).toBe(false);
     expect(isCountableLeader(baseLeader({ id: "L1", name: "A", settle_status: "excluded" }))).toBe(false);
     expect(isCountableLeader(baseLeader({ id: "L1", name: "A", settle_to_id: "L2" }))).toBe(false);
   });

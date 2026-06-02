@@ -44,7 +44,7 @@ export const inPeriod = (dateStr: string, period: Period): boolean => {
 };
 
 export const isCountableLeader = (l: SummaryLeader | undefined): boolean =>
-  !!l && l.active && !l.is_rejected &&
+  !!l && l.active && !l.is_rejected && !l.is_virtual &&
   (l.settle_status ?? "included") !== "excluded" && !l.settle_to_id;
 
 export const resolveSettleId = (
