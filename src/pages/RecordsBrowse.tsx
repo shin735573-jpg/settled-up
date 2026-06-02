@@ -149,11 +149,10 @@ export default function RecordsBrowse() {
     else if (typeFilter === "revisit") base = base.filter(isRevisitRow);
     if (sel.kind === "company") {
       base = base.filter((r) => r.company_id === sel.id);
-      // 업체 관점: 방문 횟수는 모두 카운트해서 표시하되, 청구금액은 1차만 (2차+ 행은 금액 0 처리)
-      base = base.map((r) =>
-        r.revisit_group_id && Number(r.revisit_visit_no) >= 2
-          ? { ...r, metro_fee: 0, regional_fee: 0, note_amount: 0, cod_amount: 0 }
-          : r,
+      // 업체 관점: 재방문 2차+ 행은 업체에 청구하지 않으므로 화면에서도 숨긴다.
+      // (팀장 정산 로직과 데이터 저장은 영향 없음)
+      base = base.filter(
+        (r) => !(r.revisit_group_id && Number(r.revisit_visit_no) >= 2),
       );
       if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
       return base;
