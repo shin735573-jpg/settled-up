@@ -1163,6 +1163,7 @@ export default function Records() {
       leader1_id: r.leader1_id || "",
       leader2_id: r.leader2_id || "",
       leader3_id: r.leader3_id || "",
+      virtual_leader_id: (r as any).virtual_leader_id || "",
       customer_name: r.customer_name || "",
       region: r.region || "",
       region_type: (r.region_type as RegionType) || classifyRegion(r.region || ""),
