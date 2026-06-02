@@ -498,29 +498,105 @@ export function buildLeaderStatements(
 
   // 행별 분배 미리 계산
   type Alloc = { d: StmtDelivery; shares: { share: LeaderShare; target: string }[] };
-  const allocs: Alloc[] = deliveries
-    .filter((d) => inPeriod(d.date, period as Period))
-    .filter((d) => !isLeaderSettlementExcludedItem(d.item))
-    .map((d) => {
-      const shares = allocateRow(
-        {
-          leader1_id: d.leader1_id,
-          leader2_id: d.leader2_id,
-          leader3_id: d.leader3_id,
-          split_type: d.split_type,
-          two_person: d.two_person ?? false,
-          metro_fee: Number(d.metro_fee),
-          note_amount: Number(d.note_amount),
-          regional_fee: Number(d.regional_fee),
-          cod_amount: Number(d.cod_amount),
-        },
-        { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId },
-      );
-      const resolved = shares
-        .map((s) => ({ share: s, target: resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>) }))
-        .filter((s) => isCountableLeader(byId.get(s.target)));
-      return { d, shares: resolved };
-    });
+  // 재방문 그룹은 1차 행 기준으로 묶어 별도 처리 (수기분배 또는 1차 팀장1 전액).
+  const revisitGroups = new Map<string, StmtDelivery[]>();
+  const singles: StmtDelivery[] = [];
+  for (const d of deliveries) {
+    if (isLeaderSettlementExcludedItem(d.item)) continue;
+    if (d.revisit_group_id) {
+      const arr = revisitGroups.get(d.revisit_group_id) || [];
+      arr.push(d);
+      revisitGroups.set(d.revisit_group_id, arr);
+    } else {
+      if (!inPeriod(d.date, period as Period)) continue;
+      singles.push(d);
+    }
+  }
+
+  const allocs: Alloc[] = singles.map((d) => {
+    const shares = allocateRow(
+      {
+        leader1_id: d.leader1_id,
+        leader2_id: d.leader2_id,
+        leader3_id: d.leader3_id,
+        split_type: d.split_type,
+        two_person: d.two_person ?? false,
+        metro_fee: Number(d.metro_fee),
+        note_amount: Number(d.note_amount),
+        regional_fee: Number(d.regional_fee),
+        cod_amount: Number(d.cod_amount),
+      },
+      { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId },
+    );
+    const resolved = shares
+      .map((s) => ({ share: s, target: resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>) }))
+      .filter((s) => isCountableLeader(byId.get(s.target)));
+    return { d, shares: resolved };
+  });
+
+  // 재방문 그룹: 1차 행을 기준으로 합성 alloc 1건 생성
+  for (const [, group] of revisitGroups) {
+    const sorted = [...group].sort(
+      (a, b) => Number(a.revisit_visit_no ?? 1) - Number(b.revisit_visit_no ?? 1),
+    );
+    const first = sorted[0];
+    // 기간 게이트는 1차 날짜 기준
+    if (!inPeriod(first.date, period as Period)) continue;
+    const baseMetro = Number(first.metro_fee);
+    const baseNote = Number(first.note_amount);
+    const baseRegional = Number(first.regional_fee);
+    const baseCod = Number(first.cod_amount);
+    const useMetro = baseMetro >= baseRegional;
+    const manual = Array.isArray(first.revisit_manual_shares)
+      ? first.revisit_manual_shares.filter((m) => m && m.leader_id && Number(m.amount) > 0)
+      : null;
+    const shares: LeaderShare[] = [];
+    if (manual && manual.length > 0) {
+      const totalManual = manual.reduce((s, m) => s + Number(m.amount || 0), 0) || 1;
+      for (const m of manual) {
+        const amt = Math.max(0, Number(m.amount || 0));
+        shares.push({
+          leader_id: m.leader_id,
+          weight: amt / totalManual,
+          metro: useMetro ? amt : 0,
+          note_amount: 0,
+          regional: useMetro ? 0 : amt,
+          cod: 0,
+          count: 1,
+          reason: "재방문 수기분배",
+        });
+      }
+      // 비고금액 / 착불은 1차 팀장1에게 귀속 (수기 입력에 포함되지 않음)
+      if (first.leader1_id && (baseNote !== 0 || baseCod !== 0)) {
+        shares.push({
+          leader_id: first.leader1_id,
+          weight: 0,
+          metro: 0,
+          note_amount: baseNote,
+          regional: 0,
+          cod: baseCod,
+          count: 0,
+          reason: "재방문 비고/착불(1차 팀장1)",
+        });
+      }
+    } else if (first.leader1_id) {
+      // 수기 분배 미입력: 1차 팀장1에게 전액 귀속
+      shares.push({
+        leader_id: first.leader1_id,
+        weight: 1,
+        metro: baseMetro,
+        note_amount: baseNote,
+        regional: baseRegional,
+        cod: baseCod,
+        count: 1,
+        reason: "재방문 미분배(1차 팀장1 전액)",
+      });
+    }
+    const resolved = shares
+      .map((s) => ({ share: s, target: resolveSettleId(s.leader_id, byId as Map<string, SummaryLeader>) }))
+      .filter((s) => isCountableLeader(byId.get(s.target)));
+    allocs.push({ d: first, shares: resolved });
+  }
 
   const out: LeaderStmtData[] = [];
   for (const leader of targets) {
