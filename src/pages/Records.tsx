@@ -920,6 +920,8 @@ export default function Records() {
     paid: false,
     revisit_required: false,
     revisit_done: false,
+    revisit_group_local: "",
+    revisit_visit_no: 1,
   });
   const [bulkOpen, setBulkOpen] = useState(true);
   const [bulkShared, setBulkShared] = useState(() => {
