@@ -138,6 +138,8 @@ export type Database = {
           two_person: boolean
           updated_at: string
           user_id: string
+          virtual_leader_id: string | null
+          virtual_leader_name: string | null
         }
         Insert: {
           alba_deduction?: number
@@ -172,6 +174,8 @@ export type Database = {
           two_person?: boolean
           updated_at?: string
           user_id: string
+          virtual_leader_id?: string | null
+          virtual_leader_name?: string | null
         }
         Update: {
           alba_deduction?: number
@@ -206,6 +210,8 @@ export type Database = {
           two_person?: boolean
           updated_at?: string
           user_id?: string
+          virtual_leader_id?: string | null
+          virtual_leader_name?: string | null
         }
         Relationships: [
           {
