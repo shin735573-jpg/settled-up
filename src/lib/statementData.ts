@@ -346,11 +346,17 @@ export function buildCompanyStatements(
         return inPeriod(d.date, period as Period);
       })
       .forEach((d) => {
+        const VIRTUAL_TERM_RE = /가상기사|가상팀장/;
         const remap = (id: string | null, name: string | null): string => {
           if (!id) return name ?? "";
           const lead0 = byId.get(id);
-          // 가상팀장(예: 혼자 간 2인배송용)은 업체 청구서에 표기되지 않음
-          if (lead0?.is_virtual) return "";
+          // 가상기사(2인배송용 외부 동행기사 등)도 업체 청구서에 동행기사로 표기한다.
+          // 단, 이름 자체가 "가상기사"/"가상팀장" 같은 시스템 문구이면 노출 금지(검증 차단 회피).
+          if (lead0?.is_virtual) {
+            const vn = (lead0?.name ?? name ?? "").trim();
+            if (!vn || VIRTUAL_TERM_RE.test(vn)) return "";
+            return vn;
+          }
           // 숨김팀장(강형주/신동석/삼호도 등) — 업체 청구서에 이름 미표시
           if (isHiddenLeaderName(lead0?.name) || isHiddenLeaderName(name)) return "";
           if (!rejectIds.has(id)) return byId.get(id)?.name ?? name ?? "";
@@ -363,12 +369,34 @@ export function buildCompanyStatements(
           if (isHiddenLeaderName(alias)) return "";
           return alias;
         };
-        // 숨김/가상팀장 제거 후 좌측으로 압축 (빈 칸이 가운데에 생기지 않도록)
-        const compact = [
+        // virtual_leader_id / virtual_leader_name 별도 슬롯(2인배송 외부 동행기사 등)도 동행기사로 노출.
+        const vId = (d as { virtual_leader_id?: string | null }).virtual_leader_id ?? null;
+        const vName = (d as { virtual_leader_name?: string | null }).virtual_leader_name ?? null;
+        const vDisplay = (() => {
+          if (vId) {
+            const v = byId.get(vId);
+            const n = (v?.name ?? vName ?? "").trim();
+            if (!n || VIRTUAL_TERM_RE.test(n)) return "";
+            return n;
+          }
+          const n = (vName ?? "").trim();
+          if (!n || VIRTUAL_TERM_RE.test(n)) return "";
+          return n;
+        })();
+        // 숨김팀장 제거 후 좌측으로 압축. 가상기사는 leader 슬롯 + 별도 슬롯 모두 포함하되 중복 제거.
+        const seen = new Set<string>();
+        const compact: string[] = [];
+        for (const n of [
           remap(d.leader1_id, d.leader1_name),
           remap(d.leader2_id, d.leader2_name),
           remap(d.leader3_id, d.leader3_name),
-        ].filter((n) => n && n.trim());
+          vDisplay,
+        ]) {
+          const t = (n ?? "").trim();
+          if (!t || seen.has(t)) continue;
+          seen.add(t);
+          compact.push(t);
+        }
         rows.push({
           ...d,
           display_leader1: compact[0] ?? "",
