@@ -43,6 +43,29 @@ const gridColsByCount = (n: number) => {
   return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"; // 5,6
 };
 
+// 같은 고객+업체 기준으로 재방문 그룹의 순번(N회차)을 계산
+function buildRevisitOrdinalMap(records: any[]): Map<string, number> {
+  const norm = (s: any) => String(s ?? "").trim().toLowerCase();
+  // key = customer|company → Map<groupId, earliestDate>
+  const byCustomer = new Map<string, Map<string, string>>();
+  for (const r of records) {
+    const gid = r.revisit_group_id;
+    if (!gid) continue;
+    const key = `${norm(r.customer_name)}|${norm(r.company_name)}`;
+    let m = byCustomer.get(key);
+    if (!m) { m = new Map(); byCustomer.set(key, m); }
+    const prev = m.get(gid);
+    if (!prev || String(r.date) < prev) m.set(gid, String(r.date));
+  }
+  // groupId → ordinal
+  const ord = new Map<string, number>();
+  for (const m of byCustomer.values()) {
+    const sorted = [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    sorted.forEach(([gid], i) => ord.set(gid, i + 1));
+  }
+  return ord;
+}
+
 export default function RecordsBrowse() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaders, setLeaders] = useState<Leader[]>([]);
