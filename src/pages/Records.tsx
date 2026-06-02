@@ -1977,7 +1977,11 @@ export default function Records() {
         .eq("revisit_group_id", gid)
         .lt("revisit_visit_no", maxV);
     }
-    toast.success(`${rows.length}건 저장 완료`);
+    toast.success(
+      finalPayloads.length === payloads.length
+        ? `${finalPayloads.length}건 저장 완료`
+        : `${finalPayloads.length}건 저장 완료 (완전 중복 ${payloads.length - finalPayloads.length}건 제외)`,
+    );
     // 저장 후 입력란 전체 초기화 (공유 필드 + 행 모두)
     setBulkShared({
       date: new Date().toISOString().slice(0, 10),
