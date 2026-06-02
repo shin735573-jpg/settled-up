@@ -1875,7 +1875,6 @@ export default function Records() {
       setForm((f) => ({
         ...f,
         company_id: effectiveSrc.company_id || f.company_id,
-        company_name: effectiveSrc.company_name || f.company_name,
         customer_name: effectiveSrc.customer_name || f.customer_name,
         region: effectiveSrc.region || f.region,
         region_type: (effectiveSrc.region_type as RegionType) || f.region_type,
