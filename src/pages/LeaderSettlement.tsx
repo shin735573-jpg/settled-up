@@ -270,7 +270,8 @@ export default function LeaderSettlement() {
         split_type: r.split_type, two_person: r.two_person,
         metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
         regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
-      }); // opts 미전달 → 재분배 비활성
+        virtual_leader_id: r.virtual_leader_id ?? null,
+      }, { virtualIds }); // 재분배는 건너뛰되 가상기사 입력은 제외
       const s = shares.find((x) => x.leader_id === lid);
       if (!s) return;
       metro += s.metro; noteAmt += s.note_amount; regional += s.regional; cod += s.cod;
@@ -385,6 +386,7 @@ export default function LeaderSettlement() {
       split_type: r.split_type, two_person: r.two_person,
       metro_fee: num(r.metro_fee), note_amount: num(r.note_amount),
       regional_fee: num(r.regional_fee), cod_amount: num(r.cod_amount),
+      virtual_leader_id: r.virtual_leader_id ?? null,
     }, sdsOpts);
     let metro = 0, noteAmt = 0, regional = 0, cod = 0, count = 0, weight = 0;
     const reasons: string[] = [];

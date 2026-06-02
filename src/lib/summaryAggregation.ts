@@ -33,6 +33,7 @@ export type SummaryDelivery = {
   note_amount: number;
   regional_fee: number;
   cod_amount: number;
+  virtual_leader_id?: string | null;
 };
 
 export const inPeriod = (dateStr: string, period: Period): boolean => {
@@ -95,6 +96,7 @@ export function aggregateSummary(
         split_type: r.split_type, two_person: r.two_person ?? false,
         metro_fee: Number(r.metro_fee), note_amount: Number(r.note_amount),
         regional_fee: Number(r.regional_fee), cod_amount: Number(r.cod_amount),
+        virtual_leader_id: r.virtual_leader_id ?? null,
       },
       { ...opts, virtualIds },
     );

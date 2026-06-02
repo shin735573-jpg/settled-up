@@ -13,6 +13,8 @@ export type AllocInput = {
   note_amount: number;
   regional_fee: number;
   cod_amount: number;
+  /** 가상기사 입력 칸으로 들어온 팀장 ID — 등록된 팀장이라도 이 칸에 들어왔으면 정산 제외 */
+  virtual_leader_id?: string | null;
 };
 
 export type LeaderShare = {
@@ -61,9 +63,15 @@ export function allocateRow(r: AllocInput, opts: ShindongseokOptions = {}): Lead
     opts.virtualIds instanceof Set
       ? opts.virtualIds
       : new Set(opts.virtualIds || []);
-  // 가상기사는 분배 대상이 아님 — null 처리로 무시
-  const stripV = (id: string | null | undefined): string | null =>
-    id && virtualSet.has(id) ? null : (id ?? null);
+  // 가상기사는 분배 대상이 아님 — null 처리로 무시.
+  // (1) is_virtual=true 팀장, (2) 이 행의 virtual_leader_id로 입력된 팀장 모두 제외.
+  const rowVirtualId = r.virtual_leader_id || null;
+  const stripV = (id: string | null | undefined): string | null => {
+    if (!id) return null;
+    if (virtualSet.has(id)) return null;
+    if (rowVirtualId && id === rowVirtualId) return null;
+    return id;
+  };
   const l1 = stripV(r.leader1_id);
   const l2 = stripV(r.leader2_id);
   const l3 = stripV(r.leader3_id);

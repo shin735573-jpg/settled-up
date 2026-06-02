@@ -278,6 +278,7 @@ export function validateSettleRedirect(
         note_amount: isNumLike(r.note_amount).n,
         regional_fee: isNumLike(r.regional_fee).n,
         cod_amount: isNumLike(r.cod_amount).n,
+        virtual_leader_id: (r as { virtual_leader_id?: string | null }).virtual_leader_id ?? null,
       },
       { ganghyungjuId, shindongseokId, virtualIds },
     );
@@ -511,6 +512,7 @@ export function validateTeamParity(
         note_amount: isNumLike(r.note_amount).n,
         regional_fee: isNumLike(r.regional_fee).n,
         cod_amount: isNumLike(r.cod_amount).n,
+        virtual_leader_id: (r as { virtual_leader_id?: string | null }).virtual_leader_id ?? null,
       },
       { ganghyungjuId, shindongseokId, virtualIds },
     );

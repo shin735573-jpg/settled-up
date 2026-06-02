@@ -85,6 +85,7 @@ export function validateSettlementInvariants(
         note_amount: num(d.note_amount),
         regional_fee: num(d.regional_fee),
         cod_amount: num(d.cod_amount),
+        virtual_leader_id: (d as { virtual_leader_id?: string | null }).virtual_leader_id ?? null,
       },
       opts,
     );
