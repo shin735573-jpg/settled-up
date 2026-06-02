@@ -1747,7 +1747,34 @@ export default function Records() {
 
       <TabsContent value="bulk" className="mt-0">
         <Card className="p-4 md:p-6 space-y-4 border-primary/40">
-          <h3 className="text-base font-semibold border-l-4 border-primary pl-2">한 팀장 여러건 배송입력</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-semibold border-l-4 border-primary pl-2">한 팀장 여러건 배송입력</h3>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">재방문 매칭 기준:</span>
+              <div className="inline-flex rounded-md border overflow-hidden">
+                {([
+                  { v: "both", label: "고객명 + 지역" },
+                  { v: "name", label: "고객명만" },
+                  { v: "region", label: "지역만" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setRevisitMatchMode(opt.v)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs",
+                      revisitMatchMode === opt.v
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background hover:bg-muted"
+                    )}
+                    title={`${opt.label} 일치 시 재방문 후보로 검색`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
