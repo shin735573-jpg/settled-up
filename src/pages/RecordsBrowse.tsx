@@ -294,23 +294,46 @@ export default function RecordsBrowse() {
           <Search className="h-10 w-10 mx-auto mb-2 opacity-40" />
           위의 1~6번 칸에서 업체나 팀장을 선택하면 비교 패널이 여기에 나타납니다.
         </Card>
-      ) : (
-        <div className={cn("grid gap-3", gridColsByCount(filledCount))}>
-          {slots.map((sel, idx) =>
-            sel ? (
-              <PanelCard
-                key={`${idx}-${sel.kind}-${sel.id}`}
-                index={idx}
-                sel={sel}
-                records={recordsFor(sel)}
-                loading={loading}
-                onClose={() => setSlot(idx, null)}
-                onDetail={() => setDetail(sel)}
-              />
-            ) : null,
-          )}
-        </div>
-      )}
+      ) : (() => {
+        const entries = slots
+          .map((sel, idx) => ({ sel, idx }))
+          .filter((x): x is { sel: Sel; idx: number } => !!x.sel);
+        const companyEntries = entries.filter((e) => e.sel.kind === "company");
+        const leaderEntries = entries.filter((e) => e.sel.kind === "leader");
+        const renderGroup = (
+          title: string,
+          Icon: typeof Building2,
+          group: { sel: Sel; idx: number }[],
+        ) =>
+          group.length === 0 ? null : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                <Icon className="h-4 w-4" />
+                <span>{title}</span>
+                <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">{group.length}</Badge>
+              </div>
+              <div className={cn("grid gap-3", gridColsByCount(group.length))}>
+                {group.map(({ sel, idx }) => (
+                  <PanelCard
+                    key={`${idx}-${sel.kind}-${sel.id}`}
+                    index={idx}
+                    sel={sel}
+                    records={recordsFor(sel)}
+                    loading={loading}
+                    onClose={() => setSlot(idx, null)}
+                    onDetail={() => setDetail(sel)}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        return (
+          <div className="space-y-5">
+            {renderGroup("업체", Building2, companyEntries)}
+            {renderGroup("팀장", Users, leaderEntries)}
+          </div>
+        );
+      })()}
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-5xl">
