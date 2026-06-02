@@ -1351,12 +1351,26 @@ export default function Records() {
       metroN + regionalN +
       (parseNum(form.note_amount) || 0) +
       (parseNum(form.cod_amount) || 0);
+    const effectiveLeader2Id =
+      (form.two_person && form.virtual_leader_id && !form.leader2_id)
+        ? form.virtual_leader_id
+        : form.leader2_id;
+    const l2Name = leaderName(effectiveLeader2Id);
+    const l2Display = l2Name
+      ? `${l2Name}${(form.two_person && form.virtual_leader_id && !form.leader2_id) ? " (가상)" : ""}`
+      : "-";
     const summary = [
       { label: "구분", value: form.id ? "수정" : "신규 저장" },
       { label: "날짜", value: form.date },
       { label: "업체", value: company.name },
       { label: "고객/지역", value: `${form.customer_name || "-"} / ${form.region || "-"}` },
-      { label: "팀장", value: [form.leader1_id, form.leader2_id, form.leader3_id].map(leaderName).filter(Boolean).join("·") || "-" },
+      { label: "팀장1", value: leaderName(form.leader1_id) || "-" },
+      { label: "팀장2", value: l2Display },
+      { label: "팀장3", value: leaderName(form.leader3_id) || "-" },
+      ...(form.virtual_leader_id && form.leader2_id
+        ? [{ label: "가상기사", value: leaderName(form.virtual_leader_id) || "-" }]
+        : []),
+      { label: "2인배송", value: form.two_person ? "예" : "아니오" },
       { label: "총액", value: `${fmt(totalAmt)}원` },
       ...(form.revisit_required ? [{ label: "재방문", value: form.revisit_group_id ? "기존 그룹" : "1차+2차 동시 생성" }] : []),
     ];
@@ -1585,7 +1599,12 @@ export default function Records() {
       { label: "저장 건수", value: `${payloads.length}건 (입력 ${rows.length}건)` },
       { label: "날짜", value: bulkShared.date },
       { label: "업체", value: companyLabel },
-      { label: "팀장", value: [bulkShared.leader1_id, bulkShared.leader2_id, bulkShared.leader3_id].map(leaderName).filter(Boolean).join("·") || "-" },
+      { label: "팀장1", value: leaderName(bulkShared.leader1_id) || "-" },
+      { label: "팀장2", value: leaderName(bulkShared.leader2_id) || "-" },
+      { label: "팀장3", value: leaderName(bulkShared.leader3_id) || "-" },
+      ...(bulkShared.virtual_leader_id
+        ? [{ label: "가상기사", value: leaderName(bulkShared.virtual_leader_id) || "-" }]
+        : []),
       { label: "총액", value: `${fmt(totalAmt)}원` },
       ...(revisitGroups > 0 ? [{ label: "재방문", value: `${revisitGroups}그룹` }] : []),
     ];
@@ -1601,6 +1620,7 @@ export default function Records() {
       return {
         date: p.date || "",
         company: p.company_name || "",
+        leaders: [p.leader1_name, p.leader2_name, p.leader3_name].filter(Boolean).join("·") || "-",
         customer: p.customer_name || "",
         region: [p.region_type === "metro" ? "수도권" : p.region_type === "regional" ? "지방" : "", p.region].filter(Boolean).join(" "),
         item: p.item || "",
@@ -1620,6 +1640,7 @@ export default function Records() {
         columns: [
           { key: "date", label: "날짜" },
           { key: "company", label: "업체" },
+          { key: "leaders", label: "팀장" },
           { key: "customer", label: "고객" },
           { key: "region", label: "지역" },
           { key: "item", label: "품목" },
