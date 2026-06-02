@@ -1792,11 +1792,27 @@ export default function Records() {
                       <td className="p-1 text-center">
                         <button
                           type="button"
-                          onClick={() => upd({ revisit_done: !r.revisit_done })}
+                          onClick={() => {
+                            // 재방문 완료 클릭 시 → 현재 행 내용을 그대로 복제해 바로 아래 새 행으로 추가.
+                            // 사용자가 2차 방문 내용(금액/비고/날짜는 상단 공유)을 즉시 확인·수정 가능.
+                            setBulkRows((rows) => {
+                              const next = [...rows];
+                              const clone: BulkRow = {
+                                ...rows[idx],
+                                revisit_required: false,
+                                revisit_done: false,
+                              };
+                              next.splice(idx + 1, 0, clone);
+                              // 원본 행은 "완료" 표시
+                              next[idx] = { ...rows[idx], revisit_done: true };
+                              return next;
+                            });
+                          }}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
                             r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
                           )}
+                          title="클릭 시 같은 내용의 행이 바로 아래에 복제 생성됩니다 (2차 방문 내용 수정용)"
                         >
                           {r.revisit_done ? "완료" : "—"}
                         </button>
