@@ -397,7 +397,7 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
               baseRowId: base.id,
               action: mergeMode === "companion" ? "merge_companion" : "merge_two_person",
               baseBefore: base as unknown as Record<string, unknown> & { id: string },
-              baseAfter: { ...(edited as unknown as Record<string, unknown>), id: base.id },
+              baseAfter: { ...(effectiveEdited as unknown as Record<string, unknown>), id: base.id },
               mergedRows: mergedSnapshots as unknown as Array<Record<string, unknown> & { id: string }>,
             });
           }
@@ -914,17 +914,9 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                   setEditingFinalAmount(false);
                   return;
                 }
-                // 입력된 최종 금액을 edited에 반영 (note_amount에 차액 흡수)
+                // override로 직접 전달 — 비동기 setState 의존 제거
                 const desired = n(finalAmountInput);
-                const current = feeTotal(edited);
-                if (desired !== current) {
-                  const diff = desired - current;
-                  setEdited((e) => e ? { ...e, note_amount: Math.max(0, n(e.note_amount) + diff) } : e);
-                  // setState는 비동기이므로 save() 안에서 다시 한 번 반영된 값 사용
-                  // 다음 tick에서 save 실행
-                  await new Promise((r) => setTimeout(r, 0));
-                }
-                await save();
+                await save(desired);
                 setAmountConfirmOpen(false);
               }}
               disabled={saving}
