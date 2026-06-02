@@ -1854,7 +1854,7 @@ export default function Records() {
                                 "text-[10px] px-1.5 py-0.5 rounded font-semibold",
                                 isFollowup ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
                               )}>
-                                재방문{isFollowup ? "2차" : "1차"}
+                                {isFollowup ? `${visitNo}차배송` : "방문1차"}
                               </span>
                               {isFollowup && r.date_existing && (
                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
@@ -1869,13 +1869,13 @@ export default function Records() {
                               <button
                                 type="button"
                                 className="text-[10px] px-1.5 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10"
-                                title="재방문 그룹을 해제하고 2차 행을 제거합니다"
+                                title="재방문 그룹을 해제하고 후속 차수 행을 모두 제거합니다"
                                 onClick={() => {
                                   const gid = r.revisit_group_local;
                                   if (!gid) return;
                                   setBulkRows((rows) => {
-                                    // 같은 로컬 그룹의 2차 행 제거, 1차 행은 재방문 표시 해제
-                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && x.revisit_visit_no === 2));
+                                    // 같은 로컬 그룹의 후속(2차 이상) 행 모두 제거, 1차 행은 재방문 표시 해제
+                                    const filtered = rows.filter((x) => !(x.revisit_group_local === gid && (Number(x.revisit_visit_no) || 1) > 1));
                                     return filtered.map((x) => {
                                       if (x.revisit_group_local !== gid) return x;
                                       const { revisit_group_local, revisit_group_id_existing, revisit_source_id_existing,
