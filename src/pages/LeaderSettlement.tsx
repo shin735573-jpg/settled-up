@@ -7,6 +7,8 @@ import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
 import { TotalFeeMismatchBanner } from "@/components/TotalFeeMismatchBanner";
 import { crossCheckCompanyBilled } from "@/lib/companyBilledCrossCheck";
 import { CompanyBilledMismatchBanner } from "@/components/CompanyBilledMismatchBanner";
+import { crossCheckTotalVsBilled } from "@/lib/totalVsBilledCrossCheck";
+import { TotalVsBilledMismatchBanner } from "@/components/TotalVsBilledMismatchBanner";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "@/lib/itemRules";
 import { useSaveConfirm } from "@/components/SaveConfirmDialog";
 import { Card } from "@/components/ui/card";
