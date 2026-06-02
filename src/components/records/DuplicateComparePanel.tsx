@@ -132,6 +132,20 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
   const [hiddenSuspectIds, setHiddenSuspectIds] = useState<Set<string>>(new Set());
   // 좌우 비교에서 현재 "포커스" 된 패널 id (강조 표시용). null 이면 기준 패널.
   const [focusPanelId, setFocusPanelId] = useState<string | null>(null);
+  // 통합 전 팀장2 수동 선택용 팀장 목록
+  const [teamLeaders, setTeamLeaders] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await supabase
+        .from("team_leaders")
+        .select("id,name")
+        .eq("active", true)
+        .order("name", { ascending: true });
+      if (data) setTeamLeaders(data as Array<{ id: string; name: string }>);
+    })();
+  }, [open]);
 
   // 기준이 바뀌면 상태 초기화
   useEffect(() => {
