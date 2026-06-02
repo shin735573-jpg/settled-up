@@ -665,6 +665,8 @@ export function buildLeaderStatements(
         (a.d.leader1_id === oeunkyuId || a.d.leader2_id === oeunkyuId || a.d.leader3_id === oeunkyuId);
       rows.push({ delivery: a.d, share: sum, isOeunkyuTransfer, unitFee, unitAfterFee, unitPayout });
     }
+    // 표시 행은 항상 날짜 오름차순 정렬
+    rows.sort((a, b) => (a.delivery.date || "").localeCompare(b.delivery.date || ""));
     // 데이터가 없어도 목록에 표시되도록 빈 정산서를 보관 (저장대상 여부는 화면 단에서 판단)
     const metroSum = rows.reduce((s, r) => s + r.share.metro, 0);
     const noteSum = rows.reduce((s, r) => s + r.share.note_amount, 0);
