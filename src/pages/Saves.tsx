@@ -1439,8 +1439,18 @@ function LeaderPreview({
           <tbody>
             {rows.map((r, i) => {
               const d = r.delivery;
-              const partners = [d.leader1_name, d.leader2_name, d.leader3_name]
+              const realPartners = [d.leader1_name, d.leader2_name, d.leader3_name]
                 .filter((n): n is string => !!n && n.trim() !== "" && n !== l.name);
+              const virtualName = (d as { virtual_leader_name?: string | null }).virtual_leader_name;
+              const partnerNodes: React.ReactNode[] = realPartners.map((n) => <span key={"r-"+n}>{n}</span>);
+              if (virtualName && virtualName.trim()) {
+                partnerNodes.push(
+                  <span key="virtual" className="inline-flex items-center gap-1">
+                    {virtualName.trim()}
+                    <span className="inline-flex items-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-400">가상</span>
+                  </span>,
+                );
+              }
               return (
               <tr key={r.delivery.id + "-" + i} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.delivery.date.slice(5)}</td>
@@ -1450,7 +1460,9 @@ function LeaderPreview({
                   {d.two_person ? <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">2인</span> : ""}
                 </td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal text-foreground">
-                  {partners.length > 0 ? partners.join(", ") : ""}
+                  {partnerNodes.length > 0
+                    ? partnerNodes.flatMap((n, idx) => idx === 0 ? [n] : [<span key={"s-"+idx}>, </span>, n])
+                    : ""}
                 </td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.delivery.note ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle tabular-nums">{fmt(r.share.metro)}</td>
