@@ -1372,7 +1372,7 @@ export default function Records() {
           (typeof crypto !== "undefined" && (crypto as any).randomUUID)
             ? (crypto as any).randomUUID()
             : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const first = { ...payload, revisit_group_id: groupId, revisit_visit_no: 1 };
+        const first = { ...payload, revisit_group_id: groupId, revisit_visit_no: 1, revisit_done: true, revisit_required: true };
         const second = { ...payload, revisit_group_id: groupId, revisit_visit_no: 2, revisit_done: false };
         ({ error } = await supabase.from("deliveries").insert([first, second]));
       } else {
@@ -1381,6 +1381,44 @@ export default function Records() {
     }
     setSaving(false);
     if (error) { toast.error(error.message); return; }
+    // 기존 그룹의 행을 수정/저장하면서 "재방문 요청"이 켜져있으면 다음 차수 행을 자동 생성
+    // (예: 2차 행에서 재방문 요청 → 3차 자동 생성, 3차 → 4차 …)
+    if (form.revisit_required && form.revisit_group_id) {
+      const { data: groupRows } = await supabase
+        .from("deliveries")
+        .select("id,revisit_visit_no")
+        .eq("revisit_group_id", form.revisit_group_id);
+      const currentVisit = Number(form.revisit_visit_no || 1);
+      const maxV = (groupRows || []).reduce(
+        (m: number, g: any) => Math.max(m, Number(g.revisit_visit_no || 1)),
+        currentVisit,
+      );
+      // 현재 행이 최신 차수일 때만 다음 차수 자동 생성
+      if (currentVisit >= maxV) {
+        const nextVisit = maxV + 1;
+        const nextPayload = {
+          ...payload,
+          revisit_group_id: form.revisit_group_id,
+          revisit_visit_no: nextVisit,
+          revisit_required: true,
+          revisit_done: false,
+          // 금액은 새 차수에서 다시 입력하므로 초기화
+          metro_fee: 0,
+          note_amount: 0,
+          regional_fee: 0,
+          cod_amount: 0,
+        };
+        const { error: e2 } = await supabase.from("deliveries").insert(nextPayload);
+        if (e2) { toast.error(`${nextVisit}차 자동 생성 실패: ${e2.message}`); return; }
+        // 이전 차수는 모두 처리 완료로 표시
+        await supabase
+          .from("deliveries")
+          .update({ revisit_done: true })
+          .eq("revisit_group_id", form.revisit_group_id)
+          .lt("revisit_visit_no", nextVisit);
+        toast.success(`${nextVisit}차 행이 자동 생성되었습니다`);
+      }
+    }
     toast.success(form.id ? "수정 완료" : "저장 완료");
     setForm(emptyForm());
     load();
@@ -1596,16 +1634,21 @@ export default function Records() {
     const { error } = await supabase.from("deliveries").insert(payloads);
     setBulkSaving(false);
     if (error) { toast.error(error.message); return; }
-    // 저장된 1차에 2차 후속 등록한 경우 → 해당 1차의 revisit_done=true 로 표시
-    const existingGroupIds = Array.from(
-      new Set(rows.map((r) => r.revisit_group_id_existing).filter(Boolean) as string[]),
-    );
-    if (existingGroupIds.length > 0) {
+    // 저장된 그룹의 이전 차수들은 모두 처리 완료(revisit_done=true)로 표시.
+    // 새로 들어간 행의 visit_no 미만 차수를 그룹별로 일괄 업데이트.
+    const byGroupMaxV = new Map<string, number>();
+    rows.forEach((r) => {
+      const gid = r.revisit_group_id_existing;
+      if (!gid) return;
+      const v = Number(r.revisit_visit_no || 2);
+      byGroupMaxV.set(gid, Math.max(byGroupMaxV.get(gid) ?? 0, v));
+    });
+    for (const [gid, maxV] of byGroupMaxV.entries()) {
       await supabase
         .from("deliveries")
         .update({ revisit_done: true })
-        .in("revisit_group_id", existingGroupIds)
-        .eq("revisit_visit_no", 1);
+        .eq("revisit_group_id", gid)
+        .lt("revisit_visit_no", maxV);
     }
     toast.success(`${rows.length}건 저장 완료`);
     const dc = bulkShared.default_company_id;
@@ -1618,30 +1661,30 @@ export default function Records() {
     if (!user) return;
     setRevisitPickerOpen(true);
     setRevisitLoading(true);
+    // 재방문 요청이 켜진 모든 행을 가져온 뒤, 그룹별로 "최신 차수" 행을 후보로 사용한다.
+    // 최신 차수의 revisit_done이 false 이면 → 아직 후속 차수가 만들어지지 않았으므로 후보.
     const { data, error } = await supabase
       .from("deliveries")
       .select("*")
       .eq("user_id", user.id)
       .eq("revisit_required", true)
-      .eq("revisit_visit_no", 1)
       .not("revisit_group_id", "is", null)
       .order("date", { ascending: false })
-      .limit(500);
+      .limit(1000);
     if (error) { toast.error(error.message); setRevisitLoading(false); return; }
     const all = (data || []) as any[];
-    // 같은 group에 visit_no=2 가 이미 있는 그룹은 제외
-    const groupIds = all.map((r) => r.revisit_group_id);
-    let done = new Set<string>();
-    if (groupIds.length > 0) {
-      const { data: d2 } = await supabase
-        .from("deliveries")
-        .select("revisit_group_id")
-        .eq("user_id", user.id)
-        .eq("revisit_visit_no", 2)
-        .in("revisit_group_id", groupIds);
-      done = new Set((d2 || []).map((r: any) => r.revisit_group_id));
+    const latestByGroup = new Map<string, any>();
+    for (const r of all) {
+      const gid = r.revisit_group_id as string;
+      const existing = latestByGroup.get(gid);
+      if (!existing || Number(r.revisit_visit_no || 1) > Number(existing.revisit_visit_no || 1)) {
+        latestByGroup.set(gid, r);
+      }
     }
-    setRevisitCandidates(all.filter((r) => !done.has(r.revisit_group_id)));
+    const candidates = Array.from(latestByGroup.values())
+      .filter((r) => !r.revisit_done)
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    setRevisitCandidates(candidates);
     setRevisitLoading(false);
   };
 
@@ -1690,11 +1733,29 @@ export default function Records() {
     };
   };
 
-  // 후보 선택 → bulk 그리드에 잠금된 2차 행 추가
-  const addRevisitFromExisting = (src: any) => {
-    setBulkRows((rows) => [...rows, build2ndBulkRowFromSrc(src)]);
+  // 후보 선택 → bulk 그리드에 잠금된 "다음 차수" 행 추가
+  // src 는 그룹의 최신 차수 행이므로 다음 차수 = src.visit_no + 1
+  const addRevisitFromExisting = async (src: any) => {
+    let firstRow = src;
+    let nextVisit = Number(src.revisit_visit_no || 1) + 1;
+    if (src.revisit_group_id) {
+      const { data: groupRows } = await supabase
+        .from("deliveries")
+        .select("*")
+        .eq("revisit_group_id", src.revisit_group_id)
+        .order("revisit_visit_no", { ascending: true });
+      if (groupRows && groupRows.length > 0) {
+        const first = groupRows.find((g) => Number(g.revisit_visit_no || 1) === 1) || groupRows[0];
+        const maxV = groupRows.reduce((m, g) => Math.max(m, Number(g.revisit_visit_no || 1)), 1);
+        firstRow = first;
+        nextVisit = maxV + 1;
+      }
+    }
+    const row = build2ndBulkRowFromSrc(firstRow);
+    row.revisit_visit_no = nextVisit;
+    setBulkRows((rows) => [...rows, row]);
     setRevisitPickerOpen(false);
-    toast.success(`${src.company_name} ${src.customer_name || ""} 2차 행 추가됨`);
+    toast.success(`${firstRow.company_name} ${firstRow.customer_name || ""} ${nextVisit}차 행 추가됨`);
   };
 
   // 입력 중인 행의 customer/region 으로 과거 배송 매칭 조회
@@ -3102,17 +3163,18 @@ export default function Records() {
       <Dialog open={revisitPickerOpen} onOpenChange={setRevisitPickerOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>재방문 완료 등록 — 저장된 1차 배송 선택</DialogTitle>
+            <DialogTitle>재방문 완료 등록 — 후속 차수를 만들 배송 선택</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <div className="text-xs text-muted-foreground">
-              "재방문요청"으로 저장됐지만 아직 2차 입력이 없는 1차 배송 목록입니다. 한 건을 선택하면 같은 내용이 잠금된 2차 행으로 추가됩니다 (금액만 수정 가능).
+              "재방문요청"이 켜진 그룹 중, 아직 후속 차수가 입력되지 않은 최신 차수 목록입니다. 선택하면 같은 내용이 잠금된 <b>다음 차수</b> 행으로 추가됩니다 (2차의 다음은 3차, 3차의 다음은 4차…). 금액만 수정 가능합니다.
             </div>
             <div className="max-h-[60vh] overflow-auto border rounded-md">
               <table className="w-full text-xs">
                 <thead className="bg-muted sticky top-0">
                   <tr className="text-left">
                     <th className="p-2">날짜</th>
+                    <th className="p-2">차수</th>
                     <th className="p-2">업체</th>
                     <th className="p-2">고객</th>
                     <th className="p-2">지역</th>
@@ -3124,18 +3186,20 @@ export default function Records() {
                 </thead>
                 <tbody>
                   {revisitLoading && (
-                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
+                    <tr><td colSpan={9} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
                   )}
                   {!revisitLoading && revisitCandidates.length === 0 && (
-                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">미완료 1차 배송이 없습니다.</td></tr>
+                    <tr><td colSpan={9} className="p-4 text-center text-muted-foreground">대기 중인 재방문 그룹이 없습니다.</td></tr>
                   )}
                   {!revisitLoading && revisitCandidates.map((r) => {
                     const amt =
                       Number(r.metro_fee || 0) + Number(r.regional_fee || 0) +
                       Number(r.note_amount || 0) + Number(r.cod_amount || 0);
+                    const cur = Number(r.revisit_visit_no || 1);
                     return (
                       <tr key={r.id} className="border-t hover:bg-muted/40">
                         <td className="p-2 whitespace-nowrap">{r.date}</td>
+                        <td className="p-2 whitespace-nowrap">{cur}차 → {cur + 1}차</td>
                         <td className="p-2">{r.company_name}</td>
                         <td className="p-2">{r.customer_name || ""}</td>
                         <td className="p-2">{r.region || ""}</td>
