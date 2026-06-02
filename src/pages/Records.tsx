@@ -1758,7 +1758,7 @@ export default function Records() {
                         {isSecond ? (
                           <Input
                             className="h-8"
-                            value={companiesById.get(r.company_id)?.name || ""}
+                             value={r.company_name_existing || companiesById.get(r.company_id)?.name || ""}
                             disabled
                             readOnly
                           />
@@ -1886,10 +1886,12 @@ export default function Records() {
                       <td className="p-1 text-center">
                         <button
                           type="button"
-                          onClick={() => upd({ paid: !r.paid })}
+                          onClick={() => { if (!isSecond) upd({ paid: !r.paid }); }}
+                          disabled={isSecond}
                           className={cn(
                             "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
-                            r.paid ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                            r.paid ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground",
+                            isSecond && "opacity-50 cursor-not-allowed"
                           )}
                         >
                           {r.paid ? "선결제" : "—"}
