@@ -8,7 +8,6 @@ import { allocateRow, feeForShare, type LeaderShare } from "./splitAllocation";
 import {
   isLeaderSettlementExcludedItem,
   isVirtualSettlementRow,
-  isLoadingFeeItem,
   findLoadingFeeAssigneeId,
   normalizeLoadingFeeRowLeaders,
 } from "./itemRules";
