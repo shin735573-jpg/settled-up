@@ -328,12 +328,6 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
                   <option value="팀장2">팀장2</option>
                 </select>
               </label>
-              {edited.companion && (
-                <label className="flex items-center gap-2">
-                  <span>동행사유</span>
-                  <Input value={companionReason} onChange={(e) => setCompanionReason(e.target.value)} className="h-7 w-48" />
-                </label>
-              )}
             </div>
             {!!edited.two_person && !nrm(edited.leader2_id) && (
               <Alert variant="destructive" className="mt-2 py-2">
