@@ -1633,6 +1633,7 @@ export default function Records() {
       cod_amount: src.cod_amount ? String(src.cod_amount) : "",
       alba_deduction: "",
       two_person: !!src.two_person,
+      virtual_leader_id: "",
       paid: !!src.paid,
       revisit_required: true,
       revisit_done: false,
