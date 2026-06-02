@@ -735,7 +735,9 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
             ) : records.length === 0 ? (
               <tr><td colSpan={sel.kind === "leader" ? 7 : 10} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
             ) : records.map((r) => {
-              const leadersTxt = [r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join("·");
+              const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
+              const leadersTxt = [r.leader1_name, leader2Disp, r.leader3_name].filter(Boolean).join("·");
+              const hasVirtual = !!r.virtual_leader_name;
               const feeSum = Number(r.metro_fee || 0) + Number(r.regional_fee || 0) + Number(r.note_amount || 0);
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
@@ -765,6 +767,9 @@ function DetailView({ sel, records, loading }: { sel: Sel; records: Delivery[]; 
                         ? <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
                         : <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>}
                       {sel.kind === "company" ? (leadersTxt || "-") : (r.company_name || "-")}
+                      {sel.kind === "company" && hasVirtual && (
+                        <span className="text-[9px] text-amber-700 font-medium ml-0.5">(가상)</span>
+                      )}
                     </span>
                   </td>
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
