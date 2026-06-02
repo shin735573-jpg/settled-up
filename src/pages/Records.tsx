@@ -1168,6 +1168,7 @@ export default function Records() {
       note_amount: String(r.note_amount ?? ""),
       regional_fee: String(r.regional_fee ?? ""),
       cod_amount: String(r.cod_amount ?? ""),
+      alba_deduction: String((r as any).alba_deduction ?? ""),
       split_type: r.split_type || "",
       paid: !!r.paid,
       two_person: !!(r as any).two_person,
