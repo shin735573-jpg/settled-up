@@ -1758,7 +1758,14 @@ export default function Records() {
     }
     const { data, error } = await q;
     setRevisitDetectLoading(false);
-    if (error || !data || data.length === 0) { setRevisitDetectIdx(null); return; }
+    if (error) { setRevisitDetectIdx(null); toast.error(`재방문 매칭 검색 실패: ${error.message}`); return; }
+    if (!data || data.length === 0) {
+      setRevisitDetectIdx(null);
+      toast.warning(
+        `이전 방문 기록 없음 — 고객명/지역(${revisitMatchMode === "both" ? `${name} · ${region}` : revisitMatchMode === "name" ? name : region})과 일치하는 과거 배송이 없습니다. 새 1차+2차로 등록됩니다.`
+      );
+      return;
+    }
     // 같은 그룹에 1차가 있으면 그것만 후보로, 그룹 없는 단건은 그대로 후보. 항상 "최초 배송"이 보이도록 정리.
     const byGroup = new Map<string, any>();
     const singles: any[] = [];
