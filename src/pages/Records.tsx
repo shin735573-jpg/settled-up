@@ -2234,6 +2234,15 @@ export default function Records() {
                           );
                         })()}
                       </td>
+                      <td className="p-1">
+                        <AmountTextInput
+                          className="h-8 text-right tabular-nums"
+                          value={r.alba_deduction}
+                          disabled={isFollowup}
+                          onChange={(v) => upd({ alba_deduction: v })}
+                          placeholder="0"
+                        />
+                      </td>
                       <td className="p-1 text-center">
                         <button
                           type="button"
