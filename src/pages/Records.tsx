@@ -2510,6 +2510,10 @@ export default function Records() {
               {bulkSaving ? "저장 중…" : "모두 저장"}
             </Button>
           </div>
+          {/* 일괄 그리드에 잠긴 재방문 행이 있으면, 해당 그룹의 모든 차수를 함께 보고 금액을 수정할 수 있는 패널 표시 */}
+          {Array.from(new Set(bulkRows.map((r) => r.revisit_group_id_existing).filter(Boolean) as string[])).map((gid) => (
+            <RevisitGroupPanel key={gid} groupId={gid} onSaved={load} />
+          ))}
         </Card>
       </TabsContent>
 
