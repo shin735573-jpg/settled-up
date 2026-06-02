@@ -159,39 +159,67 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     return allRows.filter((r) => selectedSuspectIds.has(r.id));
   }, [allRows, selectedSuspectIds]);
 
-  // 통합 모드에서 의심행을 선택/변경할 때 leader2가 비어 있으면 다시 자동 채움.
-  // 기존 leader2 값은 절대 덮어쓰지 않음.
-  useEffect(() => {
-    if (mergeMode !== "two_person" && mergeMode !== "companion") return;
-    if (!edited) return;
-    // 1) leader1이 비어 있으면 base 또는 의심행에서 보충 (덮어쓰기 금지, 비었을 때만)
-    if (!nrm(edited.leader1_id)) {
+  // 단일 자동 채움 함수 — 통합 의도가 있을 때 leader1/leader2를 채움.
+  // 통합 의도 = mergeMode가 통합 모드 OR two_person/companion 체크박스가 켜짐
+  //          OR 의심행을 1건 이상 선택함
+  // 절대 기존 값을 null로 덮어쓰지 않는다.
+  function fillLeadersOnto(e: Row): Row {
+    const wantsMerge = mergeMode === "two_person" || mergeMode === "companion"
+      || !!e.two_person || !!e.companion || selectedSuspects.length > 0;
+    if (!wantsMerge) return e;
+    let next: Row = e;
+    // 1) leader1 보충
+    if (!nrm(next.leader1_id)) {
       const p1: Row[] = [base as Row, ...selectedSuspects, ...(suspects.exact as Row[]), ...(suspects.similar as Row[]), ...(suspects.noteSimilar as Row[])];
-      const c1 = p1.map((s) => ({ id: s?.leader1_id, name: s?.leader1_name })).find((c) => nrm(c?.id));
-      if (c1?.id) {
-        setEdited((e) => e ? { ...e, leader1_id: c1.id!, leader1_name: c1.name ?? e.leader1_name ?? null } : e);
-        return;
-      }
+      const c1 = p1
+        .filter(Boolean)
+        .map((s) => ({ id: s?.leader1_id, name: s?.leader1_name }))
+        .find((c) => nrm(c?.id));
+      if (c1?.id) next = { ...next, leader1_id: c1.id, leader1_name: c1.name ?? next.leader1_name ?? null };
     }
-    // 2) leader2가 비어 있으면 의심행/기존 모든 풀에서 base.leader1과 다른 값으로 채움
-    if (nrm(edited.leader2_id)) return;
-    const pool: Row[] = [
-      ...selectedSuspects,
-      ...(suspects.exact as Row[]),
-      ...(suspects.similar as Row[]),
-      ...(suspects.noteSimilar as Row[]),
-    ];
-    // 후보: leader1 / leader2 모두 검사
-    const candidates = pool.flatMap((s) => ([
-      { id: s.leader1_id, name: s.leader1_name },
-      { id: s.leader2_id, name: s.leader2_name },
-    ]));
-    const cand = candidates.find((c) => nrm(c.id) && c.id !== edited.leader1_id);
-    if (cand?.id) {
-      setEdited((e) => e ? { ...e, leader2_id: cand.id!, leader2_name: cand.name ?? null } : e);
+    // 2) leader2 보충 — 의심행의 leader1/leader2 모두 후보로
+    if (!nrm(next.leader2_id)) {
+      const pool: Row[] = [
+        ...selectedSuspects,
+        ...(suspects.exact as Row[]),
+        ...(suspects.similar as Row[]),
+        ...(suspects.noteSimilar as Row[]),
+      ];
+      const candidates = pool.flatMap((s) => ([
+        { id: s?.leader1_id, name: s?.leader1_name },
+        { id: s?.leader2_id, name: s?.leader2_name },
+      ]));
+      const seen = new Set<string>();
+      const cand = candidates.find((c) => {
+        const id = nrm(c?.id);
+        if (!id) return false;
+        if (id === nrm(next.leader1_id)) return false;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      if (cand?.id) next = { ...next, leader2_id: cand.id, leader2_name: cand.name ?? null };
     }
+    return next;
+  }
+
+  // 통합 의도가 감지되면 자동 채움을 매 렌더마다 시도 (값이 있으면 no-op)
+  useEffect(() => {
+    if (!edited) return;
+    const filled = fillLeadersOnto(edited);
+    if (filled !== edited) setEdited(filled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mergeMode, selectedSuspectIds, suspects.exact.length, suspects.similar.length, suspects.noteSimilar.length, edited?.leader1_id, edited?.leader2_id]);
+  }, [
+    mergeMode,
+    selectedSuspectIds,
+    suspects.exact.length,
+    suspects.similar.length,
+    suspects.noteSimilar.length,
+    edited?.leader1_id,
+    edited?.leader2_id,
+    edited?.two_person,
+    edited?.companion,
+  ]);
 
   // 합산 미리보기
   const autoSum = useMemo(() => {
@@ -217,38 +245,12 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     if (mode === "two_person" || mode === "companion") {
       setEdited((e) => {
         if (!e) return e;
-        const next: Row = {
+        let next: Row = {
           ...e,
           two_person: mode === "two_person" ? true : false,
           companion: mode === "companion" ? true : !!e.companion && mode !== "two_person" ? e.companion : false,
         };
-        // leader1 자동 보충 (비어 있을 때만; 기존 값 절대 덮어쓰지 않음)
-        if (!nrm(next.leader1_id)) {
-          const p1: Row[] = [base as Row, ...selectedSuspects, ...(suspects.exact as Row[]), ...(suspects.similar as Row[]), ...(suspects.noteSimilar as Row[])];
-          const c1 = p1.map((s) => ({ id: s?.leader1_id, name: s?.leader1_name })).find((c) => nrm(c?.id));
-          if (c1?.id) {
-            next.leader1_id = c1.id;
-            next.leader1_name = c1.name ?? null;
-          }
-        }
-        // leader2 자동 채움 (비어 있을 때만; 기존 값은 보존)
-        if (!nrm(next.leader2_id)) {
-          const pool: Row[] = [
-            ...selectedSuspects,
-            ...(suspects.exact as Row[]),
-            ...(suspects.similar as Row[]),
-            ...(suspects.noteSimilar as Row[]),
-          ];
-          const candidates = pool.flatMap((s) => ([
-            { id: s.leader1_id, name: s.leader1_name },
-            { id: s.leader2_id, name: s.leader2_name },
-          ]));
-          const cand = candidates.find((c) => nrm(c.id) && c.id !== next.leader1_id);
-          if (cand?.id) {
-            next.leader2_id = cand.id;
-            next.leader2_name = cand.name ?? null;
-          }
-        }
+        next = fillLeadersOnto(next);
         if (mode === "two_person" && !nrm(next.split_type)) next.split_type = "반반";
         return next;
       });
