@@ -200,6 +200,13 @@ export default function Saves() {
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
 
+  // 가상기사 id → 이름 매핑 — LeaderPreview 에서 동행팀장 표시 시 "가상" 뱃지를 붙이기 위해 사용.
+  const virtualLeaderMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of leaders) if (l.is_virtual) m.set(l.id, l.name);
+    return m;
+  }, [leaders]);
+
   const filteredCompanyStmts = useMemo(() => {
     const q = normSearch(companyQuery);
     if (!q) return companyStmts;
