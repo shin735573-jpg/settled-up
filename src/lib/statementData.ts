@@ -564,6 +564,18 @@ export function buildCompanyStatements(
     // 표시 행은 항상 날짜 오름차순 (동일 날짜 내에서는 입력 순서 유지)
     rows.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
+    // monthly 업체를 h1/h2 보기에서 발행할 때, 해당 보름에 실제 행도 없고
+    // 이월착불도 없으면 빈 청구서를 만들지 않는다. (biweekly 업체 기존 동작은 그대로 — 
+    // 빈 행이라도 carryInCod 또는 codTotal 같은 합계가 0 이상이면 청구서 발행)
+    if (
+      c.settlement_cycle === "monthly" &&
+      period !== "all" &&
+      rows.length === 0 &&
+      carryInCod === 0
+    ) {
+      continue;
+    }
+
     out.push({
       company: c,
       period,
