@@ -217,8 +217,16 @@ export async function printTargets(
   if (!targets.length) return { count: 0, pages: 0 };
 
   // 팝업은 사용자 제스처 동기 흐름 안에서 열어야 차단되지 않는다.
-  const win = window.open("", "_blank", "width=900,height=1200");
-  if (!win) throw new Error("팝업이 차단되었습니다. 브라우저 팝업 차단을 해제해 주세요.");
+  // (printTargets 는 click 핸들러에서 await 되며, 첫 줄까지는 동기 실행되어 제스처 컨텍스트를 유지한다.)
+  let win: Window | null = null;
+  try {
+    win = window.open("", "_blank", "width=900,height=1200,noopener=no");
+  } catch {
+    win = null;
+  }
+  if (!win || win.closed) {
+    throw new Error("팝업이 차단되었습니다. 주소창 우측의 팝업 차단 아이콘에서 허용해 주세요.");
+  }
 
   win.document.open();
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서 인쇄</title>
@@ -229,39 +237,73 @@ export async function printTargets(
   .sheet:last-child { page-break-after: auto; break-after: auto; }
   .sheet img { display: block; width: 100%; height: auto; }
   .loading { font: 14px system-ui, sans-serif; padding: 24px; color: #444; }
+  .err { font: 14px system-ui, sans-serif; padding: 24px; color: #b00; }
 </style></head><body><div id="root"><div class="loading">정산서 이미지 준비 중…</div></div></body></html>`);
   win.document.close();
 
-  const root = win.document.getElementById("root")!;
+  const root = win.document.getElementById("root");
+  if (!root) throw new Error("인쇄 창 초기화 실패");
   root.innerHTML = "";
+
+  // 자식 창의 URL 객체를 사용해 blob URL 을 만들어야 일부 브라우저에서 안전하게 렌더된다.
+  const childURL: typeof URL = win.URL || URL;
 
   let pageCount = 0;
   let i = 0;
-  for (const t of targets) {
-    onProgress?.(i, targets.length, t.name);
-    for (const node of t.pages) {
-      const blob = await renderJpg(node);
-      const url = URL.createObjectURL(blob);
-      const wrap = win.document.createElement("div");
-      wrap.className = "sheet";
-      const img = win.document.createElement("img");
-      img.src = url;
-      // 이미지 로드 완료 대기 — print 호출 전 모든 이미지가 그려져 있어야 함
-      await new Promise<void>((resolve) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-      });
-      wrap.appendChild(img);
-      root.appendChild(wrap);
-      pageCount++;
+  try {
+    for (const t of targets) {
+      onProgress?.(i, targets.length, t.name);
+      for (const node of t.pages) {
+        if (win.closed) throw new Error("인쇄 창이 닫혔습니다.");
+        const blob = await renderJpg(node);
+        const url = childURL.createObjectURL(blob);
+        const wrap = win.document.createElement("div");
+        wrap.className = "sheet";
+        const img = win.document.createElement("img");
+        // onload/onerror 는 src 지정 전에 등록해야 즉시 캐시 로드를 놓치지 않는다.
+        const loaded = new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          // 안전 타임아웃 — 일부 환경에서 onload 가 누락되더라도 인쇄가 막히지 않도록.
+          setTimeout(() => resolve(), 5000);
+        });
+        // DOM 부착 후 src 설정 (자식 창 문서에 등록되어야 print 시 그려짐)
+        wrap.appendChild(img);
+        root.appendChild(wrap);
+        img.src = url;
+        if ((img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0) {
+          // 이미 로드 완료된 경우 즉시 진행
+        } else {
+          await loaded;
+        }
+        pageCount++;
+      }
+      i++;
     }
-    i++;
+  } catch (e) {
+    // 오류는 자식 창에도 표시해 사용자가 원인을 즉시 확인할 수 있게 한다.
+    try {
+      root.innerHTML = `<div class="err">인쇄 준비 중 오류: ${String((e as Error)?.message ?? e)}</div>`;
+    } catch { /* noop */ }
+    throw e;
   }
   onProgress?.(targets.length, targets.length, "");
 
+  if (pageCount === 0) {
+    try { root.innerHTML = `<div class="err">인쇄할 페이지가 없습니다.</div>`; } catch { /* noop */ }
+    return { count: targets.length, pages: 0 };
+  }
+
+  // 레이아웃 안정화 대기 — 이미지 디코딩 + 렌더 트리 적용
+  await new Promise<void>((resolve) => setTimeout(resolve, 250));
+
   // 인쇄 다이얼로그 호출 (window.print 는 동기 — 다이얼로그 닫힐 때까지 블록)
-  win.focus();
-  try { win.print(); } catch { /* noop */ }
+  try { win.focus(); } catch { /* noop */ }
+  try {
+    win.print();
+  } catch (e) {
+    throw new Error(`인쇄 다이얼로그 호출 실패: ${String((e as Error)?.message ?? e)}`);
+  }
 
   return { count: targets.length, pages: pageCount };
 }
