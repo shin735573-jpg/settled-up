@@ -807,6 +807,41 @@ export default function Saves() {
           <GateButton reason={blockedReason} variant="secondary" onClick={onRegenerate} disabled={isLocked("company") || isLocked("leader") || saveBlocked}>정산서 재생성</GateButton>
           <Button size="lg" variant="outline" className="h-14" onClick={onCheckOnly}>저장 전 오류 검사</Button>
         </div>
+        <div className="mt-3 border-t pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm">
+              <div className="font-medium">합계 검증 이력 (v1 / v2 / v3 …)</div>
+              <div className="text-xs text-muted-foreground">
+                저장·재생성 직후 자동으로 검증을 다시 실행하고 직전 버전과 비교한 기록입니다.
+                ({month} {PERIOD_LABEL[period]} · 총 {audits.length}건)
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {audits.length > 0 && (() => {
+                const last = audits[audits.length - 1];
+                const tone =
+                  last.newWarnings.length + last.newErrors.length > 0 ? "destructive" :
+                  last.warnings.length + last.errors.length === 0 ? "default" : "secondary";
+                return (
+                  <Badge variant={tone as "default" | "secondary" | "destructive"}>
+                    최신 v{last.version} · 경고 {last.warnings.length} / 오류 {last.errors.length}
+                  </Badge>
+                );
+              })()}
+              <Button size="sm" variant="outline" onClick={() => setAuditOpen(true)} disabled={audits.length === 0}>
+                이력 보기
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => {
+                if (audits.length === 0) return;
+                if (!window.confirm(`${month} ${PERIOD_LABEL[period]} 검증 이력 ${audits.length}건을 삭제할까요?`)) return;
+                clearValidationAudits(month, period);
+                setAudits([]);
+              }} disabled={audits.length === 0}>
+                초기화
+              </Button>
+            </div>
+          </div>
+        </div>
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 border-t pt-3">
           <Button size="lg" variant="outline" className="h-14" onClick={onPrintCompanyOne} disabled={!selectedCompany}>
             <Printer className="mr-2 h-4 w-4" /> 업체 인쇄
