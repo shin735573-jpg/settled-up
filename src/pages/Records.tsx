@@ -3249,7 +3249,7 @@ export default function Records() {
         first={revisitShareFirst}
         extraLeaders={revisitShareExtraLeaders}
         leaders={selectableLeaders}
-        onSaved={loadAll}
+        onSaved={load}
       />
     </div>
   );
