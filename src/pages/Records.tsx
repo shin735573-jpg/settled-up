@@ -1723,6 +1723,7 @@ export default function Records() {
       summary,
       confirmLabel: form.id ? "최종 저장" : "최종 저장",
       description: "입력한 내용이 맞는지 다시 확인해주세요. 중복 의심 여부를 다시 검사했습니다. 이상이 없으면 최종 저장하세요.",
+      cancelLabel: "다시 수정 / 취소",
     });
     if (!ok) return;
     if (saving) return; // 더블탭 방지: 이미 저장 중이면 무시
