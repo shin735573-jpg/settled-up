@@ -332,11 +332,17 @@ export function buildCompanyStatements(
           if (isHiddenLeaderName(alias)) return "";
           return alias;
         };
+        // 숨김/가상팀장 제거 후 좌측으로 압축 (빈 칸이 가운데에 생기지 않도록)
+        const compact = [
+          remap(d.leader1_id, d.leader1_name),
+          remap(d.leader2_id, d.leader2_name),
+          remap(d.leader3_id, d.leader3_name),
+        ].filter((n) => n && n.trim());
         rows.push({
           ...d,
-          display_leader1: remap(d.leader1_id, d.leader1_name),
-          display_leader2: remap(d.leader2_id, d.leader2_name),
-          display_leader3: remap(d.leader3_id, d.leader3_name),
+          display_leader1: compact[0] ?? "",
+          display_leader2: compact[1] ?? "",
+          display_leader3: compact[2] ?? "",
           delivery_fee:
             Number(d.metro_fee) + Number(d.note_amount) + Number(d.regional_fee),
         });
