@@ -299,8 +299,10 @@ export default function CompanySettlement() {
       totalCod += Number(r.cod_amount) || 0;
       deliveringCompanyIds.add(matched.id);
     });
-    // 총배송비는 공통 헬퍼 사용 — 팀장정산 화면과 항상 동일
-    const totalFee = totalDeliveryFee(companyBillableRows);
+    // 총배송비는 통합 헬퍼 사용 — 팀장정산 화면과 100% 동일한 기준
+    //   (적재비 제외 + 가상기사 단독 행 제외 + 재방문 1차만)
+    const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+    const totalFee = totalUnifiedDeliveryFee(allRows, virtualIds);
     return {
       totalCompanies,
       deliveringCompanies: deliveringCompanyIds.size,
@@ -308,7 +310,7 @@ export default function CompanySettlement() {
       totalCod,
       totalFee,
     };
-  }, [visibleCompanies, companyBillableRows]);
+  }, [visibleCompanies, companyBillableRows, allRows, leaders]);
 
   // 컬럼 위치 검증: 헤더 컬럼 수와 데이터 셀 수가 일치하는지 + 순서가 정의와 일치하는지
   const [colAlignError, setColAlignError] = useState<string | null>(null);
