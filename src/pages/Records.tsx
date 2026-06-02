@@ -1316,13 +1316,10 @@ export default function Records() {
       company_name: company.name,
       leader1_id: form.leader1_id || null,
       leader1_name: leaderName(form.leader1_id),
-      // 가상기사가 지정된 2인배송은 팀장2 자리에 가상기사를 자동 입력
-      leader2_id: (form.two_person && form.virtual_leader_id && !form.leader2_id)
-        ? form.virtual_leader_id
-        : (form.leader2_id || null),
-      leader2_name: (form.two_person && form.virtual_leader_id && !form.leader2_id)
-        ? leaderName(form.virtual_leader_id)
-        : leaderName(form.leader2_id),
+      // 가상기사는 정산/집계에 포함되지 않으므로 팀장2 자리에 절대 채워 넣지 않음.
+      // virtual_leader_id 칼럼에만 보관 — 정산 분배에서 항상 제외됨.
+      leader2_id: form.leader2_id || null,
+      leader2_name: leaderName(form.leader2_id),
       leader3_id: form.leader3_id || null,
       leader3_name: leaderName(form.leader3_id),
       customer_name: form.customer_name || null,
