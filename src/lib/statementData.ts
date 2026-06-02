@@ -350,11 +350,14 @@ export function buildCompanyStatements(
           return (a.date || "").localeCompare(b.date || "");
         });
         const base = sorted[0];
-        const metroSum = bucket.reduce((s, r) => s + Number(r.metro_fee), 0);
-        const noteSum = bucket.reduce((s, r) => s + Number(r.note_amount), 0);
-        const regionalSum = bucket.reduce((s, r) => s + Number(r.regional_fee), 0);
-        const codSum = bucket.reduce((s, r) => s + Number(r.cod_amount), 0);
-        const paidAll = bucket.every((r) => r.paid);
+        // 업체 청구: 재방문 그룹은 1건으로만 표시되고, 금액은 가장 최근 차수(최고 visit_no)의 "수정된 금액"을 그대로 사용.
+        // (이전에는 1차+2차 금액을 합산했으나, 재방문은 동일 건이므로 합산하지 않고 최신 수정액만 청구함)
+        const latest = sorted[sorted.length - 1];
+        const metroSum = Number(latest.metro_fee);
+        const noteSum = Number(latest.note_amount);
+        const regionalSum = Number(latest.regional_fee);
+        const codSum = Number(latest.cod_amount);
+        const paidAll = !!latest.paid;
         const earliest = bucket.reduce(
           (acc, r) => (!acc || (r.date && r.date < acc) ? r.date : acc),
           "" as string,
