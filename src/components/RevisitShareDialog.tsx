@@ -273,7 +273,7 @@ export function RevisitShareDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>취소</Button>
-          <Button onClick={save} disabled={saving || (sumEntered > 0 && !exactMatch)}>
+          <Button onClick={save} disabled={saving || (baseTotal > 0 && !exactMatch)}>
             {saving ? "저장 중..." : "저장"}
           </Button>
         </DialogFooter>
