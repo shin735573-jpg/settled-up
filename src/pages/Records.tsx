@@ -1614,6 +1614,7 @@ export default function Records() {
       note_amount: src.note_amount ? String(src.note_amount) : "",
       regional_fee: src.regional_fee ? String(src.regional_fee) : "",
       cod_amount: src.cod_amount ? String(src.cod_amount) : "",
+      alba_deduction: "",
       two_person: !!src.two_person,
       paid: !!src.paid,
       revisit_required: true,
