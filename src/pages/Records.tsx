@@ -2287,27 +2287,32 @@ export default function Records() {
                          }
                        }}
                      >
-                      <td className="p-1 text-center text-muted-foreground whitespace-nowrap">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <span>{idx + 1}</span>
-                          {r.revisit_group_local && (
-                            <>
-                              <span className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded font-semibold",
-                                isFollowup ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
-                              )}>
-                                {`${visitNo}차배송`}
-                              </span>
-                              {isFollowup && r.date_existing && (
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
-                                  1차: {r.date_existing}
-                                </span>
-                              )}
-                              {isFollowup && (r.leader1_name_existing || r.leader2_name_existing || r.leader3_name_existing) && (
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 팀장">
-                                  1차 팀장: {[r.leader1_name_existing, r.leader2_name_existing, r.leader3_name_existing].filter(Boolean).join("·")}
-                                </span>
-                              )}
+                       <td className="p-1 text-center text-muted-foreground whitespace-nowrap">
+                         <div className="flex flex-col items-center gap-0.5">
+                           <span>{idx + 1}</span>
+                           {r.revisit_group_local && (
+                             <>
+                               <span className={cn(
+                                 "text-[10px] px-1.5 py-0.5 rounded font-semibold",
+                                 isFollowup ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
+                               )}>
+                                 {`${visitNo}차배송`}
+                               </span>
+                               {visitNo >= 2 && r.date_existing && (
+                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
+                                   1차: {r.date_existing}
+                                 </span>
+                               )}
+                               {visitNo >= 2 && (r.leader1_name_existing || r.leader2_name_existing || r.leader3_name_existing) && (
+                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 팀장">
+                                   1차 팀장: {[r.leader1_name_existing, r.leader2_name_existing, r.leader3_name_existing].filter(Boolean).join("·")}
+                                 </span>
+                               )}
+                               {visitNo >= 2 && r.company_name_existing && (
+                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 업체">
+                                   1차 업체: {r.company_name_existing}
+                                 </span>
+                               )}
                               <button
                                 type="button"
                                 className="text-[10px] px-1.5 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10"
