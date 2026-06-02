@@ -2940,6 +2940,49 @@ export default function Records() {
             </Button>
           </div>
 
+          {form.is_missing && (
+            <div className="rounded-md border-2 border-orange-400/60 bg-orange-50 dark:bg-orange-950/30 p-3 space-y-2">
+              <div className="text-sm font-semibold text-orange-700 dark:text-orange-300">
+                누락분 정산 반영 설정
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                배송일은 그대로 유지됩니다. 정산에는 아래 선택한 월/구간으로 포함됩니다.
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">누락 사유 *</Label>
+                  <Input
+                    value={form.missing_reason}
+                    onChange={(e) => setForm({ ...form, missing_reason: e.target.value })}
+                    placeholder="예: 누락 발견, 늦게 접수"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">정산 반영월 *</Label>
+                  <Input
+                    type="month"
+                    value={form.settle_month}
+                    onChange={(e) => setForm({ ...form, settle_month: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">반영 구간</Label>
+                  <Select
+                    value={form.settle_half}
+                    onValueChange={(v) => setForm({ ...form, settle_half: v as MissingHalf })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="H1">1~15일</SelectItem>
+                      <SelectItem value="H2">16~말일</SelectItem>
+                      <SelectItem value="FULL">월전체</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
           {formFirstRow && Number(form.revisit_visit_no || 1) > 1 && (() => {
             const baseTotal =
               formFirstRow.metro_fee + formFirstRow.note_amount + formFirstRow.regional_fee;
