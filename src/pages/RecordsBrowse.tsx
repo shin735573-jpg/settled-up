@@ -10,6 +10,9 @@ import { X, Search, Building2, Users, Maximize2, Pencil } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { groupSuspectDuplicates, type DuplicateGroup } from "@/lib/duplicateCheck";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import {
   computeRevisitRedistribution,
   getRevisitFeeForLeader,
