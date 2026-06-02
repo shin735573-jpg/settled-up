@@ -754,18 +754,20 @@ export default function LeaderSettlement() {
   // 상세화면 업체별 요약 (기준서: 업체명/건수/수도권/비고/지방/실지급배송비/착불/수수료/계산후 지급금액)
   const detailByCompany = useMemo(() => {
     if (!leaderId) return [] as Array<{
-      company: string; count: number; metro: number; noteAmt: number; regional: number;
+      company: string; companyId?: string; count: number; metro: number; noteAmt: number; regional: number;
       total: number; cod: number; fees: number; afterFees: number;
+      // 실제 업체 청구금액 (VAT 포함) — 정산용 계산값과 분리
+      actualBilled: number;
     }>;
     const map = new Map<string, {
-      company: string; count: number; metro: number; noteAmt: number; regional: number;
+      company: string; companyId?: string; count: number; metro: number; noteAmt: number; regional: number;
       cod: number; fees: number;
     }>();
     detailRows.forEach((r) => {
       const share = shareForSettling(r, leaderId);
       if (!share) return;
       const key = r.company_name || "(미지정)";
-      const cur = map.get(key) || { company: key, count: 0, metro: 0, noteAmt: 0, regional: 0, cod: 0, fees: 0 };
+      const cur = map.get(key) || { company: key, companyId: r.company_id ?? undefined, count: 0, metro: 0, noteAmt: 0, regional: 0, cod: 0, fees: 0 };
       cur.count += share.count;
       cur.metro += share.metro;
       cur.noteAmt += share.noteAmt;
@@ -774,14 +776,16 @@ export default function LeaderSettlement() {
       cur.fees += feeForRowSettling(r, leaderId);
       map.set(key, cur);
     });
+    const billedMap = topSummary.billedByCompany;
     return Array.from(map.values())
       .map((v) => {
         const total = v.metro + v.noteAmt + v.regional;
-        return { ...v, total, afterFees: total - v.fees };
+        const billed = v.companyId ? (billedMap.get(v.companyId)?.billed ?? 0) : 0;
+        return { ...v, total, afterFees: total - v.fees, actualBilled: billed };
       })
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => b.actualBilled - a.actualBilled);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailRows, leaderId, leaders]);
+  }, [detailRows, leaderId, leaders, topSummary.billedByCompany]);
 
   // 상세 진입 시 개별공제 로드
   useEffect(() => {
