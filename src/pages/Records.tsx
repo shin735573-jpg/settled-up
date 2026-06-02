@@ -1634,19 +1634,78 @@ export default function Records() {
       (parseNum(form.cod_amount) || 0);
     const l2Name = leaderName(form.leader2_id);
     const l2Display = l2Name || (form.virtual_leader_id ? `${leaderName(form.virtual_leader_id) || "-"} (가상)` : "-");
+    // 팀장별 정산금 (반반이면 50:50, 그 외에는 팀장1 전액 표시)
+    const billingAmt = metroN + regionalN + (parseNum(form.note_amount) || 0);
+    const isSplitHalf = form.split_type === "반반" && !!form.leader2_id;
+    const settle1 = isSplitHalf ? Math.round(billingAmt / 2) : billingAmt;
+    const settle2 = isSplitHalf ? billingAmt - settle1 : 0;
+    // 저장 직전 중복 검사를 review 모달 표시 전에 한 번 미리 실행
+    const candPre: DupDelivery = {
+      id: form.id,
+      date: form.date,
+      company_id: form.company_id,
+      company_name: company.name,
+      customer_name: form.customer_name,
+      region: form.region || null,
+      item: form.item,
+      metro_fee: metroN,
+      note_amount: parseNum(form.note_amount) || 0,
+      regional_fee: regionalN,
+      cod_amount: parseNum(form.cod_amount) || 0,
+      leader1_id: form.leader1_id || null,
+      leader2_id: form.leader2_id || null,
+      split_type: form.split_type || null,
+      two_person: !!form.two_person,
+      paid: form.paid,
+      note: form.note || null,
+    };
+    let preExact = 0;
+    let preSuspect = 0;
+    try {
+      const { data: existingPre } = await supabase
+        .from("deliveries")
+        .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note")
+        .eq("date", form.date)
+        .eq("company_id", form.company_id);
+      const pool = (existingPre || []) as DupDelivery[];
+      preExact = findExactDuplicates(candPre, pool).length;
+      preSuspect = findSuspectDuplicates(candPre, pool).length;
+    } catch { /* 검색 실패는 진행 */ }
+    if (preExact > 0) {
+      toast.error(`이미 동일한 기록이 등록되어 있습니다 (완전 중복 ${preExact}건). 저장이 차단되었습니다.`);
+      return;
+    }
     const summary = [
-      { label: "구분", value: form.id ? "수정" : "신규 저장" },
+      { label: "구분", value: form.id ? "수정 (기존 row update)" : "신규 저장" },
       { label: "날짜", value: form.date },
       { label: "업체", value: company.name },
-      { label: "고객/지역", value: `${form.customer_name || "-"} / ${form.region || "-"}` },
+      { label: "고객명", value: form.customer_name || "-" },
+      { label: "배송지", value: form.region || "-" },
+      { label: "품목", value: form.item || "-" },
+      { label: "비고내용", value: form.note || "-" },
       { label: "팀장1", value: leaderName(form.leader1_id) || "-" },
       { label: "팀장2", value: l2Display },
-      { label: "팀장3", value: leaderName(form.leader3_id) || "-" },
+      ...(form.leader3_id ? [{ label: "팀장3", value: leaderName(form.leader3_id) || "-" }] : []),
       ...(form.virtual_leader_id && form.leader2_id
         ? [{ label: "가상기사", value: leaderName(form.virtual_leader_id) || "-" }]
         : []),
-      { label: "2인배송", value: form.two_person ? "예" : "아니오" },
-      { label: "총액", value: `${fmt(totalAmt)}원` },
+      { label: "동행여부", value: "아니오 (단건 입력)" },
+      { label: "2인배송 여부", value: form.two_person ? "예" : "아니오" },
+      { label: "통합여부", value: "통합 없음 (단건 입력)" },
+      { label: "분할 방식", value: form.split_type || "-" },
+      { label: "청구금액", value: `${fmt(totalAmt)}원` },
+      {
+        label: "팀장별 정산금",
+        value: isSplitHalf
+          ? `반반: ${leaderName(form.leader1_id) || "팀장1"} ${fmt(settle1)}원 / ${leaderName(form.leader2_id) || "팀장2"} ${fmt(settle2)}원`
+          : `${leaderName(form.leader1_id) || "팀장1"} ${fmt(settle1)}원`,
+      },
+      {
+        label: "중복 의심 여부",
+        value: preSuspect > 0
+          ? `재검사 완료 — 유사 중복 ${preSuspect}건 발견 (저장 시 확인 필요)`
+          : "재검사 완료 — 중복 없음",
+      },
       ...(form.revisit_required ? [{ label: "재방문", value: form.revisit_group_id ? "기존 그룹" : "1차+2차 동시 생성" }] : []),
     ];
     // 규칙(재방문):
@@ -1660,11 +1719,13 @@ export default function Records() {
       });
     }
     const ok = await confirmSave({
-      title: form.id ? "수정 확인" : "저장 확인",
+      title: form.id ? "수정 전 최종 검토" : "저장 전 최종 검토",
       summary,
-      confirmLabel: form.id ? "수정" : "저장",
+      confirmLabel: form.id ? "최종 저장" : "최종 저장",
+      description: "입력한 내용이 맞는지 다시 확인해주세요. 중복 의심 여부를 다시 검사했습니다. 이상이 없으면 최종 저장하세요.",
     });
     if (!ok) return;
+    if (saving) return; // 더블탭 방지: 이미 저장 중이면 무시
     setSaving(true);
     // 저장 직전 중복 검사 (단건)
     //  - 완전 중복: 저장 차단
