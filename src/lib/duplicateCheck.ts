@@ -9,6 +9,7 @@ export type DupDelivery = {
   company_id?: string | null;
   company_name?: string | null;
   customer_name?: string | null;
+  region?: string | null;
   item?: string | null;
   metro_fee?: number | string | null;
   note_amount?: number | string | null;
@@ -17,6 +18,7 @@ export type DupDelivery = {
   leader1_id?: string | null;
   leader2_id?: string | null;
   split_type?: string | null;
+  two_person?: boolean | null;
   paid?: boolean | null;
   note?: string | null;
 };
@@ -57,6 +59,7 @@ const baseMatch = (a: DupDelivery, b: DupDelivery) =>
   dateK(a) === dateK(b)
   && companyKey(a) === companyKey(b)
   && norm(a.customer_name) === norm(b.customer_name)
+  && norm(a.region).toLowerCase() === norm(b.region).toLowerCase()
   && norm(a.item) === norm(b.item)
   && totalFee(a) === totalFee(b);
 
@@ -72,11 +75,14 @@ export function findExactDuplicates(
     .filter((e) =>
       baseMatch(e, candidate)
       && num(e.cod_amount) === num(candidate.cod_amount)
+      && num(e.metro_fee) === num(candidate.metro_fee)
+      && num(e.note_amount) === num(candidate.note_amount)
+      && num(e.regional_fee) === num(candidate.regional_fee)
       && norm(e.leader1_id) === norm(candidate.leader1_id)
       && norm(e.leader2_id) === norm(candidate.leader2_id)
       && norm(e.split_type) === norm(candidate.split_type)
+      && !!e.two_person === !!candidate.two_person
       && !!e.paid === !!candidate.paid
-      && norm(e.note) === norm(candidate.note),
     )
     .map(toMatch);
 }
@@ -154,4 +160,71 @@ export function findBulkDuplicates(
     });
   });
   return { exact: [...exactMap.values()], suspect: [...suspectMap.values()] };
+}
+
+// 대량 저장 시 후보별 분류 — 완전 중복은 자동 제외, 유사 중복은 경고만.
+//  - exactDupRows: 기존 또는 다른 후보와 완전 중복인 후보 (저장에서 제외 권장)
+//  - suspectRows : 유사 중복이 발견된 후보 (사용자 확인 후 진행)
+//  - newRows     : 중복 없는 신규 후보
+export function summarizeBulk(
+  candidates: DupDelivery[],
+  existing: DupDelivery[],
+): {
+  total: number;
+  newCount: number;
+  exactDupCount: number;
+  suspectCount: number;
+  newRows: DupDelivery[];
+  exactDupRows: DupDelivery[];
+  suspectRows: DupDelivery[];
+  exactMatches: DuplicateMatch[];
+  suspectMatches: DuplicateMatch[];
+} {
+  const newRows: DupDelivery[] = [];
+  const exactDupRows: DupDelivery[] = [];
+  const suspectRows: DupDelivery[] = [];
+  const exactMatches: DuplicateMatch[] = [];
+  const suspectMatches: DuplicateMatch[] = [];
+  // 후보가 자기들끼리 정확 중복이면 첫 번째 한 건만 신규로 두고 나머지는 exactDup
+  const seenExact = new Set<string>();
+  candidates.forEach((cand, idx) => {
+    const others = candidates.filter((_, i) => i !== idx);
+    const pool = [...existing, ...others];
+    const ex = findExactDuplicates(cand, pool);
+    const sus = findSuspectDuplicates(cand, pool);
+    if (ex.length > 0) {
+      // 후보끼리 정확 중복이라면 첫 번째는 신규로 살리고 나머지는 제외
+      const sig = [
+        cand.date, cand.company_id || cand.company_name, cand.customer_name,
+        cand.region, cand.item, cand.metro_fee, cand.note_amount,
+        cand.regional_fee, cand.cod_amount, cand.leader1_id, cand.leader2_id,
+        cand.split_type, cand.two_person, cand.paid,
+      ].join("|");
+      const hasExistingExact = ex.some((m) => existing.find((e) => e.id === m.id));
+      if (!hasExistingExact && !seenExact.has(sig)) {
+        seenExact.add(sig);
+        newRows.push(cand);
+        return;
+      }
+      exactDupRows.push(cand);
+      ex.forEach((m) => exactMatches.push(m));
+      return;
+    }
+    if (sus.length > 0) {
+      suspectRows.push(cand);
+      sus.forEach((m) => suspectMatches.push(m));
+    }
+    newRows.push(cand);
+  });
+  return {
+    total: candidates.length,
+    newCount: newRows.length,
+    exactDupCount: exactDupRows.length,
+    suspectCount: suspectRows.length,
+    newRows,
+    exactDupRows,
+    suspectRows,
+    exactMatches,
+    suspectMatches,
+  };
 }
