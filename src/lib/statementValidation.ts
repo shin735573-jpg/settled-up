@@ -54,16 +54,17 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
   const r = emptyResult();
   const c = data.company;
   const prefix = `[${c.name}]`;
+  const locCompany = (rowId?: string): FindingLocator => ({ kind: "company", id: c.id, rowId });
 
   // 1) 해당 업체 데이터만 포함되었는지
   for (const row of data.rows) {
     if (!matchesCompany({ company_id: row.company_id, company_name: row.company_name ?? null }, { id: c.id, name: c.name })) {
-      push(r, "error", `${prefix} 다른 업체 데이터가 포함되었습니다: ${row.date} ${row.company_name ?? "?"}`);
+      push(r, "error", `${prefix} 다른 업체 데이터가 포함되었습니다: ${row.date} ${row.company_name ?? "?"}`, locCompany(row.id));
     }
   }
 
   // 2) 거부팀장 / 별칭 — build 단계에서 채워진 errors 승격
-  for (const e of data.errors) push(r, "error", `${prefix} ${e}`);
+  for (const e of data.errors) push(r, "error", `${prefix} ${e}`, locCompany());
 
   // 3) 거부팀장 실명이 업체 제출용에 노출되었는지 (별칭 처리 결과 검증)
   const rejectIds = new Set(
@@ -76,7 +77,7 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
         { id: row.leader2_id, name: row.leader2_name, shown: row.display_leader2 },
       ].forEach(({ id, name, shown }) => {
         if (id && rejectIds.has(id) && name && shown === name) {
-          push(r, "error", `${prefix} 거부팀장 실명 노출: ${name} (${row.date})`);
+          push(r, "error", `${prefix} 거부팀장 실명 노출: ${name} (${row.date})`, locCompany(row.id));
         }
       });
     }
@@ -86,7 +87,7 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
   for (const row of data.rows) {
     for (const s of [row.display_leader1, row.display_leader2]) {
       if (s && VIRTUAL_TERMS.some((t) => s.includes(t))) {
-        push(r, "error", `${prefix} 가상기사/가상팀장 문구 노출: "${s}" (${row.date})`);
+        push(r, "error", `${prefix} 가상기사/가상팀장 문구 노출: "${s}" (${row.date})`, locCompany(row.id));
       }
     }
   }
@@ -94,7 +95,7 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
   // 5) 계산서 미발행 업체에 부가세/계산서 금액이 채워졌으면 오류
   if (!c.issues_invoice) {
     if (data.vat !== 0 || data.claimWithVat !== 0) {
-      push(r, "error", `${prefix} 계산서 미발행 업체에 부가세/청구 금액이 표시됨`);
+      push(r, "error", `${prefix} 계산서 미발행 업체에 부가세/청구 금액이 표시됨`, locCompany());
     }
   }
 
@@ -104,7 +105,7 @@ export function validateCompanyStatement(data: CompanyStmtData): CheckResult {
 
   // 7) 데이터 없음은 경고
   if (data.rows.length === 0) {
-    push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`);
+    push(r, "warning", `${prefix} 해당 기간 데이터가 없습니다`, locCompany());
   }
 
   return r;
