@@ -1599,7 +1599,12 @@ export default function Records() {
       { label: "저장 건수", value: `${payloads.length}건 (입력 ${rows.length}건)` },
       { label: "날짜", value: bulkShared.date },
       { label: "업체", value: companyLabel },
-      { label: "팀장", value: [bulkShared.leader1_id, bulkShared.leader2_id, bulkShared.leader3_id].map(leaderName).filter(Boolean).join("·") || "-" },
+      { label: "팀장1", value: leaderName(bulkShared.leader1_id) || "-" },
+      { label: "팀장2", value: leaderName(bulkShared.leader2_id) || "-" },
+      { label: "팀장3", value: leaderName(bulkShared.leader3_id) || "-" },
+      ...(bulkShared.virtual_leader_id
+        ? [{ label: "가상기사", value: leaderName(bulkShared.virtual_leader_id) || "-" }]
+        : []),
       { label: "총액", value: `${fmt(totalAmt)}원` },
       ...(revisitGroups > 0 ? [{ label: "재방문", value: `${revisitGroups}그룹` }] : []),
     ];
@@ -1615,6 +1620,7 @@ export default function Records() {
       return {
         date: p.date || "",
         company: p.company_name || "",
+        leaders: [p.leader1_name, p.leader2_name, p.leader3_name].filter(Boolean).join("·") || "-",
         customer: p.customer_name || "",
         region: [p.region_type === "metro" ? "수도권" : p.region_type === "regional" ? "지방" : "", p.region].filter(Boolean).join(" "),
         item: p.item || "",
@@ -1634,6 +1640,7 @@ export default function Records() {
         columns: [
           { key: "date", label: "날짜" },
           { key: "company", label: "업체" },
+          { key: "leaders", label: "팀장" },
           { key: "customer", label: "고객" },
           { key: "region", label: "지역" },
           { key: "item", label: "품목" },
