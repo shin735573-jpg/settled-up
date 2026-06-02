@@ -1906,6 +1906,27 @@ export default function Records() {
       cancelLabel: "다시 수정 / 취소",
     });
     if (!ok) return;
+    // 두 팀장 통합 저장의 경우, 위의 상세 확인 대신 "최종 청구금액" 한 항목만 재확인.
+    const isTwoLeaderIntegration =
+      !!form.leader1_id && !!form.leader2_id && !form.leader3_id && !form.virtual_leader_id;
+    if (isTwoLeaderIntegration) {
+      const l1Name = leaderName(form.leader1_id) || "팀장1";
+      const l2Name = leaderName(form.leader2_id) || "팀장2";
+      const splitMode: "half" | "third" =
+        form.split_type === "3분할" ? "third" : "half";
+      const res = await new Promise<{ ok: boolean; newTotal: number } | null>((resolve) => {
+        setIntEditAmt(String(totalAmt));
+        setIntEditing(false);
+        setIntegrationConfirm({ totalAmt, l1Name, l2Name, splitMode: splitMode as any, resolve });
+      });
+      if (!res || !res.ok) return;
+      if (res.newTotal !== totalAmt) {
+        const diff = res.newTotal - totalAmt;
+        // 금액 차이는 metro_fee 에 반영 (다른 항목은 그대로 유지)
+        metroN = Math.max(0, metroN + diff);
+        payload.metro_fee = metroN;
+      }
+    }
     if (saving) return; // 더블탭 방지: 이미 저장 중이면 무시
     setSaving(true);
     // 저장 직전 중복 검사 (단건)
