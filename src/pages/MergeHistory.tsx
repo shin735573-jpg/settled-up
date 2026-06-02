@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, RotateCcw, Search } from "lucide-react";
+import { Loader2, RotateCcw, Search, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { revertMergeLog } from "@/lib/mergeLog";
 
@@ -95,6 +95,17 @@ export default function MergeHistory() {
   const [detail, setDetail] = useState<MergeLogRow | null>(null);
   const [reverting, setReverting] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState<MergeLogRow | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  // logId -> {ok, reasons[], actual}
+  const [verifyResults, setVerifyResults] = useState<Record<string, {
+    ok: boolean;
+    reasons: string[];
+    actualLeader2Name?: string | null;
+    actualLeader2Id?: string | null;
+    actualTotal: number;
+    expectedTotal: number;
+    missing?: boolean;
+  }>>({});
 
   const load = async () => {
     setLoading(true);
@@ -111,6 +122,90 @@ export default function MergeHistory() {
     setRows((data ?? []) as unknown as MergeLogRow[]);
   };
   useEffect(() => { void load(); }, []);
+
+  // 통합 후 실제 deliveries row 1건이 base_after와 일치하는지 검증
+  const verifyOne = async (log: MergeLogRow) => {
+    const expectedTotal = feeTotal(log.base_after);
+    // 통합 전 두 행에 팀장이 몇 명이었는지 → 2명 이상이면 leader2 필수
+    const leaderIds = new Set<string>();
+    [log.base_before, ...(log.merged_rows ?? [])].forEach((r) => {
+      const l1 = String((r as Snapshot)?.leader1_id ?? "").trim();
+      const l2 = String((r as Snapshot)?.leader2_id ?? "").trim();
+      if (l1) leaderIds.add(l1);
+      if (l2) leaderIds.add(l2);
+    });
+    const requiresLeader2 = leaderIds.size >= 2;
+
+    const { data, error } = await supabase
+      .from("deliveries")
+      .select("id, leader1_id, leader1_name, leader2_id, leader2_name, metro_fee, note_amount, regional_fee, cod_amount")
+      .eq("id", log.base_row_id)
+      .maybeSingle();
+
+    const reasons: string[] = [];
+    if (error) {
+      reasons.push("조회 오류: " + error.message);
+      return {
+        ok: false, reasons, actualTotal: 0, expectedTotal, missing: true,
+      };
+    }
+    if (!data) {
+      reasons.push("통합 후 기준 row를 찾을 수 없습니다 (삭제됨?)");
+      return {
+        ok: false, reasons, actualTotal: 0, expectedTotal, missing: true,
+      };
+    }
+    const actualTotal = (Number(data.metro_fee) || 0) + (Number(data.note_amount) || 0) + (Number(data.regional_fee) || 0);
+    const l2id = String(data.leader2_id ?? "").trim();
+    const l2name = String(data.leader2_name ?? "").trim();
+
+    if (requiresLeader2 && !l2id) {
+      reasons.push("팀장2(leader2_id)가 비어 있습니다");
+    }
+    if (requiresLeader2 && l2id && !l2name) {
+      reasons.push("팀장2 이름(leader2_name)이 비어 있습니다");
+    }
+    if (actualTotal !== expectedTotal) {
+      reasons.push(`최종 청구금액 불일치: 실제 ${actualTotal.toLocaleString("ko-KR")} ≠ 기대 ${expectedTotal.toLocaleString("ko-KR")}`);
+    }
+    return {
+      ok: reasons.length === 0,
+      reasons,
+      actualLeader2Id: l2id || null,
+      actualLeader2Name: l2name || null,
+      actualTotal,
+      expectedTotal,
+    };
+  };
+
+  const verifyRow = async (log: MergeLogRow) => {
+    setVerifying(true);
+    const result = await verifyOne(log);
+    setVerifyResults((prev) => ({ ...prev, [log.id]: result }));
+    setVerifying(false);
+    if (result.ok) {
+      toast.success("검증 통과: 팀장2 / 최종 청구금액 정상");
+    } else {
+      toast.error("검증 실패: " + result.reasons.join(" · "));
+    }
+  };
+
+  const verifyAllVisible = async (logs: MergeLogRow[]) => {
+    setVerifying(true);
+    const next: typeof verifyResults = { ...verifyResults };
+    let okCount = 0, failCount = 0;
+    for (const log of logs) {
+      if (log.reverted_at) continue;
+      const r = await verifyOne(log);
+      next[log.id] = r;
+      if (r.ok) okCount++; else failCount++;
+    }
+    setVerifyResults(next);
+    setVerifying(false);
+    toast[failCount === 0 ? "success" : "error"](
+      `전체 검증 완료 · 통과 ${okCount} · 실패 ${failCount}`,
+    );
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -202,6 +297,16 @@ export default function MergeHistory() {
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "새로고침"}
           </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => void verifyAllVisible(filtered)}
+            disabled={verifying || loading || filtered.length === 0}
+            title="현재 목록의 통합 결과(팀장2 / 최종 청구금액)를 즉시 검증"
+          >
+            {verifying ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
+            전체 검증
+          </Button>
         </div>
       </Card>
 
@@ -221,19 +326,21 @@ export default function MergeHistory() {
               <TableHead className="text-right">청구금액</TableHead>
               <TableHead className="text-center">합쳐진</TableHead>
               <TableHead className="w-[100px]">상태</TableHead>
+              <TableHead className="w-[140px]">검증</TableHead>
               <TableHead className="w-[160px] text-right">동작</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={13} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={14} className="text-center text-sm text-muted-foreground py-8">
                   통합 이력이 없습니다.
                 </TableCell>
               </TableRow>
             )}
             {filtered.map((r) => {
               const a: Snapshot = (r.base_after || { id: "" }) as Snapshot;
+              const vr = verifyResults[r.id];
               return (
                 <TableRow key={r.id}>
                   <TableCell className="text-xs">
@@ -260,8 +367,36 @@ export default function MergeHistory() {
                       <Badge variant="destructive">통합됨</Badge>
                     )}
                   </TableCell>
+                  <TableCell>
+                    {!vr ? (
+                      <Badge variant="outline" className="text-[10px]">미검증</Badge>
+                    ) : vr.ok ? (
+                      <Badge variant="default" className="text-[10px] bg-emerald-600 hover:bg-emerald-600">
+                        <ShieldCheck className="h-3 w-3 mr-1" /> 정상
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="destructive"
+                        className="text-[10px] cursor-help"
+                        title={vr.reasons.join("\n")}
+                      >
+                        <ShieldAlert className="h-3 w-3 mr-1" /> 실패
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      {!r.reverted_at && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void verifyRow(r)}
+                          disabled={verifying}
+                          title="이 통합 결과 검증"
+                        >
+                          <ShieldCheck className="h-3 w-3 mr-1" /> 검증
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" onClick={() => setDetail(r)}>
                         비교
                       </Button>
@@ -292,6 +427,33 @@ export default function MergeHistory() {
           </DialogHeader>
           {detail && (
             <div className="overflow-x-auto">
+              {(() => {
+                const vr = verifyResults[detail.id];
+                if (!vr) return null;
+                return (
+                  <div className={
+                    "mb-3 rounded-md border p-3 text-sm " +
+                    (vr.ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-red-300 bg-red-50 text-red-900")
+                  }>
+                    <div className="flex items-center gap-2 font-medium">
+                      {vr.ok ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
+                      {vr.ok ? "검증 통과" : "검증 실패"}
+                    </div>
+                    <div className="mt-1 text-xs">
+                      실제 팀장2: <b>{vr.actualLeader2Name || vr.actualLeader2Id || "—"}</b>
+                      {" · "}
+                      실제 청구금액: <b>{vr.actualTotal.toLocaleString("ko-KR")}원</b>
+                      {" · "}
+                      기대 청구금액: <b>{vr.expectedTotal.toLocaleString("ko-KR")}원</b>
+                    </div>
+                    {!vr.ok && (
+                      <ul className="mt-1 list-disc pl-5 text-xs">
+                        {vr.reasons.map((m, i) => <li key={i}>{m}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -332,6 +494,12 @@ export default function MergeHistory() {
             </div>
           )}
           <DialogFooter>
+            {detail && !detail.reverted_at && (
+              <Button variant="outline" onClick={() => detail && void verifyRow(detail)} disabled={verifying}>
+                {verifying ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
+                이 통합 검증
+              </Button>
+            )}
             {detail && !detail.reverted_at && (
               <Button variant="outline" onClick={() => setConfirmRevert(detail)}>
                 <RotateCcw className="h-4 w-4 mr-1" /> 통합 해제
