@@ -143,6 +143,8 @@ export default function HQSettlement() {
 
   const [leaderFilter, setLeaderFilter] = useState<"all" | "settled" | "pending">("all");
   const [companyFilter, setCompanyFilter] = useState<"all" | "paid" | "unpaid">("all");
+  const [leaderSearch, setLeaderSearch] = useState("");
+  const [companySearch, setCompanySearch] = useState("");
 
   useEffect(() => {
     (async () => {
