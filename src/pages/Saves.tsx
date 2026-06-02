@@ -277,6 +277,11 @@ export default function Saves() {
       const dir = await getReadyDir();
       const { filename } = await exportSingle(target, month, period, regenerate, { uploadOneDrive: uploadOD, saveDirectory: dir });
       toast({ title: "저장 완료", description: filename });
+      recordAuditAfter(
+        kind === "company" ? "company-one" : "leader-one",
+        `${kind === "company" ? "업체" : "팀장"} 단건 저장 — ${name}`,
+        regenerate,
+      );
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
@@ -329,6 +334,11 @@ export default function Saves() {
         skippedLeaders: skippedLeaders.map((s) => ({ name: s.leader.name, reason: "정산내역 없음" })),
       });
       toast({ title: "저장 완료", description: `${filename} (${count}건 저장, ${skipCount}건 제외)` });
+      recordAuditAfter(
+        kind === "company" ? "company-all" : kind === "leader" ? "leader-all" : "both-all",
+        `${kind === "company" ? "업체 전체" : kind === "leader" ? "팀장 전체" : "업체+팀장 전체"} 저장${regenerate ? " (재생성)" : ""}`,
+        regenerate,
+      );
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
@@ -621,6 +631,11 @@ export default function Saves() {
         { uploadOneDrive: uploadOD, saveDirectory: await getReadyDir() },
       );
       toast({ title: "저장 완료", description: `${filename} (${count}건, 오류 ${all.length - count}건 제외)` });
+      recordAuditAfter(
+        kind === "company" ? "company-all" : kind === "leader" ? "leader-all" : "both-all",
+        `오류 없는 ${kind === "company" ? "업체" : kind === "leader" ? "팀장" : "항목"}만 저장${regenerate ? " (재생성)" : ""}`,
+        regenerate,
+      );
     } catch (e) {
       toast({ title: "저장 실패", description: String((e as Error)?.message ?? e), variant: "destructive" });
     } finally {
