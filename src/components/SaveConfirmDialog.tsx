@@ -23,6 +23,8 @@ export type SaveConfirmRequest = {
   };
   confirmLabel?: string;
   cancelLabel?: string;
+  /** true 이면 확인 버튼을 숨기고 취소(닫기) 버튼만 보여준다. 정보성 모달용. */
+  hideConfirm?: boolean;
 };
 
 type Pending = SaveConfirmRequest & { resolve: (ok: boolean) => void };
@@ -128,11 +130,13 @@ export function useSaveConfirm() {
           <AlertDialogCancel onClick={(e) => { e.preventDefault(); onCancel(); }}>
             {pending?.cancelLabel || "취소"}
           </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => { e.preventDefault(); onConfirm(); }}
-          >
-            {pending?.confirmLabel || "저장"}
-          </AlertDialogAction>
+          {!pending?.hideConfirm && (
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); onConfirm(); }}
+            >
+              {pending?.confirmLabel || "저장"}
+            </AlertDialogAction>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
