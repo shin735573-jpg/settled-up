@@ -679,6 +679,13 @@ export default function LeaderSettlement() {
     if (!user || !leaderId) return;
     const entries = Object.entries(detailCommonEdits);
     if (entries.length === 0) return;
+    const ok = await confirmSave({
+      title: "공통 공제 수정값 저장 확인",
+      summary: [
+        { label: "수정 항목 수", value: `${entries.length}건` },
+      ],
+    });
+    if (!ok) return;
     setSavingCommon(true);
     for (const [editKey, amount] of entries) {
       // editKey 형식: `${cdId}__${periodKey}`
