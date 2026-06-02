@@ -24,7 +24,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { LeaderCombobox } from "@/components/LeaderCombobox";
-import { Search, Pencil, AlertTriangle, Users, Trash2 } from "lucide-react";
+import { Search, Pencil, AlertTriangle, Users, Trash2, X } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -71,6 +71,8 @@ const RECOMMEND_COLOR: Record<RecommendedAction, string> = {
 
 type FilterStatus = "all" | RowStatus;
 
+const MAX_COMPARE_PANELS = 6;
+
 export default function RecordsBrowse() {
   const navigate = useNavigate();
   const [leaders, setLeaders] = useState<Leader[]>([]);
@@ -79,7 +81,14 @@ export default function RecordsBrowse() {
   const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
-  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null); // 강조(포커스)용
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]); // 비교 패널 (최대 6개, 좌→우)
+  // 추가 필터: 업체 / 팀장1 / 팀장2 / 동행 / 2인배송
+  const [filterCompany, setFilterCompany] = useState<string>("");
+  const [filterLeader1, setFilterLeader1] = useState<string>("");
+  const [filterLeader2, setFilterLeader2] = useState<string>("");
+  const [filterCompanion, setFilterCompanion] = useState<"any" | "yes" | "no">("any");
+  const [filterTwoPerson, setFilterTwoPerson] = useState<"any" | "yes" | "no">("any");
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
   const [pendingActions, setPendingActions] = useState<Map<string, MergePlanItem>>(new Map());
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -121,13 +130,49 @@ export default function RecordsBrowse() {
   // 그룹 계산
   const groups: LooseGroup[] = useMemo(() => groupByLooseKey(records), [records]);
 
-  // 검색/필터 적용
+  // 업체명 옵션 (현재 로드된 기록 기준)
+  const companyOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of records) if (r.company_name) s.add(String(r.company_name));
+    return Array.from(s).sort();
+  }, [records]);
+
+  // 검색/필터 적용 — 업체/팀장1/팀장2/동행/2인배송/비고 포함
   const visibleGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const fc = filterCompany.trim().toLowerCase();
     return groups.filter((g) => {
       if (q) {
-        const hay = [g.customer, g.region, g.item, g.date].join(" ").toLowerCase();
+        const hay = [
+          g.customer, g.region, g.item, g.date,
+          ...g.rows.map((r) => r.company_name || ""),
+          ...g.rows.map((r) => r.leader1_name || ""),
+          ...g.rows.map((r) => r.leader2_name || ""),
+          ...g.rows.map((r) => r.note || ""),
+        ].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
+      }
+      if (fc) {
+        const hit = g.rows.some((r) => (r.company_name || "").toLowerCase().includes(fc));
+        if (!hit) return false;
+      }
+      if (filterLeader1) {
+        const hit = g.rows.some((r) => r.leader1_id === filterLeader1);
+        if (!hit) return false;
+      }
+      if (filterLeader2) {
+        const hit = g.rows.some((r) => r.leader2_id === filterLeader2);
+        if (!hit) return false;
+      }
+      if (filterCompanion !== "any") {
+        const wantYes = filterCompanion === "yes";
+        const hit = g.rows.some((r) => !!r.companion === wantYes);
+        if (!hit) return false;
+      }
+      if (filterTwoPerson !== "any") {
+        const wantYes = filterTwoPerson === "yes";
+        const hit = g.rows.some((r) => !!r.two_person === wantYes);
+        if (!hit) return false;
       }
       if (statusFilter !== "all") {
         const has = g.rows.some((r) => classifyGroupRow(r, g.rows).includes(statusFilter));
@@ -135,7 +180,24 @@ export default function RecordsBrowse() {
       }
       return true;
     });
-  }, [groups, search, statusFilter]);
+  }, [groups, search, statusFilter, filterCompany, filterLeader1, filterLeader2, filterCompanion, filterTwoPerson]);
+
+  // 비교 패널 토글 (최대 6개, 7개째 시도하면 안내)
+  const togglePanel = (key: string) => {
+    setSelectedKeys((prev) => {
+      if (prev.includes(key)) return prev.filter((k) => k !== key);
+      if (prev.length >= MAX_COMPARE_PANELS) {
+        toast.warning(`최대 ${MAX_COMPARE_PANELS}개까지 비교 가능합니다. 다른 패널을 먼저 닫아주세요.`);
+        return prev;
+      }
+      return [...prev, key];
+    });
+    setSelectedGroupKey(key);
+  };
+  const closePanel = (key: string) => {
+    setSelectedKeys((prev) => prev.filter((k) => k !== key));
+    setSelectedGroupKey((cur) => (cur === key ? null : cur));
+  };
 
   const groupsByKey = useMemo(() => {
     const m = new Map<string, GroupRow[]>();
@@ -314,7 +376,7 @@ export default function RecordsBrowse() {
             />
           </div>
           <div className="space-y-1 flex-1 min-w-[200px]">
-            <Label className="text-xs">검색 (고객/배송지/품목)</Label>
+            <Label className="text-xs">검색 (고객/배송지/품목/업체/팀장/비고)</Label>
             <div className="relative">
               <Search className="h-3.5 w-3.5 absolute left-2 top-3 text-muted-foreground" />
               <Input
@@ -324,6 +386,59 @@ export default function RecordsBrowse() {
                 className="h-9 pl-7"
               />
             </div>
+          </div>
+          <div className="space-y-1 min-w-[160px]">
+            <Label className="text-xs">업체</Label>
+            <Input
+              list="rb-company-list"
+              value={filterCompany}
+              onChange={(e) => setFilterCompany(e.target.value)}
+              placeholder="업체명"
+              className="h-9"
+            />
+            <datalist id="rb-company-list">
+              {companyOptions.map((c) => <option key={c} value={c} />)}
+            </datalist>
+          </div>
+          <div className="space-y-1 min-w-[180px]">
+            <Label className="text-xs">팀장1</Label>
+            <LeaderCombobox
+              leaders={leaders}
+              value={filterLeader1}
+              onChange={(v) => setFilterLeader1(v || "")}
+            />
+          </div>
+          <div className="space-y-1 min-w-[180px]">
+            <Label className="text-xs">팀장2</Label>
+            <LeaderCombobox
+              leaders={leaders}
+              value={filterLeader2}
+              onChange={(v) => setFilterLeader2(v || "")}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">동행</Label>
+            <select
+              value={filterCompanion}
+              onChange={(e) => setFilterCompanion(e.target.value as any)}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
+              <option value="any">전체</option>
+              <option value="yes">동행 O</option>
+              <option value="no">동행 X</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">2인배송</Label>
+            <select
+              value={filterTwoPerson}
+              onChange={(e) => setFilterTwoPerson(e.target.value as any)}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+            >
+              <option value="any">전체</option>
+              <option value="yes">2인배송 O</option>
+              <option value="no">2인배송 X</option>
+            </select>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">상태 필터</Label>
@@ -338,6 +453,20 @@ export default function RecordsBrowse() {
               ))}
             </select>
           </div>
+          {(filterCompany || filterLeader1 || filterLeader2 ||
+            filterCompanion !== "any" || filterTwoPerson !== "any" || statusFilter !== "all" || search) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch(""); setFilterCompany(""); setFilterLeader1(""); setFilterLeader2("");
+                setFilterCompanion("any"); setFilterTwoPerson("any"); setStatusFilter("all");
+              }}
+              title="모든 필터 초기화"
+            >
+              필터 초기화
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => {
@@ -408,9 +537,10 @@ export default function RecordsBrowse() {
                     key={g.key}
                     className={cn(
                       "border rounded-md p-2 cursor-pointer hover:bg-accent",
-                      selectedGroupKey === g.key && "border-primary ring-1 ring-primary/30 bg-accent/50",
+                      selectedKeys.includes(g.key) && "border-primary ring-1 ring-primary/30 bg-accent/50",
+                      selectedGroupKey === g.key && "ring-2 ring-primary",
                     )}
-                    onClick={() => setSelectedGroupKey(g.key)}
+                    onClick={() => togglePanel(g.key)}
                   >
                     <div className="flex items-start gap-2">
                       <Checkbox
@@ -462,24 +592,73 @@ export default function RecordsBrowse() {
           )}
         </Card>
 
-        {/* 우측: 선택 그룹 비교 */}
+        {/* 우측: 비교 패널 — 최대 6개 좌→우 가로 배치, 좁으면 가로 스크롤 */}
         <Card className="p-3 md:p-4">
-          {!selectedGroup ? (
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <div className="text-sm font-semibold">
+              비교 패널 ({selectedKeys.length}/{MAX_COMPARE_PANELS})
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                좌측 목록을 클릭해 패널을 추가/제거하세요. 최대 {MAX_COMPARE_PANELS}개까지 비교 가능.
+              </span>
+              {selectedKeys.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => { setSelectedKeys([]); setSelectedGroupKey(null); }}>
+                  전체 닫기
+                </Button>
+              )}
+            </div>
+          </div>
+          {selectedKeys.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
               <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
-              왼쪽에서 그룹을 선택하면 같은 묶음 기록들을 나란히 비교할 수 있습니다.
+              왼쪽 목록에서 그룹을 클릭하면 비교 패널이 좌→우로 추가됩니다. 최대 {MAX_COMPARE_PANELS}개까지 동시에 띄울 수 있어요.
             </div>
           ) : (
-            <ComparePanel
-              group={selectedGroup}
-              leaders={leaders}
-              queued={pendingActions.get(selectedGroup.key)}
-              onQueue={(action, extra) => queueAction(selectedGroup, action, extra)}
-              onClearAction={() => clearAction(selectedGroup.key)}
-              onEditRow={(row) => setEditForm({ ...row })}
-              onJumpToRecords={(id) => navigate(`/records?edit=${id}`)}
-              onDedupe={() => dedupeGroup(selectedGroup)}
-            />
+            <div className="overflow-x-auto">
+              <div className="flex gap-3 items-stretch min-w-min pb-2">
+                {selectedKeys.map((k) => {
+                  const g = groups.find((x) => x.key === k);
+                  if (!g) return null;
+                  const focused = selectedGroupKey === k;
+                  return (
+                    <div
+                      key={k}
+                      className={cn(
+                        "w-[320px] shrink-0 border rounded-md bg-background flex flex-col",
+                        focused ? "ring-2 ring-primary border-primary" : "border-border",
+                      )}
+                      onClick={() => setSelectedGroupKey(k)}
+                    >
+                      <GroupSummaryPanel
+                        group={g}
+                        onClose={() => closePanel(k)}
+                        onOpenDetail={(row) => setEditForm({ ...row })}
+                        onJumpToRecords={(id) => navigate(`/records?edit=${id}`)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* 포커스된 패널의 상세 비교/액션 영역 (그룹 내 행별 차이) */}
+          {selectedGroup && (
+            <div className="mt-4 border-t pt-3">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">
+                포커스 그룹 상세 — {selectedGroup.date} · {selectedGroup.customer}
+              </div>
+              <ComparePanel
+                group={selectedGroup}
+                leaders={leaders}
+                queued={pendingActions.get(selectedGroup.key)}
+                onQueue={(action, extra) => queueAction(selectedGroup, action, extra)}
+                onClearAction={() => clearAction(selectedGroup.key)}
+                onEditRow={(row) => setEditForm({ ...row })}
+                onJumpToRecords={(id) => navigate(`/records?edit=${id}`)}
+                onDedupe={() => dedupeGroup(selectedGroup)}
+              />
+            </div>
           )}
         </Card>
       </div>
@@ -885,6 +1064,160 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="border rounded-md p-2">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="font-bold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+// 그룹 1개에 대한 요약 비교 패널 (좌→우 가로 배치용).
+// 표시: 날짜, 업체, 고객명, 배송지, 품목, 비고, 팀장1, 팀장2, 동행, 2인배송, 통합여부, 최종 청구금액, 팀장별 정산금, 상태.
+function GroupSummaryPanel({
+  group, onClose, onOpenDetail, onJumpToRecords,
+}: {
+  group: LooseGroup;
+  onClose: () => void;
+  onOpenDetail: (row: GroupRow) => void;
+  onJumpToRecords: (id: string) => void;
+}) {
+  // 그룹 대표값 (최신/최다 행 기준; 단순화: 첫 행)
+  const rep = group.rows[0] || ({} as GroupRow);
+  const num = (v: unknown) => Number(v ?? 0) || 0;
+  // 그룹 단위 합계 (최종 청구금액)
+  const billing = group.rows.reduce(
+    (s, r) => s + num(r.metro_fee) + num(r.regional_fee) + num(r.note_amount),
+    0,
+  );
+  // 통합여부: 동행 또는 2인배송으로 묶인 그룹
+  const isCompanion = group.rows.some((r) => !!r.companion);
+  const isTwoPerson = group.rows.some((r) => !!r.two_person);
+  const isMerged = isCompanion || isTwoPerson || group.rows.length > 1;
+  const mergedLabel = isCompanion
+    ? "동행 통합"
+    : isTwoPerson
+    ? "2인배송 통합"
+    : group.rows.length > 1
+    ? "동일 그룹 (미통합)"
+    : "단건";
+  // 팀장별 정산금 계산 — 그룹 안 행별로 누적
+  const settleMap = new Map<string, number>();
+  const nameOf = (id: string | null | undefined, name: string | null | undefined) =>
+    name || id || "?";
+  for (const r of group.rows) {
+    const b = num(r.metro_fee) + num(r.regional_fee) + num(r.note_amount);
+    const l1 = r.leader1_id || r.leader1_name || null;
+    const l2 = r.leader2_id || r.leader2_name || null;
+    const halfSplit =
+      !!l2 && (!!r.two_person || r.split_type === "반반" || r.split_type === "형주동석");
+    if (l1 && l2 && halfSplit) {
+      const s1 = Math.round(b / 2);
+      settleMap.set(nameOf(r.leader1_id, r.leader1_name), (settleMap.get(nameOf(r.leader1_id, r.leader1_name)) || 0) + s1);
+      settleMap.set(nameOf(r.leader2_id, r.leader2_name), (settleMap.get(nameOf(r.leader2_id, r.leader2_name)) || 0) + (b - s1));
+    } else if (l1) {
+      settleMap.set(nameOf(r.leader1_id, r.leader1_name), (settleMap.get(nameOf(r.leader1_id, r.leader1_name)) || 0) + b);
+    }
+  }
+  // 상태 태그 (그룹 전체)
+  const tagSet = new Set<RowStatus>();
+  for (const r of group.rows) classifyGroupRow(r, group.rows).forEach((t) => tagSet.add(t));
+
+  const Row = ({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) => (
+    <div className="flex items-start justify-between gap-2 py-1 border-b last:border-b-0">
+      <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
+      <span className={cn("text-xs text-right break-words", mono && "tabular-nums font-medium")}>
+        {value}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold truncate">{rep.company_name || "(업체 없음)"}</div>
+          <div className="text-[11px] text-muted-foreground truncate">
+            {String(rep.date || "").slice(0, 10)} · {group.rows.length}건
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 w-6 p-0 shrink-0"
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          title="이 패널 닫기"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="rounded-md border bg-muted/20 px-2">
+        <Row label="날짜" value={String(rep.date || "").slice(0, 10)} />
+        <Row label="업체" value={rep.company_name || "-"} />
+        <Row label="고객명" value={rep.customer_name || "-"} />
+        <Row label="배송지" value={rep.region || "-"} />
+        <Row label="품목" value={rep.item || "-"} />
+        <Row label="비고내용" value={rep.note || "-"} />
+        <Row label="팀장1" value={rep.leader1_name || "-"} />
+        <Row label="팀장2" value={rep.leader2_name || "-"} />
+        <Row label="동행여부" value={isCompanion ? "예" : "-"} />
+        <Row label="2인배송 여부" value={isTwoPerson ? "예" : "-"} />
+        <Row
+          label="통합여부"
+          value={
+            <span className={cn(
+              "inline-block text-[10px] px-1.5 py-0.5 rounded border",
+              isMerged ? "bg-violet-50 text-violet-700 border-violet-300" : "bg-muted text-muted-foreground",
+            )}>
+              {mergedLabel}
+            </span>
+          }
+        />
+        <Row label="최종 청구금액" value={`${fmt(billing)}원`} mono />
+        <Row
+          label="팀장별 정산금"
+          value={
+            settleMap.size === 0 ? "-" : (
+              <div className="flex flex-col gap-0.5 items-end">
+                {[...settleMap.entries()].map(([n, v]) => (
+                  <span key={n} className="tabular-nums">
+                    <span className="text-muted-foreground mr-1">{n}</span>
+                    {fmt(v)}원
+                  </span>
+                ))}
+              </div>
+            )
+          }
+        />
+        <Row
+          label="상태"
+          value={
+            tagSet.size === 0 ? "-" : (
+              <div className="flex flex-wrap gap-1 justify-end">
+                {[...tagSet].map((t) => (
+                  <span key={t} className={cn("text-[10px] px-1.5 py-0.5 rounded border", STATUS_COLOR[t])}>
+                    {statusLabel[t]}
+                  </span>
+                ))}
+              </div>
+            )
+          }
+        />
+      </div>
+      <div className="flex gap-1 pt-1">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs flex-1"
+          onClick={(e) => { e.stopPropagation(); onOpenDetail(rep); }}
+        >
+          <Pencil className="h-3 w-3 mr-1" /> 수정
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs flex-1"
+          onClick={(e) => { e.stopPropagation(); onJumpToRecords(rep.id); }}
+        >
+          기록입력 ↗
+        </Button>
+      </div>
     </div>
   );
 }
