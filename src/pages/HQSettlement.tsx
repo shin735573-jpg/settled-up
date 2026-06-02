@@ -542,13 +542,6 @@ export default function HQSettlement() {
       if (isLoading) arr[m - 1].loading += amt;
       else arr[m - 1].company += amt;
     }
-    // 적재비는 재방문 dedup 대상이 아니므로 원본에서 다시 합산 (위 루프는 1차만 포함)
-    for (const r of settlementYearRows) {
-      if (((r.item as string) || "").trim() !== "적재비") continue;
-      const m = Number((r.date || "").slice(5, 7));
-      if (!m || m < 1 || m > 12) continue;
-      // already counted in loop above only if primary — re-count loading rows that were skipped
-    }
     // 월별 수수료 계산
     for (const { row, shares } of yearValidRows) {
       if (((row.item as string) || "").trim() === "적재비") continue;
