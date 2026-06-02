@@ -3082,6 +3082,78 @@ export default function Records() {
             {(searchCompany || searchCustomer || searchLeader || searchDate) && filteredRecords.length === 0 && (
               <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
             )}
+            {filteredRecords.length > 0 && (() => {
+              const sumAmt = (r: any) =>
+                Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
+              const byCompany = new Map<string, { count: number; total: number }>();
+              const byLeader = new Map<string, { count: number; total: number }>();
+              for (const r of filteredRecords as any[]) {
+                const ck = r.company_name || "(업체없음)";
+                const cv = byCompany.get(ck) || { count: 0, total: 0 };
+                cv.count += 1; cv.total += sumAmt(r);
+                byCompany.set(ck, cv);
+                const names = [r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean) as string[];
+                const uniq = Array.from(new Set(names.length ? names : ["(팀장없음)"]));
+                for (const ln of uniq) {
+                  const lv = byLeader.get(ln) || { count: 0, total: 0 };
+                  lv.count += 1; lv.total += sumAmt(r);
+                  byLeader.set(ln, lv);
+                }
+              }
+              const companyRows = Array.from(byCompany.entries()).sort((a, b) => b[1].total - a[1].total);
+              const leaderRows = Array.from(byLeader.entries()).sort((a, b) => b[1].total - a[1].total);
+              const grandTotal = (filteredRecords as any[]).reduce((s, r) => s + sumAmt(r), 0);
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-2 bg-muted/20 border-b">
+                  <div className="rounded-md border bg-background">
+                    <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/40">
+                      <div className="text-xs font-semibold">업체별 ({companyRows.length})</div>
+                      <div className="text-xs text-muted-foreground tabular-nums">
+                        {filteredRecords.length}건 · {fmt(grandTotal)}원
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-auto divide-y">
+                      {companyRows.map(([name, v]) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => setSearchCompany(name === "(업체없음)" ? "" : name)}
+                          className="w-full flex items-center justify-between px-3 py-1.5 text-xs hover:bg-muted/50 text-left"
+                          title="이 업체로 검색"
+                        >
+                          <span className="truncate">{name}</span>
+                          <span className="ml-2 text-muted-foreground tabular-nums whitespace-nowrap">
+                            {v.count}건 · {fmt(v.total)}원
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-background">
+                    <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/40">
+                      <div className="text-xs font-semibold">팀장별 ({leaderRows.length})</div>
+                      <div className="text-xs text-muted-foreground">투입 기준</div>
+                    </div>
+                    <div className="max-h-48 overflow-auto divide-y">
+                      {leaderRows.map(([name, v]) => (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => setSearchLeader(name === "(팀장없음)" ? "" : name)}
+                          className="w-full flex items-center justify-between px-3 py-1.5 text-xs hover:bg-muted/50 text-left"
+                          title="이 팀장으로 검색"
+                        >
+                          <span className="truncate">{name}</span>
+                          <span className="ml-2 text-muted-foreground tabular-nums whitespace-nowrap">
+                            {v.count}건 · {fmt(v.total)}원
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             {(() => {
               const groups = new Map<string, any[]>();
               for (const r of filteredRecords) {
