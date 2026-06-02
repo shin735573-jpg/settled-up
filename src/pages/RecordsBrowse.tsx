@@ -560,6 +560,7 @@ function PanelCard({
   loading,
   onClose,
   onDetail,
+  onEdit,
 }: {
   index: number;
   sel: Sel;
@@ -567,6 +568,7 @@ function PanelCard({
   loading: boolean;
   onClose: () => void;
   onDetail: () => void;
+  onEdit: (id: string) => void;
 }) {
   const totals = useMemo(() => {
     let metro = 0, note = 0, regional = 0, cod = 0;
@@ -617,13 +619,14 @@ function PanelCard({
               <th className="p-2 whitespace-nowrap">품목</th>
               <th className="p-2 text-right whitespace-nowrap">배송비</th>
               <th className="p-2 text-right whitespace-nowrap">착불</th>
+              <th className="p-2 text-center whitespace-nowrap w-10"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
+              <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
             ) : records.length === 0 ? (
-              <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
+              <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">해당 월 배송내역 없음</td></tr>
             ) : records.map((r) => {
               const fee = Number(r.metro_fee || 0) + Number(r.note_amount || 0) + Number(r.regional_fee || 0);
               const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
