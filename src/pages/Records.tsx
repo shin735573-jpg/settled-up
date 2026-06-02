@@ -1446,8 +1446,8 @@ export default function Records() {
     // 2차(재방문) 행도 팀장이 1차와 달라질 수 있으므로 동일하게 공유 팀장 입력 필요
     if (rows.length > 0 && !bulkShared.leader1_id) { toast.error("팀장1을 선택하세요"); return; }
     const anyTwoPerson = rows.some((r) => r.two_person);
-    if (anyTwoPerson && !bulkShared.leader2_id) {
-      toast.error("2인배송은 팀장2가 필요합니다.");
+    if (anyTwoPerson && !bulkShared.leader2_id && !bulkShared.virtual_leader_id) {
+      toast.error("2인배송은 팀장2 또는 가상기사가 필요합니다.");
       return;
     }
     const missingCompanyIdx = rows.findIndex((r) => !r.company_id);
