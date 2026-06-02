@@ -41,6 +41,7 @@ export type StmtDelivery = {
   paid: boolean;
   revisit_group_id?: string | null;
   revisit_visit_no?: number | null;
+  alba_deduction?: number | null;
 };
 
 export type StmtCompany = {
