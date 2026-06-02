@@ -424,6 +424,7 @@ export default function Summary() {
         </TabsList>
         <TabsContent value={period} className="space-y-4">
       <AuditBanner title="자동검증 (계산서·거부업체·제출문구)" result={audit} defaultOpen={!audit.ok} />
+      <SummaryMismatchPanel trace={mismatchTrace} />
 
       {/* 상단 통계 바 + 검수 버튼 */}
       <Card className="p-4">
