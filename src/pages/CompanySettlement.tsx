@@ -120,6 +120,7 @@ export default function CompanySettlement() {
   const [allRows, setAllRows] = useState<any[]>([]);
   const [carryRows, setCarryRows] = useState<any[]>([]);
   const [leaders, setLeaders] = useState<any[]>([]);
+  const [query, setQuery] = useState<string>("");
 
   useEffect(() => {
     (async () => {
