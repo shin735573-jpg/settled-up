@@ -1630,6 +1630,14 @@ export default function Records() {
                      >
                       <td className="p-1 text-center text-muted-foreground">{idx + 1}</td>
                       <td className="p-1">
+                        {isSecond ? (
+                          <Input
+                            className="h-8"
+                            value={companiesById.get(r.company_id)?.name || ""}
+                            disabled
+                            readOnly
+                          />
+                        ) : (
                         <CompanyCombobox
                           companies={activeCompanies.map((c) => ({ id: c.id, name: c.name }))}
                           value={r.company_id}
@@ -1641,8 +1649,8 @@ export default function Records() {
                           }}
                           placeholder="업체"
                           inputRef={(el) => { bulkCompanyRefs.current[idx] = el; }}
-                          disabled={isSecond}
                         />
+                        )}
                       </td>
                       <td className="p-1"><Input className="h-8" value={r.customer_name} onChange={(e) => upd({ customer_name: e.target.value })} disabled={isSecond} /></td>
                       <td className="p-1">
