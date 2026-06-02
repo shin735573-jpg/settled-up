@@ -2895,7 +2895,7 @@ export default function Records() {
           </DialogHeader>
           <div className="space-y-2">
             <div className="text-xs text-muted-foreground">
-              같은 고객/지역의 과거 배송 기록이 발견되었습니다. 재방문이면 원본을 선택해 잠금된 2차 행으로 자동 변환합니다.
+              같은 고객/지역의 과거 배송이 발견되었습니다. 재방문이면 해당 건을 선택하세요 — 그 그룹의 <b>최초 1차 배송 내용 100% 그대로</b>가 잠금된 다음 차수 행으로 자동 생성됩니다 (금액만 수정 가능). 재방문이 아니면 아래 "재방문 아님"을 누르세요.
             </div>
             <div className="max-h-[55vh] overflow-auto border rounded-md">
               <table className="w-full text-xs">
