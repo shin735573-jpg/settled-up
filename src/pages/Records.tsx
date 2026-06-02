@@ -1840,8 +1840,8 @@ export default function Records() {
                             if (r.region_type === "regional") upd({ regional_fee: v, metro_fee: "" });
                             else upd({ metro_fee: v, regional_fee: "" });
                           }}
-                          disabled={r.region_type === "unknown"}
-                          placeholder={r.region_type === "unknown" ? "지역 먼저" : ""}
+                          disabled={!isSecond && r.region_type === "unknown"}
+                          placeholder={r.region_type === "unknown" ? (isSecond ? "금액 입력" : "지역 먼저") : ""}
                         />
                       </td>
                       <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
