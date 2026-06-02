@@ -11,6 +11,16 @@ import { keepRevisitPrimaryOnly } from "./revisitDedup";
 import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "./itemRules";
 import { rowDeliveryFee } from "./totalFee";
 
+export type CategoryRow = {
+  id?: string;
+  date?: string | null;
+  company_name?: string | null;
+  customer_name?: string | null;
+  item?: string | null;
+  leader1_name?: string | null;
+  fee: number;
+};
+
 export type CategoryBreakdown = {
   /** 카테고리명 */
   label: string;
@@ -24,6 +34,8 @@ export type CategoryBreakdown = {
   includedInLeaderStyle: boolean;
   /** 양식 차이로 인한 합계 영향 (A − B) */
   contribution: number;
+  /** 이 카테고리에 속하는 실제 행 목록 (클릭 → 상세 다이얼로그용) */
+  rows: CategoryRow[];
 };
 
 export type TotalCrossCheck = {
@@ -42,6 +54,9 @@ type Row = DeliveryLike & {
   revisit_group_id?: string | null;
   revisit_visit_no?: number | string | null;
   date?: string | null;
+  company_name?: string | null;
+  customer_name?: string | null;
+  leader1_name?: string | null;
 };
 
 const n = (v: unknown) => Number(v) || 0;
@@ -64,11 +79,21 @@ export function crossCheckTotalFee(
   // 4) 통합식만/팀장식만 포함되는 행이 있으면 그 행의 배송비가 곧 차이의 원인이다.
   const primaryIds = new Set(primaryOnly.map((r) => r.id).filter(Boolean) as string[]);
 
-  let excludedItemCount = 0, excludedItemAmt = 0;
-  let virtualSoloCount = 0, virtualSoloAmt = 0;
-  let revisitSecondaryCount = 0, revisitSecondaryAmt = 0;
-  let onlyUnifiedCount = 0, onlyUnifiedAmt = 0;
-  let onlyLeaderCount = 0, onlyLeaderAmt = 0;
+  const excludedItemRows: CategoryRow[] = [];
+  const virtualSoloRows: CategoryRow[] = [];
+  const revisitSecondaryRows: CategoryRow[] = [];
+  const onlyUnifiedRows: CategoryRow[] = [];
+  const onlyLeaderRows: CategoryRow[] = [];
+
+  const toCat = (r: Row, fee: number): CategoryRow => ({
+    id: r.id,
+    date: r.date ?? null,
+    company_name: r.company_name ?? null,
+    customer_name: r.customer_name ?? null,
+    item: r.item ?? null,
+    leader1_name: r.leader1_name ?? null,
+    fee,
+  });
 
   for (const r of rows) {
     const fee = rowDeliveryFee(r);
@@ -76,9 +101,9 @@ export function crossCheckTotalFee(
     const isVirtualSolo = !r.two_person && isVirtualSettlementRow(r, virtualIds);
     const isRevisitSecondary = !!r.revisit_group_id && !primaryIds.has(String(r.id));
 
-    if (isExcludedItem) { excludedItemCount++; excludedItemAmt += fee; }
-    if (isVirtualSolo)  { virtualSoloCount++;  virtualSoloAmt  += fee; }
-    if (isRevisitSecondary) { revisitSecondaryCount++; revisitSecondaryAmt += fee; }
+    if (isExcludedItem)     excludedItemRows.push(toCat(r, fee));
+    if (isVirtualSolo)      virtualSoloRows.push(toCat(r, fee));
+    if (isRevisitSecondary) revisitSecondaryRows.push(toCat(r, fee));
 
     // 통합식(A) 행 포함 여부 — totalUnifiedDeliveryFee 규칙 재현
     //   재방문 그룹은 1차(=primaryIds 안에 있음) 만 포함
@@ -87,50 +112,57 @@ export function crossCheckTotalFee(
     // 팀장정산식(B) 행 포함 여부 — primaryOnly 에서 적재비/가상기사 제외
     const inB = !isExcludedItem && !isVirtualSolo && primaryIds.has(String(r.id));
 
-    if (inA && !inB) { onlyUnifiedCount++; onlyUnifiedAmt += fee; }
-    if (inB && !inA) { onlyLeaderCount++;  onlyLeaderAmt  += fee; }
+    if (inA && !inB) onlyUnifiedRows.push(toCat(r, fee));
+    if (inB && !inA) onlyLeaderRows.push(toCat(r, fee));
   }
+
+  const sumFee = (xs: CategoryRow[]) => xs.reduce((s, x) => s + x.fee, 0);
 
   const categories: CategoryBreakdown[] = [
     {
       label: "적재비 등 정산제외 품목",
-      count: excludedItemCount,
-      amount: excludedItemAmt,
+      count: excludedItemRows.length,
+      amount: sumFee(excludedItemRows),
       includedInUnified: false,
       includedInLeaderStyle: false,
       contribution: 0, // 양쪽 모두 제외 → 차이 없음
+      rows: excludedItemRows,
     },
     {
       label: "가상기사 단독 행 (2인배송 제외)",
-      count: virtualSoloCount,
-      amount: virtualSoloAmt,
+      count: virtualSoloRows.length,
+      amount: sumFee(virtualSoloRows),
       includedInUnified: false,
       includedInLeaderStyle: false,
       contribution: 0,
+      rows: virtualSoloRows,
     },
     {
       label: "재방문 그룹 2차+ 행",
-      count: revisitSecondaryCount,
-      amount: revisitSecondaryAmt,
+      count: revisitSecondaryRows.length,
+      amount: sumFee(revisitSecondaryRows),
       includedInUnified: false,
       includedInLeaderStyle: false,
       contribution: 0,
+      rows: revisitSecondaryRows,
     },
     {
       label: "통합식만 포함 (팀장정산식이 누락)",
-      count: onlyUnifiedCount,
-      amount: onlyUnifiedAmt,
+      count: onlyUnifiedRows.length,
+      amount: sumFee(onlyUnifiedRows),
       includedInUnified: true,
       includedInLeaderStyle: false,
-      contribution: onlyUnifiedAmt,
+      contribution: sumFee(onlyUnifiedRows),
+      rows: onlyUnifiedRows,
     },
     {
       label: "팀장정산식만 포함 (통합식이 누락)",
-      count: onlyLeaderCount,
-      amount: onlyLeaderAmt,
+      count: onlyLeaderRows.length,
+      amount: sumFee(onlyLeaderRows),
       includedInUnified: false,
       includedInLeaderStyle: true,
-      contribution: -onlyLeaderAmt,
+      contribution: -sumFee(onlyLeaderRows),
+      rows: onlyLeaderRows,
     },
   ];
 
