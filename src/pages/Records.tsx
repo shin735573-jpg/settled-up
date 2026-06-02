@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { CompanyCombobox } from "@/components/CompanyCombobox";
 import { LeaderCombobox } from "@/components/LeaderCombobox";
+import DuplicateComparePanel from "@/components/records/DuplicateComparePanel";
 import { RevisitShareDialog, type RevisitFirstRow } from "@/components/RevisitShareDialog";
 import { RevisitGroupPanel } from "@/components/RevisitGroupPanel";
 import { AmountTextInput } from "@/components/AmountTextInput";
