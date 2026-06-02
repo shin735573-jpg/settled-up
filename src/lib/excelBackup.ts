@@ -4,6 +4,21 @@
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  buildCompanyStatements,
+  buildLeaderStatements,
+  detectSpecialLeaderIds,
+  setSpecialOneTimeItems,
+  type PeriodKey,
+  type StmtCompany,
+  type StmtDelivery,
+  type StmtLeader,
+  type StmtCommonDeduction,
+  type StmtCommonOverride,
+  type StmtPeriodDeduction,
+  type DeductionContext,
+} from "./statementData";
+import { loadCompanySettings } from "./companySettings";
 
 /** 백업 대상 테이블 정의 — 추가/변경 시 여기만 수정 */
 const TABLES: Array<{ name: string; sheet: string }> = [
@@ -74,6 +89,151 @@ function setSheetFromRows(ws: ExcelJS.Worksheet, rows: Row[]) {
   });
 }
 
+/** 단순 시트 빌더 — 헤더 + 행 배열 */
+function writeSheet(
+  ws: ExcelJS.Worksheet,
+  headers: string[],
+  rows: Array<Array<string | number | boolean | null>>,
+) {
+  ws.addRow(headers);
+  ws.getRow(1).font = { bold: true };
+  ws.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFE2E8F0" },
+  };
+  for (const r of rows) ws.addRow(r.map((v) => (v === null || v === undefined ? "" : v)));
+  ws.columns.forEach((col) => {
+    let max = 8;
+    col.eachCell?.({ includeEmpty: false }, (c) => {
+      const len = String(c.value ?? "").length;
+      if (len > max) max = len;
+    });
+    col.width = Math.min(40, Math.max(10, max + 2));
+  });
+}
+
+function collectMonths(deliveries: StmtDelivery[]): string[] {
+  const set = new Set<string>();
+  for (const d of deliveries) {
+    const m = (d.date || "").slice(0, 7);
+    if (m) set.add(m);
+  }
+  return Array.from(set).sort();
+}
+
+/**
+ * 모든 월·기간에 대해 정산서를 돌려 상세/요약 시트 4종을 추가.
+ * 백업 전용 — 복구(restoreBackup)는 TABLES 만 읽으므로 이 시트들은 자동 무시된다.
+ */
+function addDetailSheets(
+  wb: ExcelJS.Workbook,
+  uid: string,
+  raw: Record<string, Row[]>,
+) {
+  const companies = (raw.companies ?? []) as unknown as StmtCompany[];
+  const leaders = (raw.team_leaders ?? []) as unknown as StmtLeader[];
+  const deliveries = (raw.deliveries ?? []) as unknown as StmtDelivery[];
+  const commonDeductions = (raw.common_deductions ?? []) as unknown as StmtCommonDeduction[];
+  const commonOverrides = (raw.leader_common_overrides ?? []) as unknown as StmtCommonOverride[];
+  const periodDeductions = (raw.leader_period_deductions ?? []) as unknown as StmtPeriodDeduction[];
+
+  const settings = loadCompanySettings(uid);
+  const special = detectSpecialLeaderIds(leaders);
+  const months = collectMonths(deliveries);
+
+  const companyDetailRows: Array<Array<string | number | boolean | null>> = [];
+  const leaderDetailRows: Array<Array<string | number | boolean | null>> = [];
+  const companySummaryRows: Array<Array<string | number | boolean | null>> = [];
+  const leaderSummaryRows: Array<Array<string | number | boolean | null>> = [];
+
+  const PERIODS: PeriodKey[] = ["h1", "h2", "all"];
+
+  for (const month of months) {
+    const monthly = deliveries.filter((d) => (d.date || "").startsWith(month));
+    for (const period of PERIODS) {
+      const companyStmts = buildCompanyStatements(monthly, companies, leaders, period);
+      for (const cs of companyStmts) {
+        companySummaryRows.push([
+          month, period, cs.company.name,
+          cs.rows.length, cs.feeTotal, cs.paidTotal, cs.unpaidTotal,
+          cs.codTotal, cs.realClaim, cs.vat, cs.claimWithVat,
+        ]);
+        for (const r of cs.rows) {
+          companyDetailRows.push([
+            month, period, cs.company.name,
+            r.date, r.customer_name ?? "", r.item ?? "", r.region ?? "",
+            r.display_leader1, r.display_leader2, r.display_leader3,
+            Number(r.metro_fee), Number(r.note_amount), Number(r.regional_fee),
+            r.delivery_fee, Number(r.cod_amount),
+            r.paid ? "Y" : "N", r.note ?? "",
+          ]);
+        }
+      }
+
+      const periodKey = period === "all" ? "all" : `${month}-${period === "h1" ? "first" : "second"}`;
+      const commonPeriodKeys = period === "all"
+        ? [`${month}-first`, `${month}-second`]
+        : [periodKey];
+      const deductionCtx: DeductionContext = {
+        commonDeductions, commonOverrides, periodDeductions,
+        periodKey, commonPeriodKeys,
+      };
+      const leaderStmts = buildLeaderStatements(
+        monthly, leaders, period,
+        { ...special, oeunkyuSpecial: settings.oeunkyuSpecial },
+        deductionCtx,
+      );
+      for (const ls of leaderStmts) {
+        leaderSummaryRows.push([
+          month, period, ls.leader.name,
+          ls.deliveryCount, ls.realFee, ls.feeTotal, ls.afterFee,
+          ls.codSum, ls.deductionTotal, ls.payout, ls.vat, ls.payoutWithVat,
+        ]);
+        for (const r of ls.rows) {
+          leaderDetailRows.push([
+            month, period, ls.leader.name,
+            r.delivery.date,
+            r.delivery.company_name ?? "",
+            r.delivery.customer_name ?? "",
+            r.delivery.item ?? "",
+            r.delivery.region ?? "",
+            r.share.weight,
+            r.share.metro, r.share.note_amount, r.share.regional, r.share.cod,
+            r.unitFee, r.unitAfterFee, r.unitPayout,
+            r.delivery.split_type ?? "",
+            r.delivery.two_person ? "Y" : "N",
+            r.share.reason ?? "",
+          ]);
+        }
+      }
+    }
+  }
+
+  writeSheet(wb.addWorksheet("업체별상세"), [
+    "월", "기간", "업체", "날짜", "고객", "품목", "지역",
+    "팀장1", "팀장2", "팀장3",
+    "수도권배송비", "비고금액", "지방배송비", "배송비합", "착불",
+    "완료(Y/N)", "비고",
+  ], companyDetailRows);
+
+  writeSheet(wb.addWorksheet("팀장별상세"), [
+    "월", "기간", "팀장", "날짜", "업체", "고객", "품목", "지역",
+    "분배가중치", "분배수도권", "분배비고", "분배지방", "분배착불",
+    "수수료", "계산후", "실지급(차감전)", "분할유형", "2인동행", "사유",
+  ], leaderDetailRows);
+
+  writeSheet(wb.addWorksheet("업체정산요약"), [
+    "월", "기간", "업체", "건수", "배송비합계", "완료합계", "미완료합계",
+    "착불합계", "실청구", "부가세", "청구총액(VAT포함)",
+  ], companySummaryRows);
+
+  writeSheet(wb.addWorksheet("팀장정산요약"), [
+    "월", "기간", "팀장", "건수", "실배송비", "수수료", "계산후",
+    "착불", "공제합계", "실지급", "부가세", "지급총액(VAT포함)",
+  ], leaderSummaryRows);
+}
+
 /** 모든 테이블을 읽어 ExcelJS Workbook → Blob 으로 직렬화 */
 export async function buildBackupBlob(uid: string): Promise<{ blob: Blob; filename: string }> {
   const wb = new ExcelJS.Workbook();
@@ -87,16 +247,38 @@ export async function buildBackupBlob(uid: string): Promise<{ blob: Blob; filena
   meta.addRow(["백업시각", new Date().toISOString()]);
   meta.addRow(["스키마버전", "1"]);
 
+  const rawData: Record<string, Row[]> = {};
+
   for (const t of TABLES) {
     const ws = wb.addWorksheet(t.sheet);
     try {
       const rows = await fetchAll(t.name, uid);
+      rawData[t.name] = rows;
       meta.addRow([t.sheet, `${rows.length}건`]);
       setSheetFromRows(ws, rows);
     } catch (e) {
       meta.addRow([t.sheet, `오류: ${(e as Error).message}`]);
       ws.addRow(["조회 실패", (e as Error).message]);
     }
+  }
+
+  // ─── 정산 상세 시트 (팀장·업체별, 백업 전용 — 복구 시 무시됨) ───
+  try {
+    try {
+      const { data: si } = await supabase
+        .from("special_items" as never)
+        .select("label,active")
+        .eq("user_id", uid);
+      const labels = ((si as Array<{ label: string; active: boolean }> | null) ?? [])
+        .filter((r) => r.active)
+        .map((r) => String(r.label || "").trim())
+        .filter((l) => l.length > 0);
+      if (labels.length > 0) setSpecialOneTimeItems(labels);
+    } catch { /* ignore */ }
+    addDetailSheets(wb, uid, rawData);
+    meta.addRow(["정산상세시트", "생성됨 (팀장별상세/업체별상세/요약 2종)"]);
+  } catch (e) {
+    meta.addRow(["정산상세시트", `오류: ${(e as Error).message}`]);
   }
 
   const buf = await wb.xlsx.writeBuffer();
