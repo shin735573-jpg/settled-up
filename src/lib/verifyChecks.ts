@@ -264,8 +264,9 @@ export function verifyResultCsv(result: VerifyResult): string {
   rows.push(["항목", "값"]);
   rows.push(["배송건수", result.deliveryCount]);
   rows.push(["업체 표시 합계", result.companyDisplayTotal]);
+  rows.push(["업체 청구 합계(VAT포함)", result.companyClaimTotal]);
   rows.push(["팀장 배분 합계", result.leaderShareTotal]);
-  rows.push(["차액", result.diff]);
+  rows.push(["팀장 실지급 합계(VAT포함)", result.leaderPayoutTotal]);
   rows.push(["숨겨진 재방문 2차+ 건수", result.hiddenRevisitCount]);
   rows.push(["공통공제 합계", result.commonDeductionTotal]);
   rows.push(["개별공제 합계", result.personalDeductionTotal]);
