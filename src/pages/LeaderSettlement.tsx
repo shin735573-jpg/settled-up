@@ -655,7 +655,10 @@ export default function LeaderSettlement() {
   // ===== 상세 모드 =====
   const detailLeader = leaderId ? leadersById.get(leaderId) : undefined;
   const detailRows = useMemo(
-    () => (leaderId ? rowsForSettling(leaderId) : []),
+    () => {
+      const list = leaderId ? rowsForSettling(leaderId) : [];
+      return [...list].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [leaderId, rows, leaders],
   );
