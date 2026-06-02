@@ -235,9 +235,11 @@ export default function CompanySettlement() {
     () => {
       if (!company) return [];
       const base = companyBillableRows.filter((r) => matchesCompany(r, company));
+      const sortByDate = <T extends { date?: string | null }>(arr: T[]) =>
+        [...arr].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
       const q = query.trim().toLowerCase();
-      if (!q) return base;
-      return base.filter((r: any) => {
+      if (!q) return sortByDate(base);
+      return sortByDate(base.filter((r: any) => {
         const fields = [
           r.customer_name, r.item, r.note, r.region,
           r.leader1_name, r.leader2_name, r.leader3_name,
