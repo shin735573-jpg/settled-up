@@ -96,7 +96,6 @@ export function TotalFeeMismatchBanner({
                               r.customer_name,
                               r.item,
                               r.leader1_name,
-                              r.leader2_name,
                               String(r.fee ?? ""),
                               r.fee?.toLocaleString?.() ?? "",
                             ]
