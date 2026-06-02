@@ -1478,6 +1478,115 @@ export default function Records() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editParam]);
 
+  // 다른 기기에서 먼저 저장된 기록과 중복(완전 일치)이 감지될 때,
+  // '누가/언제 저장했는지'와 현재 저장하려는 내용이 무엇과 충돌하는지
+  // 검토 모달로 보여준다. (정보성 모달 — 확인 버튼 없음)
+  const showConflictReview = async (
+    conflictRows: any[],
+    current: DupDelivery,
+    contextLabel: string,
+  ) => {
+    try {
+      const userIds = Array.from(new Set(
+        (conflictRows || []).map((r) => r?.user_id).filter(Boolean),
+      ));
+      let nameMap = new Map<string, string>();
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id,display_name")
+          .in("user_id", userIds as string[]);
+        nameMap = new Map(
+          (profs || []).map((p: any) => [p.user_id as string, (p.display_name as string) || ""]),
+        );
+      }
+      const fmtDt = (s?: string) => {
+        if (!s) return "-";
+        try {
+          return new Date(s).toLocaleString("ko-KR", {
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit",
+          });
+        } catch { return s; }
+      };
+      const meId = user?.id;
+      const leaderName = (id: string | null | undefined) =>
+        (id && leaders.find((l) => l.id === id)?.name) || "-";
+      const whoLabel = (uid?: string) => {
+        if (!uid) return "-";
+        const nm = nameMap.get(uid) || "(이름 없음)";
+        return uid === meId ? `${nm} (본인 — 다른 기기/세션)` : nm;
+      };
+      const conflictCount = conflictRows.length;
+      const first = conflictRows[0] || {};
+      const summary: { label: string; value: string }[] = [
+        { label: "상태", value: `완전 중복 ${conflictCount}건 — 저장 차단 (${contextLabel})` },
+        { label: "누가 먼저 저장", value: whoLabel(first.user_id) },
+        { label: "언제 저장", value: fmtDt(first.created_at) },
+        ...(first.updated_at && first.updated_at !== first.created_at
+          ? [{ label: "마지막 수정", value: fmtDt(first.updated_at) }] : []),
+        { label: "충돌 기준", value: "날짜·업체·고객·배송지·품목·비고·팀장·금액 등 모든 핵심 값 일치" },
+      ];
+      const cols = [
+        { key: "who", label: "저장자" },
+        { key: "when", label: "저장 시각" },
+        { key: "date", label: "날짜" },
+        { key: "company", label: "업체" },
+        { key: "customer", label: "고객" },
+        { key: "region", label: "배송지" },
+        { key: "item", label: "품목" },
+        { key: "note", label: "비고" },
+        { key: "l1", label: "팀장1" },
+        { key: "l2", label: "팀장2" },
+        { key: "split", label: "분할" },
+        { key: "amt", label: "금액합", align: "right" as const },
+      ];
+      const sumAmt = (r: any) =>
+        Number(r?.metro_fee || 0) + Number(r?.regional_fee || 0) +
+        Number(r?.note_amount || 0) + Number(r?.cod_amount || 0);
+      const currentRow: Record<string, any> = {
+        who: "(현재 입력)",
+        when: "-",
+        date: current.date,
+        company: current.company_name,
+        customer: current.customer_name || "-",
+        region: current.region || "-",
+        item: current.item || "-",
+        note: current.note || "-",
+        l1: leaderName(current.leader1_id),
+        l2: leaderName(current.leader2_id),
+        split: current.split_type || "-",
+        amt: fmt(sumAmt(current)),
+      };
+      const conflictRowsView = conflictRows.map((r) => ({
+        who: whoLabel(r.user_id),
+        when: fmtDt(r.updated_at || r.created_at),
+        date: r.date,
+        company: r.company_name,
+        customer: r.customer_name || "-",
+        region: r.region || "-",
+        item: r.item || "-",
+        note: r.note || "-",
+        l1: leaderName(r.leader1_id),
+        l2: leaderName(r.leader2_id),
+        split: r.split_type || "-",
+        amt: fmt(sumAmt(r)),
+      }));
+      await confirmSave({
+        title: "중복 저장 차단 — 이미 저장된 기록이 있습니다",
+        description:
+          "다른 기기/세션에서 먼저 저장된 동일한 기록이 발견되어 저장이 차단되었습니다. " +
+          "아래에서 누가·언제 저장했는지와 현재 입력 내용이 무엇과 충돌하는지 확인해주세요.",
+        summary,
+        details: { columns: cols, rows: [currentRow, ...conflictRowsView] },
+        cancelLabel: "확인",
+        hideConfirm: true,
+      });
+    } catch {
+      toast.error(`이미 동일한 기록이 등록되어 있습니다 (완전 중복 ${conflictRows.length}건). 저장이 차단되었습니다.`);
+    }
+  };
+
   const saveForm = async () => {
     if (!user) return;
     if (!form.date) { toast.error("날짜를 입력하세요"); return; }
