@@ -3,6 +3,7 @@ import {
   findExactDuplicates,
   findSuspectDuplicates,
   formatDuplicateConfirm,
+  findBulkDuplicates,
   type DupDelivery,
 } from "./duplicateCheck";
 
@@ -67,5 +68,36 @@ describe("duplicateCheck", () => {
     const msg = formatDuplicateConfirm([], suspect);
     expect(msg).toContain("의심 중복 1건");
     expect(msg).toContain("저장하시겠습니까");
+  });
+
+  it("findBulkDuplicates 는 기존 데이터와의 중복을 모아준다", () => {
+    const existing = [base({ id: "ex1" }), base({ id: "ex2", customer_name: "김철수" })];
+    const candidates = [
+      base({ id: null }), // ex1 과 정확 중복
+      base({ id: null, customer_name: "김철수", cod_amount: 5000 }), // ex2 와 의심 중복
+      base({ id: null, customer_name: "신규고객" }), // 중복 없음
+    ];
+    const { exact, suspect } = findBulkDuplicates(candidates, existing);
+    expect(exact).toHaveLength(1);
+    expect(exact[0].id).toBe("ex1");
+    expect(suspect).toHaveLength(1);
+    expect(suspect[0].id).toBe("ex2");
+  });
+
+  it("findBulkDuplicates 는 후보끼리의 중복도 잡는다", () => {
+    const candidates = [
+      base({ id: null, customer_name: "동일고객" }),
+      base({ id: null, customer_name: "동일고객" }),
+    ];
+    const { exact, suspect } = findBulkDuplicates(candidates, []);
+    // 두 후보가 서로 정확 중복 → 매치 합계 ≥ 1
+    expect(exact.length + suspect.length).toBeGreaterThan(0);
+  });
+
+  it("findBulkDuplicates 는 중복 없으면 빈 결과", () => {
+    const candidates = [base({ id: null, customer_name: "A" }), base({ id: null, customer_name: "B" })];
+    const { exact, suspect } = findBulkDuplicates(candidates, []);
+    expect(exact).toHaveLength(0);
+    expect(suspect).toHaveLength(0);
   });
 });
