@@ -3694,12 +3694,71 @@ export default function Records() {
             </div>
           </div>
 
+          {/* 중복 체크 결과 박스 + 버튼 */}
+          <div className="space-y-2 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={runFormDupCheck}
+                disabled={formDupChecking || saving}
+                title="현재 입력값으로 같은 날짜·업체 기록에서 중복을 검사합니다"
+              >
+                {formDupChecking ? "중복 체크 중…"
+                  : formDupCheck.status === "exact" ? `완전 중복 ${formDupCheck.exact}건`
+                  : formDupCheck.status === "suspect" ? `유사 중복 ${formDupCheck.suspect}건 발견`
+                  : formDupCheck.status === "none" ? "중복 없음"
+                  : "중복 체크"}
+              </Button>
+              {formDupCheck.checkedAt && (
+                <span className="text-[11px] text-muted-foreground">
+                  검사 시각 {formDupCheck.checkedAt}
+                </span>
+              )}
+              {form.id && (
+                <span className="text-[11px] text-muted-foreground">수정 모드 — 자기 자신은 중복에서 제외됩니다</span>
+              )}
+            </div>
+            {formDupCheck.status === "exact" && (
+              <div className="rounded-md border-2 border-destructive/60 bg-destructive/10 p-3 text-sm">
+                <div className="font-semibold text-destructive">
+                  이미 동일한 기록이 등록되어 있습니다 · 완전 중복 {formDupCheck.exact}건
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  날짜·업체·고객·지역·품목·금액·팀장·분할·결제유무·2인배송이 모두 같습니다. 저장이 차단됩니다.
+                </div>
+                <ul className="mt-2 text-xs list-disc pl-5 space-y-0.5">
+                  {formDupCheck.matches.map((m, i) => <li key={i}>{m}</li>)}
+                </ul>
+              </div>
+            )}
+            {formDupCheck.status === "suspect" && (
+              <div className="rounded-md border-2 border-yellow-400/70 bg-yellow-50 dark:bg-yellow-950/30 p-3 text-sm">
+                <div className="font-semibold text-yellow-800 dark:text-yellow-300">
+                  유사한 기록이 존재합니다. 저장 전 확인하세요 · 유사 중복 {formDupCheck.suspect}건
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  날짜·업체·고객·지역·품목은 같지만 금액/팀장 등이 다릅니다.
+                </div>
+                <ul className="mt-2 text-xs list-disc pl-5 space-y-0.5">
+                  {formDupCheck.matches.map((m, i) => <li key={i}>{m}</li>)}
+                </ul>
+              </div>
+            )}
+            {formDupCheck.status === "none" && (
+              <div className="rounded-md border border-green-500/50 bg-green-50 dark:bg-green-950/30 p-2 text-xs text-green-800 dark:text-green-300">
+                중복 없음 — 저장 가능
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
             <Button size="lg" className="h-12 text-base" onClick={saveForm} disabled={saving || !!form.id}>
-              저장
+              {saving ? "저장 중…" : "저장"}
             </Button>
             <Button size="lg" className="h-12 text-base" variant="secondary" onClick={saveForm} disabled={saving || !form.id}>
-              수정
+              {saving ? "저장 중…" : "수정"}
             </Button>
             <Button size="lg" className="h-12 text-base" variant="destructive" onClick={deleteForm} disabled={saving || !form.id}>
               삭제
