@@ -614,6 +614,19 @@ export default function LeaderSettlement() {
   };
   const saveDetailDeductions = async () => {
     if (!user || !leaderId) return;
+    const validRows = detailDeductions.filter((d) => (d.label || "").trim() || num(d.amount) > 0);
+    const totalAmt = validRows.reduce((s, d) => s + num(d.amount), 0);
+    const leaderName = leaders.find((l: any) => l.id === leaderId)?.name || "팀장";
+    const ok = await confirmSave({
+      title: "개별 공제 저장 확인",
+      summary: [
+        { label: "팀장", value: leaderName },
+        { label: "기간", value: periodKey },
+        { label: "항목 수", value: `${validRows.length}건` },
+        { label: "총액", value: `${num(totalAmt).toLocaleString()}원` },
+      ],
+    });
+    if (!ok) return;
     setSavingDeductions(true);
     // 단순화: 해당 (leader, period)의 모든 행 삭제 후 비어있지 않은 행만 재삽입
     await supabase
