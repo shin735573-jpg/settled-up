@@ -1600,7 +1600,7 @@ export default function Records() {
           "다른 기기/세션에서 먼저 저장된 동일한 기록이 발견되어 저장이 차단되었습니다. " +
           "아래에서 누가·언제 저장했는지와 현재 입력 내용이 무엇과 충돌하는지 확인해주세요.",
         summary,
-        details: { columns: cols, rows: [currentRow, ...conflictRowsView] },
+        details: { columns: diffCols, rows: diffRows },
         cancelLabel: "확인",
         hideConfirm: true,
       });
