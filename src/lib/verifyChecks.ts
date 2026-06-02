@@ -28,7 +28,8 @@ export type VerifyResult = {
   deliveryCount: number;
   companyDisplayTotal: number;
   leaderShareTotal: number;
-  diff: number;
+  companyClaimTotal: number;
+  leaderPayoutTotal: number;
   hiddenRevisitCount: number;
   commonDeductionTotal: number;
   personalDeductionTotal: number;
@@ -69,8 +70,18 @@ export function runVerify(input: VerifyInput): VerifyResult {
     (d) => d.revisit_group_id && Number(d.revisit_visit_no ?? 1) >= 2,
   ).length;
 
-  const companyDisplayTotal = companyStmts.reduce((s, c) => s + (c.finalClaim || 0), 0);
+  // 업체 표시 합계 = 기존 업체정산과 동일 기준:
+  //   metro_fee + regional_fee + note_amount, 재방문 2차+ 제외, 착불/수수료/공제 미포함
+  const companyDisplayTotal = deliveries.reduce((s, d) => {
+    if (d.revisit_group_id && Number(d.revisit_visit_no ?? 1) >= 2) return s;
+    return s
+      + Number(d.metro_fee || 0)
+      + Number(d.regional_fee || 0)
+      + Number(d.note_amount || 0);
+  }, 0);
+  const companyClaimTotal = companyStmts.reduce((s, c) => s + (c.finalClaim || 0), 0);
   const leaderShareTotal = leaderStmts.reduce((s, l) => s + (l.payout || 0), 0);
+  const leaderPayoutTotal = leaderStmts.reduce((s, l) => s + (l.payoutWithVat || l.payout || 0), 0);
   const commonDeductionTotal = leaderStmts.reduce(
     (s, l) => s + (l.deductions?.commonTotal ?? 0),
     0,
@@ -158,7 +169,8 @@ export function runVerify(input: VerifyInput): VerifyResult {
     deliveryCount: deliveries.length,
     companyDisplayTotal,
     leaderShareTotal,
-    diff: companyDisplayTotal - leaderShareTotal,
+    companyClaimTotal,
+    leaderPayoutTotal,
     hiddenRevisitCount,
     commonDeductionTotal,
     personalDeductionTotal,
