@@ -5,7 +5,7 @@
 // 다른 화면(업체정산/팀장정산/한눈요약)의 계산 로직은 절대 수정하지 않는다.
 
 import { allocateRow, feeForShare, type LeaderShare } from "./splitAllocation";
-import { isLeaderSettlementExcludedItem } from "./itemRules";
+import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "./itemRules";
 import {
   inPeriod,
   isCountableLeader,
@@ -39,6 +39,8 @@ export type StmtDelivery = {
   split_type: string | null;
   two_person: boolean | null;
   paid: boolean;
+  virtual_leader_id?: string | null;
+  virtual_leader_name?: string | null;
   revisit_group_id?: string | null;
   revisit_visit_no?: number | null;
   alba_deduction?: number | null;
@@ -284,8 +286,9 @@ export function buildCompanyStatements(
     // 재방문 그룹의 "기준 날짜" = 그룹 내 가장 빠른 날짜(=1차 방문).
     // 2차 방문이 다른 정산주기에 있더라도 1차 기준일이 현 주기에 속하면
     // 같이 끌어와 합산 청구한다.
+    const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
     const companyDeliveries = deliveries.filter(
-      (d) => d.company_id === c.id || d.company_name === c.name,
+      (d) => (d.company_id === c.id || d.company_name === c.name) && !isVirtualSettlementRow(d, virtualIds),
     );
     const revisitEarliest = new Map<string, string>();
     for (const d of companyDeliveries) {
@@ -503,7 +506,7 @@ export function buildLeaderStatements(
   const revisitGroups = new Map<string, StmtDelivery[]>();
   const singles: StmtDelivery[] = [];
   for (const d of deliveries) {
-    if (isLeaderSettlementExcludedItem(d.item)) continue;
+    if (isLeaderSettlementExcludedItem(d.item) || isVirtualSettlementRow(d, virtualIds)) continue;
     if (d.revisit_group_id) {
       const arr = revisitGroups.get(d.revisit_group_id) || [];
       arr.push(d);
@@ -550,7 +553,7 @@ export function buildLeaderStatements(
     const baseCod = Number(first.cod_amount);
     const useMetro = baseMetro >= baseRegional;
     const manual = Array.isArray(first.revisit_manual_shares)
-      ? first.revisit_manual_shares.filter((m) => m && m.leader_id && Number(m.amount) > 0)
+      ? first.revisit_manual_shares.filter((m) => m && m.leader_id && !virtualIds.has(m.leader_id) && Number(m.amount) > 0)
       : null;
     const shares: LeaderShare[] = [];
     if (manual && manual.length > 0) {
@@ -569,7 +572,7 @@ export function buildLeaderStatements(
         });
       }
       // 비고금액 / 착불은 1차 팀장1에게 귀속 (수기 입력에 포함되지 않음)
-      if (first.leader1_id && (baseNote !== 0 || baseCod !== 0)) {
+      if (first.leader1_id && !virtualIds.has(first.leader1_id) && (baseNote !== 0 || baseCod !== 0)) {
         shares.push({
           leader_id: first.leader1_id,
           weight: 0,
@@ -581,7 +584,7 @@ export function buildLeaderStatements(
           reason: "재방문 비고/착불(1차 팀장1)",
         });
       }
-    } else if (first.leader1_id) {
+    } else if (first.leader1_id && !virtualIds.has(first.leader1_id)) {
       // 수기 분배 미입력: 1차 팀장1에게 전액 귀속
       shares.push({
         leader_id: first.leader1_id,
