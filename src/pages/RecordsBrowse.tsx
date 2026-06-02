@@ -424,6 +424,11 @@ export default function RecordsBrowse() {
         );
       })()}
 
+      <DuplicateGroupsPanel
+        groups={duplicateGroups}
+        onEdit={(id) => navigate(`/records?edit=${id}`)}
+      />
+
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="max-w-5xl">
           <DialogHeader>
