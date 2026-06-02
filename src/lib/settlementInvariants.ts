@@ -10,7 +10,7 @@
 // 모든 검사는 순수 함수이며 기존 계산 로직을 변경하지 않는다.
 
 import { allocateRow } from "./splitAllocation";
-import { isLeaderSettlementExcludedItem } from "./itemRules";
+import { isLeaderSettlementExcludedItem, isVirtualSettlementRow } from "./itemRules";
 import type {
   CompanyStmtData,
   DeductionContext,
@@ -73,6 +73,7 @@ export function validateSettlementInvariants(
   // — 가중치 합 ≤ 1, 금액 분배가 원본과 정확히 일치
   // (강형주/신동석 재분배 후의 결과로 점검)
   for (const d of deliveries) {
+    if (isVirtualSettlementRow(d)) continue;
     if (!d.leader1_id) continue; // 팀장 미입력 행은 건너뜀
     const shares = allocateRow(
       {
@@ -112,6 +113,7 @@ export function validateSettlementInvariants(
   // 업체별 원본 cod 합 == companyStmt.codTotal
   const codByCompany = new Map<string, number>();
   for (const d of deliveries) {
+    if (isVirtualSettlementRow(d)) continue;
     const key = d.company_id || `name:${d.company_name ?? ""}`;
     codByCompany.set(key, (codByCompany.get(key) ?? 0) + num(d.cod_amount));
   }
@@ -132,7 +134,7 @@ export function validateSettlementInvariants(
   let expectedLeaderFee = 0;
   let expectedLeaderCod = 0;
   for (const d of deliveries) {
-    if (isLeaderSettlementExcludedItem(d.item)) continue;
+    if (isLeaderSettlementExcludedItem(d.item) || isVirtualSettlementRow(d)) continue;
     expectedLeaderFee += num(d.metro_fee) + num(d.note_amount) + num(d.regional_fee);
     expectedLeaderCod += num(d.cod_amount);
   }
