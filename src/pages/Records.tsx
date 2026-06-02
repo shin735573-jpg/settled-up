@@ -1010,6 +1010,23 @@ export default function Records() {
   const [revisitShareOpen, setRevisitShareOpen] = useState(false);
   const [revisitShareFirst, setRevisitShareFirst] = useState<RevisitFirstRow | null>(null);
   const [revisitShareExtraLeaders, setRevisitShareExtraLeaders] = useState<Array<{ id: string | null; name: string | null }>>([]);
+  // 단일폼이 2차+ 행일 때 표시할 1차 정보(읽기 전용)
+  const [formFirstRow, setFormFirstRow] = useState<{
+    id: string;
+    date: string;
+    company_name: string | null;
+    customer_name: string | null;
+    region: string | null;
+    region_type: string | null;
+    item: string | null;
+    leader1_name: string | null;
+    leader2_name: string | null;
+    leader3_name: string | null;
+    metro_fee: number;
+    note_amount: number;
+    regional_fee: number;
+    cod_amount: number;
+  } | null>(null);
   const openRevisitShareDialog = async (groupId: string) => {
     try {
       const { data, error } = await supabase
