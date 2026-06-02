@@ -11,12 +11,13 @@ interface Props {
   placeholder?: string;
   className?: string;
   inputRef?: React.Ref<HTMLInputElement>;
+  disabled?: boolean;
 }
 
 // 정규화: 공백 제거 + 소문자
 const norm = (s: string) => s.replace(/\s+/g, "").toLowerCase();
 
-export function CompanyCombobox({ companies, value, onChange, placeholder, className, inputRef }: Props) {
+export function CompanyCombobox({ companies, value, onChange, placeholder, className, inputRef, disabled }: Props) {
   const selected = companies.find((c) => c.id === value);
   const [query, setQuery] = useState<string>(selected?.name ?? "");
   const [open, setOpen] = useState(false);
@@ -110,13 +111,16 @@ export function CompanyCombobox({ companies, value, onChange, placeholder, class
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
+        disabled={disabled}
         onFocus={(e) => {
+          if (disabled) return;
           setOpen(true);
           const idx = selected ? filtered.findIndex((c) => c.id === selected.id) : -1;
           setHi(idx >= 0 ? idx : 0);
           e.currentTarget.select();
         }}
         onChange={(e) => {
+          if (disabled) return;
           setQuery(e.target.value);
           setOpen(true);
           setHi(0);
