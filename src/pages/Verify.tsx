@@ -28,6 +28,7 @@ import {
   leadersCsv,
   runVerify,
   verifyResultCsv,
+  displayCustomerName,
   type VerifyResult,
 } from "@/lib/verifyChecks";
 import { getVerifyRange, normalizeMonthInput } from "@/lib/verifyRange";
@@ -175,12 +176,14 @@ export default function Verify() {
               <Stat label="팀장배송총합: 팀장 배분 원총합" value={fmt(result.leaderDeliveryTotal)} />
               <Stat label="총합 차이" value={fmt(result.totalsDiff)} />
               <Stat label="업체표시합계: 재방문 2차 이상 숨김 후 참고값" value={fmt(result.companyDisplayTotal)} />
-              <Stat label="(참고) 업체 청구(VAT포함)" value={fmt(result.companyClaimTotal)} />
-              <Stat label="(참고) 팀장 배분 합계" value={fmt(result.leaderShareTotal)} />
-              <Stat label="(참고) 팀장 실지급(VAT포함)" value={fmt(result.leaderPayoutTotal)} />
+              <Stat label="착불합계" value={fmt(result.codTotal)} />
+              <Stat label="회사공제 합계" value={fmt(result.commonDeductionTotal)} />
+              <Stat label="개인공제 합계" value={fmt(result.personalDeductionTotal)} />
+              <Stat label="총공제 합계" value={fmt(result.totalDeductionTotal)} />
+              <Stat label="팀장 정산금액(부가세 전)" value={fmt(result.leaderPayoutBeforeVat)} />
+              <Stat label="부가세" value={fmt(result.vatTotal)} />
+              <Stat label="팀장 최종지급액(부가세 포함)" value={fmt(result.leaderPayoutTotal)} />
               <Stat label="숨겨진 재방문 2차+ 건수" value={fmt(result.hiddenRevisitCount)} />
-              <Stat label="공통공제 합계" value={fmt(result.commonDeductionTotal)} />
-              <Stat label="개별공제 합계" value={fmt(result.personalDeductionTotal)} />
               <Stat
                 label="오류 / 주의"
                 value={`${result.errorCount} / ${result.warningCount}`}
@@ -216,7 +219,7 @@ export default function Verify() {
                         <td className="py-1 px-2">{i.code}</td>
                         <td className="py-1 px-2">{i.date ?? ""}</td>
                         <td className="py-1 px-2">{i.company ?? ""}</td>
-                        <td className="py-1 px-2">{i.customer ?? ""}</td>
+                        <td className="py-1 px-2">{displayCustomerName(i.customer)}</td>
                         <td className="py-1 px-2">{i.message}</td>
                       </tr>
                     ))}

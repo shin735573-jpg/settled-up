@@ -253,4 +253,89 @@ describe("verifyChecks", () => {
     expect(r.leaderDeliveryTotal).toBe(100000);
     expect(r.totalsDiff).toBe(0);
   });
+
+  it("고객명이 비어 있어도 MISSING 경고를 내지 않고 '고객명 없음'으로 표시한다", () => {
+    const leaders = [mkLeader("L1", "맹광식")];
+    const deliveries = [
+      mkRow({
+        date: "2026-05-05", leader1_id: "L1", leader1_name: "맹광식",
+        metro_fee: 100000, customer_name: "", item: "테이블",
+      }),
+      mkRow({
+        date: "2026-05-06", leader1_id: "L1", leader1_name: "맹광식",
+        metro_fee: 100000, customer_name: null as unknown as string, item: "의자",
+      }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders, period: "h1", deductionCtx: emptyCtx,
+    });
+    expect(r.issues.find((i) => i.code === "MISSING" && /고객명/.test(i.message))).toBeUndefined();
+  });
+
+  it("배송 원금 0원 배송기록은 ZERO_FEE 경고를 만들지 않는다", () => {
+    const leaders = [mkLeader("L1", "맹광식")];
+    const deliveries = [
+      mkRow({
+        date: "2026-05-05", leader1_id: "L1", leader1_name: "맹광식",
+        metro_fee: 0, regional_fee: 0, note_amount: 0, cod_amount: 0,
+        customer_name: "이몽룡", item: "쇼파",
+      }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [company], leaders, period: "h1", deductionCtx: emptyCtx,
+    });
+    expect(r.issues.find((i) => i.code === "ZERO_FEE")).toBeUndefined();
+  });
+
+  it("has_cod=false 업체에서 cod_amount=0이면 경고가 나오지 않는다", () => {
+    const noCod: StmtCompany = { ...company, id: "c2", name: "착불없음업체", has_cod: false };
+    const leaders = [mkLeader("L1", "맹광식")];
+    const deliveries = [
+      mkRow({
+        date: "2026-05-05", company_id: "c2", company_name: "착불없음업체",
+        leader1_id: "L1", leader1_name: "맹광식",
+        metro_fee: 100000, cod_amount: 0, customer_name: "이몽룡", item: "쇼파",
+      }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [noCod], leaders, period: "h1", deductionCtx: emptyCtx,
+    });
+    expect(r.issues.find((i) => i.code === "ZERO_FEE")).toBeUndefined();
+    expect(r.issues.find((i) => i.code === "COD_NOT_EXPECTED")).toBeUndefined();
+  });
+
+  it("has_cod=false 업체에서 cod_amount>0이면 COD_NOT_EXPECTED 주의가 나온다", () => {
+    const noCod: StmtCompany = { ...company, id: "c2", name: "착불없음업체", has_cod: false };
+    const leaders = [mkLeader("L1", "맹광식")];
+    const deliveries = [
+      mkRow({
+        date: "2026-05-05", company_id: "c2", company_name: "착불없음업체",
+        leader1_id: "L1", leader1_name: "맹광식",
+        metro_fee: 100000, cod_amount: 30000, customer_name: "이몽룡", item: "쇼파",
+      }),
+    ];
+    const r = runVerify({
+      deliveries, companies: [noCod], leaders, period: "h1", deductionCtx: emptyCtx,
+    });
+    const w = r.issues.find((i) => i.code === "COD_NOT_EXPECTED");
+    expect(w?.severity).toBe("warning");
+  });
+
+  it("검산 결과는 부가세/총공제/팀장 정산금액(부가세 전) 필드를 노출한다", () => {
+    const r = runVerify({
+      deliveries: [], companies: [], leaders: [], period: "h1", deductionCtx: emptyCtx,
+    });
+    expect(typeof r.vatTotal).toBe("number");
+    expect(typeof r.totalDeductionTotal).toBe("number");
+    expect(typeof r.leaderPayoutBeforeVat).toBe("number");
+    expect(typeof r.codTotal).toBe("number");
+    const csv = verifyResultCsv(r);
+    expect(csv).toContain("팀장 최종지급액(부가세 포함)");
+    expect(csv).toContain("팀장 정산금액(부가세 전)");
+    expect(csv).toContain("부가세");
+    expect(csv).toContain("회사공제 합계");
+    expect(csv).toContain("개인공제 합계");
+    expect(csv).toContain("총공제 합계");
+    expect(csv).toContain("착불합계");
+  });
 });
