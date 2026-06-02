@@ -159,6 +159,24 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     return allRows.filter((r) => selectedSuspectIds.has(r.id));
   }, [allRows, selectedSuspectIds]);
 
+  // 통합 모드에서 의심행을 선택/변경할 때 leader2가 비어 있으면 다시 자동 채움.
+  // 기존 leader2 값은 절대 덮어쓰지 않음.
+  useEffect(() => {
+    if (mergeMode !== "two_person" && mergeMode !== "companion") return;
+    if (!edited) return;
+    if (nrm(edited.leader2_id)) return; // 이미 있으면 보존
+    const pool: Row[] = selectedSuspects.length > 0
+      ? selectedSuspects
+      : ([...suspects.exact, ...suspects.similar] as Row[]);
+    const cand = pool
+      .map((s) => ({ id: s.leader1_id, name: s.leader1_name }))
+      .find((c) => nrm(c.id) && c.id !== edited.leader1_id);
+    if (cand?.id) {
+      setEdited((e) => e ? { ...e, leader2_id: cand.id, leader2_name: cand.name ?? null } : e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergeMode, selectedSuspectIds, suspects.exact.length, suspects.similar.length]);
+
   // 합산 미리보기
   const autoSum = useMemo(() => {
     if (!edited) return null;
