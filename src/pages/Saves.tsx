@@ -1310,11 +1310,11 @@ function CompanyPreview({
       <div className="overflow-hidden rounded-xl border border-border/60">
         <table className="w-full text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1280 }}>
           <colgroup>
-            {[80,180,160,200,260,140,110].map((w,i)=>(<col key={i} style={{ width: w }} />))}
+            {[70,140,100,100,100,140,170,200,110,90].map((w,i)=>(<col key={i} style={{ width: w }} />))}
           </colgroup>
           <thead className="bg-muted/60">
             <tr>
-              {["날짜","업체","고객명","품목","비고","배송비","결제유무"].map((h) => (
+              {["날짜","업체","팀장1","팀장2","팀장3","고객명","품목","비고","배송비","결제유무"].map((h) => (
                 <th key={h} className="px-2 py-2 text-center font-semibold uppercase tracking-wider text-[10px] text-muted-foreground whitespace-nowrap border-b border-border/60">{h}</th>
               ))}
             </tr>
@@ -1324,6 +1324,9 @@ function CompanyPreview({
               <tr key={r.id} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.date.slice(5)}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{c.name}</td>
+                <td className="px-2 py-1.5 text-center align-middle truncate">{r.display_leader1 ?? ""}</td>
+                <td className="px-2 py-1.5 text-center align-middle truncate">{r.display_leader2 ?? ""}</td>
+                <td className="px-2 py-1.5 text-center align-middle truncate">{r.display_leader3 ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle truncate">{r.customer_name ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.item ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.note ?? ""}</td>
@@ -1332,7 +1335,7 @@ function CompanyPreview({
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={7} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
+              <tr><td colSpan={10} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
         </table>
