@@ -1906,7 +1906,7 @@ export default function Records() {
     setRevisitDetectOpen(false);
     setRevisitDetectCandidates([]);
     setRevisitDetectIdx(null);
-    setRevisitDetectForForm(false);
+    setFormRevisitOpen(false);
   };
 
   // 단일폼 자동 매칭: 같은 키 반복 호출 방지용
@@ -1965,7 +1965,7 @@ export default function Records() {
     const candidates = [...byGroup.values(), ...singles].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
     setRevisitDetectCandidates(candidates);
     setRevisitDetectIdx(null);
-    setRevisitDetectForForm(true);
+    setFormRevisitOpen(true);
     setRevisitDetectOpen(true);
   };
 
@@ -3458,7 +3458,7 @@ export default function Records() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setRevisitDetectForForm(false); } }}>
+      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setFormRevisitOpen(false); } }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>재방문 여부 확인</DialogTitle>
@@ -3512,7 +3512,7 @@ export default function Records() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setRevisitDetectForForm(false); }}>
+            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setFormRevisitOpen(false); }}>
               재방문 아님 (새 배송으로 입력)
             </Button>
           </DialogFooter>
