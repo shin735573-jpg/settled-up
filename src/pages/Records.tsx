@@ -1764,6 +1764,31 @@ export default function Records() {
                           </SelectContent>
                         </Select>
                       </td>
+                      <td className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => upd({ revisit_required: !r.revisit_required })}
+                          className={cn(
+                            "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
+                            r.revisit_required ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                          )}
+                          title="저장 시 같은 내용의 2차 방문 행이 함께 생성됩니다 (업체 청구는 1건으로 합산)"
+                        >
+                          {r.revisit_required ? "예정" : "—"}
+                        </button>
+                      </td>
+                      <td className="p-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => upd({ revisit_done: !r.revisit_done })}
+                          className={cn(
+                            "inline-flex items-center justify-center h-8 w-full px-2 rounded-md border text-xs font-medium select-none",
+                            r.revisit_done ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"
+                          )}
+                        >
+                          {r.revisit_done ? "완료" : "—"}
+                        </button>
+                      </td>
                       <td className="p-1 text-right font-semibold">{fmt(total)}</td>
                       <td className="p-1 text-center">
                         <Button
