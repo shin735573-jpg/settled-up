@@ -130,14 +130,18 @@ export function validateSettlementInvariants(
   const leaderCodTotal = leaderStmts.reduce((s, l) => s + num(l.codSum), 0);
 
   // ─────────────── 4) 본사 ↔ 팀장 합계 정합성 ───────────────
-  // 정산포함 팀장에게 실제 분배된 배송비/착불 합을 deliveries에서 다시 계산.
-  // (companyStmts 는 정산주기 게이트로 일부만 들어올 수 있어 단순 비교는 부적절)
+  // 기준 = 업체 정산서(청구서)에 실제로 들어간 행만 집계.
+  // (raw deliveries 는 정산주기/재방문/가상기사 필터 전 데이터라서 단순 합산하면 false-positive 가 난다.)
+  // 업체 청구서에 들어간 행 중 "팀장 정산 제외품목(행사철수 등)" 을 빼면 팀장 실지급 기대치가 된다.
   let expectedLeaderFee = 0;
   let expectedLeaderCod = 0;
-  for (const d of deliveries) {
-    if (isLeaderSettlementExcludedItem(d.item) || isVirtualSettlementRow(d, opts.virtualIds)) continue;
-    expectedLeaderFee += num(d.metro_fee) + num(d.note_amount) + num(d.regional_fee);
-    expectedLeaderCod += num(d.cod_amount);
+  for (const cs of companyStmts) {
+    for (const row of cs.rows) {
+      if (isLeaderSettlementExcludedItem(row.item)) continue;
+      if (isVirtualSettlementRow(row, opts.virtualIds)) continue;
+      expectedLeaderFee += num(row.metro_fee) + num(row.note_amount) + num(row.regional_fee);
+      expectedLeaderCod += num(row.cod_amount);
+    }
   }
   const leaderFeeTotal = leaderStmts.reduce((s, l) => s + num(l.realFee), 0);
   // 정산제외/대납 팀장에게 들어간 몫은 표시 정산서에서 빠질 수 있어 차이 허용은 보수적으로 운영.
