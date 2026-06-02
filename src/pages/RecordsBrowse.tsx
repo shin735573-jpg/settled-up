@@ -13,6 +13,7 @@ import {
   computeRevisitRedistribution,
   getRevisitFeeForLeader,
 } from "@/lib/revisitRedistribute";
+import { keepRevisitPrimaryOnly } from "@/lib/revisitDedup";
 
 type Company = { id: string; name: string; active: boolean };
 type Leader = { id: string; name: string; active: boolean; is_virtual?: boolean };
