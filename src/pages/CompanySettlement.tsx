@@ -12,6 +12,7 @@ import { crossCheckTotalFee } from "@/lib/totalFeeCrossCheck";
 import { TotalFeeMismatchBanner } from "@/components/TotalFeeMismatchBanner";
 import { toast } from "sonner";
 import { matchesCompany } from "@/lib/companyMatch";
+import { filterVisibleCompanies } from "@/lib/companyVisibility";
 import { getCompanyFacingName, isMissingCompanyAlias } from "@/lib/leaderResolver";
 import { auditDeliveries } from "@/lib/liveAudit";
 import { AuditBanner } from "@/components/AuditBanner";
@@ -221,14 +222,7 @@ export default function CompanySettlement() {
   // - 1~15일 / 16~말일: 보름 주기 업체 + 해당 기간 실제 배송/착불이 있는 업체 표시
   //   (월 업체라도 슬립웨이(월)처럼 기간 내 데이터가 있으면 목록에서 숨기지 않는다.)
   const visibleCompanies = useMemo(() => {
-    return companies.filter((c) => {
-      const cyc = c.settlement_cycle || "biweekly";
-      if (period === "all" || period === "month") return true;
-      if (cyc === "biweekly") return true;
-      const hasPeriodRows = companyBillableRows.some((r) => matchesCompany(r, c));
-      const hasCarryRows = carryRows.some((r) => matchesCompany(r, c));
-      return hasPeriodRows || hasCarryRows;
-    });
+    return filterVisibleCompanies(companies, period, companyBillableRows, carryRows);
   }, [companies, period, companyBillableRows, carryRows]);
 
   const companySummaries = useMemo(() => {
