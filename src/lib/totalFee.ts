@@ -27,3 +27,101 @@ export const totalLeaderSettlementDeliveryFee = (
   virtualIds?: Set<string> | string[] | null,
 ): number =>
   rows.reduce((s, r) => s + (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds) ? 0 : rowDeliveryFee(r)), 0);
+
+/**
+ * 실제 업체에 청구된 금액(업체별) — 정산용 내부 계산값과 분리해서 표시할 때 사용.
+ *
+ * 계산 기준 (statementData.buildCompanyStatements 와 동일한 원칙):
+ *  - 가상기사 단독 행 제외 (단 2인배송 행은 포함)
+ *  - 재방문 그룹은 1차 행만 청구에 포함 (2차+ 제외)
+ *  - 미수금 = (배송비 합) − (paid 행 합)
+ *  - 청구 = max(0, 미수금 − 착불 상계)
+ *  - 부가세 = issues_invoice && !vat_included 이면 청구금액의 10%
+ *  - 최종 청구금액 = issues_invoice ? 청구 + VAT : 청구
+ *
+ * deliveries 는 이미 기간 필터된 상태라고 가정한다 (LeaderSettlement 의 `rows`).
+ */
+export type BilledCompany = {
+  id: string;
+  name: string;
+  billed: number; // 실제 청구금액 (VAT 포함)
+  preVat: number; // VAT 전 청구금액
+  vat: number;
+};
+
+type BillableCompany = {
+  id: string;
+  name: string;
+  issues_invoice?: boolean | null;
+  vat_included?: boolean | null;
+};
+
+type BillableDelivery = DeliveryLike & {
+  company_id?: string | null;
+  company_name?: string | null;
+  cod_amount?: number | string | null;
+  paid?: boolean | null;
+  two_person?: boolean | null;
+  revisit_group_id?: string | null;
+  revisit_visit_no?: number | string | null;
+  date?: string | null;
+};
+
+export function computeCompanyBilledByCompany(
+  deliveries: BillableDelivery[],
+  companies: BillableCompany[],
+  virtualIds?: Set<string> | string[] | null,
+): Map<string, BilledCompany> {
+  const out = new Map<string, BilledCompany>();
+  const byId = new Map(companies.map((c) => [c.id, c]));
+  const byName = new Map(companies.map((c) => [String(c.name || "").trim(), c]));
+
+  // 회사별 그룹화 + 재방문 1차 행만 포함
+  type Grp = { c: BillableCompany; rows: BillableDelivery[] };
+  const groups = new Map<string, Grp>();
+
+  for (const d of deliveries) {
+    // 가상기사 단독 행은 업체 청구에서 제외 (단, 2인배송은 포함)
+    if (!d.two_person && isVirtualSettlementRow(d, virtualIds)) continue;
+    const c = (d.company_id && byId.get(d.company_id)) || byName.get(String(d.company_name || "").trim());
+    if (!c) continue;
+    let g = groups.get(c.id);
+    if (!g) { g = { c, rows: [] }; groups.set(c.id, g); }
+    g.rows.push(d);
+  }
+
+  for (const [, g] of groups) {
+    // 재방문 그룹 1차만 포함 (가장 빠른 날짜의 행)
+    const earliest = new Map<string, string>();
+    for (const d of g.rows) {
+      const gid = d.revisit_group_id;
+      if (!gid) continue;
+      const cur = earliest.get(gid);
+      const dt = String(d.date || "");
+      if (!cur || (dt && dt < cur)) earliest.set(gid, dt);
+    }
+    const billableRows = g.rows.filter((d) => {
+      const gid = d.revisit_group_id;
+      if (!gid) return true;
+      const first = earliest.get(gid);
+      // 동일 그룹 내에서 가장 빠른 날짜의 행만 청구에 포함
+      return first && String(d.date || "") === first;
+    });
+    const feeSum = billableRows.reduce((s, r) => s + rowDeliveryFee(r), 0);
+    const paidSum = billableRows.filter((r) => r.paid).reduce((s, r) => s + rowDeliveryFee(r), 0);
+    const codSum = billableRows.reduce((s, r) => s + (Number(r.cod_amount) || 0), 0);
+    const unpaid = feeSum - paidSum;
+    const claim = Math.max(0, unpaid - codSum);
+    const issues = !!g.c.issues_invoice;
+    const vat = issues && !g.c.vat_included ? Math.round(claim * 0.1) : 0;
+    const billed = issues ? claim + vat : claim;
+    out.set(g.c.id, {
+      id: g.c.id,
+      name: g.c.name,
+      billed,
+      preVat: claim,
+      vat,
+    });
+  }
+  return out;
+}
