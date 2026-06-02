@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getVerifyRange, parseMonthInput } from "./verifyRange";
+import { getVerifyRange, normalizeMonthInput, parseMonthInput } from "./verifyRange";
 
 describe("verifyRange", () => {
   it("parseMonthInput: 정상 YYYY-MM 파싱", () => {
@@ -52,5 +52,33 @@ describe("verifyRange", () => {
   it("잘못된 월 입력은 null", () => {
     expect(getVerifyRange("", "all")).toBeNull();
     expect(getVerifyRange("bad", "h1")).toBeNull();
+  });
+
+  it("normalizeMonthInput: 다양한 입력 표기를 YYYY-MM 으로 보정", () => {
+    expect(normalizeMonthInput("2026-05")).toBe("2026-05");
+    expect(normalizeMonthInput("2026-5")).toBe("2026-05");
+    expect(normalizeMonthInput("2026/05")).toBe("2026-05");
+    expect(normalizeMonthInput("2026.5")).toBe("2026-05");
+    expect(normalizeMonthInput("202605")).toBe("2026-05");
+    expect(normalizeMonthInput("20265")).toBe("2026-05");
+    expect(normalizeMonthInput("2026년 5월")).toBe("2026-05");
+    expect(normalizeMonthInput("2026년 05월")).toBe("2026-05");
+    expect(normalizeMonthInput(" 2026 - 05 ")).toBe("2026-05");
+    expect(normalizeMonthInput("2026-12")).toBe("2026-12");
+    expect(normalizeMonthInput("")).toBeNull();
+    expect(normalizeMonthInput(null)).toBeNull();
+    expect(normalizeMonthInput("2026-13")).toBeNull();
+    expect(normalizeMonthInput("2026-00")).toBeNull();
+  });
+
+  it("getVerifyRange: 변형 입력도 동일 범위 반환", () => {
+    const a = getVerifyRange("2026년 5월", "all")!;
+    expect(a.from).toBe("2026-05-01");
+    expect(a.toExclusive).toBe("2026-06-01");
+    expect(a.commonPeriodKeys).toEqual(["2026-05-first", "2026-05-second"]);
+    const b = getVerifyRange("202605", "h1")!;
+    expect(b.from).toBe("2026-05-01");
+    expect(b.toExclusive).toBe("2026-05-16");
+    expect(b.periodKey).toBe("2026-05-first");
   });
 });
