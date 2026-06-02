@@ -838,7 +838,17 @@ export default function LeaderSettlement() {
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
-                {masterRows.map((m) => {
+                {(() => {
+                  const q = leaderSearch.trim().toLowerCase();
+                  const visible = q
+                    ? masterRows.filter((m) => {
+                        const nm = (getDisplayName(m.leader, leaders) || "").toLowerCase();
+                        const al = ((m.leader.aliases as string[] | undefined) || [])
+                          .map((a) => (a || "").toLowerCase());
+                        return nm.includes(q) || al.some((a) => a.includes(q));
+                      })
+                    : masterRows;
+                  return visible.map((m) => {
                   const issuesInvoice = !!m.leader.issues_invoice;
                   // 부가세는 실지급액(net) 기준 10% — 정산서 저장본과 100% 동일
                   const vat = issuesInvoice ? Math.round(m.net * 0.1) : 0;
@@ -886,7 +896,8 @@ export default function LeaderSettlement() {
                       ))}
                     </tr>
                   );
-                })}
+                });
+                })()}
                 {masterRows.length === 0 && (
                   <tr className="border-b">
                     <td
