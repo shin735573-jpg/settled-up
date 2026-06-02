@@ -460,6 +460,9 @@ export function buildCompanyStatements(
     const vat = c.issues_invoice && !c.vat_included ? Math.round(finalClaim * 0.1) : 0;
     const claimWithVat = c.issues_invoice ? finalClaim + vat : 0;
 
+    // 표시 행은 항상 날짜 오름차순 (동일 날짜 내에서는 입력 순서 유지)
+    rows.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
     out.push({
       company: c,
       period,
