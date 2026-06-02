@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ExternalLink } from "lucide-react";
 import type { TotalCrossCheck, CategoryBreakdown } from "@/lib/totalFeeCrossCheck";
 
 /**
@@ -17,6 +19,7 @@ export function TotalFeeMismatchBanner({
   leaderLabel?: string;
 }) {
   const [active, setActive] = useState<CategoryBreakdown | null>(null);
+  const navigate = useNavigate();
   if (result.ok) return null;
 
   return (
@@ -71,6 +74,7 @@ export function TotalFeeMismatchBanner({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">편집</TableHead>
                   <TableHead>날짜</TableHead>
                   <TableHead>업체</TableHead>
                   <TableHead>고객</TableHead>
@@ -81,7 +85,24 @@ export function TotalFeeMismatchBanner({
               </TableHeader>
               <TableBody>
                 {active?.rows.map((r, i) => (
-                  <TableRow key={r.id ?? i}>
+                  <TableRow
+                    key={r.id ?? i}
+                    className={r.id ? "cursor-pointer hover:bg-muted/50" : ""}
+                    onClick={() => {
+                      if (!r.id) return;
+                      setActive(null);
+                      navigate(`/records?edit=${r.id}`);
+                    }}
+                  >
+                    <TableCell>
+                      {r.id ? (
+                        <span className="inline-flex items-center gap-1 text-primary underline">
+                          <ExternalLink className="h-3.5 w-3.5" /> 열기
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">id 없음</span>
+                      )}
+                    </TableCell>
                     <TableCell>{r.date ?? "-"}</TableCell>
                     <TableCell>{r.company_name ?? "-"}</TableCell>
                     <TableCell>{r.customer_name ?? "-"}</TableCell>
@@ -92,12 +113,15 @@ export function TotalFeeMismatchBanner({
                 ))}
                 {!active?.rows.length && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">행 없음</TableCell>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">행 없음</TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            행을 클릭하면 기록입력(/records) 화면이 해당 행을 자동으로 편집 모드로 열어줍니다.
+          </p>
         </DialogContent>
       </Dialog>
     </>
