@@ -30,7 +30,7 @@ import {
   verifyResultCsv,
   type VerifyResult,
 } from "@/lib/verifyChecks";
-import { getVerifyRange } from "@/lib/verifyRange";
+import { getVerifyRange, normalizeMonthInput } from "@/lib/verifyRange";
 import { getCurrentHalf } from "@/lib/autoPeriod";
 import { toast } from "@/hooks/use-toast";
 
@@ -43,7 +43,11 @@ export default function Verify() {
     const { month, half } = getCurrentHalf();
     return { month, period: half as PeriodKey };
   }, []);
-  const [month, setMonth] = useState<string>(initial.month);
+  const [month, setMonthRaw] = useState<string>(initial.month);
+  const setMonth = (v: string) => {
+    const n = normalizeMonthInput(v);
+    setMonthRaw(n ?? v);
+  };
   const [period, setPeriod] = useState<PeriodKey>(initial.period);
 
   const [companies, setCompanies] = useState<StmtCompany[]>([]);
