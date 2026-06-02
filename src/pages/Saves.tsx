@@ -449,8 +449,14 @@ export default function Saves() {
       : scope === "leader-all" || scope === "both-all" ? leaderStmts
       : [];
 
-    for (const data of targetsC) results.push(validateCompanyStatement(data));
+    // 저장 시 자동 제외되는 항목(청구 0원 업체 / 배송 0건 팀장)은 검증에서도 제외해
+    // 불필요한 경고가 표시되지 않도록 한다.
+    for (const data of targetsC) {
+      if (data.finalClaim <= 0) continue;
+      results.push(validateCompanyStatement(data));
+    }
     for (const data of targetsL) {
+      if (data.deliveryCount === 0) continue;
       results.push(
         validateLeaderStatement(data, { leaders, ...special, oeunkyuSpecial }),
       );

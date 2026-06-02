@@ -658,7 +658,7 @@ export function buildLeaderStatements(
       if (first.leader1_id && !virtualIds.has(first.leader1_id) && (baseNote !== 0 || baseCod !== 0)) {
         pushShare({
           leader_id: first.leader1_id,
-          weight: 0,
+          weight: 1,
           metro: 0,
           note_amount: baseNote,
           regional: 0,
@@ -688,7 +688,7 @@ export function buildLeaderStatements(
         // 2차 이후: 그 차수 방문 행에 본인 몫만 표기
         pushShare({
           leader_id: secLeader,
-          weight: 0,
+          weight: baseTotal > 0 ? capped / baseTotal : 1,
           metro: useMetro ? capped : 0,
           note_amount: 0,
           regional: useMetro ? 0 : capped,
@@ -698,17 +698,21 @@ export function buildLeaderStatements(
         }, sec);
       }
       const firstRemaining = Math.max(0, baseTotal - assignedToSecondary);
-      // 1차 팀장: 1차 방문 행에 잔여 + 비고/착불 표기
-      pushShare({
-        leader_id: first.leader1_id,
-        weight: 1,
-        metro: useMetro ? firstRemaining : 0,
-        note_amount: baseNote,
-        regional: useMetro ? 0 : firstRemaining,
-        cod: baseCod,
-        count: 1,
-        reason: assignedToSecondary > 0 ? "재방문 1차(2차분 차감)" : "재방문 1차 전액",
-      }, first);
+      // 1차 팀장: 1차 방문 행에 잔여 + 비고/착불 표기 (잔여가 0이고 비고/착불도 0이면 표시 생략)
+      const firstHasAmount = firstRemaining > 0 || baseNote !== 0 || baseCod !== 0;
+      if (firstHasAmount) {
+        const w1 = baseTotal > 0 ? firstRemaining / baseTotal : 0;
+        pushShare({
+          leader_id: first.leader1_id,
+          weight: w1 > 0 ? w1 : 1, // 비고/착불만 남는 경우에도 양수 weight 유지
+          metro: useMetro ? firstRemaining : 0,
+          note_amount: baseNote,
+          regional: useMetro ? 0 : firstRemaining,
+          cod: baseCod,
+          count: 1,
+          reason: assignedToSecondary > 0 ? "재방문 1차(2차분 차감)" : "재방문 1차 전액",
+        }, first);
+      }
     }
   }
 
