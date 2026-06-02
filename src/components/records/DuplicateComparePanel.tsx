@@ -245,9 +245,32 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
 
   // 합산 미리보기
   const autoSum = useMemo(() => {
-    if (!edited) return null;
-    return sumMergedAmounts([edited, ...mergeTargetRows]);
-  }, [edited, mergeTargetRows]);
+    if (!base) return null;
+    // 기준: 항상 원본 base + 통합 대상들의 합. edited는 이미 합산이 반영돼 있을 수 있어 사용 금지(이중합산 방지)
+    return sumMergedAmounts([base as Row, ...mergeTargetRows]);
+  }, [base, mergeTargetRows]);
+
+  // 통합 모드 + 자동합산(sum)일 때, 통합 대상이 바뀌면 edited의 금액을 항상 합산값으로 동기화
+  useEffect(() => {
+    if (!edited || !autoSum) return;
+    if (amountMode !== "sum") return;
+    if (mergeMode !== "two_person" && mergeMode !== "companion") return;
+    const same =
+      n(edited.metro_fee) === autoSum.metro_fee &&
+      n(edited.note_amount) === autoSum.note_amount &&
+      n(edited.regional_fee) === autoSum.regional_fee &&
+      n(edited.cod_amount) === autoSum.cod_amount;
+    if (same) return;
+    setEdited((e) => e ? {
+      ...e,
+      metro_fee: autoSum.metro_fee,
+      note_amount: autoSum.note_amount,
+      regional_fee: autoSum.regional_fee,
+      cod_amount: autoSum.cod_amount,
+    } : e);
+    setManualTotal(String(autoSum.total));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSum?.total, amountMode, mergeMode]);
 
   function toggleSuspect(id: string) {
     setSelectedSuspectIds((s) => {
@@ -280,18 +303,9 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     if (mode === "companion" || mode === "two_person") {
       // 기본은 자동 합산. 사용자가 청구금액을 바꾸고 싶을 때만 수동 선택.
       setAmountMode("sum");
-      setEdited((e) => {
-        if (!e) return e;
-        const sum = sumMergedAmounts([e, ...mergeTargetRows]);
-        return {
-          ...e,
-          metro_fee: sum.metro_fee,
-          note_amount: sum.note_amount,
-          regional_fee: sum.regional_fee,
-          cod_amount: sum.cod_amount,
-        };
-      });
-      setManualTotal(String(sumMergedAmounts([edited!, ...mergeTargetRows]).total || ""));
+      // 실제 금액 동기화는 위의 useEffect가 base + mergeTargetRows 합으로 처리
+      const sum = sumMergedAmounts([(base ?? edited) as Row, ...mergeTargetRows]);
+      setManualTotal(String(sum.total || ""));
       setAskAmount(null);
     } else {
       setAmountMode(undefined);
