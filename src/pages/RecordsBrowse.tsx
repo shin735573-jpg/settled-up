@@ -9,9 +9,13 @@ import { X, Search, Building2, Users, Maximize2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  computeRevisitRedistribution,
+  getRevisitFeeForLeader,
+} from "@/lib/revisitRedistribute";
 
 type Company = { id: string; name: string; active: boolean };
-type Leader = { id: string; name: string; active: boolean };
+type Leader = { id: string; name: string; active: boolean; is_virtual?: boolean };
 type Delivery = any;
 
 type Sel =
@@ -86,7 +90,7 @@ export default function RecordsBrowse() {
     (async () => {
       const [{ data: c }, { data: l }] = await Promise.all([
         supabase.from("companies").select("id,name,active").order("name"),
-        supabase.from("team_leaders").select("id,name,active").order("name"),
+        supabase.from("team_leaders").select("id,name,active,is_virtual").order("name"),
       ]);
       setCompanies(((c as Company[]) || []).filter((x) => x.active));
       setLeaders(((l as Leader[]) || []).filter((x) => x.active));
@@ -131,30 +135,42 @@ export default function RecordsBrowse() {
     let base = records;
     if (sel.kind === "company") {
       base = base.filter((r) => r.company_id === sel.id);
-    } else {
-      // 오은규 배송은 오동선으로 합산 정산되므로, 오동선 상세에 오은규 행도 포함해서 표시.
-      const odongseonId = leaders.find((l) => l.name.trim() === "오동선")?.id ?? null;
-      const oeunkyuId = leaders.find((l) => l.name.trim() === "오은규")?.id ?? null;
-      const includeOeunkyu = !!odongseonId && !!oeunkyuId && sel.id === odongseonId;
-      // 1차 통과: 본인이 직접 포함된 행
-      const directMatched = base.filter((r) => {
-        const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
-        if (ids.includes(sel.id)) return true;
-        if (includeOeunkyu && ids.includes(oeunkyuId)) return true;
-        return false;
-      });
-      // 2차 통과: 동일 재방문 그룹의 모든 차수(다른 팀장이 담당한 2차도 함께 표시)
-      const groupIds = new Set(
-        directMatched.map((r) => r.revisit_group_id).filter(Boolean) as string[],
-      );
-      base = base.filter((r) => {
-        const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
-        if (ids.includes(sel.id)) return true;
-        if (includeOeunkyu && ids.includes(oeunkyuId)) return true;
-        if (r.revisit_group_id && groupIds.has(r.revisit_group_id)) return true;
-        return false;
-      });
+      if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
+      return base;
     }
+    // 팀장 관점:
+    // - 재방문 1차 행 → 해당 팀장 몫(차감 후) 금액으로 표시
+    // - 재방문 2차 행 → 화면에서 숨김 (1차 행에 합산되어 표시)
+    // - 오은규 배송은 오동선으로 합산 정산되므로 오동선 상세에 함께 포함
+    const odongseonId = leaders.find((l) => l.name.trim() === "오동선")?.id ?? null;
+    const oeunkyuId = leaders.find((l) => l.name.trim() === "오은규")?.id ?? null;
+    const includeOeunkyu = !!odongseonId && !!oeunkyuId && sel.id === odongseonId;
+    const targetIds = new Set<string>([sel.id]);
+    if (includeOeunkyu && oeunkyuId) targetIds.add(oeunkyuId);
+    const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
+    const revisitOverride = computeRevisitRedistribution(records, virtualIds);
+
+    const out: Delivery[] = [];
+    for (const r of base) {
+      const ov = revisitOverride.get(r.id);
+      if (ov !== undefined) {
+        // 재방문 그룹 — override 기준
+        const fee = getRevisitFeeForLeader(r.id, revisitOverride, targetIds);
+        if (!fee) continue; // null → 이 팀장과 무관 또는 2차 행
+        out.push({
+          ...r,
+          metro_fee: fee.metro,
+          regional_fee: fee.regional,
+          note_amount: fee.note_amount,
+          cod_amount: fee.cod,
+        });
+        continue;
+      }
+      // 일반 행: leader1/2/3 중 하나에 본인(또는 오은규)이 포함되면 표시
+      const ids = [r.leader1_id, r.leader2_id, r.leader3_id];
+      if (ids.some((x) => x && targetIds.has(x))) out.push(r);
+    }
+    base = out;
     if (dailyFilter) base = base.filter((r) => r.date === dailyFilter);
     return base;
   };
