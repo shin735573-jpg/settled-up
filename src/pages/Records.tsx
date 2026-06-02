@@ -1316,13 +1316,10 @@ export default function Records() {
       company_name: company.name,
       leader1_id: form.leader1_id || null,
       leader1_name: leaderName(form.leader1_id),
-      // 가상기사가 지정된 2인배송은 팀장2 자리에 가상기사를 자동 입력
-      leader2_id: (form.two_person && form.virtual_leader_id && !form.leader2_id)
-        ? form.virtual_leader_id
-        : (form.leader2_id || null),
-      leader2_name: (form.two_person && form.virtual_leader_id && !form.leader2_id)
-        ? leaderName(form.virtual_leader_id)
-        : leaderName(form.leader2_id),
+      // 가상기사는 정산/집계에 포함되지 않으므로 팀장2 자리에 절대 채워 넣지 않음.
+      // virtual_leader_id 칼럼에만 보관 — 정산 분배에서 항상 제외됨.
+      leader2_id: form.leader2_id || null,
+      leader2_name: leaderName(form.leader2_id),
       leader3_id: form.leader3_id || null,
       leader3_name: leaderName(form.leader3_id),
       customer_name: form.customer_name || null,
@@ -1351,14 +1348,8 @@ export default function Records() {
       metroN + regionalN +
       (parseNum(form.note_amount) || 0) +
       (parseNum(form.cod_amount) || 0);
-    const effectiveLeader2Id =
-      (form.two_person && form.virtual_leader_id && !form.leader2_id)
-        ? form.virtual_leader_id
-        : form.leader2_id;
-    const l2Name = leaderName(effectiveLeader2Id);
-    const l2Display = l2Name
-      ? `${l2Name}${(form.two_person && form.virtual_leader_id && !form.leader2_id) ? " (가상)" : ""}`
-      : "-";
+    const l2Name = leaderName(form.leader2_id);
+    const l2Display = l2Name || (form.virtual_leader_id ? `${leaderName(form.virtual_leader_id) || "-"} (가상)` : "-");
     const summary = [
       { label: "구분", value: form.id ? "수정" : "신규 저장" },
       { label: "날짜", value: form.date },
@@ -1517,9 +1508,9 @@ export default function Records() {
         // 2차(재방문)는 팀장이 1차와 달라도 OK — 현재 입력일의 공유 팀장 값을 사용
         leader1_id: bulkShared.leader1_id || null,
       leader1_name: leaderName(bulkShared.leader1_id),
-      // 가상기사가 지정된 행(2인배송)은 팀장2 자리에 가상기사를 자동 입력
-      leader2_id: ((r.two_person && bulkShared.virtual_leader_id) ? bulkShared.virtual_leader_id : (bulkShared.leader2_id || null)),
-      leader2_name: leaderName((r.two_person && bulkShared.virtual_leader_id) ? bulkShared.virtual_leader_id : bulkShared.leader2_id),
+      // 가상기사는 정산/집계에서 항상 제외 — 팀장2 자리에 채우지 않음.
+      leader2_id: bulkShared.leader2_id || null,
+      leader2_name: leaderName(bulkShared.leader2_id),
       leader3_id: bulkShared.leader3_id || null,
       leader3_name: leaderName(bulkShared.leader3_id),
       virtual_leader_id: (r.virtual_leader_id || (r.two_person ? bulkShared.virtual_leader_id : "")) || null,
