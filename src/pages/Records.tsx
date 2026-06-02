@@ -1348,14 +1348,8 @@ export default function Records() {
       metroN + regionalN +
       (parseNum(form.note_amount) || 0) +
       (parseNum(form.cod_amount) || 0);
-    const effectiveLeader2Id =
-      (form.two_person && form.virtual_leader_id && !form.leader2_id)
-        ? form.virtual_leader_id
-        : form.leader2_id;
-    const l2Name = leaderName(effectiveLeader2Id);
-    const l2Display = l2Name
-      ? `${l2Name}${(form.two_person && form.virtual_leader_id && !form.leader2_id) ? " (가상)" : ""}`
-      : "-";
+    const l2Name = leaderName(form.leader2_id);
+    const l2Display = l2Name || (form.virtual_leader_id ? `${leaderName(form.virtual_leader_id) || "-"} (가상)` : "-");
     const summary = [
       { label: "구분", value: form.id ? "수정" : "신규 저장" },
       { label: "날짜", value: form.date },
