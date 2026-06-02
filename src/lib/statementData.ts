@@ -321,7 +321,12 @@ export function buildCompanyStatements(
     // 같이 끌어와 합산 청구한다.
     const virtualIds = new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id));
     const companyDeliveries = deliveries.filter(
-      (d) => (d.company_id === c.id || d.company_name === c.name) && !isVirtualSettlementRow(d, virtualIds),
+      (d) => {
+        if (d.company_id !== c.id && d.company_name !== c.name) return false;
+        // 2인배송 행은 가상기사(외부인)가 파트너로 들어있어도 실제 배송이므로 업체에 청구한다.
+        if (d.two_person) return true;
+        return !isVirtualSettlementRow(d, virtualIds);
+      },
     );
     const revisitEarliest = new Map<string, string>();
     for (const d of companyDeliveries) {
