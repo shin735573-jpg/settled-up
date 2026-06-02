@@ -18,6 +18,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { CompanyCombobox } from "@/components/CompanyCombobox";
 import { LeaderCombobox } from "@/components/LeaderCombobox";
 import { RevisitShareDialog, type RevisitFirstRow } from "@/components/RevisitShareDialog";
+import { RevisitGroupPanel } from "@/components/RevisitGroupPanel";
 import { AmountTextInput } from "@/components/AmountTextInput";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
