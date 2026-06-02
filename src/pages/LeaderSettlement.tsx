@@ -723,6 +723,7 @@ export default function LeaderSettlement() {
 
   return (
     <div className="space-y-4" ref={rootRef}>
+      {saveConfirmDialog}
       <div className="flex flex-wrap items-center gap-2">
         {leaderId && (
           <Button variant="outline" size="sm" onClick={() => setLeaderId("")}>
