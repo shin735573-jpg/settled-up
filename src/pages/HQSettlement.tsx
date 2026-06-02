@@ -178,6 +178,10 @@ export default function HQSettlement() {
   const periodRows = useMemo(() => rows.filter((r) => inPeriod(r.date, period)), [rows, period]);
 
   const byId = useMemo(() => new Map(leaders.map((l) => [l.id, l])), [leaders]);
+  const virtualIds = useMemo(
+    () => new Set(leaders.filter((l) => l.is_virtual).map((l) => l.id)),
+    [leaders],
+  );
   const findId = (names: string[]) => {
     for (const l of leaders) {
       const nm = (l.name || "").trim();
