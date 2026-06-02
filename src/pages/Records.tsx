@@ -1001,8 +1001,9 @@ export default function Records() {
   // 입력 중 동일 고객/지역 자동 감지 다이얼로그
   const [revisitDetectOpen, setRevisitDetectOpen] = useState(false);
   const [revisitDetectIdx, setRevisitDetectIdx] = useState<number | null>(null);
-  // 단일폼에서 자동 감지된 경우 true → 다이얼로그에서 "재방문으로" 선택 시 폼에 채워줌
-  const [revisitDetectForForm, setRevisitDetectForForm] = useState(false);
+  // 단일폼 인라인 드롭다운: 후보 + 표시여부
+  const [formRevisitCandidates, setFormRevisitCandidates] = useState<any[]>([]);
+  const [formRevisitOpen, setFormRevisitOpen] = useState(false);
   const [revisitDetectCandidates, setRevisitDetectCandidates] = useState<any[]>([]);
   const [revisitDetectLoading, setRevisitDetectLoading] = useState(false);
   // 재방문 팀장 분배 입력 다이얼로그
@@ -1836,7 +1837,7 @@ export default function Records() {
   // 감지된 후보 선택 → 항상 그룹의 최초 1차 배송을 가져와 잠금된 다음 차수 행을 자동 생성.
   const confirmDetectedRevisit = async (src: any) => {
     const idx = revisitDetectIdx;
-    const forForm = revisitDetectForForm;
+    const forForm = formRevisitOpen;
     if (idx == null && !forForm) return;
     let effectiveSrc = src;
     let nextVisitNo = 2;
@@ -1905,7 +1906,7 @@ export default function Records() {
     setRevisitDetectOpen(false);
     setRevisitDetectCandidates([]);
     setRevisitDetectIdx(null);
-    setRevisitDetectForForm(false);
+    setFormRevisitOpen(false);
   };
 
   // 단일폼 자동 매칭: 같은 키 반복 호출 방지용
@@ -1962,10 +1963,9 @@ export default function Records() {
       }
     }
     const candidates = [...byGroup.values(), ...singles].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    setRevisitDetectCandidates(candidates);
-    setRevisitDetectIdx(null);
-    setRevisitDetectForForm(true);
-    setRevisitDetectOpen(true);
+    // 단일폼: 인라인 드롭다운으로 표시 (다이얼로그 X)
+    setFormRevisitCandidates(candidates);
+    setFormRevisitOpen(true);
   };
 
   // 종합 오류 검사 실행
@@ -2811,7 +2811,7 @@ export default function Records() {
                 onBlur={() => verifyRevisitForForm({ silent: true })}
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
               <Label>배송지</Label>
               <Input
                 value={form.region}
@@ -2833,6 +2833,47 @@ export default function Records() {
               {form.region && isDongOnly(form.region.trim()) && classifyRegion(form.region.trim()) !== "metro" && (
                 <div className="text-[11px] text-amber-700">
                   '{form.region.trim()}'은(는) 동 이름만 입력되어 자동 분류가 어렵습니다. 수도권/지방을 선택하세요.
+                </div>
+              )}
+              {formRevisitOpen && formRevisitCandidates.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-popover text-popover-foreground border rounded-md shadow-lg max-h-80 overflow-auto">
+                  <div className="px-3 py-2 text-[11px] text-muted-foreground border-b flex items-center justify-between bg-muted/40">
+                    <span>매칭된 과거 배송 {formRevisitCandidates.length}건 — 선택 시 다음 차수로 자동 채움</span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => { setFormRevisitOpen(false); setFormRevisitCandidates([]); }}
+                    >
+                      닫기
+                    </button>
+                  </div>
+                  <ul className="divide-y">
+                    {formRevisitCandidates.map((r) => {
+                      const amt =
+                        Number(r.metro_fee || 0) + Number(r.regional_fee || 0) +
+                        Number(r.note_amount || 0) + Number(r.cod_amount || 0);
+                      const leaders = [r.leader1_name, r.leader2_name, r.leader3_name].filter(Boolean).join("·");
+                      const visitTag = r.revisit_group_id ? `${r.revisit_visit_no || 1}차` : "단건";
+                      return (
+                        <li key={r.id}>
+                          <button
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-accent text-xs grid grid-cols-[80px_1fr_auto] gap-2 items-center"
+                            onMouseDown={(e) => { e.preventDefault(); confirmDetectedRevisit(r); }}
+                          >
+                            <span className="text-muted-foreground tabular-nums">{r.date}</span>
+                            <span className="truncate">
+                              <span className="font-medium">{r.company_name}</span>
+                              {r.customer_name ? ` · ${r.customer_name}` : ""}
+                              {r.region ? ` · ${r.region}` : ""}
+                              {leaders ? ` · ${leaders}` : ""}
+                            </span>
+                            <span className="tabular-nums text-muted-foreground">{visitTag} · {fmt(amt)}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               )}
             </div>
@@ -3457,7 +3498,7 @@ export default function Records() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setRevisitDetectForForm(false); } }}>
+      <Dialog open={revisitDetectOpen} onOpenChange={(v) => { setRevisitDetectOpen(v); if (!v) { setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setFormRevisitOpen(false); } }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>재방문 여부 확인</DialogTitle>
@@ -3511,7 +3552,7 @@ export default function Records() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setRevisitDetectForForm(false); }}>
+            <Button variant="outline" onClick={() => { setRevisitDetectOpen(false); setRevisitDetectCandidates([]); setRevisitDetectIdx(null); setFormRevisitOpen(false); }}>
               재방문 아님 (새 배송으로 입력)
             </Button>
           </DialogFooter>
