@@ -30,6 +30,9 @@ export type VerifyResult = {
   leaderShareTotal: number;
   companyClaimTotal: number;
   leaderPayoutTotal: number;
+  companyDeliveryTotal: number;
+  leaderDeliveryTotal: number;
+  totalsDiff: number;
   hiddenRevisitCount: number;
   commonDeductionTotal: number;
   personalDeductionTotal: number;
@@ -79,6 +82,23 @@ export function runVerify(input: VerifyInput): VerifyResult {
       + Number(d.regional_fee || 0)
       + Number(d.note_amount || 0);
   }, 0);
+  // 검산용 업체 배송총합 = 모든 deliveries(재방문 2차+ 포함)의 배송비 원금 합계
+  // 팀장 배송총합과 동일한 대상 배송건을 기준으로 한다. 착불/수수료/공제/VAT는 제외.
+  const companyDeliveryTotal = deliveries.reduce(
+    (s, d) =>
+      s
+      + Number(d.metro_fee || 0)
+      + Number(d.regional_fee || 0)
+      + Number(d.note_amount || 0),
+    0,
+  );
+  // 팀장 배송총합 = 각 팀장 정산행의 배송비 원금(metro+regional+note) 합계
+  const leaderDeliveryTotal = leaderStmts.reduce(
+    (s, l) =>
+      s + Number(l.metroSum || 0) + Number(l.regionalSum || 0) + Number(l.noteSum || 0),
+    0,
+  );
+  const totalsDiff = companyDeliveryTotal - leaderDeliveryTotal;
   const companyClaimTotal = companyStmts.reduce((s, c) => s + (c.finalClaim || 0), 0);
   const leaderShareTotal = leaderStmts.reduce((s, l) => s + (l.payout || 0), 0);
   const leaderPayoutTotal = leaderStmts.reduce((s, l) => s + (l.payoutWithVat || l.payout || 0), 0);
@@ -92,6 +112,15 @@ export function runVerify(input: VerifyInput): VerifyResult {
   );
 
   const issues: VerifyIssue[] = [];
+
+  // 업체 배송총합 vs 팀장 배송총합 (반올림 1원 이내 허용)
+  if (Math.abs(totalsDiff) > 1) {
+    issues.push({
+      severity: "error",
+      code: "TOTALS_MISMATCH",
+      message: `업체 배송총합(${companyDeliveryTotal}) ≠ 팀장 배송총합(${leaderDeliveryTotal}), 차이 ${totalsDiff}`,
+    });
+  }
 
   // 누락 / 0원 / 중복
   const dupMap = new Map<string, StmtDelivery[]>();
@@ -171,6 +200,9 @@ export function runVerify(input: VerifyInput): VerifyResult {
     leaderShareTotal,
     companyClaimTotal,
     leaderPayoutTotal,
+    companyDeliveryTotal,
+    leaderDeliveryTotal,
+    totalsDiff,
     hiddenRevisitCount,
     commonDeductionTotal,
     personalDeductionTotal,
@@ -263,6 +295,9 @@ export function verifyResultCsv(result: VerifyResult): string {
   rows.push(["[요약]"]);
   rows.push(["항목", "값"]);
   rows.push(["배송건수", result.deliveryCount]);
+  rows.push(["업체 배송총합", result.companyDeliveryTotal]);
+  rows.push(["팀장 배송총합", result.leaderDeliveryTotal]);
+  rows.push(["총합 차이", result.totalsDiff]);
   rows.push(["업체 표시 합계", result.companyDisplayTotal]);
   rows.push(["업체 청구 합계(VAT포함)", result.companyClaimTotal]);
   rows.push(["팀장 배분 합계", result.leaderShareTotal]);
