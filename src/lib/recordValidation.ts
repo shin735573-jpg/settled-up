@@ -131,6 +131,9 @@ export function validateRow(
 
   // 5. 팀장 등록 검사 (팀장2 빈칸은 오류 아님)
   const leaderById = new Map(ctx.leaders.map((l) => [l.id, l] as const));
+  const virtualIds = new Set(
+    ctx.leaders.filter((l) => (l as { is_virtual?: boolean }).is_virtual).map((l) => l.id),
+  );
   const leaderByName = new Map(ctx.leaders.map((l) => [l.name.trim(), l] as const));
   const checkLeader = (idVal: string | null, nameVal: string | null, label: string) => {
     if (!idVal && !nameVal) return null;
