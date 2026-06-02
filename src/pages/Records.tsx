@@ -3674,7 +3674,6 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
     const toSave = visible.map(({ row }) => row).filter((r) => skipErrors ? !r.errors.length : true);
     if (!skipErrors && errorCount > 0) { toast.error("오류가 있어 저장 불가. 정상 행만 저장 옵션을 사용하세요."); return; }
     if (toSave.length === 0) { toast.error("저장할 행이 없습니다"); return; }
-    setSaving(true);
     const rows = toSave.map((r) => ({
       user_id: userId,
       date: r.date!,
@@ -3692,6 +3691,18 @@ function PasteDialog({ open, onClose, companies, leaders, holidays, userId, defa
       split_type: r.split || null, paid: r.paid,
       two_person: r.twoPerson,
     }));
+    const totalAmt = rows.reduce((s, r: any) => s + Number(r.metro_fee||0)+Number(r.regional_fee||0)+Number(r.note_amount||0)+Number(r.cod_amount||0), 0);
+    const companyNames = Array.from(new Set(rows.map((r: any) => r.company_name).filter(Boolean)));
+    const companyLabel = companyNames.length <= 1 ? (companyNames[0] || "-") : `${companyNames[0]} 외 ${companyNames.length - 1}곳`;
+    const summary = [
+      { label: "저장 건수", value: `${rows.length}건` },
+      ...(errorCount > 0 ? [{ label: "오류 제외", value: `${errorCount}건 제외됨` }] : []),
+      { label: "업체", value: companyLabel },
+      { label: "총액", value: `${fmt(totalAmt)}원` },
+    ];
+    const ok = await confirmSave({ title: "붙여넣기 저장 확인", summary });
+    if (!ok) return;
+    setSaving(true);
     const { error } = await supabase.from("deliveries").insert(rows);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
