@@ -1424,13 +1424,15 @@ export default function Records() {
       { label: "총액", value: `${fmt(totalAmt)}원` },
       ...(form.revisit_required ? [{ label: "재방문", value: form.revisit_group_id ? "기존 그룹" : "1차+2차 동시 생성" }] : []),
     ];
-    // 규칙: 재방문 그룹의 2차+ 행은 금액이 0이어야 함 (1차 행에서만 청구).
-    if (form.revisit_group_id && Number(form.revisit_visit_no || 1) > 1 && totalAmt > 0) {
-      toast.warning(
-        `재방문 규칙 경고: ${form.revisit_visit_no || 2}차 행에 입력된 금액(${fmt(totalAmt)}원)은 정산/청구에 반영되지 않습니다. 분배는 1차 행의 "분배 입력"으로 처리하세요.`,
-        { duration: 8000 },
-      );
-      summary.push({ label: "재방문 경고", value: `${form.revisit_visit_no || 2}차 금액 무시됨` });
+    // 규칙(재방문):
+    //  - 업체 청구는 1차 행 금액만 사용(2차 이후는 업체 청구에서 제외).
+    //  - 1차 행의 업체 청구 금액/업체/고객/지역/품목은 절대 수정되지 않음.
+    //  - 2차 행에 입력한 금액은 팀장 정산 분배에만 반영(1차 팀장 정산금에서 차감, 2차 팀장에게 지급).
+    if (form.revisit_group_id && Number(form.revisit_visit_no || 1) > 1) {
+      summary.push({
+        label: "재방문 규칙",
+        value: "업체 청구는 1차만, 2차 금액은 팀장 정산 분배에만 반영",
+      });
     }
     const ok = await confirmSave({
       title: form.id ? "수정 확인" : "저장 확인",
