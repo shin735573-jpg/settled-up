@@ -955,6 +955,9 @@ export default function Saves() {
         </div>
       </Card>
 
+      {highlightRowId && (
+        <style>{`[data-row-id="${highlightRowId}"] { outline: 3px solid hsl(var(--destructive)); outline-offset: -1px; background-color: hsl(var(--destructive) / 0.18) !important; animation: rowFlash 0.6s ease-in-out 0s 3; } @keyframes rowFlash { 0%,100% { background-color: hsl(var(--destructive) / 0.18); } 50% { background-color: hsl(var(--destructive) / 0.35); } }`}</style>
+      )}
       <Tabs value={tab} onValueChange={(v) => setTab(v as "company" | "leader")} className="space-y-3">
         <TabsList>
           <TabsTrigger value="company">업체 정산서 ({companyStmts.length})</TabsTrigger>
