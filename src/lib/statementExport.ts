@@ -246,7 +246,7 @@ export async function printTargets(
   root.innerHTML = "";
 
   // 자식 창의 URL 객체를 사용해 blob URL 을 만들어야 일부 브라우저에서 안전하게 렌더된다.
-  const childURL: typeof URL = win.URL || URL;
+  const childURL: typeof URL = (win as unknown as { URL?: typeof URL }).URL ?? URL;
 
   let pageCount = 0;
   let i = 0;
