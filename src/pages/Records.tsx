@@ -2916,6 +2916,13 @@ export default function Records() {
               삭제
             </Button>
           </div>
+          {form.revisit_group_id && (
+            <RevisitGroupPanel
+              groupId={form.revisit_group_id}
+              currentRowId={form.id}
+              onSaved={load}
+            />
+          )}
         </Card>
       </TabsContent>
 
