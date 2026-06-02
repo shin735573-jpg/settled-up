@@ -2783,11 +2783,86 @@ export default function Records() {
             <h2 className="text-lg font-semibold flex items-center gap-2">
               {form.id ? "배송 수정" : (form.is_missing ? "누락분 추가" : "새 배송 입력")}
               {form.is_missing && <Badge className="bg-orange-500 hover:bg-orange-600">누락분</Badge>}
+              {formFirstRow && Number(form.revisit_visit_no || 1) > 1 && (
+                <Badge variant="secondary">재방문 {form.revisit_visit_no}차</Badge>
+              )}
             </h2>
             <Button variant="ghost" size="sm" onClick={() => { setForm(emptyForm()); }}>
               <X className="h-4 w-4 mr-1" />초기화
             </Button>
           </div>
+
+          {formFirstRow && Number(form.revisit_visit_no || 1) > 1 && (() => {
+            const baseTotal =
+              formFirstRow.metro_fee + formFirstRow.note_amount + formFirstRow.regional_fee;
+            const secAmt =
+              (parseNum(form.metro_fee) || 0) +
+              (parseNum(form.regional_fee) || 0) +
+              (parseNum(form.note_amount) || 0);
+            const remaining = baseTotal - secAmt;
+            const over = secAmt > baseTotal;
+            const firstLeader = formFirstRow.leader1_name || "(1차 팀장 없음)";
+            return (
+              <div className="rounded-md border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-primary">
+                    1차 배송 정보 (수정 불가 · 업체 청구는 1차 금액으로 고정)
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {formFirstRow.date}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">업체</div>
+                    <div className="font-medium truncate">{formFirstRow.company_name || "-"}</div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">고객 / 배송지</div>
+                    <div className="font-medium truncate">
+                      {formFirstRow.customer_name || "-"} · {formFirstRow.region || "-"}
+                    </div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">1차 팀장</div>
+                    <div className="font-medium truncate">
+                      {[formFirstRow.leader1_name, formFirstRow.leader2_name, formFirstRow.leader3_name].filter(Boolean).join(" · ") || "-"}
+                    </div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">품목</div>
+                    <div className="font-medium truncate" title={formFirstRow.item || ""}>{formFirstRow.item || "-"}</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">수도권</div>
+                    <div className="font-semibold tabular-nums">{formFirstRow.metro_fee.toLocaleString()}원</div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">지방</div>
+                    <div className="font-semibold tabular-nums">{formFirstRow.regional_fee.toLocaleString()}원</div>
+                  </div>
+                  <div className="rounded border bg-background px-2 py-1.5">
+                    <div className="text-muted-foreground">비고</div>
+                    <div className="font-semibold tabular-nums">{formFirstRow.note_amount.toLocaleString()}원</div>
+                  </div>
+                  <div className="rounded border bg-primary/10 px-2 py-1.5">
+                    <div className="text-muted-foreground">1차 청구 합계</div>
+                    <div className="font-bold tabular-nums text-primary">{baseTotal.toLocaleString()}원</div>
+                  </div>
+                </div>
+                <div className={`text-xs rounded-md px-3 py-2 border ${over ? "bg-destructive/10 border-destructive/40 text-destructive" : "bg-muted/40 border-muted-foreground/20"}`}>
+                  ※ 이 2차 입력 금액(<span className="font-semibold tabular-nums">{secAmt.toLocaleString()}원</span>)은
+                  <b> 1차 팀장 "{firstLeader}"</b> 정산금에서 자동 차감되어 2차 팀장에게 지급됩니다.
+                  업체 청구액은 1차 금액 {baseTotal.toLocaleString()}원으로 고정.
+                  {over
+                    ? ` ⚠ 1차 청구금액 초과 (${Math.abs(remaining).toLocaleString()}원 초과) — 금액을 줄여주세요.`
+                    : ` 남은 한도: ${Math.max(0, remaining).toLocaleString()}원.`}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className={`form-cells ${form.id ? "is-edit" : "is-new"} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3`}>
             <div className="space-y-1">
