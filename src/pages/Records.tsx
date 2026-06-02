@@ -915,6 +915,7 @@ export default function Records() {
     cod_amount: string;
     alba_deduction: string;
     two_person: boolean;
+    virtual_leader_id: string;
     paid: boolean;
     revisit_required: boolean;
     revisit_done: boolean;
@@ -948,6 +949,7 @@ export default function Records() {
     cod_amount: "",
     alba_deduction: "",
     two_person: false,
+    virtual_leader_id: "",
     paid: false,
     revisit_required: false,
     revisit_done: false,
@@ -1429,8 +1431,8 @@ export default function Records() {
       leader2_name: leaderName(bulkShared.leader2_id),
       leader3_id: bulkShared.leader3_id || null,
       leader3_name: leaderName(bulkShared.leader3_id),
-      virtual_leader_id: (bulkShared as any).virtual_leader_id || null,
-      virtual_leader_name: leaderName((bulkShared as any).virtual_leader_id || ""),
+      virtual_leader_id: r.virtual_leader_id || null,
+      virtual_leader_name: leaderName(r.virtual_leader_id || ""),
       customer_name: lockedExisting ? (source?.customer_name || r.customer_name.trim() || null) : (r.customer_name.trim() || null),
       region: lockedExisting ? (source?.region || r.region.trim() || null) : (r.region.trim() || null),
       region_type: lockedExisting ? ((source?.region_type || r.region_type) === "unknown" ? null : (source?.region_type || r.region_type)) : (r.region_type === "unknown" ? null : r.region_type),
@@ -1631,6 +1633,7 @@ export default function Records() {
       cod_amount: src.cod_amount ? String(src.cod_amount) : "",
       alba_deduction: "",
       two_person: !!src.two_person,
+      virtual_leader_id: "",
       paid: !!src.paid,
       revisit_required: true,
       revisit_done: false,
@@ -1978,17 +1981,6 @@ export default function Records() {
                     }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
-                  {i === 1 && (
-                    <div className="mt-1 space-y-0.5">
-                      <Label className="text-[11px] text-muted-foreground">가상기사 (정산 제외 · 업체 미표시)</Label>
-                      <LeaderCombobox
-                        leaders={selectableLeaders}
-                        value={(bulkShared as any).virtual_leader_id || ""}
-                        onChange={(v) => setBulkShared({ ...bulkShared, virtual_leader_id: v } as any)}
-                        placeholder="(선택)"
-                      />
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -2030,6 +2022,7 @@ export default function Records() {
                   <th className="p-2 min-w-[140px]">배송지</th>
                   <th className="p-2 min-w-[180px]">품목</th>
                   <th className="p-2 min-w-[100px]">2인배송</th>
+                  <th className="p-2 min-w-[110px]">가상기사</th>
                   <th className="p-2 min-w-[120px]">비고</th>
                   <th className="p-2 min-w-[120px]">배송비</th>
                   <th className="p-2 min-w-[100px]">비고금액</th>
@@ -2184,6 +2177,14 @@ export default function Records() {
                         >
                           {r.two_person ? "2인배송" : "—"}
                         </button>
+                      </td>
+                      <td className="p-1">
+                        <LeaderCombobox
+                          leaders={selectableLeaders}
+                          value={r.virtual_leader_id || ""}
+                          onChange={(v) => { if (!isFollowup) upd({ virtual_leader_id: v }); }}
+                          placeholder="가상기사 (정산X)"
+                        />
                       </td>
                        <td className="p-1"><Input className="h-8" value={r.note} onChange={(e) => upd({ note: e.target.value })} disabled={isFollowup} /></td>
                       <td className="p-1">
@@ -2396,7 +2397,7 @@ export default function Records() {
               </tbody>
               <tfoot className="bg-muted/50 font-semibold">
                 <tr className="border-t">
-                  <td className="p-2 text-right" colSpan={7}>합계</td>
+                  <td className="p-2 text-right" colSpan={8}>합계</td>
                   <td className="p-2 text-right">
                     {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.metro_fee) || 0) + (parseNum(r.regional_fee) || 0), 0))}
                   </td>
