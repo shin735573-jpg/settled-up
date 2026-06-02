@@ -341,17 +341,18 @@ export default function RecordsBrowse() {
                 <span>{title}</span>
                 <Badge variant="secondary" className="h-5 px-1.5 text-[11px]">{group.length}</Badge>
               </div>
-              <div className={cn("grid gap-3", gridColsByCount(group.length))}>
+              <div className={cn("grid gap-4", gridColsByCount(group.length))}>
                 {group.map(({ sel, idx }) => (
-                  <PanelCard
-                    key={`${idx}-${sel.kind}-${sel.id}`}
-                    index={idx}
-                    sel={sel}
-                    records={recordsFor(sel)}
-                    loading={loading}
-                    onClose={() => setSlot(idx, null)}
-                    onDetail={() => setDetail(sel)}
-                  />
+                  <div key={`${idx}-${sel.kind}-${sel.id}`} className="min-w-0 w-full">
+                    <PanelCard
+                      index={idx}
+                      sel={sel}
+                      records={recordsFor(sel)}
+                      loading={loading}
+                      onClose={() => setSlot(idx, null)}
+                      onDetail={() => setDetail(sel)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
