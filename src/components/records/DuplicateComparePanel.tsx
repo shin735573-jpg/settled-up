@@ -284,6 +284,27 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
       toast.error("저장 전 오류를 먼저 해결해주세요.");
       return;
     }
+    // 최종 유효성 재확인 (자동 반영 후에도 누락된 부분이 없는지)
+    const finalErrors = validateMergePlan(plan);
+    const finalBlocking = finalErrors.filter((e) => e.level === "error");
+    if (finalBlocking.length > 0) {
+      toast.error(`저장 불가: ${finalBlocking[0].message}`);
+      return;
+    }
+    if (mergeMode === "two_person") {
+      if (!edited.two_person) {
+        toast.error("2인배송 통합인데 '2인배송 여부'가 꺼져 있습니다.");
+        return;
+      }
+      if (!nrm(edited.leader2_id)) {
+        toast.error("2인배송 통합인데 팀장2가 비어 있습니다. 의심행을 선택하거나 팀장2를 직접 지정하세요.");
+        return;
+      }
+    }
+    if (mergeMode === "companion" && !edited.companion) {
+      toast.error("동행 통합인데 '동행여부'가 꺼져 있습니다.");
+      return;
+    }
     setSaving(true);
     try {
       const update = {
