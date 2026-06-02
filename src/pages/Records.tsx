@@ -1452,9 +1452,18 @@ export default function Records() {
       // 완료 클릭 없이 "예정"만 체크된 경우 → 동일 내용 2차 행 자동 생성
       if (r.revisit_required) {
         const groupId = makeUuid();
+        // 2차 행은 실제 재방문 시 금액/팀장을 다시 입력하므로 금액은 0으로 초기화.
+        // (업체 청구는 1차만 표시되고, 팀장 정산 중복을 방지)
+        const second = {
+          ...base,
+          metro_fee: 0,
+          note_amount: 0,
+          regional_fee: 0,
+          cod_amount: 0,
+        };
         return [
           { ...base, revisit_group_id: groupId, revisit_visit_no: 1, revisit_required: true, revisit_done: false },
-          { ...base, revisit_group_id: groupId, revisit_visit_no: 2, revisit_required: true, revisit_done: false },
+          { ...second, revisit_group_id: groupId, revisit_visit_no: 2, revisit_required: true, revisit_done: false },
         ];
       }
       return [base];
