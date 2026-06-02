@@ -523,6 +523,15 @@ export default function CompanySettlement() {
         defaultOpen={!audit.ok}
       />
 
+      {!totalFeeCheck.ok && (
+        <div className="rounded border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <strong>총배송비 검증 실패 — </strong>
+          업체정산 통합식 {totalFeeCheck.unified.toLocaleString()}원 vs
+          팀장정산식 {totalFeeCheck.leaderStyle.toLocaleString()}원
+          (차이 {totalFeeCheck.diff.toLocaleString()}원). 두 화면의 총배송비가 일치하지 않습니다.
+        </div>
+      )}
+
       {!companyId && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <SummaryCard
