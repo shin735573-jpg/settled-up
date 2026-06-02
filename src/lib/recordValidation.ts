@@ -113,6 +113,20 @@ export function validateRow(
   const sum = nums["metro_fee"] + nums["note_amount"] + nums["regional_fee"];
   if (sum < 0) push("error", "amount.total.negative", `배송비총액 음수: ${sum}`, "배송비총액");
 
+  // 3-2. 금액 검수 — 추가 경고 (사용자 요청 #2)
+  const codN = nums["cod_amount"];
+  if (sum <= 0 && codN <= 0) {
+    push("warning", "amount.zero.all", "배송비와 착불이 모두 0원", "배송비총액");
+  } else if (sum <= 0 && codN > 0) {
+    push("warning", "amount.cod.only", "배송비 없이 착불만 입력", "착불");
+  }
+  if (sum > 0 && codN > sum) {
+    push("warning", "amount.cod.gt_fee", `착불(${codN})이 배송비합계(${sum})보다 큼`, "착불");
+  }
+  if (r.paid === true && codN > 0) {
+    push("warning", "amount.paid.cod", `결제완료인데 착불 ${codN}원 남아 있음`, "결제유무");
+  }
+
   // 3-1. 행사철수 등 특수일: 수도권/지방 배송비는 업체 청구에서 무시됨
   if (isSpecialOneTimeItem(r.item) && (nums["metro_fee"] > 0 || nums["regional_fee"] > 0)) {
     push(
