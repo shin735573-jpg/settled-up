@@ -790,12 +790,19 @@ function DetailView({ sel, records, loading, onEdit }: { sel: Sel; records: Deli
                     </div>
                   </td>
                   <td className="p-2 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1">
-                      {sel.kind === "company"
-                        ? <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
-                        : <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>}
-                      {sel.kind === "company" ? (leadersTxt || "-") : (r.company_name || "-")}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="inline-flex items-center gap-1">
+                        {sel.kind === "company"
+                          ? <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
+                          : <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>}
+                        {sel.kind === "company" ? (leadersTxt || "-") : (r.company_name || "-")}
+                      </span>
+                      {sel.kind === "leader" && r.virtual_leader_name && (
+                        <span className="text-[10px] text-amber-700 font-medium mt-0.5">
+                          가상기사: {r.virtual_leader_name}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
                   <td className="p-2 whitespace-nowrap max-w-[180px] truncate" title={r.region || ""}>{r.region || "-"}</td>
