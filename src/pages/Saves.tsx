@@ -200,6 +200,13 @@ export default function Saves() {
   const selectedCompany = companyStmts.find((s) => s.company.id === selectedCompanyId);
   const selectedLeader = leaderStmts.find((s) => s.leader.id === selectedLeaderId);
 
+  // 가상기사 id → 이름 매핑 — LeaderPreview 에서 동행팀장 표시 시 "가상" 뱃지를 붙이기 위해 사용.
+  const virtualLeaderMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of leaders) if (l.is_virtual) m.set(l.id, l.name);
+    return m;
+  }, [leaders]);
+
   const filteredCompanyStmts = useMemo(() => {
     const q = normSearch(companyQuery);
     if (!q) return companyStmts;
@@ -1041,7 +1048,7 @@ export default function Saves() {
 
             <Card className="p-4">
               {selectedLeader ? (
-                <LeaderPreview data={selectedLeader} />
+                <LeaderPreview data={selectedLeader} virtualLeaderMap={virtualLeaderMap} />
               ) : (
                 <div className="py-16 text-center text-sm text-muted-foreground">
                   팀장을 선택하세요.
@@ -1109,6 +1116,7 @@ export default function Saves() {
                 rowsSlice={slice}
                 pageIndex={idx + 1}
                 totalPages={pages.length}
+                virtualLeaderMap={virtualLeaderMap}
               />
             </div>
           ));
@@ -1525,11 +1533,13 @@ function LeaderPreview({
   rowsSlice,
   pageIndex,
   totalPages,
+  virtualLeaderMap,
 }: {
   data: ReturnType<typeof buildLeaderStatements>[number];
   rowsSlice?: { start: number; end: number };
   pageIndex?: number;
   totalPages?: number;
+  virtualLeaderMap?: Map<string, string>;
 }) {
   const l = data.leader;
   const rows = rowsSlice ? data.rows.slice(rowsSlice.start, rowsSlice.end) : data.rows;
@@ -1616,18 +1626,47 @@ function LeaderPreview({
           <tbody>
             {rows.map((r, i) => {
               const d = r.delivery;
-              const realPartners = [d.leader1_name, d.leader2_name, d.leader3_name]
-                .filter((n): n is string => !!n && n.trim() !== "" && n !== l.name);
-              const virtualName = (d as { virtual_leader_name?: string | null }).virtual_leader_name;
-              const partnerNodes: React.ReactNode[] = realPartners.map((n) => <span key={"r-"+n}>{n}</span>);
-              if (virtualName && virtualName.trim()) {
+              // 동행팀장: 실제 + 가상기사 모두 표시. 가상기사는 노란 "가상" 뱃지로 구분.
+              // 가상기사 정보는 두 가지 경로로 들어올 수 있다:
+              //   1) leader1_id/leader2_id/leader3_id 가 is_virtual 인 팀장을 가리키는 경우
+              //   2) virtual_leader_id / virtual_leader_name 필드에 별도 저장된 경우
+              // 두 경로 모두를 합쳐서 표시하고 중복(이름 동일)은 제거한다.
+              const partnerNodes: React.ReactNode[] = [];
+              const seenNames = new Set<string>();
+              const addPartner = (name: string | null | undefined, isVirtual: boolean) => {
+                const t = String(name ?? "").trim();
+                if (!t || t === l.name) return;
+                const key = `${t}|${isVirtual ? "v" : "r"}`;
+                if (seenNames.has(key)) return;
+                seenNames.add(key);
                 partnerNodes.push(
-                  <span key="virtual" className="inline-flex items-center gap-1">
-                    {virtualName.trim()}
-                    <span className="inline-flex items-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-400">가상</span>
-                  </span>,
+                  isVirtual ? (
+                    <span key={`v-${t}-${partnerNodes.length}`} className="inline-flex items-center gap-1">
+                      {t}
+                      <span className="inline-flex items-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-400">가상</span>
+                    </span>
+                  ) : (
+                    <span key={`r-${t}-${partnerNodes.length}`}>{t}</span>
+                  ),
                 );
+              };
+              const slots: Array<[string | null, string | null]> = [
+                [d.leader1_id, d.leader1_name],
+                [d.leader2_id, d.leader2_name],
+                [d.leader3_id, d.leader3_name],
+              ];
+              for (const [id, name] of slots) {
+                if (!name || !name.trim()) continue;
+                const isVirtual = !!(id && virtualLeaderMap?.has(id));
+                // 가상기사 슬롯이면 매핑된 이름 우선, 없으면 저장된 이름 사용
+                const resolved = isVirtual ? (virtualLeaderMap?.get(id!) ?? name) : name;
+                addPartner(resolved, isVirtual);
               }
+              // virtual_leader_id / virtual_leader_name 필드(별도 저장 경로)
+              const vId = (d as { virtual_leader_id?: string | null }).virtual_leader_id;
+              const vName = (d as { virtual_leader_name?: string | null }).virtual_leader_name;
+              const vResolved = (vId && virtualLeaderMap?.get(vId)) || vName || "";
+              if (vResolved.trim()) addPartner(vResolved, true);
               return (
               <tr key={r.delivery.id + "-" + i} className={"border-t border-border/40 " + (i % 2 === 1 ? "bg-muted/20" : "")}>
                 <td className="px-2 py-1.5 text-center align-middle truncate tabular-nums">{r.delivery.date.slice(5)}</td>
