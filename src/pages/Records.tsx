@@ -1805,6 +1805,28 @@ export default function Records() {
                   );
                 })}
               </tbody>
+              <tfoot className="bg-muted/50 font-semibold">
+                <tr className="border-t">
+                  <td className="p-2 text-right" colSpan={7}>합계</td>
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.metro_fee) || 0) + (parseNum(r.regional_fee) || 0), 0))}
+                  </td>
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.note_amount) || 0), 0))}
+                  </td>
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce((s, r) => s + (parseNum(r.cod_amount) || 0), 0))}
+                  </td>
+                  <td colSpan={4} />
+                  <td className="p-2 text-right">
+                    {fmt(bulkRows.reduce(
+                      (s, r) => s + (parseNum(r.metro_fee) || 0) + (parseNum(r.note_amount) || 0) + (parseNum(r.regional_fee) || 0) + (parseNum(r.cod_amount) || 0),
+                      0,
+                    ))}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
             </table>
           </div>
 
