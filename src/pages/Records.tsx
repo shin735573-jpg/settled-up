@@ -1305,6 +1305,32 @@ export default function Records() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // URL ?edit={id} 로 진입한 경우 해당 행을 자동으로 폼에 로드
+  const editParam = searchParams.get("edit");
+  useEffect(() => {
+    if (!editParam) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("deliveries")
+        .select("*")
+        .eq("id", editParam)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        toast.error("해당 배송내역을 찾을 수 없습니다");
+      } else {
+        editRow(data as Delivery);
+        toast.success("배송내역을 편집 모드로 불러왔습니다");
+      }
+      const next = new URLSearchParams(searchParams);
+      next.delete("edit");
+      setSearchParams(next, { replace: true });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParam]);
+
   const saveForm = async () => {
     if (!user) return;
     if (!form.date) { toast.error("날짜를 입력하세요"); return; }
