@@ -3163,17 +3163,18 @@ export default function Records() {
       <Dialog open={revisitPickerOpen} onOpenChange={setRevisitPickerOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>재방문 완료 등록 — 저장된 1차 배송 선택</DialogTitle>
+            <DialogTitle>재방문 완료 등록 — 후속 차수를 만들 배송 선택</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <div className="text-xs text-muted-foreground">
-              "재방문요청"으로 저장됐지만 아직 2차 입력이 없는 1차 배송 목록입니다. 한 건을 선택하면 같은 내용이 잠금된 2차 행으로 추가됩니다 (금액만 수정 가능).
+              "재방문요청"이 켜진 그룹 중, 아직 후속 차수가 입력되지 않은 최신 차수 목록입니다. 선택하면 같은 내용이 잠금된 <b>다음 차수</b> 행으로 추가됩니다 (2차의 다음은 3차, 3차의 다음은 4차…). 금액만 수정 가능합니다.
             </div>
             <div className="max-h-[60vh] overflow-auto border rounded-md">
               <table className="w-full text-xs">
                 <thead className="bg-muted sticky top-0">
                   <tr className="text-left">
                     <th className="p-2">날짜</th>
+                    <th className="p-2">차수</th>
                     <th className="p-2">업체</th>
                     <th className="p-2">고객</th>
                     <th className="p-2">지역</th>
@@ -3185,18 +3186,20 @@ export default function Records() {
                 </thead>
                 <tbody>
                   {revisitLoading && (
-                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
+                    <tr><td colSpan={9} className="p-4 text-center text-muted-foreground">불러오는 중…</td></tr>
                   )}
                   {!revisitLoading && revisitCandidates.length === 0 && (
-                    <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">미완료 1차 배송이 없습니다.</td></tr>
+                    <tr><td colSpan={9} className="p-4 text-center text-muted-foreground">대기 중인 재방문 그룹이 없습니다.</td></tr>
                   )}
                   {!revisitLoading && revisitCandidates.map((r) => {
                     const amt =
                       Number(r.metro_fee || 0) + Number(r.regional_fee || 0) +
                       Number(r.note_amount || 0) + Number(r.cod_amount || 0);
+                    const cur = Number(r.revisit_visit_no || 1);
                     return (
                       <tr key={r.id} className="border-t hover:bg-muted/40">
                         <td className="p-2 whitespace-nowrap">{r.date}</td>
+                        <td className="p-2 whitespace-nowrap">{cur}차 → {cur + 1}차</td>
                         <td className="p-2">{r.company_name}</td>
                         <td className="p-2">{r.customer_name || ""}</td>
                         <td className="p-2">{r.region || ""}</td>
