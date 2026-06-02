@@ -297,9 +297,22 @@ export function RevisitShareDialog({
             {overBudget ? " 초과" : " 부족"} — 합계를 정확히 맞춰주세요.
           </div>
         )}
-        <DialogFooter>
+        <DialogFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {baseTotal > 0 && !exactMatch && (
+            <div className="mr-auto text-sm font-medium text-destructive">
+              ⚠ 1차 청구금액({baseTotal.toLocaleString()}원)과 분배 합계({sumEntered.toLocaleString()}원) 불일치 — 저장 불가
+            </div>
+          )}
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>취소</Button>
-          <Button onClick={save} disabled={saving || (baseTotal > 0 && !exactMatch)}>
+          <Button
+            onClick={save}
+            disabled={saving || (baseTotal > 0 && !exactMatch)}
+            title={
+              baseTotal > 0 && !exactMatch
+                ? `저장 불가: 1차 청구금액 ${baseTotal.toLocaleString()}원과 분배 합계 ${sumEntered.toLocaleString()}원이 일치하지 않습니다 (차액 ${Math.abs(remaining).toLocaleString()}원 ${overBudget ? "초과" : "부족"})`
+                : undefined
+            }
+          >
             {saving ? "저장 중..." : "저장"}
           </Button>
         </DialogFooter>
