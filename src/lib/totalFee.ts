@@ -21,12 +21,20 @@ export const rowDeliveryFee = (r: DeliveryLike): number =>
 export const totalDeliveryFee = (rows: DeliveryLike[]): number =>
   rows.reduce((s, r) => s + rowDeliveryFee(r), 0);
 
-/** 팀장정산 배송비 합 — 적재비 같은 별도 매출 품목은 제외 */
+/**
+ * 팀장정산 배송비 합 — 적재비 같은 별도 매출 품목은 제외.
+ * 가상기사 단독 행은 제외하되, 2인배송 행은 가상기사가 파트너로 들어있어도 실제 배송이므로 포함.
+ * (통합식 totalUnifiedDeliveryFee 및 buildCompanyStatements/buildLeaderStatements 와 동일 규칙)
+ */
 export const totalLeaderSettlementDeliveryFee = (
-  rows: DeliveryLike[],
+  rows: (DeliveryLike & { two_person?: boolean | null })[],
   virtualIds?: Set<string> | string[] | null,
 ): number =>
-  rows.reduce((s, r) => s + (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds) ? 0 : rowDeliveryFee(r)), 0);
+  rows.reduce((s, r) => {
+    if (isLeaderSettlementExcludedItem(r.item)) return s;
+    if (!r.two_person && isVirtualSettlementRow(r, virtualIds)) return s;
+    return s + rowDeliveryFee(r);
+  }, 0);
 
 /**
  * 두 화면(업체정산/팀장정산)의 "총배송비" 카드가 100% 동일하게 나오도록 통일된 합산기.
