@@ -1904,7 +1904,33 @@ export default function Records() {
       }
     }
     setSaving(false);
-    if (error) { toast.error(friendlyInsertError(error) || error.message); return; }
+    if (error) {
+      const is23505 =
+        (error as any).code === "23505" ||
+        /duplicate key|unique constraint/i.test((error as any).message || "");
+      if (is23505) {
+        // 다른 기기에서 그 사이에 동일 기록이 먼저 저장됨 → 충돌 행을 찾아 검토 모달로 표시
+        try {
+          const { data: race } = await supabase
+            .from("deliveries")
+            .select("id,date,company_id,company_name,customer_name,region,item,metro_fee,note_amount,regional_fee,cod_amount,leader1_id,leader2_id,split_type,two_person,paid,note,user_id,created_at,updated_at")
+            .eq("date", form.date)
+            .eq("company_id", form.company_id);
+          const pool = (race || []) as DupDelivery[];
+          const ex = findExactDuplicates(
+            { ...payload, id: form.id } as any,
+            pool,
+          );
+          if (ex.length > 0) {
+            await showConflictReview(ex as any[], { ...payload } as any, "DB 저장 시 충돌 (다른 기기 선반영)");
+            load();
+            return;
+          }
+        } catch { /* fallthrough */ }
+      }
+      toast.error(friendlyInsertError(error) || error.message);
+      return;
+    }
     // 다음 차수 자동 생성 로직 제거 — 다음 차수는 사용자가 직접 등록.
     toast.success(form.id ? "수정 완료" : "저장 완료");
     setForm(emptyForm());
