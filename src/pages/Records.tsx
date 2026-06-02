@@ -1494,11 +1494,6 @@ export default function Records() {
                     onChange={(v) => {
                       const nextShared = { ...bulkShared, [key]: v };
                       setBulkShared(nextShared);
-                      // 공통 팀장2/3이 선택되면 모든 행의 2인배송을 자동 활성화 → 금액 자동 50/50 분배
-                      if (key === "leader2_id" || key === "leader3_id") {
-                        const hasExtra = !!nextShared.leader2_id || !!nextShared.leader3_id;
-                        setBulkRows((rows) => rows.map((r) => ({ ...r, two_person: hasExtra })));
-                      }
                     }}
                     placeholder="팀장명 입력 (부분검색·↑↓ 선택)"
                   />
