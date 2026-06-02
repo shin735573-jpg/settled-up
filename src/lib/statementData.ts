@@ -526,6 +526,7 @@ export function buildLeaderStatements(
         note_amount: Number(d.note_amount),
         regional_fee: Number(d.regional_fee),
         cod_amount: Number(d.cod_amount),
+        virtual_leader_id: (d as { virtual_leader_id?: string | null }).virtual_leader_id ?? null,
       },
       { shindongseokId, ganghyungjuId, oeunkyuId, odongseonId, kimyongikId, virtualIds },
     );
