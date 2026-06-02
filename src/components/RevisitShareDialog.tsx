@@ -149,12 +149,10 @@ export function RevisitShareDialog({
           amount: Math.round(Number(r.amount)),
         };
       });
-    if (cleaned.length > 0) {
-      const total = cleaned.reduce((s, r) => s + r.amount, 0);
-      if (total !== baseTotal) {
-        toast.error(`분배 합계(${total.toLocaleString()}원)가 1차 고정금액(${baseTotal.toLocaleString()}원)과 일치해야 합니다`);
-        return;
-      }
+    const total = cleaned.reduce((s, r) => s + r.amount, 0);
+    if (baseTotal > 0 && total !== baseTotal) {
+      toast.error(`팀장 분배 합계(${total.toLocaleString()}원)가 1차 청구금액(${baseTotal.toLocaleString()}원)과 일치해야 저장할 수 있습니다`);
+      return;
     }
     setSaving(true);
     try {
