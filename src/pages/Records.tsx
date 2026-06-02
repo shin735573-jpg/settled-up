@@ -2313,11 +2313,19 @@ export default function Records() {
                             if (r.region_type === "regional") upd({ regional_fee: v, metro_fee: "" });
                             else upd({ metro_fee: v, regional_fee: "" });
                           }}
-                          disabled={!isFollowup && r.region_type === "unknown"}
-                          placeholder={r.region_type === "unknown" ? (isFollowup ? "금액 입력" : "지역 먼저") : ""}
+                          disabled={isFollowup || r.region_type === "unknown"}
+                          placeholder={isFollowup ? "1차 금액만 사용" : (r.region_type === "unknown" ? "지역 먼저" : "")}
                         />
                       </td>
-                      <td className="p-1"><AmountTextInput className="h-8 text-right tabular-nums" value={r.note_amount} onChange={(v) => upd({ note_amount: v })} /></td>
+                      <td className="p-1">
+                        <AmountTextInput
+                          className="h-8 text-right tabular-nums"
+                          value={r.note_amount}
+                          onChange={(v) => upd({ note_amount: v })}
+                          disabled={isFollowup}
+                          placeholder={isFollowup ? "1차 금액만 사용" : ""}
+                        />
+                      </td>
                       <td className="p-1">
                         {(() => {
                           const rowCompany = r.company_id ? companiesById.get(r.company_id) : null;
