@@ -152,15 +152,16 @@ describe("행사철수 특수일 처리", () => {
     expect(row.note ?? "").not.toContain("추가팀장");
   });
 
-  it("팀장 정산서는 적재비 품목을 팀장 금액으로 합산하지 않는다", () => {
+  it("정책 변경(2026-06): 적재비도 팀장 정산서에 합산되며 항상 삼호 팀장에게 귀속된다", () => {
     const leaders = [mkLeader("L1", "삼호")];
     const deliveries: StmtDelivery[] = [
       mkRow({ item: "일반", leader1_id: "L1", leader1_name: "삼호", note_amount: 10000 }),
-      mkRow({ item: "적재비", leader1_id: "L1", leader1_name: "삼호", note_amount: 50000 }),
+      // 다른 팀장이 입력돼 있어도 적재비는 삼호에게 자동 라우팅된다.
+      mkRow({ item: "적재비", leader1_id: null, leader1_name: null, note_amount: 50000 }),
     ];
     const [stmt] = buildLeaderStatements(deliveries, leaders, "h1", { oeunkyuSpecial: true });
     expect(stmt.rows).toHaveLength(1);
-    expect(stmt.realFee).toBe(10000);
+    expect(stmt.realFee).toBe(60000);
   });
 
   it("재방문 그룹: 업체 청구는 1차만 표시, 2차 이후 금액은 업체에 청구하지 않음", () => {
