@@ -758,7 +758,6 @@ function DetailView({ sel, records, loading, onEdit }: { sel: Sel; records: Deli
             ) : records.map((r) => {
               const leader2Disp = r.leader2_name || r.virtual_leader_name || "";
               const leadersTxt = [r.leader1_name, leader2Disp, r.leader3_name].filter(Boolean).join("·");
-              const hasVirtual = !!r.virtual_leader_name;
               const feeSum = Number(r.metro_fee || 0) + Number(r.regional_fee || 0) + Number(r.note_amount || 0);
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
@@ -788,9 +787,6 @@ function DetailView({ sel, records, loading, onEdit }: { sel: Sel; records: Deli
                         ? <Badge variant="secondary" className="h-4 px-1 text-[9px]">팀장</Badge>
                         : <Badge variant="default" className="h-4 px-1 text-[9px]">업체</Badge>}
                       {sel.kind === "company" ? (leadersTxt || "-") : (r.company_name || "-")}
-                      {sel.kind === "company" && hasVirtual && (
-                        <span className="text-[9px] text-amber-700 font-medium ml-0.5">(가상)</span>
-                      )}
                     </span>
                   </td>
                   <td className="p-2 whitespace-nowrap">{r.customer_name || "-"}</td>
