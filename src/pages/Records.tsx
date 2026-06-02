@@ -1802,7 +1802,7 @@ export default function Records() {
                   <th className="p-2 min-w-[120px]">착불</th>
                   <th className="p-2 min-w-[90px]">선결제</th>
                   <th className="p-2 min-w-[100px]">지역구분</th>
-                  <th className="p-2 min-w-[90px]">재방문필요</th>
+                  <th className="p-2 min-w-[90px]">재방문요청</th>
                   <th className="p-2 min-w-[90px]">재방문진행</th>
                   <th className="p-2 min-w-[100px]">총액</th>
                   <th className="p-2 w-12"></th>
@@ -2077,7 +2077,7 @@ export default function Records() {
                           )}
                           title="저장 시 같은 내용의 2차 방문 행이 함께 생성됩니다 (업체 청구는 1건으로 합산)"
                         >
-                          {isSecond ? "2차" : (r.revisit_required ? "예정" : "—")}
+                           {isSecond ? "2차" : (r.revisit_required ? "요청" : "—")}
                         </button>
                       </td>
                       <td className="p-1 text-center">
@@ -2507,7 +2507,7 @@ export default function Records() {
               </div>
             </div>
             <div className="space-y-1 flex flex-col">
-              <Label>재방문 필요</Label>
+              <Label>재방문요청</Label>
               <div
                 role="button"
                 tabIndex={0}
@@ -2522,7 +2522,7 @@ export default function Records() {
                 title="신규 저장 시 같은 내용의 2차 방문 행이 바로 아래에 자동 생성됩니다 (업체 청구는 1건으로 합산)"
               >
                 <Checkbox checked={form.revisit_required} tabIndex={-1} className="pointer-events-none" />
-                <span>{form.revisit_required ? "재방문 예정" : "—"}</span>
+                <span>{form.revisit_required ? "재방문 요청됨" : "—"}</span>
               </div>
             </div>
             <div className="space-y-1 flex flex-col">
@@ -2780,7 +2780,7 @@ export default function Records() {
           </DialogHeader>
           <div className="space-y-2">
             <div className="text-xs text-muted-foreground">
-              "재방문 필요"로 저장됐지만 아직 2차 입력이 없는 1차 배송 목록입니다. 한 건을 선택하면 같은 내용이 잠금된 2차 행으로 추가됩니다 (금액만 수정 가능).
+              "재방문요청"으로 저장됐지만 아직 2차 입력이 없는 1차 배송 목록입니다. 한 건을 선택하면 같은 내용이 잠금된 2차 행으로 추가됩니다 (금액만 수정 가능).
             </div>
             <div className="max-h-[60vh] overflow-auto border rounded-md">
               <table className="w-full text-xs">
