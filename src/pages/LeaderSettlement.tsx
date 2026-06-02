@@ -525,6 +525,21 @@ export default function LeaderSettlement() {
   } | null => {
     if (isLeaderSettlementExcludedItem(r.item) || isVirtualSettlementRow(r, virtualIds)) return null;
     const targets = targetSetFor(settlingLid);
+    // 재방문 override가 있으면 그 결과를 사용 (allocateRow 건너뜀)
+    const ov = revisitOverride.get(r.id);
+    if (ov !== undefined) {
+      if (ov.length === 0) return null;
+      let metro = 0, noteAmt = 0, regional = 0, cod = 0;
+      const reasons: string[] = [];
+      ov.forEach((s) => {
+        if (!targets.has(s.leader_id)) return;
+        metro += s.metro; noteAmt += s.note_amount;
+        regional += s.regional; cod += s.cod;
+        if (s.reason) reasons.push(s.reason);
+      });
+      if (metro === 0 && noteAmt === 0 && regional === 0 && cod === 0) return null;
+      return { metro, noteAmt, regional, cod, count: 1, weight: 1, reasons };
+    }
     const shares = allocateRow({
       leader1_id: r.leader1_id, leader2_id: r.leader2_id, leader3_id: r.leader3_id,
       split_type: r.split_type, two_person: r.two_person,
