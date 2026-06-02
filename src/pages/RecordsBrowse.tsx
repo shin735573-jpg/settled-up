@@ -311,7 +311,6 @@ export default function RecordsBrowse() {
         leader2_id: rest.leader2_id || null,
         two_person: !!rest.two_person,
         companion: !!rest.companion,
-        companion_reason: rest.companion_reason ?? null,
         split_type: rest.split_type ?? null,
         metro_fee: Number(rest.metro_fee) || 0,
         regional_fee: Number(rest.regional_fee) || 0,
