@@ -3912,6 +3912,24 @@ export default function Records() {
               >
                 <Trash2 className="h-4 w-4 mr-1" /> 선택 삭제
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="ml-2"
+                onClick={() => {
+                  const first = Array.from(selectedIds)[0];
+                  if (!first) {
+                    alert("기록 1건을 선택해주세요.");
+                    return;
+                  }
+                  setCompareBaseId(first);
+                  setComparePanelOpen(true);
+                }}
+                disabled={selectedIds.size === 0}
+                title="선택한 기록 1건 기준으로 중복의심 비교/통합"
+              >
+                <ScanSearch className="h-4 w-4 mr-1" /> 중복의심 비교
+              </Button>
             </div>
             {(searchCompany || searchCustomer || searchLeader || searchDate) && filteredRecords.length === 0 && (
               <div className="p-6 text-center text-muted-foreground text-sm">검색 결과가 없습니다.</div>
