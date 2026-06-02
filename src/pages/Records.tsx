@@ -984,6 +984,20 @@ export default function Records() {
   const [revisitDetectCandidates, setRevisitDetectCandidates] = useState<any[]>([]);
   const [revisitDetectLoading, setRevisitDetectLoading] = useState(false);
   const detectedKeyRef = useRef<Set<string>>(new Set());
+  // 같은 고객/배송지 매칭 기준 (사용자 설정, 화면 상단 토글)
+  // both: 고객명+지역 모두 일치 / name: 고객명만 / region: 지역만
+  const [revisitMatchMode, setRevisitMatchMode] = useState<"both" | "name" | "region">(() => {
+    try {
+      const v = localStorage.getItem("records.revisitMatchMode");
+      if (v === "name" || v === "region" || v === "both") return v;
+    } catch { /* noop */ }
+    return "both";
+  });
+  useEffect(() => {
+    try { localStorage.setItem("records.revisitMatchMode", revisitMatchMode); } catch { /* noop */ }
+    // 기준이 바뀌면 이전에 "검사완료"로 표시된 키 캐시 비움
+    detectedKeyRef.current.clear();
+  }, [revisitMatchMode]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [validation, setValidation] = useState<{
     issues: ValidationIssue[];
@@ -1527,8 +1541,11 @@ export default function Records() {
     if (!row || row.revisit_visit_no === 2 || row.revisit_group_local) return;
     const name = (row.customer_name || "").trim();
     const region = (row.region || "").trim();
-    if (!name) return;
-    const key = `${idx}|${name.toLowerCase()}|${region.toLowerCase()}`;
+    // 매칭 기준에 따라 필수 입력값 확인
+    if (revisitMatchMode === "name" && !name) return;
+    if (revisitMatchMode === "region" && !region) return;
+    if (revisitMatchMode === "both" && (!name || !region)) return;
+    const key = `${idx}|${revisitMatchMode}|${name.toLowerCase()}|${region.toLowerCase()}`;
     if (detectedKeyRef.current.has(key)) return;
     detectedKeyRef.current.add(key);
     setRevisitDetectLoading(true);
@@ -1536,10 +1553,14 @@ export default function Records() {
     let q = supabase
       .from("deliveries")
       .select("*")
-      .ilike("customer_name", name)
       .order("date", { ascending: false })
       .limit(20);
-    if (region) q = q.ilike("region", `%${region}%`);
+    if (revisitMatchMode === "name" || revisitMatchMode === "both") {
+      if (name) q = q.ilike("customer_name", name);
+    }
+    if (revisitMatchMode === "region" || revisitMatchMode === "both") {
+      if (region) q = q.ilike("region", `%${region}%`);
+    }
     const { data, error } = await q;
     setRevisitDetectLoading(false);
     if (error || !data || data.length === 0) { setRevisitDetectIdx(null); return; }
@@ -1726,7 +1747,34 @@ export default function Records() {
 
       <TabsContent value="bulk" className="mt-0">
         <Card className="p-4 md:p-6 space-y-4 border-primary/40">
-          <h3 className="text-base font-semibold border-l-4 border-primary pl-2">한 팀장 여러건 배송입력</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-semibold border-l-4 border-primary pl-2">한 팀장 여러건 배송입력</h3>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">재방문 매칭 기준:</span>
+              <div className="inline-flex rounded-md border overflow-hidden">
+                {([
+                  { v: "both", label: "고객명 + 지역" },
+                  { v: "name", label: "고객명만" },
+                  { v: "region", label: "지역만" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setRevisitMatchMode(opt.v)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs",
+                      revisitMatchMode === opt.v
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background hover:bg-muted"
+                    )}
+                    title={`${opt.label} 일치 시 재방문 후보로 검색`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1">
