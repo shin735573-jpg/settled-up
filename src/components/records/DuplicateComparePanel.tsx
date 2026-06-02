@@ -196,14 +196,14 @@ export function DuplicateComparePanel({ open, onOpenChange, base, allRows, onSav
     const fallbackRows: Row[] = [base as Row, row2ForMerge as Row, ...selectedSuspects, ...displayedSuspects].filter(Boolean);
     const row1Leader = leaderCandidatesOf(base as Row)[0]
       ?? fallbackRows.flatMap(leaderCandidatesOf)[0];
-    if (row1Leader?.id) {
+    if (row1Leader?.id && (nrm(next.leader1_id) !== nrm(row1Leader.id) || nrm(next.leader1_name) !== nrm(row1Leader.name))) {
       next = { ...next, leader1_id: row1Leader.id, leader1_name: row1Leader.name ?? next.leader1_name ?? null };
     }
 
     const leader1Id = nrm(next.leader1_id);
     const row2Leader = leaderCandidatesOf(row2ForMerge).find((c) => nrm(c.id) !== leader1Id)
       ?? fallbackRows.flatMap(leaderCandidatesOf).find((c) => nrm(c.id) && nrm(c.id) !== leader1Id);
-    if (row2Leader?.id) {
+    if (row2Leader?.id && (nrm(next.leader2_id) !== nrm(row2Leader.id) || nrm(next.leader2_name) !== nrm(row2Leader.name))) {
       next = { ...next, leader2_id: row2Leader.id, leader2_name: row2Leader.name ?? next.leader2_name ?? null };
     }
     return next;
