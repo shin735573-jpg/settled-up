@@ -1774,9 +1774,15 @@ export default function Records() {
     }
     const row = build2ndBulkRowFromSrc(firstRow);
     row.revisit_visit_no = nextVisit;
+    // 복제 행을 잠그지 않고 활성 입력 행으로 추가 — 1차 정보는 인덱스 컬럼에 함께 표시.
+    row.revisit_locked = false;
+    row.metro_fee = "";
+    row.note_amount = "";
+    row.regional_fee = "";
+    row.cod_amount = "";
     setBulkRows((rows) => [...rows, row]);
     setRevisitPickerOpen(false);
-    toast.success(`${firstRow.company_name} ${firstRow.customer_name || ""} ${nextVisit}차 행 추가됨`);
+    toast.success(`${firstRow.company_name} ${firstRow.customer_name || ""} ${nextVisit}차 행 추가됨 — 1차 정보가 함께 표시됩니다`);
   };
 
   // 입력 중인 행의 customer/region 으로 과거 배송 매칭 조회
@@ -1894,14 +1900,50 @@ export default function Records() {
       }));
       toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차로 설정됨 (1차 내용 자동 채움)`);
     } else if (idx != null) {
-      const clone = build2ndBulkRowFromSrc(effectiveSrc);
-      clone.revisit_visit_no = nextVisitNo;
-      setBulkRows((rows) => {
-        const next = [...rows];
-        next.splice(idx + 1, 0, clone);
-        return next;
-      });
-      toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차 행이 아래에 추가됨 (최초 1차 내용 그대로, 금액만 수정 가능)`);
+      // 복제 행 만들지 않음 — 현재 입력 중 행을 다음 차수로 표시하고 1차 메타데이터를 함께 보이게 함.
+      const newLocalId =
+        (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+          ? (crypto as any).randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      setBulkRows((rows) => rows.map((x, i) => {
+        if (i !== idx) return x;
+        const sourceRegionType =
+          (effectiveSrc.region_type as RegionType | null) ||
+          (Number(effectiveSrc.regional_fee || 0) > 0 ? "regional"
+            : Number(effectiveSrc.metro_fee || 0) > 0 ? "metro"
+            : classifyRegion(effectiveSrc.region || ""));
+        return {
+          ...x,
+          company_id: effectiveSrc.company_id || x.company_id,
+          customer_name: effectiveSrc.customer_name || x.customer_name,
+          region: effectiveSrc.region || x.region,
+          region_type: sourceRegionType || x.region_type,
+          item: effectiveSrc.item || x.item,
+          revisit_required: true,
+          revisit_done: false,
+          revisit_visit_no: nextVisitNo,
+          revisit_group_local: x.revisit_group_local || newLocalId,
+          revisit_group_id_existing: effectiveSrc.revisit_group_id,
+          revisit_source_id_existing: effectiveSrc.id,
+          date_existing: effectiveSrc.date,
+          company_name_existing: effectiveSrc.company_name || "",
+          leader1_id_existing: effectiveSrc.leader1_id || null,
+          leader1_name_existing: effectiveSrc.leader1_name || null,
+          leader2_id_existing: effectiveSrc.leader2_id || null,
+          leader2_name_existing: effectiveSrc.leader2_name || null,
+          leader3_id_existing: effectiveSrc.leader3_id || null,
+          leader3_name_existing: effectiveSrc.leader3_name || null,
+          split_type_existing: effectiveSrc.split_type || null,
+          paid_existing: !!effectiveSrc.paid,
+          two_person_existing: !!effectiveSrc.two_person,
+          // 2차 금액은 새로 입력 — 1차 금액을 그대로 가져오지 않음
+          metro_fee: "",
+          note_amount: "",
+          regional_fee: "",
+          cod_amount: "",
+        };
+      }));
+      toast.success(`${effectiveSrc.company_name} ${effectiveSrc.customer_name || ""} ${nextVisitNo}차로 설정됨 — 1차 정보가 함께 표시됩니다`);
     }
     setRevisitDetectOpen(false);
     setRevisitDetectCandidates([]);
@@ -2287,27 +2329,32 @@ export default function Records() {
                          }
                        }}
                      >
-                      <td className="p-1 text-center text-muted-foreground whitespace-nowrap">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <span>{idx + 1}</span>
-                          {r.revisit_group_local && (
-                            <>
-                              <span className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded font-semibold",
-                                isFollowup ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
-                              )}>
-                                {`${visitNo}차배송`}
-                              </span>
-                              {isFollowup && r.date_existing && (
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
-                                  1차: {r.date_existing}
-                                </span>
-                              )}
-                              {isFollowup && (r.leader1_name_existing || r.leader2_name_existing || r.leader3_name_existing) && (
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 팀장">
-                                  1차 팀장: {[r.leader1_name_existing, r.leader2_name_existing, r.leader3_name_existing].filter(Boolean).join("·")}
-                                </span>
-                              )}
+                       <td className="p-1 text-center text-muted-foreground whitespace-nowrap">
+                         <div className="flex flex-col items-center gap-0.5">
+                           <span>{idx + 1}</span>
+                           {r.revisit_group_local && (
+                             <>
+                               <span className={cn(
+                                 "text-[10px] px-1.5 py-0.5 rounded font-semibold",
+                                 isFollowup ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
+                               )}>
+                                 {`${visitNo}차배송`}
+                               </span>
+                               {visitNo >= 2 && r.date_existing && (
+                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 재방문 요청 1차 배송일">
+                                   1차: {r.date_existing}
+                                 </span>
+                               )}
+                               {visitNo >= 2 && (r.leader1_name_existing || r.leader2_name_existing || r.leader3_name_existing) && (
+                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 팀장">
+                                   1차 팀장: {[r.leader1_name_existing, r.leader2_name_existing, r.leader3_name_existing].filter(Boolean).join("·")}
+                                 </span>
+                               )}
+                               {visitNo >= 2 && r.company_name_existing && (
+                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap" title="최초 1차 배송 업체">
+                                   1차 업체: {r.company_name_existing}
+                                 </span>
+                               )}
                               <button
                                 type="button"
                                 className="text-[10px] px-1.5 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10"
@@ -2539,11 +2586,11 @@ export default function Records() {
                               detectedKeyRef.current.clear();
                               detectRevisitForRow(idx);
                             }
+                            // 재방문 요청만 표시 — 복제 행은 만들지 않음.
+                            // 2차 입력 시 자동 매칭으로 같은 행에 1차 정보가 함께 표시됩니다.
                             setBulkRows((rows) => {
                               const nx = [...rows];
                               const c = rows[idx];
-                              const curVisitNo = Number(c.revisit_visit_no) || 1;
-                              const nextVisitNo = curVisitNo + 1;
                               const groupLocal = c.revisit_group_local || (
                                 (typeof crypto !== "undefined" && (crypto as any).randomUUID)
                                   ? (crypto as any).randomUUID()
@@ -2551,19 +2598,10 @@ export default function Records() {
                               );
                               nx[idx] = {
                                 ...c,
-                                revisit_required: true,
+                                revisit_required: !c.revisit_required ? true : c.revisit_required,
                                 revisit_group_local: groupLocal,
-                                revisit_visit_no: curVisitNo,
+                                revisit_visit_no: Number(c.revisit_visit_no) || 1,
                               };
-                              const nextLocked: BulkRow = {
-                                ...c,
-                                revisit_required: true,
-                                revisit_done: false,
-                                revisit_group_local: groupLocal,
-                                revisit_visit_no: nextVisitNo,
-                                revisit_locked: true,
-                              };
-                              nx.splice(idx + 1, 0, nextLocked);
                               return nx;
                             });
                          }}
