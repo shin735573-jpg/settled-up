@@ -1461,6 +1461,17 @@ export default function Records() {
       revisit_group_local: localId,
       revisit_visit_no: 2,
       revisit_group_id_existing: src.revisit_group_id,
+      date_existing: src.date,
+      company_name_existing: src.company_name || "",
+      leader1_id_existing: src.leader1_id || null,
+      leader1_name_existing: src.leader1_name || null,
+      leader2_id_existing: src.leader2_id || null,
+      leader2_name_existing: src.leader2_name || null,
+      leader3_id_existing: src.leader3_id || null,
+      leader3_name_existing: src.leader3_name || null,
+      split_type_existing: src.split_type || null,
+      paid_existing: !!src.paid,
+      two_person_existing: !!src.two_person,
     };
     setBulkRows((rows) => [...rows, clone]);
     setRevisitPickerOpen(false);
