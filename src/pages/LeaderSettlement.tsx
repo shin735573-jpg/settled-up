@@ -68,7 +68,7 @@ type Delivery = {
   virtual_leader_id?: string | null; virtual_leader_name?: string | null;
   revisit_group_id?: string | null;
   revisit_visit_no?: number | null;
-  revisit_manual_shares?: Array<{ leader_id: string; amount: number }> | null;
+  revisit_manual_shares?: unknown;
   alba_deduction?: number | null;
 };
 type CommonDeduction = { id: string; label: string; amount: number; active: boolean };
