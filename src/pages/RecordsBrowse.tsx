@@ -24,7 +24,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { LeaderCombobox } from "@/components/LeaderCombobox";
-import { Search, Pencil, AlertTriangle, Users, Trash2 } from "lucide-react";
+import { Search, Pencil, AlertTriangle, Users, Trash2, X } from "lucide-react";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -71,6 +71,8 @@ const RECOMMEND_COLOR: Record<RecommendedAction, string> = {
 
 type FilterStatus = "all" | RowStatus;
 
+const MAX_COMPARE_PANELS = 6;
+
 export default function RecordsBrowse() {
   const navigate = useNavigate();
   const [leaders, setLeaders] = useState<Leader[]>([]);
@@ -79,7 +81,14 @@ export default function RecordsBrowse() {
   const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
-  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null); // 강조(포커스)용
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]); // 비교 패널 (최대 6개, 좌→우)
+  // 추가 필터: 업체 / 팀장1 / 팀장2 / 동행 / 2인배송
+  const [filterCompany, setFilterCompany] = useState<string>("");
+  const [filterLeader1, setFilterLeader1] = useState<string>("");
+  const [filterLeader2, setFilterLeader2] = useState<string>("");
+  const [filterCompanion, setFilterCompanion] = useState<"any" | "yes" | "no">("any");
+  const [filterTwoPerson, setFilterTwoPerson] = useState<"any" | "yes" | "no">("any");
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set());
   const [pendingActions, setPendingActions] = useState<Map<string, MergePlanItem>>(new Map());
   const [reviewOpen, setReviewOpen] = useState(false);
