@@ -133,8 +133,6 @@ export function validateSettlementInvariants(
     let raw = 0;
     for (const d of deliveries) {
       if (isVirtualSettlementRow(d, opts.virtualIds)) continue;
-      // 착불 행은 업체 청구 대상에서 제외(정책 2026-06) → 청구서 codTotal 합산에서도 빠짐
-      if (num(d.cod_amount) > 0) continue;
       const sameCompany = d.company_id
         ? d.company_id === cs.company.id
         : (d.company_name ?? "") === cs.company.name;
