@@ -277,12 +277,12 @@ export function crossCheckTotalVsBilled(
     },
     {
       key: "cod_used",
-      label: "착불 상계",
+      label: "착불 (보고용, 청구 미반영)",
       sign: +1,
       amount: cat.cod_used.amt,
       signedAmount: +cat.cod_used.amt,
       rows: cat.cod_used.rows,
-      hint: "착불 상계분만큼 업체청구가 감액된다 (음수 클램프된 이월분 제외).",
+      hint: "착불 입력값은 표시·보고용 — 업체청구 금액 산정에 영향을 주지 않는다.",
     },
     {
       key: "vat_added",
