@@ -1560,13 +1560,16 @@ function CompanyPreview({
         )}
       </div>
       <div className="overflow-hidden rounded-xl border border-border/60">
-        <table className="w-full text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: 1030 }}>
+        <table className="w-full text-xs border-collapse" style={{ tableLayout: "fixed", minWidth: hasCod ? 1120 : 1030 }}>
           <colgroup>
-            {[70,70,70,115,100,260,235,110].map((w,i)=>(<col key={i} style={{ width: w }} />))}
+            {(hasCod ? [70,70,70,115,100,240,215,110,90] : [70,70,70,115,100,260,235,110]).map((w,i)=>(<col key={i} style={{ width: w }} />))}
           </colgroup>
           <thead className="bg-muted/60">
             <tr>
-              {["날짜","팀장1","팀장2","고객명","배송지","품목","비고","배송비"].map((h) => (
+              {(hasCod
+                ? ["날짜","팀장1","팀장2","고객명","배송지","품목","비고","배송비","착불"]
+                : ["날짜","팀장1","팀장2","고객명","배송지","품목","비고","배송비"]
+              ).map((h) => (
                 <th key={h} className="px-2 py-2 text-center font-semibold uppercase tracking-wider text-[10px] text-muted-foreground whitespace-nowrap border-b border-border/60">{h}</th>
               ))}
             </tr>
@@ -1582,10 +1585,13 @@ function CompanyPreview({
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.item ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle break-words whitespace-normal">{r.note ?? ""}</td>
                 <td className="px-2 py-1.5 text-center align-middle tabular-nums font-medium">{fmt(r.delivery_fee)}</td>
+                {hasCod && (
+                  <td className="px-2 py-1.5 text-center align-middle tabular-nums">{Number(r.cod_amount) > 0 ? fmt(Number(r.cod_amount)) : ""}</td>
+                )}
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={8} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
+              <tr><td colSpan={hasCod ? 9 : 8} className="px-2 py-4 text-center text-muted-foreground">데이터 없음</td></tr>
             )}
           </tbody>
         </table>
