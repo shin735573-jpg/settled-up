@@ -15,7 +15,6 @@ import {
   totalUnifiedDeliveryFee,
   type BilledCompany,
 } from "./totalFee";
-import { rowDeliveryFee } from "./totalFee";
 
 export type BilledVsTotalFeeResult = {
   ok: boolean;
@@ -33,10 +32,7 @@ export function checkBilledVsTotalFee(
   companies: Parameters<typeof computeCompanyBilledByCompany>[1],
   virtualIds?: Set<string> | string[] | null,
 ): BilledVsTotalFeeResult {
-  // 정책(2026-06): 착불 행은 업체 청구 대상에서 제외되므로
-  // 비교 기준의 총배송비도 동일하게 착불 행을 제외한 값으로 산출한다.
-  const billableDeliveries = deliveries.filter((d) => !(Number(d.cod_amount) > 0));
-  const totalFee = totalUnifiedDeliveryFee(billableDeliveries, virtualIds);
+  const totalFee = totalUnifiedDeliveryFee(deliveries, virtualIds);
   const map = computeCompanyBilledByCompany(deliveries, companies, virtualIds);
 
   let preVatSum = 0;
