@@ -557,9 +557,10 @@ export function buildCompanyStatements(
     const unpaidTotal = feeTotal - paidTotal;
     const codTotal = rows.reduce((s, r) => s + Number(r.cod_amount), 0);
     const carryInCod = 0; // TODO: 이월착불 테이블 도입 시 연결
-    const offset = codTotal + carryInCod;
-    const realClaim = Math.max(0, unpaidTotal - offset);
-    const carryOutCod = Math.max(0, offset - unpaidTotal);
+    // 정책(2026-06): 입력란의 착불(cod_amount)은 "기사가 얼마 받았다"는 보고용 표시값일 뿐
+    // 업체 청구액에서는 상계하지 않는다. 청구 = 미수금 그대로.
+    const realClaim = Math.max(0, unpaidTotal);
+    const carryOutCod = 0;
     const loadingFee = 0; // TODO: 적재비 테이블 도입 시 연결
     const finalClaim = realClaim + loadingFee;
     // vat_included=true 인 업체는 단가에 이미 부가세가 포함되어 있으므로 추가 부과하지 않음
