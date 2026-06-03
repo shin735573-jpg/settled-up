@@ -854,6 +854,64 @@ export default function RecordsBrowse() {
                   </p>
                 )}
               </Field>
+              {editBaseline && (
+                <div className="col-span-2">
+                  {(() => {
+                    const curMetro = Number(editForm.metro_fee) || 0;
+                    const curNote = Number(editForm.note_amount) || 0;
+                    const curRegional = Number(editForm.regional_fee) || 0;
+                    const curCod = Number(editForm.cod_amount) || 0;
+                    const curPaid = !!editForm.paid;
+                    const baseFee = editBaseline.metro + editBaseline.note + editBaseline.regional;
+                    const curFee = curMetro + curNote + curRegional;
+                    // 업체 청구 = 미수금(=배송비 if !paid) — 착불은 제외
+                    const baseBilled = editBaseline.paid ? 0 : baseFee;
+                    const curBilled = curPaid ? 0 : curFee;
+                    const feeDiff = curFee - baseFee;
+                    const billDiff = curBilled - baseBilled;
+                    const codChanged = curCod !== editBaseline.cod;
+                    const numbersChanged = feeDiff !== 0 || billDiff !== 0;
+                    return (
+                      <div
+                        className={cn(
+                          "rounded-md border p-2 text-[11px] space-y-1",
+                          numbersChanged
+                            ? "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                            : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200",
+                        )}
+                      >
+                        <div className="font-medium">
+                          {numbersChanged
+                            ? "⚠ 청구/총배송비 합계가 변동되었습니다"
+                            : codChanged
+                              ? "✓ 착불만 변경됨 — 청구/총배송비 합계 변동 없음"
+                              : "✓ 청구/총배송비 합계 변동 없음"}
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 tabular-nums">
+                          <span>
+                            총배송비(행): <b>{fmt(baseFee)}</b> → <b>{fmt(curFee)}</b>
+                            {feeDiff !== 0 && (
+                              <span className="ml-1">({feeDiff > 0 ? "+" : ""}{fmt(feeDiff)})</span>
+                            )}
+                          </span>
+                          <span>
+                            업체 청구(행): <b>{fmt(baseBilled)}</b> → <b>{fmt(curBilled)}</b>
+                            {billDiff !== 0 && (
+                              <span className="ml-1">({billDiff > 0 ? "+" : ""}{fmt(billDiff)})</span>
+                            )}
+                          </span>
+                          <span>
+                            착불: <b>{fmt(editBaseline.cod)}</b> → <b>{fmt(curCod)}</b>
+                            {codChanged && (
+                              <span className="ml-1 text-muted-foreground">(청구 미포함)</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
