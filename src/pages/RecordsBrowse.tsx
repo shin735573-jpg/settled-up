@@ -826,6 +826,11 @@ export default function RecordsBrowse() {
                   value={String(editForm.cod_amount ?? 0)}
                   onChange={(e) => setEditForm({ ...editForm, cod_amount: Number(e.target.value) || 0 })}
                 />
+                {Number(editForm.cod_amount) > 0 && (
+                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                    ⚠ 착불 금액은 보고용 표시값으로, 업체 청구 합계에는 포함되지 않습니다.
+                  </p>
+                )}
               </Field>
             </div>
           )}
