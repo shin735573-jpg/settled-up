@@ -164,9 +164,9 @@ export function computeCompanyBilledByCompany(
     });
     const feeSum = billableRows.reduce((s, r) => s + rowDeliveryFee(r), 0);
     const paidSum = billableRows.filter((r) => r.paid).reduce((s, r) => s + rowDeliveryFee(r), 0);
-    const codSum = billableRows.reduce((s, r) => s + (Number(r.cod_amount) || 0), 0);
     const unpaid = feeSum - paidSum;
-    const claim = Math.max(0, unpaid - codSum);
+    // 정책(2026-06): 입력란 착불은 보고용 표시 → 업체 청구액에서 상계하지 않는다.
+    const claim = Math.max(0, unpaid);
     const issues = !!g.c.issues_invoice;
     const vat = issues && !g.c.vat_included ? Math.round(claim * 0.1) : 0;
     const billed = issues ? claim + vat : claim;
