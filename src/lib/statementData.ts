@@ -347,9 +347,6 @@ export function buildCompanyStatements(
 
     companyDeliveries
       .filter((d) => {
-        // 정책(2026-06): 착불(cod_amount > 0) 행은 업체에 청구하지 않는다.
-        // 고객이 기사에게 직접 결제했으므로 업체 청구서/총배송비 합산에서 제외.
-        if (Number(d.cod_amount) > 0) return false;
         const gid = d.revisit_group_id;
         if (gid) {
           const base = revisitEarliest.get(gid) ?? d.date;
