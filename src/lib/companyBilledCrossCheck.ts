@@ -337,7 +337,8 @@ function breakdownComponents(
   };
   const Lfee = L.metro + L.note + L.regional;
   const Lunpaid = Lfee - L.paid;
-  const Lclaim = Math.max(0, Lunpaid - L.cod);
+  // 정책(2026-06): 착불은 보고용 → 청구액 상계 없음.
+  const Lclaim = Math.max(0, Lunpaid);
   const issues = !!cInfo?.issues_invoice;
   const Lvat = issues && !cInfo?.vat_included ? Math.round(Lclaim * 0.1) : 0;
   const Lbilled = issues ? Lclaim + Lvat : Lclaim;
@@ -360,8 +361,8 @@ function breakdownComponents(
     cmp("metro", "수도권배송비", L.metro, C.metro, "행사철수/상차 행 수도권 금액은 업체청구에서 0 처리"),
     cmp("regional", "지방배송비", L.regional, C.regional, "행사철수/상차 행 지방 금액은 업체청구에서 0 처리"),
     cmp("note", "비고금액(행사철수 포함)", L.note, C.note, "재방문/기간 게이팅 또는 비활성/정산주기로 인한 차이"),
-    cmp("cod_offset", "착불 상계", L.cod, C.cod, "착불은 청구액에서 차감됨 (양쪽 동일 행 기준)"),
-    cmp("claim", "1차 청구액 (unpaid − cod, 0 이상)", Lclaim, C.claim, "위 항목 차이가 누적되어 발생"),
+    cmp("cod_offset", "착불 (보고용, 청구 미반영)", L.cod, C.cod, "착불은 표시·보고용 — 청구 금액 산정에는 영향 없음"),
+    cmp("claim", "1차 청구액 (unpaid, 0 이상)", Lclaim, C.claim, "위 항목 차이가 누적되어 발생"),
     cmp("vat", "VAT (청구액 10%)", Lvat, C.vat, "청구액이 다르면 VAT 도 달라짐"),
     cmp(
       "rounding",

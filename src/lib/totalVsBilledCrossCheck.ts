@@ -215,23 +215,10 @@ export function crossCheckTotalVsBilled(
     cat.paid_offset.amt += paidSum;
 
     const unpaid = feeSum - paidSum;
-    const codUsed = Math.max(0, Math.min(codSum, unpaid));
-    const codExcess = Math.max(0, codSum - unpaid);
-    cat.cod_used.amt += codUsed;
-    // 착불 영향 행은 회사 단위로 1줄 요약
-    if (codUsed > 0) {
-      cat.cod_used.rows.push({
-        id: null,
-        date: null,
-        company_name: g.c.name,
-        customer_name: null,
-        item: null,
-        fee: codUsed,
-        note: `착불 상계 (총 ${codSum.toLocaleString()}원 중 사용 ${codUsed.toLocaleString()}원, 이월 ${codExcess.toLocaleString()}원)`,
-      });
-    }
-
-    const claim = Math.max(0, unpaid - codSum);
+    // 정책(2026-06): 착불은 보고용 → 업체청구에서 상계하지 않음.
+    const codUsed = 0;
+    const codExcess = 0;
+    const claim = Math.max(0, unpaid);
     const issues = !!g.c.issues_invoice;
     const vat = issues && !g.c.vat_included ? Math.round(claim * 0.1) : 0;
     const billed = issues ? claim + vat : claim;
