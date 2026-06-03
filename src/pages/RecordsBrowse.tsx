@@ -102,6 +102,28 @@ export default function RecordsBrowse() {
 
   // 직접 수정 폼
   const [editForm, setEditForm] = useState<GroupRow | null>(null);
+  // 편집 다이얼로그 진입 시점의 기준값 (실시간 변동 비교용)
+  const [editBaseline, setEditBaseline] = useState<{
+    id: string;
+    metro: number;
+    note: number;
+    regional: number;
+    cod: number;
+    paid: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (editForm && (!editBaseline || editBaseline.id !== editForm.id)) {
+      setEditBaseline({
+        id: editForm.id,
+        metro: Number(editForm.metro_fee) || 0,
+        note: Number(editForm.note_amount) || 0,
+        regional: Number(editForm.regional_fee) || 0,
+        cod: Number(editForm.cod_amount) || 0,
+        paid: !!editForm.paid,
+      });
+    }
+    if (!editForm && editBaseline) setEditBaseline(null);
+  }, [editForm, editBaseline]);
 
   // 로드
   const reload = async () => {
