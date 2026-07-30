@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
 import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 import Auth from "./pages/Auth";
+import OAuthConsent from "./pages/OAuthConsent";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
@@ -39,6 +40,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<RouteErrorBoundary routeName="Auth"><Auth /></RouteErrorBoundary>} />
+            <Route path="/.lovable/oauth/consent" element={<RouteErrorBoundary routeName="OAuthConsent"><OAuthConsent /></RouteErrorBoundary>} />
             <Route path="/forgot-password" element={<RouteErrorBoundary routeName="ForgotPassword"><ForgotPassword /></RouteErrorBoundary>} />
             <Route path="/reset-password" element={<RouteErrorBoundary routeName="ResetPassword"><ResetPassword /></RouteErrorBoundary>} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
