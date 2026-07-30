@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,8 +16,15 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const { session } = useAuth();
+  const [params] = useSearchParams();
+  const rawNext = params.get("next") ?? "";
+  const next = /^\/(?!\/)/.test(rawNext) ? rawNext : "/";
 
-  useEffect(() => { if (session) navigate("/", { replace: true }); }, [session, navigate]);
+  useEffect(() => {
+    if (!session) return;
+    if (next !== "/") { window.location.replace(next); return; }
+    navigate("/", { replace: true });
+  }, [session, navigate, next]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +36,7 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { toast.error("로그인 실패: " + error.message); return; }
+    if (next !== "/") { window.location.replace(next); return; }
     navigate("/");
   };
 
@@ -46,7 +54,7 @@ export default function Auth() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/` },
+      options: { emailRedirectTo: `${window.location.origin}${next}` },
     });
     setLoading(false);
     if (error) { toast.error("회원가입 실패: " + error.message); return; }
@@ -56,7 +64,7 @@ export default function Auth() {
   const signInWithGoogle = async () => {
     setLoading(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: `${window.location.origin}${next === "/" ? "" : next}`,
     });
     if (result.error) {
       setLoading(false);
@@ -64,6 +72,7 @@ export default function Auth() {
       return;
     }
     if (result.redirected) return;
+    if (next !== "/") { window.location.replace(next); return; }
     navigate("/");
   };
 
