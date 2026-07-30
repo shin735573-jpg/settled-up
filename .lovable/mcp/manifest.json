@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "sdk_version": "0.25.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://opqsvhgymwbaagvwjiul.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "settled-up",
+      "version": "0.1.0",
+      "title": "정산의 달인"
+    },
+    "tools": [
+      {
+        "name": "list_companies",
+        "title": "업체 목록 조회",
+        "description": "로그인한 사용자의 거래 업체(회사) 목록과 정산 설정(세금계산서 발행/부가세 포함/정산주기/요율)을 조회합니다.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "active_only": {
+              "type": "boolean",
+              "description": "활성 업체만 조회할지 여부. 기본값 true."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_team_leaders",
+        "title": "팀장 목록 조회",
+        "description": "로그인한 사용자의 배송 팀장(기사) 목록을 조회합니다.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "active_only": {
+              "type": "boolean",
+              "description": "활성 팀장만 조회할지 여부. 기본값 true."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_deliveries",
+        "title": "배송 기록 조회",
+        "description": "기간/업체/팀장 조건으로 배송 기록을 조회합니다. 날짜는 YYYY-MM-DD 형식입니다.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "시작 날짜 (YYYY-MM-DD, 포함)."
+            },
+            "to": {
+              "type": "string",
+              "description": "종료 날짜 (YYYY-MM-DD, 포함)."
+            },
+            "company_name": {
+              "type": "string",
+              "description": "업체명 부분 일치 필터."
+            },
+            "leader_name": {
+              "type": "string",
+              "description": "팀장명 부분 일치 필터 (1번 팀장 기준)."
+            },
+            "limit": {
+              "type": "number",
+              "description": "최대 반환 행 수. 기본 100, 최대 500."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "settlement_summary",
+        "title": "기간 정산 요약",
+        "description": "지정한 기간의 배송비 합계를 업체별/팀장별로 집계합니다. 착불(cod)은 보고용으로 별도 표시되며 배송비 합계에는 포함되지 않습니다.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "시작 날짜 (YYYY-MM-DD, 포함)."
+            },
+            "to": {
+              "type": "string",
+              "description": "종료 날짜 (YYYY-MM-DD, 포함)."
+            },
+            "group_by": {
+              "type": "string",
+              "description": "집계 기준: 'company' 또는 'leader'. 기본 'company'."
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_delivery",
+        "title": "배송 기록 추가",
+        "description": "새 배송 기록을 추가합니다. 금액은 원 단위 숫자입니다.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "description": "배송 날짜 (YYYY-MM-DD)."
+            },
+            "company_name": {
+              "type": "string",
+              "description": "업체명."
+            },
+            "leader1_name": {
+              "type": "string",
+              "description": "배송 팀장명."
+            },
+            "customer_name": {
+              "type": "string",
+              "description": "고객명."
+            },
+            "region": {
+              "type": "string",
+              "description": "배송 지역/주소."
+            },
+            "item": {
+              "type": "string",
+              "description": "품목."
+            },
+            "note": {
+              "type": "string",
+              "description": "비고."
+            },
+            "metro_fee": {
+              "type": "number",
+              "description": "수도권 배송비."
+            },
+            "regional_fee": {
+              "type": "number",
+              "description": "지방 배송비."
+            },
+            "note_amount": {
+              "type": "number",
+              "description": "비고 금액."
+            },
+            "cod_amount": {
+              "type": "number",
+              "description": "착불 금액 (보고용, 업체 청구에는 미포함)."
+            }
+          },
+          "required": [
+            "date",
+            "company_name"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
